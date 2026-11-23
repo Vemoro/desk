@@ -8,7 +8,7 @@ export const taskStages: Record<string,string> = {todo:'Offen',doing:'In Arbeit'
 export const reservationStages: Record<string,string> = {tentative:'Vorgemerkt',firm:'Fest reserviert',released:'Freigegeben'};
 export const movementStages: Record<string,string> = {receive:'Wareneingang',issue:'Ausgabe',return:'Rückgabe',consume:'Verbrauch'};
 export const euros = (cents:number) => new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(cents / 100);
-export const date = (value?:string) => value ? new Intl.DateTimeFormat('de-DE',{dateStyle:'medium'}).format(new Date(value)) : '–';
+export const date = (value?:string) => value ? new Intl.DateTimeFormat('de-DE',{dateStyle:'medium',timeZone:'UTC'}).format(new Date(value)) : '–';
 export const moment = (value?:string) => value ? new Intl.DateTimeFormat('de-DE',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value)) : '–';
 export const name = (collection:Row[], id?:string) => collection.find((row)=>row.id===id)?.name ?? '–';
 

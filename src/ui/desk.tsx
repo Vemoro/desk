@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { all, api, ApiError, compileCsv, date, euros, moment, money, movementStages, name, projectStages, type Row } from './client';
-import { Project, Projects, type Data } from './projects';
+import { defaultProjectFilters, Project, Projects, type Data } from './projects';
 import { Expand, Form, options, Panel, Pill, Table, type Run } from './widgets';
 
 const sections = {
@@ -18,6 +18,7 @@ export function Desk() {
   const [flags,setFlags]=useState({haben:false,zammad:false});
   const [section,setSection]=useState<Section>('dashboard');
   const [projectId,setProjectId]=useState('');
+  const [projectFilters,setProjectFilters]=useState(defaultProjectFilters);
   const [theme,setTheme]=useState('light');
   const [notice,setNotice]=useState({message:'',error:false});
   const project=data.projects.find((row)=>row.id===projectId);
@@ -83,7 +84,7 @@ export function Desk() {
         {name:'email',label:'E-Mail',type:'email',required:true,autoComplete:'username'},
         {name:'password',label:'Passwort',type:'password',required:true,autoComplete:'current-password'},
       ]} submit={async(input)=>{
-        await api('login','POST',input); const current=await api<Person>('me'); await load();setPerson(current);setNotice({message:'',error:false});
+        await api('login','POST',input); const current=await api<Person>('me'); await load();setPerson(current);setProjectFilters(defaultProjectFilters);setNotice({message:'',error:false});
       }}/>
     </div></main>;
 
@@ -104,7 +105,7 @@ export function Desk() {
       {alert}
       {section==='dashboard' && <Dashboard data={data} select={(id)=>navigate('projects',id)} open={()=>navigate('projects')}/>}
       {section==='projects' && (project?<Project key={project.id} project={project} data={data} run={run} flags={flags} back={()=>navigate('projects')}/>
-        :<Projects data={data} run={run} select={(id)=>navigate('projects',id)}/>)}
+        :<Projects data={data} run={run} filters={projectFilters} onFilter={setProjectFilters} select={(id)=>navigate('projects',id)}/>)}
       {section==='contacts' && <Contacts data={data} run={run} haben={flags.haben}/>}
       {section==='warehouse' && <Warehouse data={data} run={run}/>}
       {section==='costs' && <Costs data={data} run={run}/>}
