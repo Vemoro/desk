@@ -63,6 +63,13 @@ for(const topic of ['Veranstaltungsbetreuung','Büroinstallation']) {
     await post('costs',{entries:[{project_id:projectId,source:'E2E',reference:'BEL-'+suffix,name:'Musterbeleg',cents:800}]});
     await page.reload();
     await expect(page.getByRole('heading',{name:project})).toBeVisible();
+    await page.getByRole('button',{name:'Ressourcen & Kalkulation',exact:true}).click();
+    const planRow=page.getByRole('row').filter({hasText:'Geplantes Material'});
+    await planRow.getByText('Position bearbeiten',{exact:true}).click();
+    await planRow.getByRole('spinbutton',{name:'Menge',exact:true}).fill('3');
+    await planRow.getByRole('button',{name:'Position aktualisieren'}).click();
+    await expect(page.getByRole('status').getByText('Position aktualisiert.')).toBeVisible();
+    await expect(planRow.getByText('15,00')).toBeVisible();
     await page.getByRole('button',{name:'Controlling',exact:true}).click();
     await expect(page.getByText('Musterbeleg',{exact:true})).toBeVisible();
     await page.getByRole('button',{name:'Überblick',exact:true}).click();

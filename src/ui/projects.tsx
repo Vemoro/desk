@@ -136,8 +136,16 @@ function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
         {name:'name',label:'Position',required:true},{name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},
         {name:'unit',label:'Einzelpreis netto in Euro',required:true},
       ]} submit={(v)=>run(()=>api('lines','POST',{project_id:project.id,kind:v.kind,name:v.name,quantity:Number(v.quantity),unit_cents:money(v.unit)}),'Position angelegt.')}/></Expand></div>
-      <Table headers={['Art','Position','Menge','Einzelpreis','Gesamt']} rows={lines.map((row)=>({key:row.id,cells:[
+      <Table headers={['Art','Position','Menge','Einzelpreis','Gesamt','Aktion']} rows={lines.map((row)=>({key:row.id,cells:[
         row.kind==='buy'?'Einkauf':'Verkauf',row.name,row.quantity,euros(row.unit_cents),euros(row.unit_cents*row.quantity),
+        <Expand title="Position bearbeiten"><Form caption="Position aktualisieren" fields={[
+          {name:'kind',label:'Art',value:row.kind,choices:[{value:'buy',label:'Einkauf'},{value:'sell',label:'Verkauf'}],required:true},
+          {name:'name',label:'Position',value:row.name,required:true},
+          {name:'quantity',label:'Menge',type:'number',min:1,value:row.quantity,required:true},
+          {name:'unit',label:'Einzelpreis netto in Euro',value:(row.unit_cents/100).toFixed(2).replace('.',','),required:true},
+        ]} submit={(v)=>run(()=>api(`lines/${row.id}`,'PATCH',{kind:v.kind,name:v.name,quantity:Number(v.quantity),unit_cents:money(v.unit)}),'Position aktualisiert.')}/>
+          <button onClick={()=>{if(window.confirm('Diese Kalkulationsposition entfernen?')) void run(()=>api(`lines/${row.id}`,'DELETE'),'Position entfernt.');}}>Position entfernen</button>
+        </Expand>,
       ]}))}/></Panel>
   </>;
 }

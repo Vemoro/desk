@@ -29,6 +29,9 @@ for (const name of Object.keys(schemas) as Collection[]) {
   action('POST',path,'Eintrag anlegen',schema,(context,input)=>saveCore(name,input));
   action('PATCH',`${path}/{id}`,'Eintrag ändern',schema.partial(),({path},input)=>saveCore(name,input,path[1]));
 }
+operations.push({ method:'DELETE', path:'/lines/{id}', summary:'Kalkulationsposition entfernen', async run({ path }) {
+  return required(await first(db,'DELETE FROM lines WHERE id=$1 RETURNING id',[path[1]]));
+}});
 get('/me','Aktuelles Konto',async ({actor})=>actor);
 get('/integrations','Konfigurierte Integrationen',async()=>integrationStatus());
 get('/users','Team auflisten',()=>rows(db,'SELECT id,name,role FROM users ORDER BY name,id'));
