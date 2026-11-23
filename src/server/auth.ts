@@ -48,7 +48,13 @@ export async function login(input: z.infer<typeof loginInput>, request: Request)
 }
 
 export async function logout(request: Request) {
-  const { headers } = await deskAuth().api.signOut({ headers: request.headers, returnHeaders: true });
+  const auth = deskAuth();
+  const active = await auth.api.getSession({ headers: request.headers });
+  // Better Auth still clears cookies if its own session deletion fails.
+  if (active) {
+    await db.unsafe('DELETE FROM auth_sessions WHERE id=$1 AND "userId"=$2',[active.session.id,active.user.id]);
+  }
+  const { headers } = await auth.api.signOut({ headers: request.headers, returnHeaders: true });
   return headers;
 }
 

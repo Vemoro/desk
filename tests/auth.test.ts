@@ -89,6 +89,23 @@ test('Desk-Anmeldung erhält Passwortgrenze, Rollen, Token und feste Sitzungsdau
   expect((await request('me','GET',undefined,session)).status).toBe(401);
 
   const nextSession = {Cookie:await login()};
+  const currentSession = (await first<{id:string}>(db,'SELECT id FROM auth_sessions WHERE "userId"=$1',[member.id]))!;
+  const triggerName = 'reject_logout_' + randomUUID().replaceAll('-','');
+  await db.unsafe(`CREATE FUNCTION ${triggerName}() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN
+      IF OLD.id::text = TG_ARGV[0] THEN RAISE EXCEPTION 'simulierter Sitzungsfehler'; END IF;
+      RETURN OLD;
+    END;
+    $$`).simple();
+  try {
+    await db.unsafe(`CREATE TRIGGER ${triggerName} BEFORE DELETE ON auth_sessions
+      FOR EACH ROW EXECUTE FUNCTION ${triggerName}('${currentSession.id}')`);
+    const failedLogout = await request('logout','POST',undefined,nextSession);
+    expect(failedLogout.status).toBe(500);
+    expect(failedLogout.headers.getSetCookie()).toHaveLength(0);
+  } finally {
+    await db.unsafe(`DROP FUNCTION ${triggerName}() CASCADE`);
+  }
   expect((await request('logout','POST',undefined,nextSession)).status).toBe(200);
   expect((await request('me','GET',undefined,nextSession)).status).toBe(401);
 });
