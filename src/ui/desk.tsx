@@ -123,7 +123,7 @@ function Dashboard({data,select,open}:{data:Data;select:(id:string)=>void;open:(
     <div className="metrics">{metrics.map(([label,value])=><div className="metric" key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>
     <Panel title="Aktive Projekte" action={<button className="primary" onClick={open}>Alle Projekte</button>}>
       <Table headers={['Projekt','Kontakt','Status','Termin']} rows={active.map((row)=>({key:row.id,cells:[
-        <button className="text-button" onClick={()=>select(row.id)}>{row.name}</button>,name(data.contacts,row.contact_id),<Pill label={projectStages[row.stage]} tone="green"/>,date(row.due),
+        <button className="text-button" onClick={()=>select(row.id)}>{row.name}</button>,name(data.contacts,row.contact_id),<Pill label={projectStages[row.stage]} tone="accent"/>,date(row.due),
       ]}))}/>
     </Panel>
     <Panel title="Fällige Aufgaben"><Table headers={['Aufgabe','Projekt','Verantwortlich','Termin']} rows={data.tasks.filter((task)=>task.status!=='done'&&task.due)
@@ -252,8 +252,8 @@ function Settings({data,run,flags}:{data:Data;run:Run;flags:{haben:boolean;zamma
       <button onClick={()=>run(async()=>{await api(`tokens/${row.id}`,'DELETE');setIssued('');await refresh();},'Token widerrufen.')}>Widerrufen</button>,
     ]}))}/></Panel>
     <Panel title="Integrationen"><div className="panel-body actions">
-      <Pill label={flags.haben?'Haben eingerichtet':'Haben optional'} tone={flags.haben?'green':'neutral'}/>
-      <Pill label={flags.zammad?'Zammad eingerichtet':'Zammad optional'} tone={flags.zammad?'green':'neutral'}/>
+      <Pill label={flags.haben?'Haben eingerichtet':'Haben optional'} tone={flags.haben?'accent':'neutral'}/>
+      <Pill label={flags.zammad?'Zammad eingerichtet':'Zammad optional'} tone={flags.zammad?'accent':'neutral'}/>
     </div></Panel>
   </>;
 }

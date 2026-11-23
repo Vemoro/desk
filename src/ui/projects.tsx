@@ -28,7 +28,7 @@ export function Projects({data,run,select}:{data:Data;run:Run;select:(id:string)
       <Table headers={['Projekt','Kontakt','Status','Termin']} rows={data.projects
         .filter((project)=>`${project.name} ${name(data.contacts,project.contact_id)}`.toLowerCase().includes(filter.toLowerCase()))
         .map((project)=>({key:project.id,cells:[<button className="text-button" onClick={()=>select(project.id)}>{project.name}</button>,
-          name(data.contacts,project.contact_id),<Pill label={projectStages[project.stage]} tone={project.stage==='confirmed'?'green':'neutral'}/>,date(project.due)]}))}/>
+          name(data.contacts,project.contact_id),<Pill label={projectStages[project.stage]} tone={project.stage==='confirmed'?'accent':'neutral'}/>,date(project.due)]}))}/>
     </Panel>
   </>;
 }
@@ -38,7 +38,7 @@ export function Project({project,data,run,flags,back}:{project:Row;data:Data;run
   const tabs:Record<string,string>={overview:'Überblick',tasks:'Kanban',planning:'Ressourcen & Kalkulation',finance:'Controlling',communication:'Kommunikation'};
   return <>
     <div className="breadcrumb"><button className="text-button" onClick={back}>Projekte</button><span>/</span>{project.name}</div>
-    <div className="project-head"><div><h1>{project.name}</h1><div className="subtle">{name(data.contacts,project.contact_id)} · Termin {date(project.due)}</div></div><Pill label={projectStages[project.stage]} tone="green"/></div>
+    <div className="project-head"><div><h1>{project.name}</h1><div className="subtle">{name(data.contacts,project.contact_id)} · Termin {date(project.due)}</div></div><Pill label={projectStages[project.stage]} tone="accent"/></div>
     <nav className="tabs" aria-label="Projektansichten">{Object.entries(tabs).map(([key,label])=><button key={key} aria-current={tab===key?'page':undefined} onClick={()=>setTab(key)}>{label}</button>)}</nav>
     {tab==='overview' && <Overview project={project} data={data} run={run} haben={flags.haben}/>}
     {tab==='tasks' && <Kanban project={project} data={data} run={run}/>}
@@ -126,7 +126,7 @@ function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
     </div><Table headers={['Ressource','Zeitraum','Menge','Status','Aktion']} rows={reservations.map((row)=>({
       key:row.id,cells:[row.user_id ? name(data.users,row.user_id) : <>{name(data.items,row.item_id)}<small>{name(data.locations,row.location_id)}</small></>,
         <>{moment(row.starts_at)}<small>bis {moment(row.ends_at)}</small></>,row.quantity,
-        <Pill label={reservationStages[row.status]} tone={row.status==='firm'?'green':'neutral'}/>,
+        <Pill label={reservationStages[row.status]} tone={row.status==='firm'?'accent':'neutral'}/>,
         <div className="actions">{row.status==='tentative' && ['confirmed','running'].includes(project.stage) && <button onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'firm'}),'Fest reserviert.')}>Fest reservieren</button>}
           {row.status!=='released' && <button onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'released'}),'Reservierung freigegeben.')}>Freigeben</button>}</div>],
     }))}/></Panel>
