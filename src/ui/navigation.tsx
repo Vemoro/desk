@@ -19,6 +19,7 @@ export function Navigation({person, section, themeButton, onNavigate, onLogout}:
 }) {
   const [open,setOpen]=useState(false);
   const toggle=useRef<HTMLButtonElement>(null);
+  const panel=useRef<HTMLDivElement>(null);
 
   useEffect(()=>{
     if (!open) return;
@@ -34,9 +35,26 @@ export function Navigation({person, section, themeButton, onNavigate, onLogout}:
 
   useEffect(()=>{
     const mobile=window.matchMedia('(max-width: 700px)');
-    const closeOnDesktop=(event:MediaQueryListEvent)=>{if(!event.matches)setOpen(false);};
-    mobile.addEventListener('change',closeOnDesktop);
-    return ()=>mobile.removeEventListener('change',closeOnDesktop);
+    // When CSS hides a focused control, the browser may move focus to body before the media event.
+    let lastFocused=document.activeElement;
+    function recordFocus(event:FocusEvent) {
+      if(event.target instanceof Element) lastFocused=event.target;
+    }
+    function onViewport(event:MediaQueryListEvent) {
+      const focused=document.activeElement===document.body ? lastFocused : document.activeElement;
+      if(event.matches) {
+        if(panel.current?.contains(focused)) toggle.current?.focus();
+        return;
+      }
+      setOpen(false);
+      if(focused===toggle.current) panel.current?.querySelector<HTMLButtonElement>('nav [aria-current="page"]')?.focus();
+    }
+    mobile.addEventListener('change',onViewport);
+    document.addEventListener('focusin',recordFocus);
+    return ()=>{
+      mobile.removeEventListener('change',onViewport);
+      document.removeEventListener('focusin',recordFocus);
+    };
   },[]);
 
   function choose(next:Section) {
@@ -54,7 +72,7 @@ export function Navigation({person, section, themeButton, onNavigate, onLogout}:
         <Icon name={open?'close':'menu'}/> Menü
       </button>
     </div>
-    <div className="sidebar-panel" id="desk-navigation">
+    <div className="sidebar-panel" id="desk-navigation" ref={panel}>
       <nav aria-label="Hauptnavigation">{(Object.keys(sections) as Section[]).map((key)=>{
         if(key==='settings' && person.role!=='admin') return null;
         const [label,icon]=sections[key];

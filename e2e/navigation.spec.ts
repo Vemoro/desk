@@ -43,3 +43,33 @@ test('Desktop behält die sichtbare Seitenleiste und eindeutige Icons',async({pa
   await expect(projects).toHaveAttribute('aria-current','page');
   await expect(nav).toBeVisible();
 });
+
+test('Fokus bleibt beim Wechsel des Layouts in der Navigation',async({page})=>{
+  await page.setViewportSize({width:701,height:900});
+  await signIn(page);
+  const nav=page.getByRole('navigation',{name:'Hauptnavigation'});
+  const overview=nav.getByRole('button',{name:'Übersicht'});
+  const toggle=page.getByRole('button',{name:'Menü',exact:true});
+  await overview.focus();
+  await page.setViewportSize({width:700,height:900});
+  await expect(toggle).toBeFocused();
+  await expect(nav).toBeHidden();
+  await page.setViewportSize({width:701,height:900});
+  await expect(overview).toBeFocused();
+});
+
+test('Lange Kontonamen verdecken den Design-Schalter weder am Handy noch am Desktop',async({page})=>{
+  await page.route('**/api/v1/me',async(route)=>{
+    const response=await route.fetch();
+    if(!response.ok()) { await route.fulfill({response}); return; }
+    await route.fulfill({response,json:{...await response.json(),name:'Regionalgeschäftsstellenleitung Nord'}});
+  });
+  await page.setViewportSize({width:320,height:750});
+  await signIn(page);
+  await page.getByRole('button',{name:'Menü',exact:true}).click();
+  await page.getByRole('button',{name:'Dunkles Design'}).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
+  await page.setViewportSize({width:701,height:900});
+  await page.getByRole('button',{name:'Helles Design'}).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme','light');
+});
