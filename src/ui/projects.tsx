@@ -17,7 +17,23 @@ export const defaultProjectFilters:ProjectFilters = {query:'',stage:'all',due:'a
 export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;select:(id:string)=>void;
   filters:ProjectFilters;onFilter:(filters:ProjectFilters)=>void;
 }) {
-  const now=new Date();
+  const [now,setNow]=useState(()=>new Date());
+  useEffect(()=>{
+    let timer:number;
+    function updateDay() {
+      window.clearTimeout(timer);
+      const current=new Date();
+      setNow(current);
+      const nextDay=new Date(current.getFullYear(),current.getMonth(),current.getDate()+1);
+      timer=window.setTimeout(updateDay,nextDay.getTime()-current.getTime());
+    }
+    updateDay();
+    window.addEventListener('focus',updateDay);
+    return ()=>{
+      window.clearTimeout(timer);
+      window.removeEventListener('focus',updateDay);
+    };
+  },[]);
   const today=[now.getFullYear(),now.getMonth()+1,now.getDate()].map(part=>String(part).padStart(2,'0')).join('-');
   const query=filters.query.trim().toLowerCase();
   const filtered=filters.query!=='' || filters.stage!=='all' || filters.due!=='all';

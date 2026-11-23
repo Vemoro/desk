@@ -48,3 +48,19 @@ test('Projektfilter kombinieren sich und bleiben bei der Rückkehr erhalten',asy
   await page.getByRole('button',{name:'Filter zurücksetzen'}).click();
   await expect(page.getByText('6 Projekte gefunden.')).toBeVisible();
 });
+
+
+test('Die Fälligkeit wechselt beim lokalen Tageswechsel ohne weitere Eingabe',async({page})=>{
+  await page.clock.install({time:new Date('2028-05-18T06:59:00Z')});
+  await page.route('**/api/v1/projects?*',route=>route.fulfill({json:[
+    {id:'before',name:'Projekt am 17. Mai',stage:'planning',due:'2028-05-17'},
+    {id:'after',name:'Projekt am 18. Mai',stage:'planning',due:'2028-05-18'},
+  ]}));
+  await signIn(page);
+  await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Projekte'}).click();
+  await page.getByRole('combobox',{name:'Fälligkeit'}).selectOption({label:'Heute'});
+  await expect(page.getByRole('button',{name:'Projekt am 17. Mai'})).toBeVisible();
+  await page.clock.fastForward(70_000);
+  await expect(page.getByRole('button',{name:'Projekt am 18. Mai'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Projekt am 17. Mai'})).toHaveCount(0);
+});
