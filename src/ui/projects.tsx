@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, date, downloadPositions, euros, moment, money, name, projectStages, reservationStages, taskStages, type Row } from './client';
 import { Expand, Form, options, Panel, Pill, Table, type Run } from './widgets';
+import { useLocalDay } from './local-day';
 
 export type Data = Record<'contacts'|'projects'|'tasks'|'users'|'lines'|'reservations'|'locations'|'items'|'movements'|'costs'|'stock',Row[]>;
 type Flags = { haben:boolean; zammad:boolean };
@@ -17,24 +18,7 @@ export const defaultProjectFilters:ProjectFilters = {query:'',stage:'all',due:'a
 export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;select:(id:string)=>void;
   filters:ProjectFilters;onFilter:(filters:ProjectFilters)=>void;
 }) {
-  const [now,setNow]=useState(()=>new Date());
-  useEffect(()=>{
-    let timer:number;
-    function updateDay() {
-      window.clearTimeout(timer);
-      const current=new Date();
-      setNow(current);
-      const nextDay=new Date(current.getFullYear(),current.getMonth(),current.getDate()+1);
-      timer=window.setTimeout(updateDay,nextDay.getTime()-current.getTime());
-    }
-    updateDay();
-    window.addEventListener('focus',updateDay);
-    return ()=>{
-      window.clearTimeout(timer);
-      window.removeEventListener('focus',updateDay);
-    };
-  },[]);
-  const today=[now.getFullYear(),now.getMonth()+1,now.getDate()].map(part=>String(part).padStart(2,'0')).join('-');
+  const today=useLocalDay();
   const query=filters.query.trim().toLowerCase();
   const filtered=filters.query!=='' || filters.stage!=='all' || filters.due!=='all';
   const projects=data.projects.filter((project)=>{
