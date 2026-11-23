@@ -3,7 +3,7 @@ import { defineConfig,devices } from '@playwright/test';
 const baseURL=process.env.DESK_E2E_URL ?? 'http://127.0.0.1:4173';
 export default defineConfig({
   testDir:'./e2e',
-  use:{baseURL,trace:'retain-on-failure'},
+  use:{baseURL,locale:'de-DE',timezoneId:'Europe/Berlin',trace:'retain-on-failure'},
   workers:1,
   webServer: process.env.DESK_E2E_URL ? undefined : {
     command:'bun run dev --port 4173 --strictPort',url:baseURL,
