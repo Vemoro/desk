@@ -37,10 +37,15 @@ export function Navigation({person, section, themeButton, onNavigate, onLogout}:
     const mobile=window.matchMedia('(max-width: 700px)');
     // When CSS hides a focused control, the browser may move focus to body before the media event.
     let lastFocused=document.activeElement;
+    let wasMobile=mobile.matches;
     function recordFocus(event:FocusEvent) {
       if(event.target instanceof Element) lastFocused=event.target;
     }
+    function clearFocus() {
+      if(mobile.matches===wasMobile) lastFocused=null;
+    }
     function onViewport(event:MediaQueryListEvent) {
+      wasMobile=event.matches;
       const focused=document.activeElement===document.body ? lastFocused : document.activeElement;
       if(event.matches) {
         if(panel.current?.contains(focused)) toggle.current?.focus();
@@ -51,9 +56,11 @@ export function Navigation({person, section, themeButton, onNavigate, onLogout}:
     }
     mobile.addEventListener('change',onViewport);
     document.addEventListener('focusin',recordFocus);
+    document.addEventListener('focusout',clearFocus);
     return ()=>{
       mobile.removeEventListener('change',onViewport);
       document.removeEventListener('focusin',recordFocus);
+      document.removeEventListener('focusout',clearFocus);
     };
   },[]);
 

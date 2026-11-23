@@ -56,6 +56,12 @@ test('Fokus bleibt beim Wechsel des Layouts in der Navigation',async({page})=>{
   await expect(nav).toBeHidden();
   await page.setViewportSize({width:701,height:900});
   await expect(overview).toBeFocused();
+
+  await page.getByText('Desk',{exact:true}).click();
+  await expect(overview).not.toBeFocused();
+  await page.setViewportSize({width:700,height:900});
+  await expect(toggle).toBeVisible();
+  await expect(toggle).not.toBeFocused();
 });
 
 test('Lange Kontonamen verdecken den Design-Schalter weder am Handy noch am Desktop',async({page})=>{
@@ -70,6 +76,8 @@ test('Lange Kontonamen verdecken den Design-Schalter weder am Handy noch am Desk
   await page.getByRole('button',{name:'Dunkles Design'}).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
   await page.setViewportSize({width:701,height:900});
-  await page.getByRole('button',{name:'Helles Design'}).click();
+  const lightTheme=page.getByRole('button',{name:'Helles Design'});
+  await expect(lightTheme).toBeInViewport({ratio:1});
+  await lightTheme.click();
   await expect(page.locator('html')).toHaveAttribute('data-theme','light');
 });
