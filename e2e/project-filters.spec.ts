@@ -7,12 +7,12 @@ test('Projektfilter kombinieren sich und bleiben bei der Rückkehr erhalten',asy
   const id='11111111-1111-4111-8111-111111111111';
   await page.clock.setFixedTime(new Date('2028-05-18T01:00:00Z'));
   await page.route('**/api/v1/projects?*',route=>route.fulfill({json:[
-    {id,name:'Muster Montage',stage:'planning',due:'2028-05-17'},
+    {id,name:'Muster Montage',stage:'planning',due:'2028-05-17T00:00:00.000Z'},
     {id:'past',name:'Muster Wartung',stage:'inquiry',due:'2028-05-16'},
     {id:'closed',name:'Muster Abschluss',stage:'complete',due:'2028-05-17'},
     {id:'cancelled',name:'Muster Absage',stage:'cancelled',due:'2028-05-17'},
     {id:'missing',name:'Muster ohne Termin',stage:'planning',due:null},
-    {id:'next',name:'Andere Montage',stage:'planning',due:'2028-05-18'},
+    {id:'next',name:'Andere Montage',stage:'planning',due:'2028-05-17'},
   ]}));
   await signIn(page);
   await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Projekte'}).click();
@@ -37,6 +37,9 @@ test('Projektfilter kombinieren sich und bleiben bei der Rückkehr erhalten',asy
   await expect(page.getByRole('heading',{name:'Muster Montage'})).toBeVisible();
   await page.goBack();
   await expect(page.getByText('1 Projekt gefunden.')).toBeVisible();
+  await expect(montage).toBeVisible();
+  await expect(search).toHaveValue('Muster');
+  await expect(stage).toHaveValue('open');
   await expect(due).toHaveValue('today');
 
   await due.selectOption({label:'Überfällig'});
