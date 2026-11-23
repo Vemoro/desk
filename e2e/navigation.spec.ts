@@ -61,6 +61,8 @@ test('Fokus bleibt beim Wechsel des Layouts in der Navigation',async({page})=>{
   await expect(overview).not.toBeFocused();
   await page.setViewportSize({width:700,height:900});
   await expect(toggle).toBeVisible();
+  // Wait for the media-query listener before checking that the click has cleared focus.
+  await page.evaluate(()=>new Promise<void>((resolve)=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
   await expect(toggle).not.toBeFocused();
 });
 
