@@ -11,10 +11,13 @@ function createDeskAuth() {
   const secret = process.env.DESK_AUTH_SECRET;
   if (!secret || secret.length < 32) throw new Error('DESK_AUTH_SECRET fehlt oder ist zu kurz.');
 
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 5, allowExitOnIdle: true });
+  pool.on('error', () => console.error('Desk-Anmeldung: Eine inaktive Datenbankverbindung wurde getrennt.'));
+
   return betterAuth({
     baseURL,
     secret,
-    database: new Pool({ connectionString: process.env.DATABASE_URL, max: 5, allowExitOnIdle: true }),
+    database: pool,
     advanced: { database: { generateId: 'uuid' }, cookiePrefix: 'desk-auth' },
     emailAndPassword: {
       enabled: true,
