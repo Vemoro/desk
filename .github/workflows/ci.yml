@@ -25,7 +25,7 @@ jobs:
     env:
       DATABASE_URL: postgres://desk:desk@127.0.0.1:5438/desk_test
       DESK_DEMO_PASSWORD: muster-test-passwort
-      DESK_ORIGIN: http://127.0.0.1:4173
+      DESK_ORIGIN: http://localhost:4173
       DESK_AUTH_SECRET: nur-fuer-die-isolierte-desk-testdatenbank
     steps:
       - uses: actions/checkout@v6

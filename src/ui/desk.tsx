@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { all, api, ApiError, compileCsv, date, euros, moment, money, movementStages, name, projectStages, type Row } from './client';
 import { Project, Projects, type Data } from './projects';
+import { PasskeyLogin, PasskeySettings } from './passkeys';
 import { Expand, Form, options, Panel, Pill, Table, type Run } from './widgets';
 
 const sections = {
   dashboard:['Übersicht','▦'], projects:['Projekte','▤'], contacts:['Kontakte','◎'],
-  warehouse:['Projektlager','▧'], costs:['Ist-Kosten','≋'], settings:['Einstellungen','⚙'],
+  warehouse:['Projektlager','▧'], costs:['Ist-Kosten','≋'], account:['Mein Konto','◎'], settings:['Einstellungen','⚙'],
 };
 type Section=keyof typeof sections;
 type Person={id:string;name:string;role:'admin'|'member'};
@@ -72,6 +73,13 @@ export function Desk() {
     location.hash=id?`${to}/${id}`:to;
   }
 
+  async function finishSignIn() {
+    const current=await api<Person>('me');
+    await load();
+    setPerson(current);
+    setNotice({message:'',error:false});
+  }
+
   const alert=notice.message && <div className={`notice ${notice.error?'error':''}`} role={notice.error?'alert':'status'}>{notice.message}</div>;
   const themeButton=<button className="theme" onClick={()=>setTheme(theme==='light'?'dark':'light')} aria-label={theme==='light'?'Dunkles Design':'Helles Design'}>{theme==='light'?'◐':'☀'}</button>;
 
@@ -83,8 +91,10 @@ export function Desk() {
         {name:'email',label:'E-Mail',type:'email',required:true,autoComplete:'username'},
         {name:'password',label:'Passwort',type:'password',required:true,autoComplete:'current-password'},
       ]} submit={async(input)=>{
-        await api('login','POST',input); const current=await api<Person>('me'); await load();setPerson(current);setNotice({message:'',error:false});
+        await api('login','POST',input);
+        await finishSignIn();
       }}/>
+      <PasskeyLogin onSignedIn={finishSignIn}/>
     </div></main>;
 
   return <div className="frame">
@@ -108,6 +118,7 @@ export function Desk() {
       {section==='contacts' && <Contacts data={data} run={run} haben={flags.haben}/>}
       {section==='warehouse' && <Warehouse data={data} run={run}/>}
       {section==='costs' && <Costs data={data} run={run}/>}
+      {section==='account' && <PasskeySettings/>}
       {section==='settings'&&person.role==='admin' && <Settings data={data} run={run} flags={flags}/>}
     </main>
   </div>;
