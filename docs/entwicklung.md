@@ -25,3 +25,11 @@ Verwende lokal und in der CI dieselben dokumentierten Prüfkommandos. Notiere im
 Nutze Deutsch für Doku, Oberfläche und Beiträge im Repository, Englisch für Bezeichner im Code. Eine Regel hat eine maßgebliche Stelle. Agenten-Einstiege verlinken dorthin. Sobald sich ein Ablauf wiederholt, kann ein Skill die Schritte, Eingaben und erwarteten Ergebnisse festhalten. Dokumentiere Befehle, sobald sie im Repo ausführbar sind.
 
 Die Regeln orientieren sich an [Habens Agentic Engineering](https://haben.app/agentic-engineering.html), [Entwicklungsdokumentation](https://haben.app/entwicklung.html) und [Beitragsregeln](https://haben.app/mitwirken.html).
+
+## Befehle und Screenshot-Workflow
+
+- `bun run build` baut den Dienst. `bun run check` prüft die TypeScript-Typen. Die TanStack-Routendatei entsteht beim ersten Build oder Entwicklungsstart.
+- `bun run migrate` richtet die konfigurierte PostgreSQL-Datenbank ein. `bun run test` benötigt eine getrennte Datenbank mit dem Suffix `_test`.
+- `bun run demo` benötigt eine getrennte Datenbank mit dem Suffix `_demo` und `DESK_DEMO_PASSWORD`. Die Beispieldaten gehören zum fiktiven Muster Auftragsservice. `bunx playwright install chromium` installiert den Browser. Danach laufen `bun run e2e` und `bun run docs:screenshots` gegen die Demo-Datenbank. `DESK_E2E_URL` kann eine bereits gestartete Testinstanz angeben.
+- Bei UI-Änderungen die betroffene Ansicht vor der Änderung aufnehmen. Danach dieselben Daten, dieselbe Ansicht und dieselbe Größe verwenden. Desktop in Hell und Dunkel aufnehmen. Bei betroffener mobiler Bedienung zusätzlich Smartphone. Im Pull Request Vorher und Nachher gegenüberstellen. Bei einer neuen Ansicht den Nachher-Stand zeigen und den fehlenden Ausgangsstand kennzeichnen.
+- `bun run docs:screenshots` erzeugt die Doku-Bilder unter `build/screenshots/`. Der manuell startbare Workflow „Doku-Screenshots erstellen“ stellt das gleiche Ergebnis als Artefakt bereit. Gewählte Bilder nach Sichtprüfung und mit Alternativtext in README oder Doku übernehmen.
