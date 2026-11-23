@@ -6,6 +6,26 @@ Jede Umsetzung hat ein konkretes Ziel, einen abgegrenzten Umfang und prüfbare A
 
 Der Maintainer entscheidet, welche Funktionen zu Desk gehören und welche fachlichen Fragen vor dem Bauen geklärt werden müssen. Halte solche Entscheidungen mit ihrem Grund fest.
 
+## Entwicklungsrunden für Agenten
+
+Nutze diesen Takt, wenn der Maintainer fortlaufende Desk-Entwicklung beauftragt hat. Leite Ideen aus Nutzung, Roadmap, Code und Tests ab. Prüfe vorhandene Issues auf Überschneidungen und halte offene fachliche Entscheidungen fest.
+
+| Runde | Geprüfte Issues in Geplant | PRs zur Freigabe bereit |
+| --- | ---: | ---: |
+| Start oder Neustart | auf 10 auffüllen | 1 |
+| Regelrunde 1 | 5 zusätzliche | 1 |
+| Regelrunde 2 | 3 zusätzliche | 2 |
+| Regelrunde 3 | 2 zusätzliche | 3 |
+| Regelrunde 4 | 1 zusätzliches | 5 |
+
+Nach Regelrunde 4 folgt wieder Regelrunde 1. Wenn die Warteschlange keine umsetzbaren Aufgaben mehr enthält, beginne erneut mit dem Starttakt. Prüfe dafür Abhängigkeiten, fachliche Entscheidungen und bereits laufende Arbeiten. Aufgaben, die eine Änderung in einem anderen Projekt brauchen, gehören in „Externe integrationen“.
+
+1. Schreibe pro Idee ein abgegrenztes Issue mit Ziel, beobachtetem Stand, Umfang, Abhängigkeiten und prüfbaren Akzeptanzkriterien. Verlinke vorhandene Aufgaben und bei Bedarf relevante Stellen in Code oder Doku.
+2. Gib einem frischen Agenten das Issue, die Zielbasis und den Prüfauftrag ohne den Entstehungsverlauf. Er prüft Ist-Zustand, Abgrenzung, Abhängigkeiten und Akzeptanzkriterien und nennt Befunde mit Belegen. Arbeite die Befunde ein und lass wesentliche fachliche Änderungen erneut prüfen. Das Issue zählt, sobald seine geprüfte Fassung auf dem Board in „Geplant“ steht.
+3. Beginne die PRs der Runde, sobald ihr Issue-Soll erfüllt ist. Ein PR zählt nach Selbstprüfung, unabhängigem Review und grünen CI-Prüfungen auf dem aktuellen Stand. Bei betroffener Oberfläche gehören die Bildschirmfotos in den PR. Stelle ihn danach zur Freigabe bereit. Merge und Release folgen der Freigabe durch den Maintainer.
+
+Halte nach jedem PR und am Rundenende kurz fest, in welcher Runde du bist, wie viele Issues und PRs zum Soll zählen und welche Links dazugehören. Erfasse offene Entscheidungen, externe Abhängigkeiten, die nächste umsetzbare Priorität und mögliche Verbesserungen der Agenten-Doku. So lässt sich der Ablauf nach einem Kontextwechsel beim richtigen Schritt fortsetzen.
+
 ## Änderungen umsetzen
 
 Arbeite pro Thema auf einem eigenen Branch. Nutze vorhandene Funktionen, wenn ihr Verhalten passt. Behandle Verhalten, Tests und betroffene Nutzerdoku im selben Pull Request. Die PR-Beschreibung nennt Ergebnis, Bezug zur Aufgabe, Prüfungen und Hinweise für ein Update. Kennzeichne wesentliche KI-Unterstützung im Pull Request.
