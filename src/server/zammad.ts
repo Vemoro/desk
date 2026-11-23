@@ -9,7 +9,7 @@ const ticketSchema = z.object({ id: z.number().int().positive(), number: z.strin
 const articleSchema = z.object({ id: z.number().int().positive(), body: z.string(), subject: z.string().nullable().optional(),
   from: z.string().nullable().optional(), created_at: z.string().optional(), content_type: z.string().optional(),
   attachments: z.array(z.object({ filename:z.string() })).optional() });
-type Outgoing = { id: string; ticket_id: number; status: 'pending'|'unknown'|'sent'|'failed'; attempted_at: Date;
+type Outgoing = { id: string; ticket_id: number; status: 'pending'|'unknown'|'sent'|'failed'; attempted_at: Date; attempt_key?: string;
   recipient: string; subject: string; body: string; attachment_name: string | null; attachment_data: string | null };
 const marker = (id: string) => `Desk-Referenz: ${id}`;
 
@@ -62,7 +62,7 @@ export async function send(projectId: string, message: z.infer<typeof zammadMess
 }
 
 export async function reviewOutgoing(projectId: string, id: string, retry: boolean) {
-  const current = required(await first<Outgoing>(db,'SELECT * FROM outgoing WHERE id=$1 AND project_id=$2',[id,projectId]));
+  const current = required(await first<Outgoing>(db,'SELECT *,attempted_at::text AS attempt_key FROM outgoing WHERE id=$1 AND project_id=$2',[id,projectId]));
   const project = await getProject(projectId);
   if (project.zammad_ticket_id !== current.ticket_id) throw new DeskError(409, 'Der Sendeversuch gehört zu einem anderen Ticket.');
   if (current.status === 'sent') return { id, status:'sent' };
@@ -77,7 +77,7 @@ export async function reviewOutgoing(projectId: string, id: string, retry: boole
     throw new DeskError(409, 'Mindestens eine Minute warten und den Ticketverlauf erneut prüfen.');
   }
   const claimed = await first<Outgoing>(db, `UPDATE outgoing SET status='pending',attempted_at=now()
-    WHERE id=$1 AND status=$2 AND attempted_at=$3 RETURNING *`,[id,current.status,current.attempted_at]);
+    WHERE id=$1 AND status=$2 AND attempted_at=($3::text)::timestamptz RETURNING *`,[id,current.status,current.attempt_key]);
   if (!claimed) throw new DeskError(409, 'Der Sendeversuch wurde inzwischen aktualisiert.');
   return deliver(remote,claimed);
 }

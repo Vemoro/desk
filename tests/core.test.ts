@@ -102,11 +102,14 @@ describe('API und Integrationen',()=>{
     await db.unsafe('UPDATE projects SET zammad_ticket_id=$1 WHERE id=$2',[Math.floor(Math.random()*1_000_000)+100,data.project]);
     let article: {id:number;body:string}|undefined;
     let sends=0;
+    let remoteMode:'unknown'|'reject'|'accept'='unknown';
     const service=Bun.serve({port:0,hostname:'127.0.0.1', async fetch(request){
       if(request.method==='POST') {
         sends++;
         const incoming=await request.json() as {body:string;attachments:unknown[]};
         expect(incoming.attachments).toHaveLength(1);
+        if(remoteMode==='reject') return new Response('Rejected',{status:422});
+        if(remoteMode==='accept') return Response.json({id:43},{status:201});
         article={id:42,body:incoming.body};
         return new Response('Gateway timeout',{status:504});
       }
@@ -122,6 +125,12 @@ describe('API und Integrationen',()=>{
       expect(await send(data.project,message)).toMatchObject({status:'unknown'});
       expect(await reviewOutgoing(data.project,id,true)).toMatchObject({status:'sent'});
       expect(sends).toBe(1);
+      remoteMode='reject';
+      const rejected={...message,id:crypto.randomUUID()};
+      expect(await send(data.project,rejected)).toMatchObject({status:'failed'});
+      remoteMode='accept';
+      expect(await reviewOutgoing(data.project,rejected.id,true)).toMatchObject({status:'sent'});
+      expect(sends).toBe(3);
     } finally {
       if(priorUrl===undefined)delete process.env.ZAMMAD_URL; else process.env.ZAMMAD_URL=priorUrl;
       if(priorToken===undefined)delete process.env.ZAMMAD_TOKEN; else process.env.ZAMMAD_TOKEN=priorToken;

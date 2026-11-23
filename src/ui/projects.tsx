@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, date, downloadPositions, euros, moment, money, name, projectStages, reservationStages, taskStages, type Row } from './client';
 import { Expand, Form, options, Panel, Pill, Table, type Run } from './widgets';
 
@@ -171,9 +171,20 @@ function Communication({project,zammad,run}:{project:Row;zammad:boolean;run:Run}
   const [conversation,setConversation]=useState<any>(null);
   const [problem,setProblem]=useState('');
   const [file,setFile]=useState<File>();
+  const [composeVersion,setComposeVersion]=useState(0);
+  const draftId=useRef<string | undefined>(undefined);
   async function refresh() {
     if (!zammad || !project.zammad_ticket_id) return;
-    try {setConversation(await api(`projects/${project.id}/zammad`));setProblem('');}
+    try {
+      const current=await api(`projects/${project.id}/zammad`);
+      if (draftId.current && current.outgoing.some((entry:Row)=>entry.id===draftId.current && entry.status==='sent')) {
+        draftId.current=undefined;
+        setFile(undefined);
+        setComposeVersion((value)=>value+1);
+      }
+      setConversation(current);
+      setProblem('');
+    }
     catch(error) {setProblem(error instanceof Error ? error.message : 'Verlauf nicht verfügbar.');}
   }
   useEffect(()=>{setConversation(null);void refresh();},[project.id,project.zammad_ticket_id,zammad]);
@@ -199,10 +210,10 @@ function Communication({project,zammad,run}:{project:Row;zammad:boolean;run:Run}
             <p>{article.content_type==='text/html' ? plainText(article.body) : article.body}</p>
             {article.attachments?.map((attachment:{filename:string})=><small key={attachment.filename}>{attachment.filename}</small>)}
           </li>)}</ol>
-          <Expand title="Antwort schreiben"><Form caption="Über Zammad senden" fields={[
+          <Expand title="Antwort schreiben"><Form key={composeVersion} caption="Über Zammad senden" fields={[
             {name:'recipient',label:'Empfänger',type:'email',required:true},{name:'subject',label:'Betreff',required:true},{name:'body',label:'Nachricht',type:'textarea',required:true},
           ]} submit={(v)=>run(async()=>{
-            const message:{[key:string]:unknown}={...v,id:crypto.randomUUID()};
+            const message:{[key:string]:unknown}={...v,id:draftId.current ??= crypto.randomUUID()};
             if(file) {
               if(file.size>5_242_880) throw new Error('PDF-Anhänge sind bis 5 MB möglich.');
               const bytes=new Uint8Array(await file.arrayBuffer());
