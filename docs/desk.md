@@ -32,7 +32,16 @@ Vor dem Update den bisherigen Desk-Dienst anhalten. PostgreSQL sichern und die W
 
 Die Migration `002_better_auth.sql` übernimmt vorhandene Passwort-Hashes und stellt Better Auth die Konten über `auth_users` bereit. Die UUIDs, Rollen, Zuordnungen und API-Tokens bleiben erhalten. Das Team meldet sich nach dem Update einmal neu an. Eine Sitzung läuft nach zwölf Stunden ab. Konten legt die Administration weiterhin in Desk oder über `bun run admin` an.
 
-Für den Rückweg den neuen Dienst anhalten und das vorherige Anwendungsimage mit derselben Datenbank starten. Die Migration ist für diesen Rückweg additiv. Die alten Passwort-Hashes bleiben verfügbar, und Daten, die seit dem Update geschrieben wurden, bleiben erhalten. Mit dem alten Dienst neu anmelden. Ein älteres Komplettbackup nur für eine gewünschte Wiederherstellung auf dessen Sicherungszeitpunkt verwenden.
+Für den Rückweg den neuen Dienst anhalten. Nach einer bereits angewandten Migration vor jedem Wechsel zur anderen Anwendungsversion die Sitzungen beider Versionen in der Desk-Datenbank widerrufen.
+
+```sql
+BEGIN;
+DELETE FROM auth_sessions;
+DELETE FROM sessions;
+COMMIT;
+```
+
+Danach das vorherige Anwendungsimage mit derselben Datenbank starten oder den neuen Dienst erneut ausrollen. Das Team meldet sich nach jedem Versionswechsel neu an. Die alten Passwort-Hashes und die seit dem Update geschriebenen Geschäftsdaten bleiben erhalten. Ein älteres Komplettbackup stellt den Stand zum Sicherungszeitpunkt wieder her. Beim Zurückspielen in die produktive Instanz auch die Sitzungstabelle des wiederhergestellten Stands leeren.
 
 ## Ansichten
 
