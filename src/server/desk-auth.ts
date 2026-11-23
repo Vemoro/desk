@@ -1,0 +1,42 @@
+import { password } from 'bun';
+import { betterAuth } from 'better-auth';
+import { Pool } from 'pg';
+
+const sessionSeconds = 43_200;
+
+function createDeskAuth() {
+  const configuredOrigin = process.env.DESK_ORIGIN;
+  if (!configuredOrigin) throw new Error('DESK_ORIGIN fehlt.');
+  const baseURL = new URL(configuredOrigin).origin;
+  const secret = process.env.DESK_AUTH_SECRET;
+  if (!secret || secret.length < 32) throw new Error('DESK_AUTH_SECRET fehlt oder ist zu kurz.');
+
+  return betterAuth({
+    baseURL,
+    secret,
+    database: new Pool({ connectionString: process.env.DATABASE_URL, max: 5, allowExitOnIdle: true }),
+    advanced: { database: { generateId: 'uuid' }, cookiePrefix: 'desk-auth' },
+    emailAndPassword: {
+      enabled: true,
+      disableSignUp: true,
+      minPasswordLength: 12,
+      maxPasswordLength: 200,
+      password: {
+        hash: (value) => password.hash(value),
+        verify: ({ hash, password: value }) => password.verify(value, hash),
+      },
+    },
+    user: { modelName: 'auth_users' },
+    account: { modelName: 'auth_accounts', accountLinking: { enabled: false } },
+    session: { modelName: 'auth_sessions', expiresIn: sessionSeconds, disableSessionRefresh: true },
+    verification: { modelName: 'auth_verifications' },
+    telemetry: { enabled: false },
+    logger: { disabled: true },
+    onAPIError: { throw: true },
+  });
+}
+
+let instance: ReturnType<typeof createDeskAuth> | undefined;
+export function deskAuth() {
+  return instance ??= createDeskAuth();
+}

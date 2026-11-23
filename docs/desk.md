@@ -26,6 +26,14 @@ Desk legt Angebote in der ersten Version über die manuelle Übergabe an Haben a
 - Teamkonten und widerrufbare API-Tokens stehen in den Einstellungen. Der API-Vertrag ist unter `/api/v1/openapi.json` verfügbar. Schreibende Tickets, Kontakte und andere Vorgänge laufen über die jeweils eingerichteten Serverzugänge.
 - PostgreSQL sichern. Vor einem Update die Wiederherstellung in einer getrennten Instanz prüfen. Für Desktop und Smartphone dieselbe HTTPS-Adresse verwenden.
 
+### Update auf Better Auth
+
+Vor dem Update den bisherigen Desk-Dienst anhalten. PostgreSQL sichern und die Wiederherstellung in einer getrennten Instanz prüfen. Für den neuen Dienst `DESK_AUTH_SECRET` als dauerhaftes Secret setzen. Einen zufälligen Wert erzeugt `bun -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"`. Rechte auf die Ausgabe beschränken. `DESK_ORIGIN` muss zur aufgerufenen Adresse passen.
+
+Die Migration `002_better_auth.sql` übernimmt vorhandene Passwort-Hashes und stellt Better Auth die Konten über `auth_users` bereit. Die UUIDs, Rollen, Zuordnungen und API-Tokens bleiben erhalten. Das Team meldet sich nach dem Update einmal neu an. Eine Sitzung läuft nach zwölf Stunden ab. Konten legt die Administration weiterhin in Desk oder über `bun run admin` an.
+
+Für den Rückweg den neuen Dienst anhalten und das vorherige Anwendungsimage mit derselben Datenbank starten. Die Migration ist für diesen Rückweg additiv. Die alten Passwort-Hashes bleiben verfügbar, und Daten, die seit dem Update geschrieben wurden, bleiben erhalten. Mit dem alten Dienst neu anmelden. Ein älteres Komplettbackup nur für eine gewünschte Wiederherstellung auf dessen Sicherungszeitpunkt verwenden.
+
 ## Ansichten
 
 <picture>

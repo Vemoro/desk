@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { db, first, rows } from './db';
 import { DeskError, required } from './errors';
-import { accountInput, authenticate, createAccount, createToken, login, loginInput, logout, protectOrigin, requireAdmin, sessionCookie, tokenInput, type Actor } from './auth';
+import { accountInput, authenticate, createAccount, createToken, login, loginInput, logout, protectOrigin, requireAdmin, tokenInput, type Actor } from './auth';
 import { schemas, id, projectStage, reservationInput, reservationStatus, movementInput, costBatch, costAssignment, habenOfferInput, habenContactInput, zammadLinkInput, zammadCreateInput, zammadMessage } from './contracts';
 import { assignCost, changeStage, controlling, getCore, getProject, importCosts, listCore, listCosts, saveCore, type Collection } from './core';
 import { createMovement, createReservation, listMovements, listReservations, listStock, setReservation } from './stock';
@@ -110,13 +110,13 @@ export async function handle(request: Request) {
     const path = url.pathname.slice('/api/v1/'.length).split('/');
     if (request.method === 'GET' && url.pathname === '/api/v1/openapi.json') return json(openApi());
     protectOrigin(request);
-    if (request.method === 'POST' && url.pathname === '/api/v1/login') {
-      const value = await login(loginInput.parse(await readJson(request)),url.hostname);
-      return json({ ok:true },200,{ 'Set-Cookie':sessionCookie(request,value,43_200) });
-    }
-    if (request.method === 'POST' && url.pathname === '/api/v1/logout') {
-      await logout(request);
-      return json({ok:true},200,{ 'Set-Cookie':sessionCookie(request,'',0) });
+    if (request.method === 'POST' && ['/api/v1/login','/api/v1/logout'].includes(url.pathname)) {
+      const cookies = url.pathname === '/api/v1/login'
+        ? await login(loginInput.parse(await readJson(request)),request)
+        : await logout(request);
+      const response = json({ok:true});
+      for (const cookie of cookies.getSetCookie()) response.headers.append('Set-Cookie',cookie);
+      return response;
     }
     const actor = await authenticate(request);
     const route = operations.find((operation)=>operation.method === request.method && match(operation.path,path));
