@@ -23,5 +23,8 @@ for(const theme of ['hell','dunkel']) {
     await page.screenshot({path:`${output}/projektlager-${theme}.png`,animations:'disabled',fullPage:true});
     await page.setViewportSize({width:375,height:812});
     await page.screenshot({path:`${output}/projektlager-${theme}-handy.png`,animations:'disabled',fullPage:true});
+    await page.getByRole('button',{name:'Menü',exact:true}).click();
+    await expect(page.getByRole('navigation',{name:'Hauptnavigation'})).toBeVisible();
+    await page.screenshot({path:`${output}/navigation-${theme}-handy-offen.png`,animations:'disabled',fullPage:true});
   });
 }
