@@ -20,8 +20,9 @@ test('Datumsfilter berücksichtigt lokale Mitternacht und alle API-Seiten',async
   ]}));
   await signIn(page);
   await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Projektlager',exact:true}).click();
-  expect(offsets).toEqual([0,200]);
   const panel=page.locator('section').filter({has:page.getByRole('heading',{name:'Lagerbewegungen',exact:true})});
+  await expect(panel.getByText('201 Bewegungen',{exact:true})).toBeVisible();
+  expect(offsets).toEqual([0,200]);
   const from=panel.getByLabel('Vom Datum');
   const to=panel.getByLabel('Bis Datum');
   await from.fill('2028-05-18');
