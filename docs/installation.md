@@ -32,6 +32,39 @@ Für diesen Weg ist ein separat aktualisierbarer Zammad-Compose-Stack als option
 
 `ZAMMAD_URL` und `ZAMMAD_TOKEN` bleiben ungesetzt. Nach dem Start in **Kommunikation** einen Vorgangslink und eine kurze Notiz im Musterprojekt speichern. Nach dem Neuladen müssen beide Angaben sichtbar sein. Der Desk-Projektablauf einschließlich Planung und Lager läuft eigenständig. [Auftragsablauf in Desk](desk.md#ein-auftrag)
 
+### Eigenständiger Start mit Docker Compose
+
+Vorausgesetzt sind Docker Engine ab Version 28, das Compose-Plugin ab Version 2.20, eine Shell mit OpenSSL und ein Reverse Proxy auf dem Compose-Host. Das Beispiel verwendet PostgreSQL 17 und baut Desk mit der im Dockerfile festgelegten Bun-Version aus dem ausgecheckten Stand. PostgreSQL ist nur im Compose-Netz erreichbar. [Docker-Portfreigaben](https://docs.docker.com/engine/network/port-publishing/) · [Compose für den Betrieb](../compose.selfhost.yaml) · [Dockerfile](../Dockerfile)
+
+Kopiere die [Vorlage](../.env.selfhost.example) bei der Erstinstallation nach `.env.selfhost`. `umask 077` beschränkt den Zugriff auf die neu angelegte Datei. Übernimm ein mit `openssl rand -hex 32` erzeugtes Datenbankpasswort in `DESK_DB_PASSWORD`. Das Hex-Format lässt sich direkt in der Datenbank-URL verwenden.
+
+```sh
+umask 077
+cp -i .env.selfhost.example .env.selfhost
+openssl rand -hex 32
+```
+
+Trage als `DESK_ORIGIN` die öffentliche HTTPS-Adresse ohne Pfad ein. Leite im Reverse Proxy diese Adresse per HTTP an `127.0.0.1:3000` weiter oder verwende den in `DESK_PORT` gewählten Port. Der Proxy terminiert TLS und reicht den öffentlichen Host und das ursprüngliche HTTPS-Protokoll weiter. Die Adresse im Browser muss mit `DESK_ORIGIN` übereinstimmen.
+
+Führe die folgenden Befehle im Repository in einer Bash aus. Nach dem Datenbankstart wendet der erste einmalige Desk-Container die Migration an. Der zweite legt das erste Administrationskonto an. Ersetze die Beispieladresse und verwende ein eigenes starkes Passwort, das bei der Eingabe nicht angezeigt wird. Der Block bricht bei einem Fehler vor dem Dienststart ab. Die Passwortvariable des Administrationskontos endet mit der Subshell.
+
+```bash
+(
+  set -e
+  docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost build desk
+  docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost up -d --wait db
+  docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost run --rm desk bun scripts/migrate.ts
+  read -rsp 'Passwort für das Desk-Administrationskonto: ' DESK_ADMIN_PASSWORD
+  printf '\n'
+  export DESK_ADMIN_PASSWORD
+  docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost run --rm -e DESK_ADMIN_PASSWORD desk bun scripts/admin.ts admin@example.test 'Desk Administration'
+  unset DESK_ADMIN_PASSWORD
+  docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost up -d desk
+)
+```
+
+Melde dich danach über die HTTPS-Adresse an. **Einstellungen** zeigt Haben und Zammad als nicht eingerichtet. Für einen späteren Start desselben Versionsstands genügt `docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost up -d`. Verwende dafür denselben Compose-Projektnamen und dasselbe Datenbankvolume. Das Volume enthält Konten und Projekte und muss bei Unterbrechungen erhalten bleiben. Beim Wechsel des Desk-Stands Datenbank und Konfiguration zuerst sichern, die Migration mit dem neuen Image ausführen und dann den Dienst aktualisieren.
+
 ## Updates und Rückkehr zum letzten funktionierenden Stand
 
 | Weg | Vor dem Update | Rückkehr bei Problemen |
@@ -46,4 +79,4 @@ Bei einem Wechsel auf eine andere Zammad-Instanz die gespeicherten Ticket-IDs vo
 
 - **A:** In einer isolierten Umgebung den gewählten Zammad-Stack, dessen Wiederherstellung und die vollständige Ticketprobe abnehmen. Erst danach festlegen, welche Version und welcher Aufbau unterstützt werden. Daraus folgen Aufgaben für eine optionale Installationsvorlage und ihren Updatepfad.
 - **B:** Die Verknüpfung und der Abruf eines vorhandenen Tickets sind gegen ein simuliertes API-Gegenüber geprüft. Die Abnahme an einem tatsächlich bereitgestellten Zammad benötigt eine Testgruppe und ein Testpostfach sowie abgestimmte Rechte. Daraus folgen eine Kompatibilitätsprüfung und eine dokumentierte Konfiguration.
-- **C:** Vorgangslink und Kommunikationsnotiz sind in einer isolierten Desk-Demo nach dem Speichern und Neuladen geprüft. Diesen Weg als eigenständigen Einstieg in die Installationsdoku übernehmen.
+- **C:** Anmeldung, deaktivierte Integrationen sowie Vorgangslink und Kommunikationsnotiz bei einer eigenständigen Installation und nach dem Neustart prüfen.
