@@ -6,7 +6,7 @@ Dieses Repository ist derzeit privat. Wer Zugriff hat, kann Fehler und Vorschlä
 
 ## Fehler und Vorschläge melden
 
-Sieh vor einem neuen Issue in den [offenen Issues](https://github.com/Vemoro/desk/issues) und auf der [Desk Roadmap](https://github.com/orgs/Vemoro/projects/2) nach, ob das Thema bereits erfasst ist. Ergänze neue Beobachtungen im bestehenden Issue.
+Sieh vor einem neuen Issue in den [offenen Issues](https://github.com/Vemoro/desk/issues) nach, ob das Thema bereits erfasst ist. Wenn du Zugriff auf die [Desk Roadmap](https://github.com/orgs/Vemoro/projects/2) hast, prüfe auch das Board. Ergänze neue Beobachtungen im bestehenden Issue.
 
 - **Fehlerbericht:** Nenne den getesteten Stand, die Schritte zur Reproduktion sowie das erwartete und beobachtete Verhalten. Wenn es für den Fehler wichtig ist, ergänze Browser, Bildschirmgröße oder Fehlermeldung.
 - **Vorschlag:** Beschreibe, wer die Funktion braucht, welchen Ablauf sie verbessert und woran sich das Ergebnis prüfen lässt. Bei mehreren Anliegen helfen getrennte Issues.
@@ -16,7 +16,7 @@ Ein fiktiver Fehlerbericht könnte zum Beispiel „Kommunikationsnotiz fehlt nac
 
 ## Eine Aufgabe übernehmen
 
-Wähle in der [Desk Roadmap](https://github.com/orgs/Vemoro/projects/2) eine freie Aufgabe aus „Geplant“. Schreib im verknüpften Issue kurz, welchen Teil du bearbeiten möchtest. Kläre dort vorab offene Fragen zum Umfang und zur Abnahme.
+Wenn du Zugriff auf die [Desk Roadmap](https://github.com/orgs/Vemoro/projects/2) hast, wähle dort eine freie Aufgabe aus „Geplant“. Über die [offenen Issues](https://github.com/Vemoro/desk/issues) kannst du auch direkt bei einer Aufgabe nachfragen, ob sie noch frei ist. Schreib im Issue kurz, welchen Teil du bearbeiten möchtest, und kläre offene Fragen zum Umfang und zur Abnahme.
 
 ## Einen Pull Request vorbereiten
 
