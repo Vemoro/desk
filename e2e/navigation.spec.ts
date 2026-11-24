@@ -83,3 +83,14 @@ test('Lange Kontonamen verdecken den Design-Schalter weder am Handy noch am Desk
   await lightTheme.click();
   await expect(page.locator('html')).toHaveAttribute('data-theme','light');
 });
+
+test('Das Menü zeigt Beschriftungen auch auf einem sehr schmalen Smartphone vollständig',async({page})=>{
+  await page.setViewportSize({width:280,height:653});
+  await signIn(page);
+  await page.getByRole('button',{name:'Menü',exact:true}).click();
+  const nav=page.getByRole('navigation',{name:'Hauptnavigation'});
+  const panel=page.locator('#desk-navigation');
+  await expect.poll(()=>panel.evaluate(element=>element.scrollWidth-element.clientWidth)).toBe(0);
+  await nav.getByRole('button',{name:'Einstellungen',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Einstellungen',exact:true})).toBeVisible();
+});
