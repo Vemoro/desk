@@ -6,6 +6,7 @@ const paths = {
   contacts: <><rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="9" r="2.5"/><path d="M8 17v-1a3 3 0 0 1 3-3h2a3 3 0 0 1 3 3v1"/></>,
   warehouse: <><path d="m3 8 9-5 9 5v10l-9 4-9-4z"/><path d="m3 8 9 5 9-5M12 13v9M7.5 5.5l9 5"/></>,
   costs: <><path d="M5 20V11m7 9V4m7 16v-6"/></>,
+  account: <><circle cx="12" cy="8" r="3.5"/><path d="M5 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/></>,
   settings: <><path d="M4 6h16M4 12h16M4 18h16"/><path d="M8 4v4m8 2v4m-6 2v4"/></>,
   menu: <path d="M4 6h16M4 12h16M4 18h16"/>,
   close: <path d="m6 6 12 12M18 6 6 18"/>,

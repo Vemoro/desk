@@ -1,5 +1,6 @@
 import { password } from 'bun';
-import { betterAuth } from 'better-auth';
+import { APIError, betterAuth } from 'better-auth';
+import { passkey } from '@better-auth/passkey';
 import { Pool } from 'pg';
 
 const sessionSeconds = 43_200;
@@ -33,6 +34,24 @@ function createDeskAuth() {
     account: { modelName: 'auth_accounts', accountLinking: { enabled: false } },
     session: { modelName: 'auth_sessions', expiresIn: sessionSeconds, disableSessionRefresh: true },
     verification: { modelName: 'auth_verifications' },
+    plugins: [passkey({
+      rpID:new URL(baseURL).hostname,
+      rpName:'Desk',
+      origin:baseURL,
+      schema:{passkey:{modelName:'auth_passkeys'}},
+      authenticatorSelection:{residentKey:'required',userVerification:'required'},
+      registration:{
+        requireSession:true,
+        afterVerification:({verification})=>{
+          if(!verification.registrationInfo?.userVerified) throw new APIError('UNAUTHORIZED');
+        },
+      },
+      authentication:{
+        afterVerification:({verification})=>{
+          if(!verification.authenticationInfo.userVerified) throw new APIError('UNAUTHORIZED');
+        },
+      },
+    })],
     telemetry: { enabled: false },
     logger: { disabled: true },
     onAPIError: { throw: true },

@@ -103,6 +103,12 @@ tr:last-child td { border-bottom:0; }
 .login { min-height:100vh; display:grid; place-items:center; padding:18px; }
 .login-box { width:min(100%,420px); padding:26px; border:1px solid var(--border); border-radius:var(--radius); background:var(--paper); display:grid; gap:18px; }
 .login-box .form-grid { grid-template-columns:1fr; }
+.passkey-login { border-top:1px solid var(--border); padding-top:16px; display:grid; gap:10px; }
+.passkey-form { grid-template-columns:minmax(150px,320px) auto; justify-content:start; }
+.passkey-list { list-style:none; padding:0; margin:0; }
+.passkey-list li { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; align-items:center; border-top:1px solid var(--border); padding:10px 0; }
+.passkey-list span { overflow-wrap:anywhere; }
+@media(max-width:520px) { .passkey-form { grid-template-columns:1fr; } }
 .sr-only,.skip:not(:focus) { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
 .skip:focus { position:fixed; left:12px; top:12px; z-index:2; background:var(--paper); padding:10px; }
 @media(max-width:1020px) { .frame { grid-template-columns:180px minmax(0,1fr); } .sidebar { padding-inline:10px; } .board { grid-template-columns:repeat(2,minmax(0,1fr)); } }

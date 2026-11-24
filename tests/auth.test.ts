@@ -117,3 +117,21 @@ test('Die bisherige Begrenzung blockiert den neunten Fehlversuch',async()=>{
   }
   expect((await request('login','POST',{email,password:'falsch'})).status).toBe(429);
 });
+
+
+test('Eine neue Passkey-Anfrage räumt nur abgelaufene Challenges auf',async()=>{
+  const { handlePasskey }=await import('../src/server/passkeys');
+  const expired=randomUUID();
+  const valid=randomUUID();
+  await db.unsafe(`INSERT INTO auth_verifications (identifier,value,"expiresAt") VALUES
+    ($1,'expired',now()-interval '1 minute'),($2,'valid',now()+interval '5 minutes')`,[expired,valid]);
+  try {
+    const response=await handlePasskey(new Request(`${origin}/api/auth/passkey/generate-authenticate-options`));
+    expect(response.status).toBe(200);
+    expect((await response.json()).userVerification).toBe('required');
+    expect(await first(db,'SELECT id FROM auth_verifications WHERE identifier=$1',[expired])).toBeUndefined();
+    expect(await first(db,'SELECT id FROM auth_verifications WHERE identifier=$1',[valid])).toBeDefined();
+  } finally {
+    await db.unsafe('DELETE FROM auth_verifications WHERE identifier IN ($1,$2)',[expired,valid]);
+  }
+});

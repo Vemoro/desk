@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { all, api, ApiError, compileCsv, date, euros, moment, money, movementStages, name, projectStages, type Row } from './client';
 import { Project, Projects, type Data } from './projects';
+import { PasskeyLogin, PasskeySettings } from './passkeys';
 import { Expand, Form, noWrite, options, Panel, Pill, Table, type Run } from './widgets';
 import { Icon } from './icons';
 import { Navigation, sections, type Person, type Section } from './navigation';
@@ -22,6 +23,7 @@ export function Desk() {
   const displayedSavedVersion=useRef(0);
   const loadVersion=useRef(0);
   const sessionVersion=useRef(0);
+  const signInPending=useRef(false);
   const logoutPending=useRef(false);
   const project=data.projects.find((row)=>row.id===projectId);
 
@@ -139,6 +141,24 @@ export function Desk() {
     location.hash=id?`${to}/${id}`:to;
   }
 
+  async function signIn(authenticate:()=>Promise<unknown>) {
+    if(logoutPending.current) throw new Error('Die Abmeldung läuft noch. Versuche es gleich erneut.');
+    if(signInPending.current) throw new Error('Eine Anmeldung läuft bereits.');
+    signInPending.current=true;
+    const session=sessionVersion.current;
+    try {
+      await authenticate();
+      if(session!==sessionVersion.current) return;
+      const current=await api<Person>('me');
+      if(await load(session)) {
+        setPerson(current);
+        setNotice({message:'',error:false});
+      }
+    } finally {
+      signInPending.current=false;
+    }
+  }
+
   const alert=notice.message && <div className={`notice ${notice.error?'error':''}`} role={notice.error?'alert':'status'}>{notice.message}</div>;
   const themeButton=<button className="theme" onClick={()=>setTheme(theme==='light'?'dark':'light')} aria-label={theme==='light'?'Dunkles Design':'Helles Design'}><Icon name={theme==='light'?'moon':'sun'}/></button>;
 
@@ -149,16 +169,8 @@ export function Desk() {
       <Form caption="Anmelden" fields={[
         {name:'email',label:'E-Mail',type:'email',required:true,autoComplete:'username'},
         {name:'password',label:'Passwort',type:'password',required:true,autoComplete:'current-password'},
-      ]} submit={async(input)=>{
-        if(logoutPending.current) throw new Error('Die Abmeldung läuft noch. Versuche es gleich erneut.');
-        const session=sessionVersion.current;
-        await api('login','POST',input);
-        const current=await api<Person>('me');
-        if(await load(session)) {
-          setPerson(current);
-          setNotice({message:'',error:false});
-        }
-      }}/>
+      ]} submit={(input)=>signIn(()=>api('login','POST',input))}/>
+      <PasskeyLogin onSignIn={signIn}/>
     </div></main>;
 
   return <div className="frame">
@@ -193,6 +205,7 @@ export function Desk() {
       {section==='contacts' && <Contacts data={data} run={run} haben={flags.haben}/>}
       {section==='warehouse' && <Warehouse data={data} run={run} accountId={person.id}/>}
       {section==='costs' && <Costs data={data} run={run}/>}
+      {section==='account' && <PasskeySettings/>}
       {section==='settings'&&person.role==='admin' && <Settings data={data} run={run} flags={flags}/>}
     </main>
   </div>;

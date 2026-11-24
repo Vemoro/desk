@@ -7,6 +7,7 @@ export const sections = {
   contacts: ['Kontakte','contacts'],
   warehouse: ['Projektlager','warehouse'],
   costs: ['Ist-Kosten','costs'],
+  account: ['Mein Konto','account'],
   settings: ['Einstellungen','settings'],
 } as const;
 
