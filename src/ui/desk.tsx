@@ -269,20 +269,37 @@ function Contacts({data,run,haben,openProject}:{data:Data;run:Run;haben:boolean;
         {comparison&&comparison.action!=='conflict'&&<p role="status">Abgleich abgeschlossen.</p>}
       </Expand>}
     </div>
-      <section className="contact-projects" aria-labelledby="contact-projects-title">
-        <div className="panel-body">
-          <h3 id="contact-projects-title">Zugehörige Projekte</h3>
-          {!projects.length&&<p className="subtle">Diesem Kontakt sind noch keine Projekte zugeordnet.</p>}
-        </div>
-        {projects.length>0&&<Table headers={['Projekt','Status','Termin']} rows={projects.map((project)=>({key:project.id,cells:[
-          <button type="button" className="text-button" onClick={()=>openProject(project.id)}>{project.name}</button>,
-          <Pill label={projectStages[project.stage]} tone={project.stage==='confirmed'?'accent':'neutral'}/>,
-          date(project.due),
-        ]}))}/>}
-      </section>
+      <ContactProjects key={contact.id} projects={projects} openProject={openProject}/>
     </Panel>}
     {confirmation&&<ConfirmDialog confirmation={confirmation} run={run} dismiss={()=>setConfirmation(undefined)} fallbackFocus={contactPanel}/>}
   </>;
+}
+
+function ContactProjects({projects,openProject}:{projects:Row[];openProject:(id:string)=>void}) {
+  const [status,setStatus]=useState('all');
+  const visibleProjects=projects.filter((project)=>{
+    const ended=project.stage==='complete' || project.stage==='cancelled';
+    return status==='all' || (status==='ended' ? ended : !ended);
+  });
+  return <section className="contact-projects" aria-labelledby="contact-projects-title">
+    <div className="panel-body">
+      <h3 id="contact-projects-title">Zugehörige Projekte</h3>
+      <label className="filter"><span>Projektstatus filtern</span>
+        <select value={status} onChange={(event)=>setStatus(event.target.value)}>
+          <option value="all">Alle</option>
+          <option value="open">Offen</option>
+          <option value="ended">Beendet</option>
+        </select>
+      </label>
+      {!visibleProjects.length && <p role="status" className="subtle">{projects.length
+        ? 'Keine Projekte für diesen Filter.' : 'Diesem Kontakt sind noch keine Projekte zugeordnet.'}</p>}
+    </div>
+    {visibleProjects.length>0 && <Table headers={['Projekt','Status','Termin']} rows={visibleProjects.map((project)=>({key:project.id,cells:[
+      <button type="button" className="text-button" onClick={()=>openProject(project.id)}>{project.name}</button>,
+      <Pill label={projectStages[project.stage]} tone={project.stage==='confirmed'?'accent':'neutral'}/>,
+      date(project.due),
+    ]}))}/>}
+  </section>;
 }
 
 function Warehouse({data,run}:{data:Data;run:Run}) {
