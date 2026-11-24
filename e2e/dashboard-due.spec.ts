@@ -14,12 +14,12 @@ test('Übersicht priorisiert offene Aufgaben aktiver Projekte vor dem Zehnerlimi
   let tasks=[
     ...Array.from({length:10},(_,index)=>({id:`excluded-${index}`,name:`Abgerechnet ${index}`,project_id:'closed',status:'todo',due:'2028-05-15'})),
     {id:'cancelled',name:'Abgesagte Aufgabe',project_id:'cancelled',status:'todo',due:overdue},
+    {id:'future',name:'Materialrückgabe planen',project_id:'active',status:'todo',due:'2028-05-18'},
     {id:'old',name:'Material vorbereiten',project_id:'active',status:'todo',due:overdue},
     {id:'equal',name:'Werkzeug bereitlegen',project_id:'active',status:'doing',due:overdue},
     {id:'done',name:'Erledigte Aufgabe',project_id:'active',status:'done',due:overdue},
     {id:'today',name:'Team einweisen',project_id:'active',status:'todo',due:'2028-05-17T00:00:00.000Z'},
     {id:'no-due',name:'Aufgabe ohne Termin',project_id:'active',status:'todo',due:null},
-    {id:'future',name:'Materialrückgabe planen',project_id:'active',status:'todo',due:'2028-05-18'},
     ...Array.from({length:7},(_,index)=>({id:`future-${index}`,name:`Folgeaufgabe ${index}`,project_id:'active',status:'todo',due:'2028-05-19'})),
   ];
   await page.route('**/api/v1/tasks?*',route=>route.fulfill({json:tasks}));
