@@ -82,6 +82,116 @@ describe('Fachlicher Projektablauf', () => {
 });
 
 describe('API und Integrationen',()=>{
+  test('Vormerkungen verwenden pro Konto und Endpunkt denselben Vorgangsschlüssel nur einmal',async()=>{
+    const data=await fixture(saveCore,'Wiederholte Vormerkungen');
+    const owner=await createToken(actor,{label:'Muster-Planung',scope:'write'});
+    const other=(await createAccount({email:crypto.randomUUID()+'@example.test',name:'Zweite Testperson',
+      password:'muster-test-passwort',role:'admin'}))!;
+    const otherToken=await createToken(other,{label:'Zweite Muster-Planung',scope:'write'});
+    const key=crypto.randomUUID();
+    async function call(input:object,requestKey?:string,token=owner.token,path='reservations'){
+      const headers:Record<string,string>={Authorization:`Bearer ${token}`,'Content-Type':'application/json'};
+      if(requestKey) headers['Idempotency-Key']=requestKey;
+      return handle(new Request(`http://desk.local/api/v1/${path}`,{method:'POST',headers,body:JSON.stringify(input)}));
+    }
+    async function create(input:object,requestKey?:string,token=owner.token){
+      const response=await call(input,requestKey,token);
+      expect(response.status).toBe(201);
+      return await response.json() as {id:string;status:string};
+    }
+    async function count(){
+      return (await first<{count:number}>(db,'SELECT count(*)::int AS count FROM reservations WHERE project_id=$1',[data.project]))?.count;
+    }
+    const {location_id:_,...period}=data.booking;
+    const personnel={...period,user_id:actor.id,quantity:1};
+    const [left,right]=await Promise.all([create(personnel,key),create(personnel,key)]);
+    expect(left).toEqual(right);
+    expect(await count()).toBe(1);
+    const equipment={...data.booking,item_id:data.equipment,quantity:2,
+      starts_at:'2028-05-25T11:00:00.123456+02:00',ends_at:'2028-05-25T17:00:00+02:00'};
+    expect((await call(equipment,key)).status).toBe(409);
+    expect(await count()).toBe(1);
+    expect((await create(personnel,key,otherToken.token)).id).not.toBe(left.id);
+    expect((await create(personnel,crypto.randomUUID())).id).not.toBe(left.id);
+    expect(await count()).toBe(3);
+    const equipmentKey=crypto.randomUUID();
+    const utcEquipment={...equipment,starts_at:'2028-05-25T09:00:00.123456Z',ends_at:'2028-05-25T15:00:00Z'};
+    const [itemReservation,parallelItem]=await Promise.all([
+      create(equipment,equipmentKey),create(utcEquipment,equipmentKey),
+    ]);
+    expect(parallelItem).toEqual(itemReservation);
+    expect(await count()).toBe(4);
+    expect((await call({...equipment,quantity:3},equipmentKey)).status).toBe(409);
+    expect((await call({...utcEquipment,starts_at:'2028-05-25T09:00:00.123457Z'},equipmentKey)).status).toBe(409);
+    await setReservation(itemReservation.id,'released');
+    expect(await create(utcEquipment,equipmentKey)).toEqual(itemReservation);
+    expect(await count()).toBe(4);
+    expect((await call({action:'receive',item_id:data.material,location_id:data.location,quantity:1},key,owner.token,'movements')).status).toBe(201);
+    await create(equipment);
+    await create(equipment);
+    expect(await count()).toBe(6);
+  });
+
+  test('Lagerbewegungen mit demselben Vorgangsschlüssel werden genau einmal gebucht',async()=>{
+    const data=await fixture(saveCore,'Wiederholte Lagerbewegungen');
+    await changeStage(data.project,'planning');
+    await saveCore('projects',{offer_ref:'ANG-WIEDERHOLUNG'},data.project);
+    await changeStage(data.project,'offered');
+    await changeStage(data.project,'confirmed');
+    const token=await createToken(actor,{label:'Lagerwiederholung',scope:'write'});
+    async function call(input:object,key?:string){
+      const headers:Record<string,string>={Authorization:`Bearer ${token.token}`,'Content-Type':'application/json'};
+      if(key!==undefined) headers['Idempotency-Key']=key;
+      return handle(new Request('http://desk.local/api/v1/movements',{
+        method:'POST',headers,body:JSON.stringify(input),
+      }));
+    }
+    async function ok(input:object,key?:string){
+      const response=await call(input,key);
+      expect(response.status).toBe(201);
+      return await response.json() as {id:string};
+    }
+    const receipt={action:'receive',item_id:data.material,location_id:data.location,quantity:10};
+    const receiptKey=crypto.randomUUID();
+    const receipts=await Promise.all([ok(receipt,receiptKey),ok(receipt,receiptKey)]);
+    expect(receipts[0]).toEqual(receipts[1]);
+    expect((await call({...receipt,quantity:11},receiptKey)).status).toBe(409);
+    expect((await call(receipt,'ungültiger Schlüssel')).status).toBe(400);
+    expect((await listStock()).find(row=>row.item_id===data.material)?.physical).toBe(10);
+
+    const material=getId(await createReservation({...data.booking,item_id:data.material,quantity:4}));
+    await setReservation(material,'firm');
+    const consume={action:'consume',reservation_id:material,quantity:1};
+    const consumeKey=crypto.randomUUID();
+    const consumed=await ok(consume,consumeKey);
+    expect(await ok(consume,consumeKey)).toEqual(consumed);
+    expect((await listStock()).find(row=>row.item_id===data.material)).toMatchObject({physical:9,reserved:3});
+    expect((await ok(consume,crypto.randomUUID())).id).not.toBe(consumed.id);
+    expect((await listStock()).find(row=>row.item_id===data.material)).toMatchObject({physical:8,reserved:2});
+
+    await ok({action:'receive',item_id:data.equipment,location_id:data.location,quantity:4});
+    const equipment=getId(await createReservation({...data.booking,item_id:data.equipment,quantity:4,
+      starts_at:addMinutes(Date.now(),-5),ends_at:addMinutes(Date.now(),60)}));
+    const issue={action:'issue',reservation_id:equipment,quantity:2};
+    const issueKey=crypto.randomUUID();
+    expect((await call(issue,issueKey)).status).toBe(409);
+    await setReservation(equipment,'firm');
+    const issued=await ok(issue,issueKey);
+    expect(await ok(issue,issueKey)).toEqual(issued);
+    const giveBack={action:'return',reservation_id:equipment,quantity:1};
+    const returnKey=crypto.randomUUID();
+    const returned=await ok(giveBack,returnKey);
+    expect(await ok(giveBack,returnKey)).toEqual(returned);
+    await setReservation(equipment,'released');
+    expect(await ok(issue,issueKey)).toEqual(issued);
+    expect((await listStock()).find(row=>row.item_id===data.equipment)?.physical).toBe(3);
+    expect(await first(db,'SELECT count(*)::integer AS count FROM movements WHERE reservation_id=$1',[equipment]))
+      .toEqual({count:2});
+    await expect(ok(receipt)).resolves.toHaveProperty('id');
+    await expect(ok(receipt)).resolves.toHaveProperty('id');
+    expect((await listStock()).find(row=>row.item_id===data.material)?.physical).toBe(28);
+  });
+
   test('OpenAPI und Berechtigungen eines widerrufbaren Tokens',async()=>{
     const anonymous=await handle(new Request('http://desk.local/api/v1/projects'));
     expect(anonymous.status).toBe(401);
@@ -97,20 +207,21 @@ describe('API und Integrationen',()=>{
   });
 
   test('Anmeldung akzeptiert die normalisierte HTTPS-Origin und setzt ein Secure-Cookie',async()=>{
-    const previous=process.env.DESK_ORIGIN;
-    process.env.DESK_ORIGIN='https://desk.example.test/';
-    const request=(origin:string)=>handle(new Request('http://127.0.0.1/api/v1/login',{
-      method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},
-      body:JSON.stringify({email:actor.email,password:'muster-test-passwort'}),
-    }));
-    try {
-      const login=await request('https://desk.example.test');
-      expect(login.status).toBe(200);
-      expect(login.headers.get('Set-Cookie')).toContain('; Secure');
-      expect((await request('https://fremd.example.test')).status).toBe(403);
-    } finally {
-      if(previous===undefined) delete process.env.DESK_ORIGIN; else process.env.DESK_ORIGIN=previous;
-    }
+    const child=Bun.spawn([process.execPath,'-e',`
+      import assert from 'node:assert/strict';
+      import { handle } from './src/server/api';
+      const login=(origin)=>handle(new Request('http://127.0.0.1/api/v1/login',{
+        method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},
+        body:JSON.stringify({email:process.env.DESK_FIXTURE_EMAIL,password:'muster-test-passwort'}),
+      }));
+      const allowed=await login('https://desk.example.test');
+      assert.equal(allowed.status,200);
+      assert.match(allowed.headers.get('Set-Cookie') ?? '',/; Secure/);
+      assert.equal((await login('https://fremd.example.test')).status,403);
+      process.exit(0);
+    `],{env:{...process.env,DESK_ORIGIN:'https://desk.example.test/',DESK_FIXTURE_EMAIL:actor.email},
+      stdout:'inherit',stderr:'inherit'});
+    expect(await child.exited).toBe(0);
   });
 
   test('Unklaren Zammad-Versand im Verlauf wiederfinden, ohne erneut zu senden',async()=>{
