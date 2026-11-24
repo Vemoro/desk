@@ -178,6 +178,7 @@ export function Controlling({project,data,run}:{project:Row;data:Data;run:Run}) 
         {name:'reference',label:'Belegreferenz',required:true},{name:'name',label:'Bezeichnung',required:true},{name:'amount',label:'Netto in Euro',required:true},
       ]} submit={(fields)=>run(()=>api('costs','POST',{entries:[{project_id:project.id,source:'manual',reference:fields.reference,name:fields.name,cents:money(fields.amount)}]}),'Ist-Kosten gespeichert.')}/></Expand></div>
       <Table headers={['Belegreferenz','Bezeichnung','Quelle','Netto']} rows={visibleCosts.map((row)=>({key:row.id,cells:[row.reference,row.name,row.source,euros(row.cents)]}))}/>
+      {selectedSource && <div className="panel-body">Summe der sichtbaren Belege <strong>{euros(visibleCosts.reduce((sum,row)=>sum+row.cents,0))}</strong></div>}
     </Panel>
   </>;
 }
