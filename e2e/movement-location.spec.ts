@@ -19,6 +19,10 @@ test('Lagerbewegungen zeigen den Ort der jeweiligen Buchung',async({page})=>{
   await expect(received.getByRole('cell',{name:'Lager Ost',exact:true})).toBeVisible();
   await expect(returned.getByRole('cell',{name:'Lager West',exact:true})).toBeVisible();
   await page.setViewportSize({width:375,height:812});
-  await expect(received.locator('[data-label="Lagerort"]')).toHaveText('Lager Ost');
-  await expect(returned.locator('[data-label="Lagerort"]')).toHaveText('Lager West');
+  for(const [row,location] of [[received,'Lager Ost'],[returned,'Lager West']] as const) {
+    const cell=row.locator('[data-label="Lagerort"]');
+    await expect(cell).toBeVisible();
+    await expect(cell).toHaveText(location);
+    expect(await cell.evaluate((element)=>getComputedStyle(element,'::before').content)).toBe('"Lagerort"');
+  }
 });
