@@ -117,12 +117,20 @@ export function Desk() {
 
 function Dashboard({data,personId,select,open}:{data:Data;personId:string;select:(id:string)=>void;open:()=>void}) {
   const [assignee,setAssignee]=useState('all');
+  const [period,setPeriod]=useState('all');
   const active=data.projects.filter((project)=>!['complete','cancelled'].includes(project.stage));
   const today=useLocalDay();
   const activeIds=new Set(active.map((project)=>project.id));
   const dueTasks=data.tasks
     .filter((task)=>task.status!=='done' && task.due && activeIds.has(task.project_id))
     .filter((task)=>assignee==='all' || (assignee==='mine' ? task.assignee_id===personId : !task.assignee_id))
+    .filter((task)=>{
+      if(period==='all') return true;
+      const due=task.due.slice(0,10);
+      if(period==='today') return due===today;
+      if(period==='overdue') return due<today;
+      return due>today;
+    })
     .sort((first,second)=>first.due.slice(0,10).localeCompare(second.due.slice(0,10)))
     .slice(0,10);
   const metrics=[
@@ -136,20 +144,30 @@ function Dashboard({data,personId,select,open}:{data:Data;personId:string;select
         <button className="text-button" onClick={()=>select(row.id)}>{row.name}</button>,name(data.contacts,row.contact_id),<Pill label={projectStages[row.stage]} tone="accent"/>,date(row.due),
       ]}))}/>
     </Panel>
-    <Panel title="Fällige Aufgaben" action={<label><span>Zuständigkeit</span>
+    <Panel title="Fällige Aufgaben" action={<div className="actions">
+      <label><span>Termin filtern</span>
+        <select value={period} onChange={(event)=>setPeriod(event.target.value)}>
+          <option value="all">Alle Termine</option>
+          <option value="overdue">Überfällig</option>
+          <option value="today">Heute</option>
+          <option value="later">Später</option>
+        </select>
+      </label>
+      <label><span>Zuständigkeit</span>
       <select value={assignee} onChange={(event)=>setAssignee(event.target.value)}>
         <option value="all">Alle</option>
         <option value="mine">Mir zugeordnet</option>
         <option value="unassigned">Ohne Zuständigkeit</option>
       </select>
-    </label>}>
+    </label></div>}>
       {dueTasks.length ? <Table headers={['Aufgabe','Projekt','Verantwortlich','Termin']} rows={dueTasks.map((task)=>{
         const due=task.due.slice(0,10);
         return {key:task.id,cells:[task.name,<button className="text-button" onClick={()=>select(task.project_id)}>{name(data.projects,task.project_id)}</button>,
           name(data.users,task.assignee_id),<div className="actions">{date(due)}
             {due<=today && <Pill label={due<today?'Überfällig':'Heute'} tone="accent"/>}
           </div>]};
-      })}/> : <p className="empty">{assignee==='all'?'Keine offenen Aufgaben mit Termin.':'Keine offenen Aufgaben mit Termin für diese Zuständigkeit.'}</p>}
+      })}/> : <p className="empty">{period!=='all'?'Keine offenen Aufgaben mit Termin für diese Filter.'
+        : assignee==='all'?'Keine offenen Aufgaben mit Termin.':'Keine offenen Aufgaben mit Termin für diese Zuständigkeit.'}</p>}
     </Panel>
   </>;
 }
