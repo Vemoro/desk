@@ -5,6 +5,7 @@ test('Projektreservierungen nach Ressourcentyp und Status filtern',async({page})
   const projects=[
     {id:'montage',name:'Musterinstallation',stage:'planning'},
     {id:'event',name:'Musterveranstaltung',stage:'planning'},
+    {id:'empty',name:'Musterprojekt ohne Planung',stage:'planning'},
   ];
   const window={starts_at:'2028-04-15T08:00:00Z',ends_at:'2028-04-15T09:00:00Z',quantity:1};
   const reservations=[
@@ -37,11 +38,11 @@ test('Projektreservierungen nach Ressourcentyp und Status filtern',async({page})
   const type=panel.getByLabel('Ressourcentyp');
   const status=panel.getByLabel('Status filtern');
   await expect(panel.getByText('2 Reservierungen',{exact:true})).toBeVisible();
-  await expect(panel.getByText('Noah Beispiel',{exact:true})).toHaveCount(0);
+  await expect(panel.getByRole('cell',{name:'Noah Beispiel',exact:true})).toHaveCount(0);
   await type.selectOption({label:'Personal'});
   await status.selectOption({label:'Vorgemerkt'});
   await expect(panel.getByText('1 Reservierung',{exact:true})).toBeVisible();
-  await expect(panel.getByText('Montagekoffer',{exact:true})).toBeHidden();
+  await expect(panel.getByRole('cell',{name:'Montagekoffer',exact:true})).toBeHidden();
   await panel.getByRole('button',{name:'Freigeben',exact:true}).click();
   await expect(panel.getByText('Keine Reservierungen für diese Filter.')).toBeVisible();
   await expect(type).toHaveValue('user');
@@ -55,5 +56,10 @@ test('Projektreservierungen nach Ressourcentyp und Status filtern',async({page})
   await page.getByRole('button',{name:'Ressourcen & Kalkulation',exact:true}).click();
   await expect(type).toHaveValue('');
   await expect(status).toHaveValue('');
-  await expect(panel.getByText('Noah Beispiel',{exact:true})).toBeVisible();
+  await expect(panel.getByRole('cell',{name:'Noah Beispiel',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Projekte',exact:true}).last().click();
+  await page.getByRole('button',{name:'Musterprojekt ohne Planung',exact:true}).click();
+  await page.getByRole('button',{name:'Ressourcen & Kalkulation',exact:true}).click();
+  await expect(panel.getByText('0 Reservierungen',{exact:true})).toBeVisible();
+  await expect(panel.getByText('Keine Reservierungen für diese Filter.')).toBeVisible();
 });
