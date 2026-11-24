@@ -79,6 +79,19 @@ Auf einem Stand mit Entwicklungsdoku allein prüfe die geänderten Regeln, Verwe
 
 Doku, Oberfläche und Beiträge werden auf Deutsch geschrieben, Code-Bezeichner auf Englisch. Eine Regel steht an einer maßgeblichen Stelle. Der Skill verweist dorthin und beschreibt den Ablauf. Vorher-Nachher-Bilder nutzen vollständige Git-Stände, gleiche Daten und Viewports sowie Hell, Dunkel und bei betroffener Bedienung Smartphone. Der [Screenshot-Skill](../.agents/skills/desk-pr-screenshots/SKILL.md) beschreibt Aufnahme und Veröffentlichung.
 
+### Projektliste für einen PR vergleichen
+
+Starte die beiden zu prüfenden Git-Stände auf unterschiedlichen lokalen Ports. Verwende je Instanz eine eigene, frisch angelegte PostgreSQL-Datenbank mit Suffix `_demo`. Führe je Instanz `bun run migrate` und `bun run demo` mit demselben `DESK_DEMO_PASSWORD` aus. Setze die zum Port passende `DESK_ORIGIN` und lasse echte Integrationen aus. Verwende direkte Loopback-Adressen. Der Aufruf folgt keinen Weiterleitungen.
+
+Führe den Vergleich mit installiertem Playwright-Chromium und demselben `DESK_DEMO_PASSWORD` aus.
+
+```sh
+bun run review:screenshots http://localhost:4193 http://localhost:4194
+bun run review:screenshots --nur-nachher http://localhost:4194
+```
+
+Der Vergleich erzeugt acht Bilder der Projektliste mit fester Uhrzeit auf Desktop und Smartphone in Hell und Dunkel. Bei `--nur-nachher` reicht eine Instanz. Der Aufruf erzeugt vier Nachher-Bilder. Das Terminal nennt den neuen Ausgabeordner unter `build/screenshots/`. Verlinke die gesichteten Bildpaare im PR. Bei einer neuen Ansicht vermerke den fehlenden Ausgangsstand. [PR-Screenshot-Workflow](../.agents/skills/desk-pr-screenshots/SKILL.md)
+
 ## Entwicklungsrunden für Agenten
 
 Beginne mit dem höchsten belegten Nutzen für Desk. Prüfe vorhandene Issues, PRs und Abhängigkeiten, bevor du neue Arbeit anlegst. Bearbeite ein passendes bestehendes Issue weiter. Lege ein neues Issue an, wenn ein konkreter Bedarf einen eigenen Umfang und prüfbare Abnahmekriterien hat. Ein Umfang kann einen einzelnen PR oder mehrere fachlich begründete PRs brauchen.
