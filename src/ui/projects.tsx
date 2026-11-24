@@ -11,8 +11,8 @@ const transitions:Record<string,string[]> = {
 };
 const dateTime = (value:string) => new Date(value).toISOString();
 
-export type ProjectFilters = { query:string; stage:string; due:string };
-export const defaultProjectFilters:ProjectFilters = {query:'',stage:'all',due:'all'};
+export type ProjectFilters = { query:string; stage:string; due:string; contactId:string };
+export const defaultProjectFilters:ProjectFilters = {query:'',stage:'all',due:'all',contactId:''};
 
 export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;select:(id:string)=>void;
   filters:ProjectFilters;onFilter:(filters:ProjectFilters)=>void;
@@ -36,8 +36,9 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
   },[]);
   const today=[now.getFullYear(),now.getMonth()+1,now.getDate()].map(part=>String(part).padStart(2,'0')).join('-');
   const query=filters.query.trim().toLowerCase();
-  const filtered=filters.query!=='' || filters.stage!=='all' || filters.due!=='all';
+  const filtered=filters.query!=='' || filters.stage!=='all' || filters.due!=='all' || filters.contactId!=='';
   const projects=data.projects.filter((project)=>{
+    if(filters.contactId && project.contact_id!==filters.contactId) return false;
     const matchesSearch=`${project.name} ${name(data.contacts,project.contact_id)}`.toLowerCase().includes(query)
       || [project.offer_ref,project.invoice_ref].some(reference=>reference?.toLowerCase().includes(query));
     const matchesStage=filters.stage==='all' || (filters.stage==='open'
@@ -63,6 +64,12 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
           <label><span>Fälligkeit</span><select value={filters.due} onChange={(event)=>onFilter({...filters,due:event.target.value})}>
             <option value="all">Alle</option><option value="overdue">Überfällig</option>
             <option value="today">Heute</option><option value="missing">Ohne Termin</option>
+          </select></label>
+          <label><span>Kontakt</span><select value={filters.contactId} onChange={(event)=>onFilter({...filters,contactId:event.target.value})}>
+            <option value="">Alle Kontakte</option>
+            {data.contacts.map((contact)=><option key={contact.id} value={contact.id}>
+              {contact.email ? `${contact.name} · ${contact.email}` : contact.name}
+            </option>)}
           </select></label>
         </div>
         <div className="actions">
