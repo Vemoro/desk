@@ -106,19 +106,28 @@ function Kanban({project,data,run}:{project:Row;data:Data;run:Run}) {
   </>;
 }
 
+function localDayRange(value:string) {
+  const [year,month,day]=value.split('-').map(Number);
+  function midnight(dayOfMonth:number) {
+    const calendar=new Date(0);
+    calendar.setUTCFullYear(year,month-1,dayOfMonth);
+    return Number.isFinite(calendar.getTime()) ? Date.parse(calendar.toISOString().slice(0,-1)) : NaN;
+  }
+  return {start:midnight(day),end:midnight(day+1)};
+}
+
 function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
   const [resourceFilter,setResourceFilter]=useState('');
   const [statusFilter,setStatusFilter]=useState('');
   const [dayFilter,setDayFilter]=useState('');
-  const dayStart=dayFilter ? new Date(`${dayFilter}T00:00:00`) : null;
-  const dayEnd=dayStart && new Date(dayStart);
-  if(dayEnd) dayEnd.setDate(dayEnd.getDate()+1);
+  const dayRange=dayFilter ? localDayRange(dayFilter) : null;
   const reservations=data.reservations.filter((row)=>row.project_id===project.id);
   const equipmentIds=new Set(data.items.filter(item=>item.kind==='equipment').map(item=>item.id));
   const visibleReservations=reservations.filter((row)=>
     (!resourceFilter || (row.user_id ? 'user' : 'item')===resourceFilter)
     && (!statusFilter || row.status===statusFilter)
-    && (!dayStart || !dayEnd || (Date.parse(row.starts_at)<dayEnd.getTime() && Date.parse(row.ends_at)>dayStart.getTime())));
+    && (!dayRange || (dayRange.start<dayRange.end
+      && Date.parse(row.starts_at)<dayRange.end && Date.parse(row.ends_at)>dayRange.start)));
   const lines=data.lines.filter((row)=>row.project_id===project.id);
   const timeFields=[
     {name:'starts_at',label:'Von',type:'datetime-local',required:true},

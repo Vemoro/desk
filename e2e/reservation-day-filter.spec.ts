@@ -72,3 +72,33 @@ test('Der Sommerzeittag endet an lokaler Mitternacht nach 23 Stunden',async({pag
   await day.fill('2027-03-29');
   await expect(panel.getByRole('row').filter({hasText:'Später begonnen'})).toBeVisible();
 });
+
+test.describe('Kalendertag mit vorgerückter Mitternacht',()=>{
+  test.use({timezoneId:'America/Sao_Paulo'});
+
+  test('Die nächste Mitternacht beginnt unabhängig von der verschobenen Startzeit',async({page})=>{
+    const panel=await planning(page,[
+      {...base,id:'match',item_id:'overlap',starts_at:'2018-11-05T01:45:00Z',ends_at:'2018-11-05T01:59:00Z'},
+      {...base,id:'next',item_id:'after',starts_at:'2018-11-05T02:01:00Z',ends_at:'2018-11-05T02:20:00Z'},
+    ]);
+    await panel.getByLabel('Am Datum').fill('2018-11-04');
+    await expect(panel.getByText('1 Reservierung',{exact:true})).toBeVisible();
+    await expect(panel.getByRole('row').filter({hasText:'Mehrtägiger Einsatz'})).toBeVisible();
+    await expect(panel.getByRole('row').filter({hasText:'Später begonnen'})).toHaveCount(0);
+  });
+});
+
+test.describe('Übersprungener lokaler Kalendertag',()=>{
+  test.use({timezoneId:'Pacific/Apia'});
+
+  test('Ein übersprungener Tag zeigt keine Reservierung',async({page})=>{
+    const panel=await planning(page,[
+      {...base,id:'crossing',item_id:'overlap',starts_at:'2011-12-30T09:00:00Z',ends_at:'2011-12-30T11:00:00Z'},
+    ]);
+    const day=panel.getByLabel('Am Datum');
+    await day.fill('2011-12-30');
+    await expect(panel.getByText('Keine Reservierungen für diese Filter.')).toBeVisible();
+    await day.fill('2011-12-31');
+    await expect(panel.getByText('1 Reservierung',{exact:true})).toBeVisible();
+  });
+});
