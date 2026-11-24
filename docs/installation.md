@@ -12,7 +12,7 @@ Desk kann eigenständig arbeiten oder ein Zammad-System für Tickets und Nachric
 
 1. Einen Desk-Stand festlegen und dessen Commit oder Release für spätere Updates dokumentieren. Für Desk eine eigene PostgreSQL-Datenbank bereitstellen. Die lokale Compose-Datei verwendet PostgreSQL 17. [Compose-Datei](../compose.yaml)
 2. Desk mit dem [Dockerfile](../Dockerfile) oder aus dem Quellcheckout bauen. `DATABASE_URL` für die Desk-Datenbank und `DESK_ORIGIN` auf die tatsächlich verwendete HTTPS-Adresse setzen. `DESK_AUTH_SECRET` mit einem zufälligen Wert aus mindestens 32 Zeichen dauerhaft im Desk-Dienst hinterlegen. Zugangsdaten über die Laufzeitkonfiguration bereitstellen.
-3. Vor dem Dienststart die Migration für den gewählten Installationsweg anwenden und das erste Admin-Konto mit der passenden CLI anlegen. Für eine Probeinstallation eine eigene Instanz und eine Demo-Datenbank mit dem Suffix `_demo` verwenden. [Lokaler Einstieg](../README.md) · [Betrieb](desk.md#betrieb) · [Admin-CLI](desk.md#update-auf-better-auth) · [Demo-Daten](entwicklung.md#befehle-und-screenshot-workflow)
+3. Vor dem Dienststart die Migration für den gewählten Installationsweg anwenden und das erste Admin-Konto mit der passenden CLI anlegen. Für Proben eine eigene Instanz verwenden. Wer die vorbereiteten Demodaten lädt, braucht eine Datenbank mit dem Suffix `_demo`. Für die Probe des eigenständigen Compose-Beispiels ein eigenes Compose-Projekt mit neuem Volume und freiem `DESK_PORT` verwenden und die Testdaten dort von Hand anlegen. [Lokaler Einstieg](../README.md) · [Betrieb](desk.md#betrieb) · [Admin-CLI](desk.md#update-auf-better-auth) · [Demo-Daten](entwicklung.md#befehle-und-screenshot-workflow)
 
 ## A · Neue Zammad-Instanz einbinden
 
@@ -34,7 +34,7 @@ Für diesen Weg ist ein separat aktualisierbarer Zammad-Compose-Stack als option
 
 ### Eigenständiger Start mit Docker Compose
 
-Vorausgesetzt sind Docker Engine ab Version 28, das Compose-Plugin ab Version 2.20, eine Shell mit OpenSSL und ein Reverse Proxy auf dem Compose-Host. Das Beispiel verwendet PostgreSQL 17 und baut Desk mit der im Dockerfile festgelegten Bun-Version aus dem ausgecheckten Stand. PostgreSQL ist nur im Compose-Netz erreichbar. [Docker-Portfreigaben](https://docs.docker.com/engine/network/port-publishing/) · [Compose für den Betrieb](../compose.selfhost.yaml) · [Dockerfile](../Dockerfile)
+Vorausgesetzt sind Docker Engine ab Version 28, das Compose-Plugin ab Version 2.20, eine Shell mit OpenSSL und ein Reverse Proxy auf dem Compose-Host. Das Beispiel verwendet PostgreSQL 17 und baut Desk mit der im Dockerfile festgelegten Bun-Version aus dem ausgecheckten Stand. Desk verbindet sich im Compose-Netz mit PostgreSQL. PostgreSQL veröffentlicht keinen Hostport. [Docker-Portfreigaben](https://docs.docker.com/engine/network/port-publishing/) · [Compose für den Betrieb](../compose.selfhost.yaml) · [Dockerfile](../Dockerfile)
 
 Kopiere die [Vorlage](../.env.selfhost.example) bei der Erstinstallation nach `.env.selfhost`. `umask 077` beschränkt den Zugriff auf die neu angelegte Datei. Erzeuge mit `openssl rand -hex 32` zwei unabhängige Werte und trage sie als `DESK_DB_PASSWORD` und `DESK_AUTH_SECRET` ein. Das Hex-Format lässt sich direkt in der Datenbank-URL verwenden. Bewahre das Auth-Secret für Neustarts und Updates auf.
 
