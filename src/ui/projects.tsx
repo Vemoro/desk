@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, date, downloadPositions, euros, moment, money, name, projectStages, reservationStages, taskStages, type Row } from './client';
-import { Expand, Form, options, Panel, Pill, Table, type Run } from './widgets';
+import { ConfirmDialog, Expand, Form, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
 
 export type Data = Record<'contacts'|'projects'|'tasks'|'users'|'lines'|'reservations'|'locations'|'items'|'movements'|'costs'|'stock',Row[]>;
 type Flags = { haben:boolean; zammad:boolean };
@@ -107,6 +107,8 @@ function Kanban({project,data,run}:{project:Row;data:Data;run:Run}) {
 }
 
 function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
+  const [confirmation,setConfirmation]=useState<Confirmation>();
+  const calculationPanel=useRef<HTMLElement>(null);
   const reservations=data.reservations.filter((row)=>row.project_id===project.id);
   const lines=data.lines.filter((row)=>row.project_id===project.id);
   const timeFields=[
@@ -130,7 +132,7 @@ function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
         <div className="actions">{row.status==='tentative' && ['confirmed','running'].includes(project.stage) && <button onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'firm'}),'Fest reserviert.')}>Fest reservieren</button>}
           {row.status!=='released' && <button onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'released'}),'Reservierung freigegeben.')}>Freigeben</button>}</div>],
     }))}/></Panel>
-    <Panel title="Kalkulation" action={<button onClick={()=>run(async()=>downloadPositions(project,await api(`projects/${project.id}/offer-positions`)),undefined,'read')}>Angebotspositionen exportieren</button>}>
+    <Panel title="Kalkulation" focusRef={calculationPanel} action={<button onClick={()=>run(async()=>downloadPositions(project,await api(`projects/${project.id}/offer-positions`)),undefined,'read')}>Angebotspositionen exportieren</button>}>
       <div className="panel-body"><Expand title="Position anlegen"><Form caption="Position speichern" fields={[
         {name:'kind',label:'Art',choices:[{value:'buy',label:'Einkauf'},{value:'sell',label:'Verkauf'}],required:true},
         {name:'name',label:'Position',required:true},{name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},
@@ -144,9 +146,17 @@ function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
           {name:'quantity',label:'Menge',type:'number',min:1,value:row.quantity,required:true},
           {name:'unit',label:'Einzelpreis netto in Euro',value:(row.unit_cents/100).toFixed(2).replace('.',','),required:true},
         ]} submit={(v)=>run(()=>api(`lines/${row.id}`,'PATCH',{kind:v.kind,name:v.name,quantity:Number(v.quantity),unit_cents:money(v.unit)}),'Position aktualisiert.')}/>
-          <button onClick={()=>{if(window.confirm('Diese Kalkulationsposition entfernen?')) void run(()=>api(`lines/${row.id}`,'DELETE'),'Position entfernt.');}}>Position entfernen</button>
+          <button onClick={(event)=>setConfirmation({
+            title:'Kalkulationsposition entfernen',
+            description:`„${row.name}“ wird aus der Kalkulation dieses Projekts entfernt.`,
+            actionLabel:'Position entfernen',
+            trigger:event.currentTarget,
+            submit:()=>api(`lines/${row.id}`,'DELETE'),
+            feedback:'Position entfernt.',
+          })}>Position entfernen</button>
         </Expand>,
       ]}))}/></Panel>
+    {confirmation&&<ConfirmDialog confirmation={confirmation} run={run} dismiss={()=>setConfirmation(undefined)} fallbackFocus={calculationPanel}/>}
   </>;
 }
 
@@ -176,6 +186,8 @@ function plainText(html:string) {
 }
 
 function Communication({project,zammad,run}:{project:Row;zammad:boolean;run:Run}) {
+  const [confirmation,setConfirmation]=useState<Confirmation>();
+  const zammadPanel=useRef<HTMLElement>(null);
   const [conversation,setConversation]=useState<any>(null);
   const [problem,setProblem]=useState('');
   const [file,setFile]=useState<File>();
@@ -202,7 +214,7 @@ function Communication({project,zammad,run}:{project:Row;zammad:boolean;run:Run}
       {name:'external_link',label:'Vorgangslink',type:'url',value:project.external_link},
       {name:'communication_note',label:'Kommunikationsnotiz',type:'textarea',value:project.communication_note},
     ]} submit={(input)=>run(()=>api(`projects/${project.id}`,'PATCH',input),'Verweis gespeichert.')}/></div></Panel>
-    {zammad && <Panel title="Zammad" action={conversation?.ticket && <a href={conversation.ticket.url} target="_blank" rel="noreferrer">Ticket {conversation.ticket.number} öffnen</a>}>
+    {zammad && <Panel title="Zammad" focusRef={zammadPanel} action={conversation?.ticket && <a href={conversation.ticket.url} target="_blank" rel="noreferrer">Ticket {conversation.ticket.number} öffnen</a>}>
       <div className="panel-body">
         {problem && <p role="alert" className="inline-error">{problem}</p>}
         {!project.zammad_ticket_id ? <>
@@ -238,11 +250,24 @@ function Communication({project,zammad,run}:{project:Row;zammad:boolean;run:Run}
             key:entry.id,cells:[entry.subject,({sent:'An Zammad übergeben',pending:'Ausstehend',failed:'Abgelehnt',unknown:'Ausgang unklar'} as Record<string,string>)[entry.status],
               entry.status==='sent' ? '–' : <div className="actions">
                 <button onClick={()=>run(async()=>{await request(`outgoing/${entry.id}`,{retry:false});await refresh();})}>Prüfen</button>
-                <button onClick={()=>{if(window.confirm('Ticketverlauf prüfen und, falls die Nachricht fehlt, erneut senden?')) void run(async()=>{await request(`outgoing/${entry.id}`,{retry:true});await refresh();});}}>Erneut senden</button>
+                <button onClick={(event)=>setConfirmation({
+                  title:'Zammad-Sendeversuch wiederholen',
+                  description:`Desk prüft den Ticketverlauf auf „${entry.subject}“. Fehlt die Nachricht, sendet Zammad sie erneut.`,
+                  actionLabel:'Erneut senden',
+                  trigger:event.currentTarget,
+                  submit:async()=>{
+                    const result=await request(`outgoing/${entry.id}`,{retry:true});
+                    await refresh();
+                    if(result.status==='failed') throw new Error('Zammad hat den Sendeversuch abgelehnt.');
+                    if(result.status!=='sent') throw new Error('Der Ausgang des Sendeversuchs ist weiterhin unklar.');
+                  },
+                  feedback:'Sendeversuch bestätigt.',
+                })}>Erneut senden</button>
               </div>],
           }))}/>
         </>}
       </div>
     </Panel>}
+    {confirmation&&<ConfirmDialog confirmation={confirmation} run={run} dismiss={()=>setConfirmation(undefined)} fallbackFocus={zammadPanel}/>}
   </>;
 }
