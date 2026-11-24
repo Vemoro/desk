@@ -23,19 +23,38 @@ export function Desk() {
   const [refreshRequired,setRefreshRequired]=useState(false);
   const [refreshing,setRefreshing]=useState(false);
   const savedVersion=useRef(0);
+  const loadVersion=useRef(0);
+  const sessionVersion=useRef(0);
   const project=data.projects.find((row)=>row.id===projectId);
 
-  async function load() {
-    const version=savedVersion.current;
-    const [integrations,...result]=await Promise.all([api('integrations'),...collections.map((collection)=>
-      collection==='users'||collection==='stock'?api<Row[]>(collection):all(collection),
-    )]);
-    if(version!==savedVersion.current) return false;
-    setFlags(integrations);
-    setData(Object.fromEntries(collections.map((key,index)=>[key,result[index]])) as unknown as Data);
-    setRefreshRequired(false);
-    return true;
+  async function load(session:number) {
+    const request=++loadVersion.current;
+    const saved=savedVersion.current;
+    const isCurrent=()=>session===sessionVersion.current && request===loadVersion.current && saved===savedVersion.current;
+    try {
+      const [integrations,...result]=await Promise.all([api('integrations'),...collections.map((collection)=>
+        collection==='users'||collection==='stock'?api<Row[]>(collection):all(collection),
+      )]);
+      if(!isCurrent()) return false;
+      setFlags(integrations);
+      setData(Object.fromEntries(collections.map((key,index)=>[key,result[index]])) as unknown as Data);
+      setRefreshRequired(false);
+      return true;
+    } catch(error) {
+      if(!isCurrent()) return false;
+      throw error;
+    }
   }
+
+  function endSession() {
+    sessionVersion.current++;
+    setPerson(null);
+    setData(initialData);
+    setFlags({haben:false,zammad:false});
+    setRefreshRequired(false);
+    setRefreshing(false);
+  }
+
 
   useEffect(()=>{
     const current=localStorage.getItem('desk-theme');
@@ -46,10 +65,12 @@ export function Desk() {
     }
     onHash();
     window.addEventListener('hashchange',onHash);
+    const session=sessionVersion.current;
     void (async()=>{
-      try {const current=await api<Person>('me'); await load();setPerson(current);}
+      try {const current=await api<Person>('me'); if(await load(session)) setPerson(current);}
       catch(error) {
-        setPerson(null);
+        if(session!==sessionVersion.current) return;
+        endSession();
         if(!(error instanceof ApiError) || error.status!==401) setNotice({message:'Desk-Daten konnten nicht geladen werden.',error:true});
       }
     })();
@@ -58,15 +79,14 @@ export function Desk() {
 
   useEffect(()=>{document.documentElement.dataset.theme=theme;localStorage.setItem('desk-theme',theme);},[theme]);
 
-  async function refreshSavedData() {
+  async function refreshSavedData(session:number) {
     const version=savedVersion.current;
     try {
-      return await load();
+      return await load(session);
     } catch(error) {
-      if(version!==savedVersion.current) return false;
+      if(session!==sessionVersion.current || version!==savedVersion.current) return false;
       if(error instanceof ApiError && error.status===401) {
-        setRefreshRequired(false);
-        setPerson(null);
+        endSession();
         setNotice({message:'Die Änderung wurde gespeichert. Bitte erneut anmelden, um die Ansicht zu aktualisieren.',error:false});
       } else {
         setRefreshRequired(true);
@@ -76,26 +96,30 @@ export function Desk() {
   }
 
   async function retryRefresh() {
+    const session=sessionVersion.current;
     setRefreshing(true);
-    try { await refreshSavedData(); }
-    finally { setRefreshing(false); }
+    try { await refreshSavedData(session); }
+    finally { if(session===sessionVersion.current) setRefreshing(false); }
   }
 
   const run:Run=async(operation,feedback,kind='write')=>{
+    const session=sessionVersion.current;
     setNotice({message:'',error:false});
     try {
       await operation();
-      if(kind==='read') await load();
+      if(session!==sessionVersion.current) return false;
+      if(kind==='read' && !await load(session)) return true;
     } catch(error) {
-      if(error instanceof ApiError && error.status===401)setPerson(null);
+      if(session!==sessionVersion.current) return false;
+      if(error instanceof ApiError && error.status===401) endSession();
       setNotice({message:error instanceof Error?error.message:'Die Aktion ist fehlgeschlagen.',error:true});
       return false;
     }
     if(kind==='write') {
       savedVersion.current++;
-      if(!await refreshSavedData()) return true;
+      if(!await refreshSavedData(session)) return true;
     }
-    if(feedback)setNotice({message:feedback,error:false});
+    if(feedback && session===sessionVersion.current)setNotice({message:feedback,error:false});
     return true;
   };
 
@@ -117,7 +141,13 @@ export function Desk() {
         {name:'email',label:'E-Mail',type:'email',required:true,autoComplete:'username'},
         {name:'password',label:'Passwort',type:'password',required:true,autoComplete:'current-password'},
       ]} submit={async(input)=>{
-        await api('login','POST',input); const current=await api<Person>('me'); await load();setPerson(current);setNotice({message:'',error:false});
+        const session=sessionVersion.current;
+        await api('login','POST',input);
+        const current=await api<Person>('me');
+        if(await load(session)) {
+          setPerson(current);
+          setNotice({message:'',error:false});
+        }
       }}/>
     </div></main>;
 
@@ -130,7 +160,17 @@ export function Desk() {
       )}</nav>
       <footer className="sidebar-foot"><div className="account"><span className="avatar">{person.name.slice(0,1)}</span>
         <div><strong>{person.name}</strong><small>{person.role==='admin'?'Administration':'Mitarbeit'}</small></div>{themeButton}</div>
-        <button onClick={async()=>{try { await api('logout','POST');setPerson(null);setData(initialData);setNotice({message:'',error:false}); } catch { setNotice({message:'Abmelden fehlgeschlagen.',error:true}); }}}>Abmelden</button>
+        <button onClick={async()=>{
+          const session=sessionVersion.current;
+          try {
+            await api('logout','POST');
+            if(session!==sessionVersion.current) return;
+            endSession();
+            setNotice({message:'',error:false});
+          } catch {
+            if(session===sessionVersion.current) setNotice({message:'Abmelden fehlgeschlagen.',error:true});
+          }
+        }}>Abmelden</button>
       </footer>
     </aside>
     <main id="desk-main" tabIndex={-1} className="main">
