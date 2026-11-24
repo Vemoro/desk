@@ -33,7 +33,7 @@ export function Projects({data,run,select}:{data:Data;run:Run;select:(id:string)
   </>;
 }
 
-export function Project({project,data,run,flags,back}:{project:Row;data:Data;run:Run;flags:Flags;back:()=>void}) {
+export function Project({project,data,run,flags,back,viewerId}:{viewerId:string;project:Row;data:Data;run:Run;flags:Flags;back:()=>void}) {
   const [tab,setTab]=useState('overview');
   const tabs:Record<string,string>={overview:'Überblick',tasks:'Kanban',planning:'Ressourcen & Kalkulation',finance:'Controlling',communication:'Kommunikation'};
   return <>
@@ -41,7 +41,7 @@ export function Project({project,data,run,flags,back}:{project:Row;data:Data;run
     <div className="project-head"><div><h1>{project.name}</h1><div className="subtle">{name(data.contacts,project.contact_id)} · Termin {date(project.due)}</div></div><Pill label={projectStages[project.stage]} tone="accent"/></div>
     <nav className="tabs" aria-label="Projektansichten">{Object.entries(tabs).map(([key,label])=><button key={key} aria-current={tab===key?'page':undefined} onClick={()=>setTab(key)}>{label}</button>)}</nav>
     {tab==='overview' && <Overview project={project} data={data} run={run} haben={flags.haben}/>}
-    {tab==='tasks' && <Kanban project={project} data={data} run={run}/>}
+    {tab==='tasks' && <Kanban viewerId={viewerId} project={project} data={data} run={run}/>}
     {tab==='planning' && <Planning project={project} data={data} run={run}/>}
     {tab==='finance' && <Controlling project={project} data={data} run={run}/>}
     {tab==='communication' && <Communication project={project} zammad={flags.zammad} run={run}/>}
@@ -75,11 +75,21 @@ function Overview({project,data,run,haben}:{project:Row;data:Data;run:Run;haben:
   </div>;
 }
 
-function Kanban({project,data,run}:{project:Row;data:Data;run:Run}) {
-  const tasks=data.tasks.filter((task)=>task.project_id===project.id);
+function Kanban({project,data,run,viewerId}:{project:Row;data:Data;run:Run;viewerId:string}) {
+  const [assignee,setAssignee]=useState('all');
+  const tasks=data.tasks.filter((task)=>task.project_id===project.id && (
+    assignee==='all' || (assignee==='me' && task.assignee_id===viewerId) || (assignee==='unassigned' && !task.assignee_id)
+  ));
   return <>
     <Panel title="Aufgaben" action={<span className="subtle">{tasks.length} Aufgaben</span>}>
-      <div className="panel-body"><Expand title="Aufgabe anlegen">
+      <div className="panel-body">
+        <label className="filter"><span>Aufgaben anzeigen</span><select value={assignee} onChange={(event)=>setAssignee(event.target.value)}>
+          <option value="all">Alle</option>
+          <option value="me">Mir zugeordnet</option>
+          <option value="unassigned">Ohne Zuständigkeit</option>
+        </select></label>
+        {assignee!=='all' && !tasks.length && <p role="status" className="subtle">Keine Aufgaben für diesen Filter.</p>}
+        <Expand title="Aufgabe anlegen">
         <Form caption="Aufgabe speichern" fields={[
           {name:'name',label:'Aufgabe',required:true},{name:'assignee_id',label:'Verantwortlich',choices:options(data.users)},
           {name:'due',label:'Fällig am',type:'date'},

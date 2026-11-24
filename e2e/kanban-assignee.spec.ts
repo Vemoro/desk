@@ -1,0 +1,50 @@
+import { expect, test } from '@playwright/test';
+import { project, signIn } from './session';
+
+test('Kanban filtert nach Konto und erhält Statuswechsel sowie Neuzuordnung',async({page})=>{
+  await signIn(page);
+  const origin=new URL(page.url()).origin;
+  const me=await (await page.request.get('/api/v1/me')).json();
+  const users=await (await page.request.get('/api/v1/users')).json();
+  const other=users.find((user:{id:string;name:string})=>user.name==='Noah Beispiel');
+  const contacts=await (await page.request.get('/api/v1/contacts')).json();
+  const suffix=crypto.randomUUID().slice(0,8);
+  async function add(path:string,data:unknown){
+    const response=await page.request.post('/api/v1/'+path,{headers:{Origin:origin},data});
+    expect(response.status()).toBe(201);
+    return response.json();
+  }
+  const first=await add('projects',{name:'Muster Kanban '+suffix,contact_id:contacts[0].id});
+  const second=await add('projects',{name:'Muster Folgeauftrag '+suffix,contact_id:contacts[0].id});
+  await add('tasks',{name:'Eigene Aufgabe',project_id:first.id,assignee_id:me.id});
+  await add('tasks',{name:'Fremde Aufgabe',project_id:first.id,assignee_id:other.id});
+  await add('tasks',{name:'Nicht zugeordnet',project_id:first.id,assignee_id:null});
+  await add('tasks',{name:'Anderes Projekt',project_id:second.id,assignee_id:other.id});
+  await page.reload();
+  await project(page,first.name);
+  await page.getByRole('button',{name:'Kanban',exact:true}).click();
+  const filter=page.getByRole('combobox',{name:'Aufgaben anzeigen'});
+  const column=(label:string)=>page.locator('.board-column').filter({has:page.getByRole('heading',{name:new RegExp('^'+label)})});
+  await expect(column('Offen').getByRole('heading')).toHaveText('Offen 3');
+  await filter.selectOption('me');
+  await expect(column('Offen').getByRole('heading')).toHaveText('Offen 1');
+  await expect(page.getByText('Fremde Aufgabe',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('Anderes Projekt',{exact:true})).toHaveCount(0);
+  const own=page.getByRole('article').filter({hasText:'Eigene Aufgabe'});
+  await own.getByLabel('Status für Eigene Aufgabe').selectOption('doing');
+  await expect(column('In Arbeit').getByText('Eigene Aufgabe',{exact:true})).toBeVisible();
+  await own.dragTo(column('Prüfung'),{sourcePosition:{x:12,y:12},targetPosition:{x:20,y:70}});
+  await expect(column('Prüfung').getByRole('heading')).toHaveText('Prüfung 1');
+  await own.getByText('Bearbeiten',{exact:true}).click();
+  await own.getByLabel('Verantwortlich').selectOption(other.id);
+  await own.getByRole('button',{name:'Aufgabe aktualisieren'}).click();
+  await expect(page.getByText('Keine Aufgaben für diesen Filter.')).toBeVisible();
+  await filter.selectOption('unassigned');
+  await expect(page.getByText('Nicht zugeordnet',{exact:true})).toBeVisible();
+  await expect(page.getByText('Eigene Aufgabe',{exact:true})).toHaveCount(0);
+  await project(page,second.name);
+  await page.getByRole('button',{name:'Kanban',exact:true}).click();
+  await expect(filter).toHaveValue('all');
+  await expect(page.getByText('Anderes Projekt',{exact:true})).toBeVisible();
+  await expect(page.getByText('Nicht zugeordnet',{exact:true})).toHaveCount(0);
+});

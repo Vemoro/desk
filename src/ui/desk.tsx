@@ -103,7 +103,7 @@ export function Desk() {
       {section!=='projects'||!project?<header className="page-title"><h1>{sections[section][0]}</h1></header>:null}
       {alert}
       {section==='dashboard' && <Dashboard data={data} select={(id)=>navigate('projects',id)} open={()=>navigate('projects')}/>}
-      {section==='projects' && (project?<Project key={project.id} project={project} data={data} run={run} flags={flags} back={()=>navigate('projects')}/>
+      {section==='projects' && (project?<Project key={project.id} viewerId={person.id} project={project} data={data} run={run} flags={flags} back={()=>navigate('projects')}/>
         :<Projects data={data} run={run} select={(id)=>navigate('projects',id)}/>)}
       {section==='contacts' && <Contacts data={data} run={run} haben={flags.haben}/>}
       {section==='warehouse' && <Warehouse data={data} run={run}/>}
