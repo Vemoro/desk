@@ -116,6 +116,17 @@ function localDayRange(value:string) {
   return {start:midnight(day),end:midnight(day+1)};
 }
 
+function reservationDuration(start:string,end:string) {
+  const totalMinutes=Math.floor((Date.parse(end)-Date.parse(start))/60_000);
+  if(!Number.isFinite(totalMinutes) || totalMinutes<0) return null;
+  const hours=Math.floor(totalMinutes/60);
+  const minutes=totalMinutes%60;
+  const minuteLabel=`${minutes} ${minutes===1?'Minute':'Minuten'}`;
+  if(!hours) return minuteLabel;
+  const hourLabel=`${hours} ${hours===1?'Stunde':'Stunden'}`;
+  return minutes ? `${hourLabel} ${minuteLabel}` : hourLabel;
+}
+
 function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
   const [resourceFilter,setResourceFilter]=useState('');
   const [statusFilter,setStatusFilter]=useState('');
@@ -164,7 +175,7 @@ function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
       ]} submit={(v)=>run(()=>api('reservations','POST',{...v,project_id:project.id,quantity:Number(v.quantity),starts_at:dateTime(v.starts_at),ends_at:dateTime(v.ends_at)}),'Inventar vorgemerkt.')}/></Expand>
     </div>{visibleReservations.length ? <Table headers={['Ressource','Zeitraum','Menge','Noch ausgegeben','Status','Aktion']} rows={visibleReservations.map((row)=>({
       key:row.id,cells:[row.user_id ? name(data.users,row.user_id) : <>{name(data.items,row.item_id)}<small>{name(data.locations,row.location_id)}</small></>,
-        <>{moment(row.starts_at)}<small>bis {moment(row.ends_at)}</small></>,row.quantity,
+        <>{moment(row.starts_at)}<small>bis {moment(row.ends_at)}</small><small>{reservationDuration(row.starts_at,row.ends_at)}</small></>,row.quantity,
         equipmentIds.has(row.item_id) ? row.checked_out ?? '–' : '–',
         <Pill label={reservationStages[row.status]} tone={row.status==='firm'?'accent':'neutral'}/>,
         <div className="actions">{row.status==='tentative' && ['confirmed','running'].includes(project.stage) && <button onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'firm'}),'Fest reserviert.')}>Fest reservieren</button>}
