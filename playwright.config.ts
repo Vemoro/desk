@@ -1,6 +1,6 @@
 import { defineConfig,devices } from '@playwright/test';
 
-const baseURL=process.env.DESK_E2E_URL ?? 'http://127.0.0.1:4173';
+const baseURL=process.env.DESK_E2E_URL ?? 'http://localhost:4173';
 export default defineConfig({
   testDir:'./e2e',
   use:{baseURL,locale:'de-DE',timezoneId:'Europe/Berlin',trace:'retain-on-failure'},
@@ -10,7 +10,7 @@ export default defineConfig({
     env:{DESK_ORIGIN:baseURL},reuseExistingServer:!process.env.CI,
   },
   projects:[
-    {name:'core',testMatch:'core.spec.ts',use:{...devices['Desktop Chrome']}},
+    {name:'core',testMatch:['core.spec.ts','movement-retry.spec.ts','reservation-retry.spec.ts','warehouse-checkouts.spec.ts','movement-location.spec.ts','booking-labels.spec.ts','warehouse-location-acceptance.spec.ts','navigation.spec.ts','refresh-after-save.spec.ts','load-order.spec.ts','passkeys.spec.ts'],use:{...devices['Desktop Chrome']}},
     {name:'screenshots',testMatch:'screenshots.spec.ts',use:{...devices['Desktop Chrome']}},
   ],
 });
