@@ -20,6 +20,8 @@
   "dependencies": {
     "@tanstack/react-router": "^1.169.7",
     "@tanstack/react-start": "^1.169.7",
+    "better-auth": "1.7.14",
+    "pg": "8.23.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "zod": "^4.3.0"
@@ -27,6 +29,7 @@
   "devDependencies": {
     "@playwright/test": "^1.59.0",
     "@types/bun": "latest",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^6.3.0",

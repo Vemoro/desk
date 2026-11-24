@@ -35,7 +35,7 @@ Ergebnis, Fehlschläge und Auslassungen mit Grund gehören in den PR. Eine Wiede
 
 ### Befehle und Screenshot-Workflow
 
-Nutze die Befehle der jeweiligen Zielbasis. Wenn auf dieser Basis die Desk-Anwendung vorhanden ist, gehören je nach Änderung `bun run build`, `bun run check`, `bun run migrate`, `bun run test` und bei betroffener Bedienung `bun run e2e` dazu. Integration und Browser verwenden getrennte PostgreSQL-Datenbanken mit `_test` beziehungsweise `_demo` und isolierte Testinstanzen.
+Nutze die Befehle der jeweiligen Zielbasis. Wenn auf dieser Basis die Desk-Anwendung vorhanden ist, gehören je nach Änderung `bun run build`, `bun run check`, `bun run migrate`, `bun run test` und bei betroffener Bedienung `bun run e2e` dazu. Integration und Browser verwenden getrennte PostgreSQL-Datenbanken mit `_test` beziehungsweise `_demo` und isolierte Testinstanzen. Setze für Anmelde- und Browserprüfungen ein eigenes `DESK_AUTH_SECRET` und die Testadresse in `DESK_ORIGIN`.
 
 Die Anwendung erzeugt die TanStack-Routendatei beim ersten Build oder Entwicklungsstart. Für Browserfälle und Doku-Bilder lädt `bun run demo` mit `DESK_DEMO_PASSWORD` die synthetischen Beispieldaten des Muster Auftragsservice. `bunx playwright install chromium` installiert den Browser. Mit `DESK_E2E_URL` kann eine bereits gestartete isolierte Instanz verwendet werden.
 
