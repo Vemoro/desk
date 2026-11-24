@@ -20,6 +20,8 @@ test('Passkeys gehören einem eigenen Konto und funktionieren neben dem Passwort
   });
   expect(member.status()).toBe(201);
   await page.getByRole('button',{name:'Mein Konto',exact:true}).click();
+  const options=await (await page.request.get(passkeyPath+'generate-register-options')).json();
+  expect(options.authenticatorSelection).toMatchObject({residentKey:'required',userVerification:'required'});
   const label='Muster Sicherheitsschlüssel';
   await page.getByLabel('Name für den Passkey').fill(label);
   await page.getByRole('button',{name:'Passkey hinzufügen'}).click();
@@ -60,6 +62,8 @@ test('Passkeys gehören einem eigenen Konto und funktionieren neben dem Passwort
 
   await page.getByRole('button',{name:'Abmelden',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Anmelden',exact:true})).toBeVisible();
+  const signInOptions=await (await page.request.get(passkeyPath+'generate-authenticate-options')).json();
+  expect(signInOptions.userVerification).toBe('required');
   await page.evaluate(()=>{
     const get=navigator.credentials.get.bind(navigator.credentials);
     navigator.credentials.get=(options)=>{
@@ -77,5 +81,7 @@ test('Passkeys gehören einem eigenen Konto und funktionieren neben dem Passwort
   await expect(page.getByRole('button',{name:`Passkey ${label} entfernen`})).toHaveCount(0);
 
   await page.getByRole('button',{name:'Abmelden',exact:true}).click();
+  await page.getByRole('button',{name:'Mit Passkey anmelden'}).click();
+  await expect(page.getByRole('alert')).toContainText('Anmeldung mit Passkey wurde nicht abgeschlossen');
   await signIn(page);
 });

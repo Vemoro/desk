@@ -12,7 +12,8 @@ const endpoints=new Map([
 const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
 
 export async function handlePasskey(request:Request) {
-  const requiresSession=endpoints.get(`${request.method} ${new URL(request.url).pathname}`);
+  const path=new URL(request.url).pathname;
+  const requiresSession=endpoints.get(`${request.method} ${path}`);
   if(requiresSession===undefined) return Response.json({message:'Endpunkt nicht gefunden.'},{status:404,headers});
   try {
     const origin=new URL(process.env.DESK_ORIGIN ?? request.url).origin;
@@ -24,6 +25,12 @@ export async function handlePasskey(request:Request) {
     }
     const response=await deskAuth().handler(request);
     for(const [name,value] of Object.entries(headers)) response.headers.set(name,value);
+    if(response.ok && path==='/api/auth/passkey/generate-authenticate-options') {
+      const options=await response.json();
+      const responseHeaders=new Headers(response.headers);
+      responseHeaders.delete('Content-Length');
+      return Response.json({...options,userVerification:'required'},{headers:responseHeaders});
+    }
     return response;
   } catch(error) {
     const status=error instanceof APIError ? error.statusCode : 500;
