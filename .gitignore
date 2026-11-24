@@ -1,4 +1,5 @@
 .env
+/.env.selfhost
 data/
 node_modules/
 *.sqlite

@@ -12,7 +12,7 @@ Desk kann eigenständig arbeiten oder ein Zammad-System für Tickets und Nachric
 
 1. Einen Desk-Stand festlegen und dessen Commit oder Release für spätere Updates dokumentieren. Für Desk eine eigene PostgreSQL-Datenbank bereitstellen. Die lokale Compose-Datei verwendet PostgreSQL 17. [Compose-Datei](../compose.yaml)
 2. Desk mit dem [Dockerfile](../Dockerfile) oder aus dem Quellcheckout bauen. `DATABASE_URL` für die Desk-Datenbank und `DESK_ORIGIN` auf die tatsächlich verwendete HTTPS-Adresse setzen. `DESK_AUTH_SECRET` mit einem zufälligen Wert aus mindestens 32 Zeichen dauerhaft im Desk-Dienst hinterlegen. Zugangsdaten über die Laufzeitkonfiguration bereitstellen.
-3. Vor dem Dienststart die Migration für den gewählten Installationsweg anwenden und das erste Admin-Konto mit der passenden CLI anlegen. Für eine Probeinstallation eine eigene Instanz und eine Demo-Datenbank mit dem Suffix `_demo` verwenden. [Lokaler Einstieg](../README.md) · [Betrieb](desk.md#betrieb) · [Admin-CLI](desk.md#update-auf-better-auth) · [Demo-Daten](entwicklung.md#befehle-und-screenshot-workflow)
+3. Vor dem Dienststart die Migration für den gewählten Installationsweg anwenden und das erste Admin-Konto mit der passenden CLI anlegen. Für Proben eine eigene Instanz verwenden. Wer die vorbereiteten Demodaten lädt, braucht eine Datenbank mit dem Suffix `_demo`. Für die Probe des eigenständigen Compose-Beispiels ein eigenes Compose-Projekt mit neuem Volume und freiem `DESK_PORT` verwenden und die Testdaten dort von Hand anlegen. [Lokaler Einstieg](../README.md) · [Betrieb](desk.md#betrieb) · [Admin-CLI](desk.md#update-auf-better-auth) · [Demo-Daten](entwicklung.md#befehle-und-screenshot-workflow)
 
 ## A · Neue Zammad-Instanz einbinden
 
@@ -32,6 +32,40 @@ Für diesen Weg ist ein separat aktualisierbarer Zammad-Compose-Stack als option
 
 `ZAMMAD_URL` und `ZAMMAD_TOKEN` bleiben ungesetzt. Nach dem Start in **Kommunikation** einen Vorgangslink und eine kurze Notiz im Musterprojekt speichern. Nach dem Neuladen müssen beide Angaben sichtbar sein. Der Desk-Projektablauf einschließlich Planung und Lager läuft eigenständig. [Auftragsablauf in Desk](desk.md#ein-auftrag)
 
+### Eigenständiger Start mit Docker Compose
+
+Vorausgesetzt sind Docker Engine ab Version 28, das Compose-Plugin ab Version 2.20, eine Shell mit OpenSSL und ein Reverse Proxy auf dem Compose-Host. Das Beispiel verwendet PostgreSQL 17 und baut Desk mit der im Dockerfile festgelegten Bun-Version aus dem ausgecheckten Stand. Desk verbindet sich im Compose-Netz mit PostgreSQL. PostgreSQL veröffentlicht keinen Hostport. [Docker-Portfreigaben](https://docs.docker.com/engine/network/port-publishing/) · [Compose für den Betrieb](../compose.selfhost.yaml) · [Dockerfile](../Dockerfile)
+
+Kopiere die [Vorlage](../.env.selfhost.example) bei der Erstinstallation nach `.env.selfhost`. `umask 077` beschränkt den Zugriff auf die neu angelegte Datei. Erzeuge mit `openssl rand -hex 32` zwei unabhängige Werte und trage sie als `DESK_DB_PASSWORD` und `DESK_AUTH_SECRET` ein. Das Hex-Format lässt sich direkt in der Datenbank-URL verwenden. Bewahre das Auth-Secret für Neustarts und Updates auf.
+
+```sh
+umask 077
+cp -i .env.selfhost.example .env.selfhost
+openssl rand -hex 32
+openssl rand -hex 32
+```
+
+Trage als `DESK_ORIGIN` die öffentliche HTTPS-Adresse ohne Pfad ein. Leite im Reverse Proxy diese Adresse per HTTP an `127.0.0.1:3000` weiter oder verwende den in `DESK_PORT` gewählten Port. Der Proxy terminiert TLS und reicht den öffentlichen Host und das ursprüngliche HTTPS-Protokoll weiter. Die Adresse im Browser muss mit `DESK_ORIGIN` übereinstimmen.
+
+Führe die folgenden Befehle im Repository in einer Bash aus. Nach dem Datenbankstart wendet der erste einmalige Desk-Container die Migration an. Der zweite legt das erste Administrationskonto an. Ersetze die Beispieladresse und verwende ein eigenes starkes Passwort, das bei der Eingabe nicht angezeigt wird. Der Block bricht bei einem Fehler vor dem Dienststart ab. Die Passwortvariable des Administrationskontos endet mit der Subshell.
+
+```bash
+(
+  set -e
+  docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost build desk
+  docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost up -d --wait db
+  docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost run --rm desk bun scripts/migrate.ts
+  read -rsp 'Passwort für das Desk-Administrationskonto: ' DESK_ADMIN_PASSWORD
+  printf '\n'
+  export DESK_ADMIN_PASSWORD
+  docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost run --rm -e DESK_ADMIN_PASSWORD desk bun scripts/admin.ts admin@example.test 'Desk Administration'
+  unset DESK_ADMIN_PASSWORD
+  docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost up -d desk
+)
+```
+
+Melde dich danach über die HTTPS-Adresse an. Unter **Einstellungen → Integrationen** stehen **Haben optional** und **Zammad optional**. Für einen späteren Start desselben Versionsstands genügt `docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost up -d`. Verwende denselben Compose-Projektnamen, dieselbe Konfiguration und dasselbe Datenbankvolume. Das Volume enthält Konten und Projekte. Beim Wechsel des Desk-Stands Datenbank und Konfiguration sichern, den bisherigen Desk-Dienst anhalten, die Migration mit dem neuen Image ausführen und den Dienst aktualisieren. [Betrieb und Versionswechsel](desk.md#betrieb)
+
 ## Updates und Rückkehr zum letzten funktionierenden Stand
 
 | Weg | Vor dem Update | Rückkehr bei Problemen |
@@ -48,4 +82,4 @@ Vor der Freigabe einer wiederhergestellten Desk-Datenbank alle vorhandenen Desk-
 
 - **A.** Die lokale API-Simulation bestätigte die Ticketanlage mit Testgruppe und interner Notiz. In einer isolierten Umgebung den gewählten Zammad-Stack, dessen Wiederherstellung und die vollständige Ticketprobe abnehmen. Danach die unterstützte Version, den Aufbau und den Updatepfad der optionalen Installation festlegen.
 - **B.** Die Verknüpfung und der Abruf eines vorhandenen Tickets samt Artikel wurden lokal simuliert. Die Abnahme an der vorgesehenen Zammad-Version benötigt eine Testgruppe und ein Testpostfach sowie abgestimmte Rechte. Die echte Zustellung bleibt Teil der [Release-Abnahme](release-abnahme.md).
-- **C.** Vorgangslink und Kommunikationsnotiz blieben in einer isolierten Desk-Demo nach dem Speichern und Neuladen erhalten. Die eigene Compose-Installation für diesen Weg wird separat umgesetzt. [Issue #200](https://github.com/Vemoro/desk/issues/200)
+- **C.** Bei der eigenständigen Compose-Installation den Admin-Login und die deaktivierten Integrationen prüfen. Im Testprojekt Vorgangslink und Kommunikationsnotiz speichern. Nach dem Neustart beider Dienste müssen beide Angaben weiterhin sichtbar sein.
