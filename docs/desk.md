@@ -3,7 +3,7 @@
 ## Ein Auftrag
 
 1. Einen Kontakt und ein Projekt anlegen. Aufgaben im Kanban verteilen und den Projektstatus auf Planung setzen.
-2. Personal und Inventar vormerken. Geplante Einkaufskosten und Verkaufspositionen erfassen. Die Verkaufspositionen können als CSV exportiert werden. Beim Entfernen zeigt Desk den Namen der Position zur Bestätigung.
+2. Personal und Inventar vormerken. Geplante Einkaufskosten und Verkaufspositionen erfassen. Die Kalkulation zeigt die Netto-Gesamtsummen für Einkauf und Verkauf. Die Verkaufspositionen können als CSV exportiert werden. Beim Entfernen zeigt Desk den Namen der Position zur Bestätigung.
 3. Eine Angebotsreferenz ergänzen. Bei eingerichteter Haben-Verbindung die ID des vorhandenen Angebots eintragen und abgleichen. Desk zeigt den Status des Angebots an und kann die Bestätigung übernehmen. Ohne Haben wird der Projektstatus von Hand gesetzt.
 4. Nach der Bestätigung Ressourcen fest reservieren. Zeitliche Überschneidungen bei Personal und Geräten sowie Mengenüberschreitungen werden abgelehnt. Eine Freigabe entfernt die Reservierung. Bereits ausgegebene Geräte bleiben bis zur Rückgabe sichtbar.
 5. Im Projektlager Wareneingang erfassen. Bei einer festen Reservierung kann das Team Geräte ausgeben und später zurücknehmen oder Verbrauchsmaterial ausbuchen. Die Bestandsübersicht zeigt beim Gerät die aktuell geltenden festen Vormerkungen. Die Ressourcenplanung berücksichtigt bei neuen Reservierungen das gewählte Zeitfenster.

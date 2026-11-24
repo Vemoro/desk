@@ -10,6 +10,8 @@ const transitions:Record<string,string[]> = {
   confirmed:['running','cancelled'], running:['complete','cancelled'], complete:[],cancelled:[],
 };
 const dateTime = (value:string) => new Date(value).toISOString();
+const plannedTotal = (lines:Row[],kind:'buy'|'sell') =>
+  lines.filter((row)=>row.kind===kind).reduce((sum,row)=>sum+row.quantity*row.unit_cents,0);
 
 export function Projects({data,run,select}:{data:Data;run:Run;select:(id:string)=>void}) {
   const [filter,setFilter]=useState('');
@@ -133,7 +135,12 @@ function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
           {row.status!=='released' && <button onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'released'}),'Reservierung freigegeben.')}>Freigeben</button>}</div>],
     }))}/></Panel>
     <Panel title="Kalkulation" focusRef={calculationPanel} action={<button onClick={()=>run(async()=>downloadPositions(project,await api(`projects/${project.id}/offer-positions`)),undefined,'read')}>Angebotspositionen exportieren</button>}>
-      <div className="panel-body"><Expand title="Position anlegen"><Form caption="Position speichern" fields={[
+      <div className="panel-body">
+        <div className="metrics calculation-totals" role="group" aria-label="Kalkulationssummen">
+          <div className="metric"><span>Einkauf netto</span><strong>{euros(plannedTotal(lines,'buy'))}</strong></div>
+          <div className="metric"><span>Verkauf netto</span><strong>{euros(plannedTotal(lines,'sell'))}</strong></div>
+        </div>
+        <Expand title="Position anlegen"><Form caption="Position speichern" fields={[
         {name:'kind',label:'Art',choices:[{value:'buy',label:'Einkauf'},{value:'sell',label:'Verkauf'}],required:true},
         {name:'name',label:'Position',required:true},{name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},
         {name:'unit',label:'Einzelpreis netto in Euro',required:true},
@@ -163,11 +170,11 @@ function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
 export function Controlling({project,data,run}:{project:Row;data:Data;run:Run}) {
   const lines=data.lines.filter((row)=>row.project_id===project.id);
   const costs=data.costs.filter((row)=>row.project_id===project.id);
-  const budget=(kind:string)=>lines.filter((row)=>row.kind===kind).reduce((sum,row)=>sum+row.quantity*row.unit_cents,0);
+  const plannedBuy=plannedTotal(lines,'buy');
   const actual=costs.reduce((sum,row)=>sum+row.cents,0);
   return <>
     <div className="metrics">{[
-      ['Einkauf geplant',budget('buy')],['Ist-Kosten',actual],['Abweichung',actual-budget('buy')],['Verkauf geplant',budget('sell')],
+      ['Einkauf geplant',plannedBuy],['Ist-Kosten',actual],['Abweichung',actual-plannedBuy],['Verkauf geplant',plannedTotal(lines,'sell')],
     ].map(([label,value])=><div className="metric" key={label}><span>{label}</span><strong>{euros(Number(value))}</strong></div>)}</div>
     <Panel title="Belegbezogene Ist-Kosten">
       <div className="panel-body"><Expand title="Ist-Kosten erfassen"><Form caption="Kosten speichern" fields={[
