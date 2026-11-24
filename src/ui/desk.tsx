@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { all, api, ApiError, compileCsv, date, euros, moment, money, movementStages, name, projectStages, type Row } from './client';
 import { Project, Projects, type Data } from './projects';
-import { Expand, Form, options, Panel, Pill, Table, type Run } from './widgets';
+import { Expand, Form, noWrite, options, Panel, Pill, Table, type Run } from './widgets';
 import { Icon } from './icons';
 import { Navigation, sections, type Person, type Section } from './navigation';
 
@@ -101,13 +101,15 @@ export function Desk() {
 
   const run:Run=async(operation,feedback,{kind='write',reportWriteRejection}={})=>{
     const session=sessionVersion.current;
+    const isCurrent=()=>session===sessionVersion.current;
     setNotice({message:'',error:false});
     try {
-      await operation();
-      if(session!==sessionVersion.current) return false;
+      const result=await operation(isCurrent);
+      if(!isCurrent()) return false;
+      if(result===noWrite) return true;
       if(kind==='read' && !await load(session)) return true;
     } catch(error) {
-      if(session!==sessionVersion.current) return false;
+      if(!isCurrent()) return false;
       if(reportWriteRejection && error instanceof ApiError && [400,409].includes(error.status)) throw error;
       if(error instanceof ApiError && error.status===401) endSession();
       setNotice({message:error instanceof Error?error.message:'Die Aktion ist fehlgeschlagen.',error:true});
@@ -117,7 +119,7 @@ export function Desk() {
       savedVersion.current++;
       if(!await refreshSavedData(session)) return true;
     }
-    if(feedback && session===sessionVersion.current)setNotice({message:feedback,error:false});
+    if(feedback && isCurrent())setNotice({message:feedback,error:false});
     return true;
   };
 
@@ -213,18 +215,20 @@ function Contacts({data,run,haben}:{data:Data;run:Run;haben:boolean}) {
 
   async function sync(input:unknown) {
     if(!contact)return;
-    return run(async()=>{
+    return run(async(isCurrent)=>{
       const result=await api(`contacts/${contact.id}/haben`,'POST',input);
       if(result.action==='error')throw new Error(result.message);
-      setComparison(result);
+      if(isCurrent()) setComparison(result);
+      if(result.action==='conflict') return noWrite;
     });
   }
 
   return <>
     <Panel title="Interessenten und Kontakte" action={haben&&<button onClick={()=>run(()=>api('haben/contacts/import','POST',{}),'Haben-Kontakte importiert.')}>Aus Haben importieren</button>}>
       <div className="panel-body"><label className="filter"><span>Kontakte suchen</span><input type="search" value={search} onChange={(event)=>setSearch(event.target.value)}/></label>
-        <Expand title="Kontakt anlegen"><Form caption="Kontakt speichern" fields={fields()} submit={(input)=>run(async()=>{
-          const result=await api('contacts','POST',input);setSelected(result.id);setComparison(undefined);
+        <Expand title="Kontakt anlegen"><Form caption="Kontakt speichern" fields={fields()} submit={(input)=>run(async(isCurrent)=>{
+          const result=await api('contacts','POST',input);
+          if(isCurrent()) {setSelected(result.id);setComparison(undefined);}
         },'Kontakt angelegt.')}/></Expand></div>
       <Table headers={['Name','E-Mail','Telefon']} rows={data.contacts.filter((row)=>`${row.name} ${row.email}`.toLowerCase().includes(search.toLowerCase()))
         .map((row)=>({key:row.id,cells:[<button className="text-button" onClick={()=>{setSelected(row.id);setComparison(undefined);}}>{row.name}</button>,row.email||'–',row.phone||'–']}))}/>
@@ -345,10 +349,10 @@ function Settings({data,run,flags}:{data:Data;run:Run;flags:{haben:boolean;zamma
     <Panel title="API-Zugriff" action={<a href="/api/v1/openapi.json" target="_blank" rel="noreferrer">OpenAPI</a>}><div className="panel-body">
       <Expand title="API-Token erzeugen"><Form caption="Token erzeugen" fields={[
         {name:'label',label:'Name',required:true},{name:'scope',label:'Berechtigung',choices:[{value:'read',label:'Lesen'},{value:'write',label:'Lesen und schreiben'}],required:true},
-      ]} submit={(input)=>run(async()=>{const result=await api('tokens','POST',input);setIssued(result.token); await refresh();},'API-Token erzeugt.')}/></Expand>
+      ]} submit={(input)=>run(async(isCurrent)=>{const result=await api('tokens','POST',input);if(isCurrent()) {setIssued(result.token);await refresh();}},'API-Token erzeugt.')}/></Expand>
       {issued&&<label><span>Token jetzt kopieren</span><input value={issued} readOnly onFocus={(e)=>e.target.select()}/></label>}
     </div><Table headers={['Name','Berechtigung','Aktion']} rows={tokens.map((row)=>({key:row.id,cells:[row.label,row.scope==='read'?'Lesen':'Lesen und schreiben',
-      <button onClick={()=>run(async()=>{await api(`tokens/${row.id}`,'DELETE');setIssued('');await refresh();},'Token widerrufen.')}>Widerrufen</button>,
+      <button onClick={()=>run(async(isCurrent)=>{await api(`tokens/${row.id}`,'DELETE');if(isCurrent()) {setIssued('');await refresh();}},'Token widerrufen.')}>Widerrufen</button>,
     ]}))}/></Panel>
     <Panel title="Integrationen"><div className="panel-body actions">
       <Pill label={flags.haben?'Haben eingerichtet':'Haben optional'} tone={flags.haben?'accent':'neutral'}/>

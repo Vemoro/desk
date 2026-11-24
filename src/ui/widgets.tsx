@@ -1,8 +1,10 @@
 import { useEffect, useEffectEvent, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { ApiError, type Row } from './client';
 
+export const noWrite = Symbol('noWrite');
+
 type RunOptions = { kind?:'read'|'write'; reportWriteRejection?:boolean };
-export type Run = (operation:()=>Promise<unknown>, feedback?:string, options?:RunOptions)=>Promise<boolean>;
+export type Run = (operation:(isCurrent:()=>boolean)=>Promise<unknown>, feedback?:string, options?:RunOptions)=>Promise<boolean>;
 type Field = {
   name:string; label:string; type?:string; placeholder?:string; value?:string|number;
   required?:boolean; choices?:{value:string;label:string}[]; min?:number; max?:number; autoComplete?:string; onChange?:(value:string)=>void; describedBy?:string;
