@@ -94,3 +94,64 @@ test('Ein alter Abruf bleibt nach Verlassen der Kommunikation wirkungslos',async
   await expect(page.getByText('Verlassener Verlauf',{exact:true})).toHaveCount(0);
   await expect(page.getByText(phase,{exact:true})).toBeVisible();
 });
+
+
+for(const [order,status] of [['old-first',200],['old-first',503],['latest-first',200],['latest-first',503]] as const){
+  test(`Ladeanzeige folgt dem jüngsten Abruf bei ${order} und HTTP ${status}`,async({page})=>{
+    const initial=hold();
+    const older=hold();
+    const latest=hold();
+    const requests=[
+      {gate:initial,subject:'Ausgangsverlauf',status:200},
+      {gate:older,subject:'Alter Verlauf',status:200},
+      {gate:latest,subject:'Neuer Verlauf',status},
+    ];
+    let phase=0;
+    await page.route('**/api/v1/projects?*',route=>route.fulfill({json:[record]}));
+    await page.route('**/api/v1/integrations',route=>route.fulfill({json:{zammad:true,haben:false}}));
+    await page.route(path,async route=>{
+      const request=requests[phase];
+      expect(request).toBeDefined();
+      request.gate.arrival();
+      await request.gate.wait;
+      if(request.status===503) await route.fulfill({status:503,json:{error:'Neuer Fehler'}});
+      else await route.fulfill({json:{...thread(request.subject),outgoing:[
+        {id:'muster-versuch',subject:'Musterangebot',status:'unknown'},
+      ]}});
+    });
+    await signIn(page);
+    await project(page,record.name);
+    await page.getByRole('button',{name:'Kommunikation',exact:true}).click();
+    await initial.arrived;
+    const panel=page.getByRole('region',{name:'Zammad'});
+    const loading=panel.getByRole('status').filter({hasText:'Verlauf wird geladen …'});
+    const refresh=panel.getByRole('button',{name:'Verlauf aktualisieren'});
+    await expect(loading).toBeVisible();
+    await settle(page,initial);
+    await expect(loading).toHaveCount(0);
+    await expect(panel.getByText('Ausgangsverlauf',{exact:true})).toBeVisible();
+
+    phase=1;
+    await refresh.click();
+    await older.arrived;
+    await expect(loading).toBeVisible();
+    await expect(panel.getByText('Ausgangsverlauf',{exact:true})).toBeVisible();
+    await expect(panel.getByRole('cell',{name:'Ausgang unklar',exact:true})).toBeVisible();
+    phase=2;
+    await refresh.click();
+    await latest.arrived;
+    if(order==='old-first'){
+      await settle(page,older);
+      await expect(loading).toBeVisible();
+    }
+    await settle(page,latest);
+    await expect(loading).toHaveCount(0);
+    if(order==='latest-first'){
+      await settle(page,older);
+      await expect(loading).toHaveCount(0);
+    }
+    await expect(panel.getByText('Alter Verlauf',{exact:true})).toHaveCount(0);
+    if(status===503) await expect(panel.getByRole('alert')).toHaveText('Neuer Fehler');
+    else await expect(panel.getByText('Neuer Verlauf',{exact:true})).toBeVisible();
+  });
+}

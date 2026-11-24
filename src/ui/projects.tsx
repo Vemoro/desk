@@ -214,6 +214,7 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
   const zammadPanel=useRef<HTMLElement>(null);
   const [conversation,setConversation]=useState<any>(null);
   const [problem,setProblem]=useState('');
+  const [loading,setLoading]=useState(false);
   const [file,setFile]=useState<File>();
   const [composeVersion,setComposeVersion]=useState(0);
   const [draft,setDraftState]=useState<ZammadDraft>();
@@ -247,6 +248,7 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
     const observedDraft=draftRef.current;
     const version=++requestVersion.current;
     const isCurrent=()=>active.current && requestVersion.current===version;
+    setLoading(true);
     try {
       const current=await api(`projects/${project.id}/zammad`);
       if (!isCurrent()) return;
@@ -260,6 +262,7 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
     catch(error) {
       if (isCurrent()) setProblem(error instanceof Error ? error.message : 'Verlauf nicht verfügbar.');
     }
+    finally { if (isCurrent()) setLoading(false); }
   }
   useEffect(()=>{
     active.current=true;
@@ -363,6 +366,7 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
           ]} submit={(v)=>run(()=>request('tickets',v),'Ticket angelegt.')}/></Expand>
         </> : <>
           <button onClick={()=>void refresh()}>Verlauf aktualisieren</button>
+          <p className={loading?"subtle":"sr-only"} role="status">{loading?"Verlauf wird geladen …":""}</p>
           <ol className="thread">{conversation?.articles.map((article:any)=><li key={article.id}>
             <div><strong>{article.subject || 'Nachricht'}</strong><small>{article.from} · {moment(article.created_at)}</small></div>
             <p>{article.content_type==='text/html' ? plainText(article.body) : article.body}</p>
