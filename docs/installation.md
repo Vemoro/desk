@@ -64,7 +64,9 @@ Führe die folgenden Befehle im Repository in einer Bash aus. Nach dem Datenbank
 )
 ```
 
-Der letzte Befehl wartet bis zu 60 Sekunden auf die Bereitschaft. Die Prüfung im Container ruft `/api/v1/ready` auf und setzt eine erreichbare Datenbank mit allen erwarteten Migrationen voraus. Bei einem Fehler zeigen `docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost ps` und die Dienstlogs den Zustand. [Desk-Bereitschaft](desk.md#betrieb)
+Nach dem Start der Container wartet Compose bis zu 60 Sekunden auf die Bereitschaft von Desk. Wenn PostgreSQL erst starten muss, kommt dessen Startzeit hinzu. Die Prüfung im Desk-Container ruft `/api/v1/ready` auf und setzt eine erreichbare Datenbank mit allen erwarteten Migrationen voraus. [Desk-Bereitschaft](desk.md#betrieb)
+
+Bei einem Startfehler zeigt `docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost ps -a` auch beendete und noch nicht gestartete Container. Die Dienstmeldungen zeigt `docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost logs desk db`.
 
 Melde dich danach über die HTTPS-Adresse an. Unter **Einstellungen → Integrationen** stehen **Haben optional** und **Zammad optional**. Für einen späteren Start desselben Versionsstands genügt der letzte Startbefehl. Verwende denselben Compose-Projektnamen, dieselbe Konfiguration und dasselbe Datenbankvolume. Das Volume enthält Konten und Projekte. Beim Wechsel des Desk-Stands Datenbank und Konfiguration sichern, den bisherigen Desk-Dienst anhalten, die Migration mit dem neuen Image ausführen und den Dienst aktualisieren. [Betrieb und Versionswechsel](desk.md#betrieb)
 
