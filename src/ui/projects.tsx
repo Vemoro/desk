@@ -11,8 +11,8 @@ const transitions:Record<string,string[]> = {
 };
 const dateTime = (value:string) => new Date(value).toISOString();
 
-export type ProjectFilters = { query:string; stage:string; due:string; contactId:string };
-export const defaultProjectFilters:ProjectFilters = {query:'',stage:'all',due:'all',contactId:''};
+export type ProjectFilters = { query:string; stage:string; due:string; contactId:string; sort:string };
+export const defaultProjectFilters:ProjectFilters = {query:'',stage:'all',due:'all',contactId:'',sort:'standard'};
 
 export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;select:(id:string)=>void;
   filters:ProjectFilters;onFilter:(filters:ProjectFilters)=>void;
@@ -51,6 +51,15 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
       || (filters.due==='missing' && !dueDate);
     return matchesSearch && matchesStage && matchesDue;
   });
+  if(filters.sort==='due'){
+    projects.sort((left,right)=>{
+      const leftDue=left.due?.slice(0,10);
+      const rightDue=right.due?.slice(0,10);
+      if(!leftDue) return rightDue?1:0;
+      if(!rightDue) return -1;
+      return leftDue.localeCompare(rightDue);
+    });
+  }
   return <>
     <Panel title="Projekte">
       <div className="panel-body">
@@ -71,10 +80,14 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
               {contact.email ? `${contact.name} · ${contact.email}` : contact.name}
             </option>)}
           </select></label>
+          <label><span>Projekte sortieren</span><select value={filters.sort} onChange={(event)=>onFilter({...filters,sort:event.target.value})}>
+            <option value="standard">Standard</option>
+            <option value="due">Frühester Termin zuerst</option>
+          </select></label>
         </div>
         <div className="actions">
           <span className="subtle" role="status">{projects.length===1?'1 Projekt gefunden.':`${projects.length} Projekte gefunden.`}</span>
-          <button type="button" onClick={()=>onFilter(defaultProjectFilters)} disabled={!filtered}>Filter zurücksetzen</button>
+          <button type="button" onClick={()=>onFilter({...defaultProjectFilters,sort:filters.sort})} disabled={!filtered}>Filter zurücksetzen</button>
         </div>
         <Expand title="Projekt anlegen">
           <Form caption="Projekt speichern" fields={[
