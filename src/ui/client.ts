@@ -21,9 +21,18 @@ export async function api<T = any>(path:string,method='GET',input?:unknown):Prom
     method, headers:input === undefined ? undefined : {'Content-Type':'application/json'},
     body:input === undefined ? undefined : JSON.stringify(input),
   });
-  const result = await response.json();
-  if (!response.ok) throw new ApiError(response.status,result.error ?? 'Die Aktion konnte nicht abgeschlossen werden.');
-  return result;
+  let result:unknown;
+  try {
+    result=await response.json();
+  } catch {
+    if(response.ok) throw new Error('Desk hat keine gültige JSON-Antwort erhalten.');
+  }
+  if(!response.ok) {
+    const message=result && typeof result==='object' && 'error' in result ? result.error : undefined;
+    throw new ApiError(response.status,typeof message==='string' && message.trim()
+      ? message : `Die Aktion konnte nicht abgeschlossen werden (HTTP ${response.status}).`);
+  }
+  return result as T;
 }
 
 export async function all(path:string):Promise<Row[]> {
