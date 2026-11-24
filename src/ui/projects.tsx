@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { api, date, downloadPositions, euros, moment, money, name, projectStages, reservationStages, taskStages, type Row } from './client';
+import { api, date, euros, moment, money, name, projectStages, reservationStages, taskStages, type Row } from './client';
+import { OfferExport } from './offer-export';
 import { ConfirmDialog, Expand, Form, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
 
 export type Data = Record<'contacts'|'projects'|'tasks'|'users'|'lines'|'reservations'|'locations'|'items'|'movements'|'costs'|'stock',Row[]>;
@@ -134,7 +135,7 @@ function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
         <div className="actions">{row.status==='tentative' && ['confirmed','running'].includes(project.stage) && <button onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'firm'}),'Fest reserviert.')}>Fest reservieren</button>}
           {row.status!=='released' && <button onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'released'}),'Reservierung freigegeben.')}>Freigeben</button>}</div>],
     }))}/></Panel>
-    <Panel title="Kalkulation" focusRef={calculationPanel} action={<button onClick={()=>run(async()=>downloadPositions(project,await api(`projects/${project.id}/offer-positions`)),undefined,'read')}>Angebotspositionen exportieren</button>}>
+    <Panel title="Kalkulation" focusRef={calculationPanel} action={<OfferExport project={project} run={run}/>}>
       <div className="panel-body">
         <div className="metrics calculation-totals" role="group" aria-label="Kalkulationssummen">
           <div className="metric"><span>Einkauf netto</span><strong>{euros(plannedTotal(lines,'buy'))}</strong></div>

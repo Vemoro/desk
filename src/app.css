@@ -125,3 +125,6 @@ tr:last-child td { border-bottom:0; }
 .confirm-dialog button[aria-disabled=true] { opacity:.65; cursor:wait; }
 
 .calculation-totals { grid-template-columns:repeat(2,minmax(0,1fr)); }
+
+.offer-preview { width:min(620px,calc(100% - 32px)); }
+.offer-preview .table-wrap { margin-top:14px; overflow-wrap:anywhere; }
