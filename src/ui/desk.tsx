@@ -232,10 +232,33 @@ function Warehouse({data,run}:{data:Data;run:Run}) {
         key:row.id,cells:[name(data.projects,row.project_id),name(data.items,row.item_id),name(data.locations,row.location_id),row.checked_out],
       }))}/> : <p className="empty" role="status">{openCheckouts.length?'Keine offenen Ausgaben für diese Filter.':'Es gibt keine offenen Ausgaben.'}</p>}
     </Panel>
-    <Panel title="Lagerbewegungen"><Table headers={['Zeitpunkt','Bewegung','Artikel','Lagerort','Projekt','Menge','Erfasst durch']} rows={data.movements.map((row)=>({key:row.id,cells:[
-      moment(row.created_at),movementStages[row.action],name(data.items,row.item_id),name(data.locations,row.location_id),name(data.projects,row.project_id),row.quantity,name(data.users,row.actor_id),
-    ]}))}/></Panel>
+    <WarehouseMovements data={data}/>
   </>;
+}
+
+function WarehouseMovements({data}:{data:Data}) {
+  const [action,setAction]=useState('');
+  const [project,setProject]=useState('');
+  const filtered=Boolean(action || project);
+  const movements=data.movements.filter((row)=>
+    (!action || row.action===action) && (!project || (project==='unassigned'?!row.project_id:row.project_id===project)));
+
+  return <Panel title="Lagerbewegungen" action={<span className="subtle">{movements.length} {movements.length===1?'Bewegung':'Bewegungen'}</span>}>
+    <div className="panel-body form-grid">
+      <label><span>Bewegungsart filtern</span><select value={action} onChange={(event)=>setAction(event.target.value)}>
+        <option value="">Alle Bewegungsarten</option>
+        {Object.entries(movementStages).map(([value,label])=><option key={value} value={value}>{label}</option>)}
+      </select></label>
+      <label><span>Projekt filtern</span><select value={project} onChange={(event)=>setProject(event.target.value)}>
+        <option value="">Alle Projekte</option><option value="unassigned">Ohne Projektbezug</option>
+        {options(data.projects).map(({value,label})=><option key={value} value={value}>{label}</option>)}
+      </select></label>
+      <button type="button" disabled={!filtered} onClick={()=>{setAction('');setProject('');}}>Filter zurücksetzen</button>
+    </div>
+    {movements.length || !filtered?<Table headers={['Zeitpunkt','Bewegung','Artikel','Lagerort','Projekt','Menge','Erfasst durch']} rows={movements.map((row)=>({key:row.id,cells:[
+      moment(row.created_at),movementStages[row.action],name(data.items,row.item_id),name(data.locations,row.location_id),name(data.projects,row.project_id),row.quantity,name(data.users,row.actor_id),
+    ]}))}/> : <p className="empty" role="status">Keine Bewegungen für diese Filter.</p>}
+  </Panel>;
 }
 
 function Costs({data,run}:{data:Data;run:Run}) {
