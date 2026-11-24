@@ -10,7 +10,7 @@ export default defineConfig({
     env:{DESK_ORIGIN:baseURL},reuseExistingServer:!process.env.CI,
   },
   projects:[
-    {name:'core',testMatch:['core.spec.ts','refresh-after-save.spec.ts','confirmation-dialogs.spec.ts','zammad-read-order.spec.ts','zammad-draft-state.spec.ts'],use:{...devices['Desktop Chrome']}},
+    {name:'core',testMatch:['core.spec.ts','refresh-after-save.spec.ts','confirmation-dialogs.spec.ts','zammad-read-order.spec.ts','zammad-draft-state.spec.ts','zammad-attempt-time.spec.ts'],use:{...devices['Desktop Chrome']}},
     {name:'screenshots',testMatch:'screenshots.spec.ts',use:{...devices['Desktop Chrome']}},
   ],
 });

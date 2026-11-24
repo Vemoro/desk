@@ -386,8 +386,9 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
               {draft.status==='failed' && <button onClick={()=>{if(draftRef.current?.status==='failed') resetDraft();}}>Neuen Entwurf beginnen</button>}
             </div>}
           </Expand>
-          <Table headers={['Sendeversuch','Status','Aktion']} rows={(conversation?.outgoing ?? []).map((entry:Row)=>({
-            key:entry.id,cells:[entry.subject,({sent:'An Zammad übergeben',pending:'Ausstehend',failed:'Abgelehnt',unknown:'Ausgang unklar'} as Record<string,string>)[entry.status],
+          <Table headers={['Sendeversuch','Letzter Versuch','Status','Aktion']} rows={(conversation?.outgoing ?? []).map((entry:Row)=>({
+            key:entry.id,cells:[entry.subject,entry.attempted_at ? <time dateTime={entry.attempted_at}>{moment(entry.attempted_at)}</time> : '–',
+              ({sent:'An Zammad übergeben',pending:'Ausstehend',failed:'Abgelehnt',unknown:'Ausgang unklar'} as Record<string,string>)[entry.status],
               entry.status==='sent' ? '–' : <div className="actions">
                 <button disabled={draft?.message.id===entry.id && draft.status==='posting'} onClick={()=>run(()=>reviewAttempt(entry.id,false))}>Prüfen</button>
                 <button disabled={draft?.message.id===entry.id && draft.status==='posting'} onClick={(event)=>setConfirmation({
