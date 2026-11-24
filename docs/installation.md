@@ -65,6 +65,41 @@ Führe die folgenden Befehle im Repository in einer Bash aus. Nach dem Datenbank
 
 Melde dich danach über die HTTPS-Adresse an. **Einstellungen** zeigt Haben und Zammad als nicht eingerichtet. Für einen späteren Start desselben Versionsstands genügt `docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost up -d`. Verwende dafür denselben Compose-Projektnamen und dasselbe Datenbankvolume. Das Volume enthält Konten und Projekte und muss bei Unterbrechungen erhalten bleiben. Beim Wechsel des Desk-Stands Datenbank und Konfiguration zuerst sichern, die Migration mit dem neuen Image ausführen und dann den Dienst aktualisieren.
 
+### Vorhandenen Reverse Proxy im Docker-Netz anschließen
+
+Wenn der Reverse Proxy ebenfalls als Container läuft, kann Desk dasselbe externe Docker-Netz nutzen. Verwende dazu das [Compose-Override](../compose.selfhost.proxy.yaml) mit Docker Compose ab Version 2.24.4. Es entfernt die Host-Portfreigabe und verbindet nur den Desk-Dienst mit dem Proxy-Netz. PostgreSQL bleibt im eigenen Compose-Netz. [Compose-Netze](https://docs.docker.com/compose/how-tos/networking/) · [Compose-Override](https://docs.docker.com/reference/compose-file/merge/#replace-value)
+
+Setze in `.env.selfhost` die öffentliche HTTPS-Adresse wie zuvor. Trage für `DESK_PROXY_NETWORK` den Namen des vorhandenen Docker-Netzes des Proxys ein. Verwende als `DESK_PROXY_ALIAS` pro Desk-Instanz einen eigenen Namen in diesem Netz, zum Beispiel `desk-selfhost`. Der Proxy leitet an `http://desk-selfhost:3000` oder an den gewählten Alias auf Port 3000 weiter.
+
+Führe die folgenden Befehle in Bash im Repository aus. Verwende `desk_compose` als Aufruf für die obige Erstinstallation, inklusive Build, Migration und Kontoanlage, sowie für spätere Starts. Der Compose-Projektname bleibt bei einem Wechsel des Proxy-Wegs gleich, damit das Datenbankvolume erhalten bleibt.
+
+```bash
+desk_compose() {
+  docker compose --env-file .env.selfhost \
+    -f compose.selfhost.yaml -f compose.selfhost.proxy.yaml -p desk-selfhost "$@"
+}
+
+desk_compose config --quiet
+# Nach der Erstinstallation oder bei einem späteren Start
+desk_compose up -d
+desk_compose ps
+```
+
+Der Proxy terminiert TLS und reicht den öffentlichen Host und das HTTPS-Protokoll weiter. In NGINX in einem vorhandenen HTTPS-Serverblock kannst du die Weiterleitung so einrichten:
+
+```nginx
+location / {
+    client_max_body_size 8m;
+    resolver 127.0.0.11 valid=30s;
+    set $desk_upstream desk-selfhost:3000;
+    proxy_pass http://$desk_upstream;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+Der NGINX-Container nutzt Docker-DNS zur Auflösung des Desk-Alias. Die Größenbegrenzung von 8 MiB lässt die von Desk unterstützten PDF-Anhänge für Zammad einschließlich JSON-Kodierung durch. Melde dich über die öffentliche HTTPS-Adresse an und öffne die Projektliste. `desk_compose ps` darf für Desk und PostgreSQL nur Containerports anzeigen. [NGINX-Weiterleitung](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass) · [NGINX-Größenbegrenzung](https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size)
+
 ## Updates und Rückkehr zum letzten funktionierenden Stand
 
 | Weg | Vor dem Update | Rückkehr bei Problemen |
