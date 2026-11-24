@@ -110,6 +110,7 @@ function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
   const [resourceFilter,setResourceFilter]=useState('');
   const [statusFilter,setStatusFilter]=useState('');
   const reservations=data.reservations.filter((row)=>row.project_id===project.id);
+  const equipmentIds=new Set(data.items.filter(item=>item.kind==='equipment').map(item=>item.id));
   const visibleReservations=reservations.filter((row)=>
     (!resourceFilter || (row.user_id ? 'user' : 'item')===resourceFilter)
     && (!statusFilter || row.status===statusFilter));
@@ -140,9 +141,10 @@ function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
         {name:'location_id',label:'Lagerort',choices:options(data.locations),required:true},
         {name:'quantity',label:'Menge',type:'number',value:1,min:1,required:true},...timeFields,
       ]} submit={(v)=>run(()=>api('reservations','POST',{...v,project_id:project.id,quantity:Number(v.quantity),starts_at:dateTime(v.starts_at),ends_at:dateTime(v.ends_at)}),'Inventar vorgemerkt.')}/></Expand>
-    </div>{visibleReservations.length ? <Table headers={['Ressource','Zeitraum','Menge','Status','Aktion']} rows={visibleReservations.map((row)=>({
+    </div>{visibleReservations.length ? <Table headers={['Ressource','Zeitraum','Menge','Noch ausgegeben','Status','Aktion']} rows={visibleReservations.map((row)=>({
       key:row.id,cells:[row.user_id ? name(data.users,row.user_id) : <>{name(data.items,row.item_id)}<small>{name(data.locations,row.location_id)}</small></>,
         <>{moment(row.starts_at)}<small>bis {moment(row.ends_at)}</small></>,row.quantity,
+        equipmentIds.has(row.item_id) ? row.checked_out ?? '–' : '–',
         <Pill label={reservationStages[row.status]} tone={row.status==='firm'?'accent':'neutral'}/>,
         <div className="actions">{row.status==='tentative' && ['confirmed','running'].includes(project.stage) && <button onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'firm'}),'Fest reserviert.')}>Fest reservieren</button>}
           {row.status!=='released' && <button onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'released'}),'Reservierung freigegeben.')}>Freigeben</button>}</div>],
