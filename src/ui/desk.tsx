@@ -276,14 +276,20 @@ function Contacts({data,run,haben,openProject}:{data:Data;run:Run;haben:boolean;
 }
 
 function ContactProjects({projects,openProject}:{projects:Row[];openProject:(id:string)=>void}) {
+  const [search,setSearch]=useState('');
   const [status,setStatus]=useState('all');
+  const term=search.trim().toLowerCase();
   const visibleProjects=projects.filter((project)=>{
+    if(!project.name.toLowerCase().includes(term)) return false;
     const ended=project.stage==='complete' || project.stage==='cancelled';
     return status==='all' || (status==='ended' ? ended : !ended);
   });
   return <section className="contact-projects" aria-labelledby="contact-projects-title">
     <div className="panel-body">
       <h3 id="contact-projects-title">Zugehörige Projekte</h3>
+      <label className="filter"><span>Projektnamen suchen</span>
+        <input type="search" value={search} onChange={(event)=>setSearch(event.target.value)}/>
+      </label>
       <label className="filter"><span>Projektstatus filtern</span>
         <select value={status} onChange={(event)=>setStatus(event.target.value)}>
           <option value="all">Alle</option>
