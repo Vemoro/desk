@@ -42,7 +42,7 @@ export function Project({project,data,run,flags,back}:{project:Row;data:Data;run
     <nav className="tabs" aria-label="Projektansichten">{Object.entries(tabs).map(([key,label])=><button key={key} aria-current={tab===key?'page':undefined} onClick={()=>setTab(key)}>{label}</button>)}</nav>
     {tab==='overview' && <Overview project={project} data={data} run={run} haben={flags.haben}/>}
     {tab==='tasks' && <Kanban project={project} data={data} run={run}/>}
-    {tab==='planning' && <Planning project={project} data={data} run={run}/>}
+    {tab==='planning' && <Planning key={project.id} project={project} data={data} run={run}/>}
     {tab==='finance' && <Controlling project={project} data={data} run={run}/>}
     {tab==='communication' && <Communication project={project} zammad={flags.zammad} run={run}/>}
   </>;
@@ -107,14 +107,31 @@ function Kanban({project,data,run}:{project:Row;data:Data;run:Run}) {
 }
 
 function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
+  const [resourceFilter,setResourceFilter]=useState('');
+  const [statusFilter,setStatusFilter]=useState('');
   const reservations=data.reservations.filter((row)=>row.project_id===project.id);
+  const visibleReservations=reservations.filter((row)=>
+    (!resourceFilter || (row.user_id ? 'user' : 'item')===resourceFilter)
+    && (!statusFilter || row.status===statusFilter));
   const lines=data.lines.filter((row)=>row.project_id===project.id);
   const timeFields=[
     {name:'starts_at',label:'Von',type:'datetime-local',required:true},
     {name:'ends_at',label:'Bis',type:'datetime-local',required:true},
   ];
   return <>
-    <Panel title="Ressourcenplanung"><div className="panel-body compact-actions">
+    <Panel title="Ressourcenplanung" action={<span className="subtle">{visibleReservations.length} {visibleReservations.length===1?'Reservierung':'Reservierungen'}</span>}>
+      <div className="panel-body form-grid">
+        <label><span>Ressourcentyp</span><select value={resourceFilter} onChange={(event)=>setResourceFilter(event.target.value)}>
+          <option value="">Alle</option><option value="user">Personal</option><option value="item">Inventar</option>
+        </select></label>
+        <label><span>Status filtern</span><select value={statusFilter} onChange={(event)=>setStatusFilter(event.target.value)}>
+          <option value="">Alle</option>
+          {Object.entries(reservationStages).map(([value,label])=><option key={value} value={value}>{label}</option>)}
+        </select></label>
+        <button type="button" disabled={!resourceFilter&&!statusFilter}
+          onClick={()=>{setResourceFilter('');setStatusFilter('');}}>Filter zurücksetzen</button>
+      </div>
+      <div className="panel-body compact-actions">
       <Expand title="Personal vormerken"><Form caption="Person vormerken" fields={[
         {name:'user_id',label:'Person',choices:options(data.users),required:true},...timeFields,
       ]} submit={(v)=>run(()=>api('reservations','POST',{project_id:project.id,user_id:v.user_id,quantity:1,starts_at:dateTime(v.starts_at),ends_at:dateTime(v.ends_at)}),'Person vorgemerkt.')}/></Expand>
@@ -123,13 +140,13 @@ function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
         {name:'location_id',label:'Lagerort',choices:options(data.locations),required:true},
         {name:'quantity',label:'Menge',type:'number',value:1,min:1,required:true},...timeFields,
       ]} submit={(v)=>run(()=>api('reservations','POST',{...v,project_id:project.id,quantity:Number(v.quantity),starts_at:dateTime(v.starts_at),ends_at:dateTime(v.ends_at)}),'Inventar vorgemerkt.')}/></Expand>
-    </div><Table headers={['Ressource','Zeitraum','Menge','Status','Aktion']} rows={reservations.map((row)=>({
+    </div>{visibleReservations.length || !resourceFilter&&!statusFilter ? <Table headers={['Ressource','Zeitraum','Menge','Status','Aktion']} rows={visibleReservations.map((row)=>({
       key:row.id,cells:[row.user_id ? name(data.users,row.user_id) : <>{name(data.items,row.item_id)}<small>{name(data.locations,row.location_id)}</small></>,
         <>{moment(row.starts_at)}<small>bis {moment(row.ends_at)}</small></>,row.quantity,
         <Pill label={reservationStages[row.status]} tone={row.status==='firm'?'accent':'neutral'}/>,
         <div className="actions">{row.status==='tentative' && ['confirmed','running'].includes(project.stage) && <button onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'firm'}),'Fest reserviert.')}>Fest reservieren</button>}
           {row.status!=='released' && <button onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'released'}),'Reservierung freigegeben.')}>Freigeben</button>}</div>],
-    }))}/></Panel>
+    }))}/> : <p className="empty" role="status">Keine Reservierungen für diese Filter.</p>}</Panel>
     <Panel title="Kalkulation" action={<button onClick={()=>run(async()=>downloadPositions(project,await api(`projects/${project.id}/offer-positions`)))}>Angebotspositionen exportieren</button>}>
       <div className="panel-body"><Expand title="Position anlegen"><Form caption="Position speichern" fields={[
         {name:'kind',label:'Art',choices:[{value:'buy',label:'Einkauf'},{value:'sell',label:'Verkauf'}],required:true},
