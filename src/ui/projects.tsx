@@ -40,7 +40,7 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
   const projects=data.projects.filter((project)=>{
     if(filters.contactId && project.contact_id!==filters.contactId) return false;
     const matchesSearch=`${project.name} ${name(data.contacts,project.contact_id)}`.toLowerCase().includes(query)
-      || [project.offer_ref,project.invoice_ref].some(reference=>reference?.toLowerCase().includes(query));
+      || [project.offer_ref,project.invoice_ref,project.cost_center].some(value=>value?.toLowerCase().includes(query));
     const matchesStage=filters.stage==='all' || (filters.stage==='open'
       ? !['complete','cancelled'].includes(project.stage)
       : project.stage===filters.stage);
@@ -55,7 +55,7 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
     <Panel title="Projekte">
       <div className="panel-body">
         <div className="project-filters">
-          <label><span>Projekte suchen</span><input type="search" placeholder="Name, Kontakt oder Referenz" value={filters.query}
+          <label><span>Projekte suchen</span><input type="search" placeholder="Name, Kontakt, Referenz, Kostenstelle" value={filters.query}
             onChange={(event)=>onFilter({...filters,query:event.target.value})}/></label>
           <label><span>Status</span><select value={filters.stage} onChange={(event)=>onFilter({...filters,stage:event.target.value})}>
             <option value="all">Alle</option><option value="open">Offen</option>
