@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { db, first, rows } from './db';
+import { databaseReady, db, first, rows } from './db';
 import { DeskError, required } from './errors';
 import { accountInput, authenticate, createAccount, createToken, login, loginInput, logout, protectOrigin, requireAdmin, sessionCookie, tokenInput, type Actor } from './auth';
 import { schemas, id, projectStage, reservationInput, reservationStatus, movementInput, costBatch, costAssignment, habenOfferInput, habenContactInput, zammadLinkInput, zammadCreateInput, zammadMessage } from './contracts';
@@ -109,6 +109,10 @@ export async function handle(request: Request) {
     const url = new URL(request.url);
     const path = url.pathname.slice('/api/v1/'.length).split('/');
     if (request.method === 'GET' && url.pathname === '/api/v1/openapi.json') return json(openApi());
+    if (request.method === 'GET' && url.pathname === '/api/v1/ready') {
+      const ready = await databaseReady();
+      return json({ready},ready?200:503);
+    }
     protectOrigin(request);
     if (request.method === 'POST' && url.pathname === '/api/v1/login') {
       const value = await login(loginInput.parse(await readJson(request)),url.hostname);
@@ -137,7 +141,10 @@ export async function handle(request: Request) {
 }
 
 function openApi() {
-  const paths: Record<string,Record<string,unknown>> = {};
+  const paths: Record<string,Record<string,unknown>> = {
+    '/ready':{get:{summary:'Bereitschaft des Dienstes',security:[],
+      responses:{200:{description:'Bereit'},503:{description:'Nicht bereit'}}}},
+  };
   for (const op of operations) {
     (paths[op.path] ??= {})[op.method.toLowerCase()] = {
       summary:op.summary,
