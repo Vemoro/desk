@@ -44,6 +44,6 @@ Bei einem Wechsel auf eine andere Zammad-Instanz die gespeicherten Ticket-IDs vo
 
 ## Abnahme und Folgearbeiten
 
-- **A:** In einer isolierten Umgebung den gewählten Zammad-Stack, dessen Wiederherstellung und die vollständige Ticketprobe abnehmen. Erst danach festlegen, welche Version und welcher Aufbau unterstützt werden. Daraus folgen Aufgaben für eine optionale Installationsvorlage und ihren Updatepfad.
-- **B:** Die Verknüpfung und der Abruf eines vorhandenen Tickets sind gegen ein simuliertes API-Gegenüber geprüft. Die Abnahme an einem tatsächlich bereitgestellten Zammad benötigt eine Testgruppe und ein Testpostfach sowie abgestimmte Rechte. Daraus folgen eine Kompatibilitätsprüfung und eine dokumentierte Konfiguration.
-- **C:** Vorgangslink und Kommunikationsnotiz sind in einer isolierten Desk-Demo nach dem Speichern und Neuladen geprüft. Diesen Weg als eigenständigen Einstieg in die Installationsdoku übernehmen.
+- **A.** Die lokale API-Simulation bestätigte die Ticketanlage mit Testgruppe und interner Notiz. In einer isolierten Umgebung den gewählten Zammad-Stack, dessen Wiederherstellung und die vollständige Ticketprobe abnehmen. Danach die unterstützte Version, den Aufbau und den Updatepfad der optionalen Installation festlegen.
+- **B.** Die Verknüpfung und der Abruf eines vorhandenen Tickets samt Artikel wurden lokal simuliert. Die Abnahme an der vorgesehenen Zammad-Version benötigt eine Testgruppe und ein Testpostfach sowie abgestimmte Rechte. Die echte Zustellung bleibt Teil der [Release-Abnahme](release-abnahme.md).
+- **C.** Vorgangslink und Kommunikationsnotiz blieben in einer isolierten Desk-Demo nach dem Speichern und Neuladen erhalten. Die eigene Compose-Installation für diesen Weg wird separat umgesetzt. [Issue #200](https://github.com/Vemoro/desk/issues/200)
