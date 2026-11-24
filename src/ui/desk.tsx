@@ -246,8 +246,8 @@ function Costs({data,run}:{data:Data;run:Run}) {
       {name:'reference',label:'Belegreferenz',required:true},{name:'name',label:'Bezeichnung',required:true},
       {name:'amount',label:'Netto in Euro',required:true},{name:'project_id',label:'Projekt',choices:options(data.projects)},
     ]} submit={(input)=>run(()=>api('costs','POST',{entries:[{reference:input.reference,name:input.name,cents:money(input.amount),source:'manual',project_id:input.project_id||null}]}),'Beleg gespeichert.')}/></Expand>
-  </div>{visibleCosts.length || !term&&!source&&!assignment ? <Table headers={['Beleg','Bezeichnung','Quelle','Netto','Projektzuordnung']} rows={visibleCosts.map((row)=>({key:row.id,cells:[
-    row.reference,row.name,sourceLabels.get(row.source)??row.source,euros(row.cents),<select aria-label={`Projekt für ${row.reference}`} value={row.project_id??''}
+  </div>{visibleCosts.length || !term&&!source&&!assignment ? <Table headers={['Beleg','Bezeichnung','Quelle','Netto','Kostenstelle','Projektzuordnung']} rows={visibleCosts.map((row)=>({key:row.id,cells:[
+    row.reference,row.name,sourceLabels.get(row.source)??row.source,euros(row.cents),row.cost_center||'–',<select aria-label={`Projekt für ${row.reference}`} value={row.project_id??''}
       onChange={(event)=>run(()=>api(`costs/${row.id}`,'PATCH',{project_id:event.target.value||null}),'Zuordnung gespeichert.')}>
       <option value="">Ohne Zuordnung</option>{data.projects.map((project)=><option value={project.id} key={project.id}>{project.name}</option>)}</select>,
   ]}))}/> : <p className="empty" role="status">Keine Belege für diese Filter.</p>}</Panel>;
