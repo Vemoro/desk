@@ -2,13 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { all, api, ApiError, compileCsv, date, euros, moment, money, movementStages, name, projectStages, type Row } from './client';
 import { Project, Projects, type Data } from './projects';
 import { Expand, Form, options, Panel, Pill, Table, type Run } from './widgets';
+import { Icon } from './icons';
+import { Navigation, sections, type Person, type Section } from './navigation';
 
-const sections = {
-  dashboard:['Übersicht','▦'], projects:['Projekte','▤'], contacts:['Kontakte','◎'],
-  warehouse:['Projektlager','▧'], costs:['Ist-Kosten','≋'], settings:['Einstellungen','⚙'],
-};
-type Section=keyof typeof sections;
-type Person={id:string;name:string;role:'admin'|'member'};
 const collections = ['contacts','projects','tasks','users','lines','reservations','locations','items','movements','costs','stock'] as const;
 const initialData=Object.fromEntries(collections.map((key)=>[key,[]])) as unknown as Data;
 
@@ -103,7 +99,7 @@ export function Desk() {
     finally { if(session===sessionVersion.current) setRefreshing(false); }
   }
 
-  const run:Run=async(operation,feedback,kind='write')=>{
+  const run:Run=async(operation,feedback,{kind='write',reportWriteRejection}={})=>{
     const session=sessionVersion.current;
     setNotice({message:'',error:false});
     try {
@@ -112,6 +108,7 @@ export function Desk() {
       if(kind==='read' && !await load(session)) return true;
     } catch(error) {
       if(session!==sessionVersion.current) return false;
+      if(reportWriteRejection && error instanceof ApiError && [400,409].includes(error.status)) throw error;
       if(error instanceof ApiError && error.status===401) endSession();
       setNotice({message:error instanceof Error?error.message:'Die Aktion ist fehlgeschlagen.',error:true});
       return false;
@@ -132,7 +129,7 @@ export function Desk() {
   }
 
   const alert=notice.message && <div className={`notice ${notice.error?'error':''}`} role={notice.error?'alert':'status'}>{notice.message}</div>;
-  const themeButton=<button className="theme" onClick={()=>setTheme(theme==='light'?'dark':'light')} aria-label={theme==='light'?'Dunkles Design':'Helles Design'}>{theme==='light'?'◐':'☀'}</button>;
+  const themeButton=<button className="theme" onClick={()=>setTheme(theme==='light'?'dark':'light')} aria-label={theme==='light'?'Dunkles Design':'Helles Design'}><Icon name={theme==='light'?'moon':'sun'}/></button>;
 
   if(person===undefined) return <main className="login"><p>Desk wird geladen …</p></main>;
   if(!person) return <main className="login">
@@ -154,26 +151,17 @@ export function Desk() {
 
   return <div className="frame">
     <a href="#desk-main" className="skip">Zum Inhalt</a>
-    <aside className="sidebar"><div className="brand"><span className="mark">D</span><strong>Desk</strong></div>
-      <nav aria-label="Hauptnavigation">{Object.entries(sections).map(([key,[label,glyph]])=>
-        key==='settings'&&person.role!=='admin'?null:<button key={key} aria-current={section===key?'page':undefined}
-          onClick={()=>navigate(key as Section)}><span aria-hidden="true">{glyph}</span>{label}</button>,
-      )}</nav>
-      <footer className="sidebar-foot"><div className="account"><span className="avatar">{person.name.slice(0,1)}</span>
-        <div><strong>{person.name}</strong><small>{person.role==='admin'?'Administration':'Mitarbeit'}</small></div>{themeButton}</div>
-        <button onClick={async()=>{
-          const session=sessionVersion.current;
-          try {
-            await api('logout','POST');
-            if(session!==sessionVersion.current) return;
-            endSession();
-            setNotice({message:'',error:false});
-          } catch {
-            if(session===sessionVersion.current) setNotice({message:'Abmelden fehlgeschlagen.',error:true});
-          }
-        }}>Abmelden</button>
-      </footer>
-    </aside>
+    <Navigation person={person} section={section} themeButton={themeButton} onNavigate={navigate} onLogout={async()=>{
+      const session=sessionVersion.current;
+      try {
+        await api('logout','POST');
+        if(session!==sessionVersion.current) return;
+        endSession();
+        setNotice({message:'',error:false});
+      } catch {
+        if(session===sessionVersion.current) setNotice({message:'Abmelden fehlgeschlagen.',error:true});
+      }
+    }}/>
     <main id="desk-main" tabIndex={-1} className="main">
       {section!=='projects'||!project?<header className="page-title"><h1>{sections[section][0]}</h1></header>:null}
       {alert}
@@ -184,10 +172,10 @@ export function Desk() {
         </button>
       </div>}
       {section==='dashboard' && <Dashboard data={data} select={(id)=>navigate('projects',id)} open={()=>navigate('projects')}/>}
-      {section==='projects' && (project?<Project key={project.id} project={project} data={data} run={run} flags={flags} back={()=>navigate('projects')}/>
+      {section==='projects' && (project?<Project key={project.id} project={project} data={data} run={run} flags={flags} accountId={person.id} back={()=>navigate('projects')}/>
         :<Projects data={data} run={run} select={(id)=>navigate('projects',id)}/>)}
       {section==='contacts' && <Contacts data={data} run={run} haben={flags.haben}/>}
-      {section==='warehouse' && <Warehouse data={data} run={run}/>}
+      {section==='warehouse' && <Warehouse data={data} run={run} accountId={person.id}/>}
       {section==='costs' && <Costs data={data} run={run}/>}
       {section==='settings'&&person.role==='admin' && <Settings data={data} run={run} flags={flags}/>}
     </main>
@@ -261,9 +249,19 @@ function Contacts({data,run,haben}:{data:Data;run:Run;haben:boolean}) {
   </>;
 }
 
-function Warehouse({data,run}:{data:Data;run:Run}) {
+function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
   const bookings=data.reservations.filter((row)=>row.item_id&&(row.status==='firm'||row.checked_out>0));
-  const bookingChoices=bookings.map((row)=>({value:row.id,label:`${name(data.projects,row.project_id)} · ${name(data.items,row.item_id)}`}));
+  const [projectFilter,setProjectFilter]=useState('');
+  const [locationFilter,setLocationFilter]=useState('');
+  const [bookingId,setBookingId]=useState('');
+  const openCheckouts=bookings.filter((row)=>row.checked_out>0);
+  const visibleCheckouts=openCheckouts.filter((row)=>
+    (!projectFilter || row.project_id===projectFilter) && (!locationFilter || row.location_id===locationFilter));
+  const bookingChoices=bookings.map((row)=>({
+    value:row.id,
+    label:`${name(data.projects,row.project_id)} · ${name(data.items,row.item_id)} · ${name(data.locations,row.location_id)} · ${moment(row.starts_at)} bis ${moment(row.ends_at)}`,
+  }));
+  const selectedBooking=bookingChoices.find((choice)=>choice.value===bookingId);
   return <>
     <Panel title="Bestand je Lagerort"><div className="panel-body compact-actions">
       <Expand title="Lagerort anlegen"><Form caption="Lagerort speichern" fields={[{name:'name',label:'Lagerort',required:true}]}
@@ -273,25 +271,45 @@ function Warehouse({data,run}:{data:Data;run:Run}) {
         {name:'kind',label:'Artikelart',choices:[{value:'equipment',label:'Gerät'},{value:'consumable',label:'Verbrauchsmaterial'}],required:true},
         {name:'inventory_number',label:'Inventarnummer für Einzelgerät'},
       ]} submit={(input)=>run(()=>api('items','POST',{...input,inventory_number:input.inventory_number||null}),'Artikel angelegt.')}/></Expand>
-      <Expand title="Wareneingang"><Form caption="Wareneingang buchen" fields={[
+      <Expand title="Wareneingang"><Form caption="Wareneingang buchen" retryScope={`movements:${accountId}:receive`} fields={[
         {name:'item_id',label:'Artikel',choices:options(data.items),required:true},{name:'location_id',label:'Lagerort',choices:options(data.locations),required:true},
         {name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},{name:'project_id',label:'Projektbezug',choices:options(data.projects)},
-      ]} submit={(input)=>run(()=>api('movements','POST',{action:'receive',item_id:input.item_id,location_id:input.location_id,
-        quantity:Number(input.quantity),project_id:input.project_id||undefined}),'Wareneingang erfasst.')}/></Expand>
-      <Expand title="Ausgabe, Rückgabe oder Verbrauch"><Form caption="Bewegung buchen" fields={[
+      ]} submit={(input,key)=>run(()=>api('movements','POST',{action:'receive',item_id:input.item_id,location_id:input.location_id,
+        quantity:Number(input.quantity),project_id:input.project_id||undefined},key),'Wareneingang erfasst.',{reportWriteRejection:true})}/></Expand>
+      <Expand title="Ausgabe, Rückgabe oder Verbrauch"><Form caption="Bewegung buchen" retryScope={`movements:${accountId}:booking`} fields={[
         {name:'action',label:'Bewegungsart',choices:[{value:'issue',label:'Ausgabe'},{value:'return',label:'Rückgabe'},{value:'consume',label:'Verbrauch'}],required:true},
-        {name:'reservation_id',label:'Projektreservierung',choices:bookingChoices,required:true},
+        {name:'reservation_id',label:'Projektreservierung',choices:bookingChoices,required:true,value:selectedBooking?.value,onChange:setBookingId,describedBy:selectedBooking?'warehouse-booking-details':undefined},
         {name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},
-      ]} submit={(input)=>run(()=>api('movements','POST',{...input,quantity:Number(input.quantity)}),'Lagerbewegung gebucht.')}/></Expand>
+      ]} submit={(input,key)=>run(()=>api('movements','POST',{...input,quantity:Number(input.quantity)},key),'Lagerbewegung gebucht.',{reportWriteRejection:true})}>
+        {selectedBooking&&<p id="warehouse-booking-details" className="wide booking-details">{selectedBooking.label}</p>}
+      </Form></Expand>
     </div>
     <Table headers={['Artikel','Lagerort','Physisch','Reserviert','Frei']} rows={data.stock.map((row)=>({key:`${row.item_id}/${row.location_id}`,cells:[
       name(data.items,row.item_id),name(data.locations,row.location_id),row.physical,row.reserved,<strong>{row.free}</strong>,
     ]}))}/></Panel>
-    <Panel title="Offene Ausgaben"><Table headers={['Projekt','Artikel','Lagerort','Ausgegeben']} rows={bookings.filter((row)=>row.checked_out>0).map((row)=>({
-      key:row.id,cells:[name(data.projects,row.project_id),name(data.items,row.item_id),name(data.locations,row.location_id),row.checked_out],
-    }))}/></Panel>
-    <Panel title="Lagerbewegungen"><Table headers={['Zeitpunkt','Bewegung','Artikel','Projekt','Menge','Erfasst durch']} rows={data.movements.map((row)=>({key:row.id,cells:[
-      moment(row.created_at),movementStages[row.action],name(data.items,row.item_id),name(data.projects,row.project_id),row.quantity,name(data.users,row.actor_id),
+    <Panel title="Offene Ausgaben">
+      <div className="panel-body">
+        <div className="form-grid">
+          <label><span>Projekt filtern</span><select value={projectFilter} onChange={(event)=>setProjectFilter(event.target.value)}>
+            <option value="">Alle Projekte</option>
+            {options(data.projects).map(({value,label})=><option key={value} value={value}>{label}</option>)}
+          </select></label>
+          <label><span>Lagerort filtern</span><select value={locationFilter} onChange={(event)=>setLocationFilter(event.target.value)}>
+            <option value="">Alle Lagerorte</option>
+            {options(data.locations).map(({value,label})=><option key={value} value={value}>{label}</option>)}
+          </select></label>
+        </div>
+        <div className="actions">
+          <button type="button" disabled={!projectFilter && !locationFilter}
+            onClick={()=>{setProjectFilter('');setLocationFilter('');}}>Filter zurücksetzen</button>
+        </div>
+      </div>
+      {visibleCheckouts.length ? <Table headers={['Projekt','Artikel','Lagerort','Ausgegeben']} rows={visibleCheckouts.map((row)=>({
+        key:row.id,cells:[name(data.projects,row.project_id),name(data.items,row.item_id),name(data.locations,row.location_id),row.checked_out],
+      }))}/> : <p className="empty" role="status">{openCheckouts.length?'Keine offenen Ausgaben für diese Filter.':'Es gibt keine offenen Ausgaben.'}</p>}
+    </Panel>
+    <Panel title="Lagerbewegungen"><Table headers={['Zeitpunkt','Bewegung','Artikel','Lagerort','Projekt','Menge','Erfasst durch']} rows={data.movements.map((row)=>({key:row.id,cells:[
+      moment(row.created_at),movementStages[row.action],name(data.items,row.item_id),name(data.locations,row.location_id),name(data.projects,row.project_id),row.quantity,name(data.users,row.actor_id),
     ]}))}/></Panel>
   </>;
 }
