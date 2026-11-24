@@ -21,6 +21,7 @@ services:
         condition: service_healthy
     environment:
       DESK_ORIGIN: ${DESK_ORIGIN:?DESK_ORIGIN in .env.selfhost setzen}
+      DESK_AUTH_SECRET: ${DESK_AUTH_SECRET:?DESK_AUTH_SECRET in .env.selfhost setzen}
       DATABASE_URL: postgres://desk:${DESK_DB_PASSWORD:?DESK_DB_PASSWORD in .env.selfhost setzen}@db:5432/desk
     ports:
       - "127.0.0.1:${DESK_PORT:-3000}:3000"
