@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { all, api, ApiError, compileCsv, date, euros, moment, money, movementStages, name, projectStages, type Row } from './client';
 import { Project, Projects, type Data } from './projects';
 import { Expand, Form, options, Panel, Pill, Table, type Run } from './widgets';
@@ -22,15 +22,19 @@ export function Desk() {
   const [notice,setNotice]=useState({message:'',error:false});
   const [refreshRequired,setRefreshRequired]=useState(false);
   const [refreshing,setRefreshing]=useState(false);
+  const savedVersion=useRef(0);
   const project=data.projects.find((row)=>row.id===projectId);
 
   async function load() {
+    const version=savedVersion.current;
     const [integrations,...result]=await Promise.all([api('integrations'),...collections.map((collection)=>
       collection==='users'||collection==='stock'?api<Row[]>(collection):all(collection),
     )]);
+    if(version!==savedVersion.current) return false;
     setFlags(integrations);
     setData(Object.fromEntries(collections.map((key,index)=>[key,result[index]])) as unknown as Data);
     setRefreshRequired(false);
+    return true;
   }
 
   useEffect(()=>{
@@ -55,10 +59,11 @@ export function Desk() {
   useEffect(()=>{document.documentElement.dataset.theme=theme;localStorage.setItem('desk-theme',theme);},[theme]);
 
   async function refreshSavedData() {
+    const version=savedVersion.current;
     try {
-      await load();
-      return true;
+      return await load();
     } catch(error) {
+      if(version!==savedVersion.current) return false;
       if(error instanceof ApiError && error.status===401) {
         setRefreshRequired(false);
         setPerson(null);
@@ -86,7 +91,10 @@ export function Desk() {
       setNotice({message:error instanceof Error?error.message:'Die Aktion ist fehlgeschlagen.',error:true});
       return false;
     }
-    if(kind==='write' && !await refreshSavedData()) return true;
+    if(kind==='write') {
+      savedVersion.current++;
+      if(!await refreshSavedData()) return true;
+    }
     if(feedback)setNotice({message:feedback,error:false});
     return true;
   };
