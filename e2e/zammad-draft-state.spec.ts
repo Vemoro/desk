@@ -3,7 +3,7 @@ import { project, signIn } from './session';
 
 const record={id:'projekt',name:'Musterinstallation',stage:'planning',zammad_ticket_id:42};
 const path='**/api/v1/projects/projekt/zammad';
-type Attempt={id:string;subject:string;status:string;attempted_at?:string};
+type Attempt={id:string;subject:string;status:string;attempt_key?:string};
 
 async function compose(page:Page,send:(route:Route)=>Promise<void>) {
   const messages:Record<string,unknown>[]=[];
@@ -151,7 +151,7 @@ test('Verbindungsabbruch beim Wiederholen sperrt den abgelehnten Entwurf bis zur
   let reviews=0;
   const ui=await compose(page,route=>{
     const message=route.request().postDataJSON();
-    ui.outgoing.push({...message,status:'failed',attempted_at:'2026-11-24T10:00:00.000Z'});
+    ui.outgoing.push({...message,status:'failed',attempt_key:'2026-11-24 10:00:00+00'});
     return route.fulfill({json:{id:message.id,status:'failed'}});
   });
   await page.route(path+'/outgoing/*',route=>{
@@ -159,9 +159,10 @@ test('Verbindungsabbruch beim Wiederholen sperrt den abgelehnten Entwurf bis zur
     expect(route.request().url().split('/').at(-1)).toBe(ui.messages[0].id);
     reviews++;
     if(retry){
+      expect(route.request().postDataJSON().expected_attempt).toBe('2026-11-24 10:00:00+00');
       return route.abort();
     }
-    if(reviews===3) ui.outgoing[0].attempted_at='2026-11-24T10:01:00.000Z';
+    if(reviews===3) ui.outgoing[0].attempt_key='2026-11-24 10:01:00+00';
     return route.fulfill({json:{id:ui.messages[0].id,status:'failed'}});
   });
   await ui.submit.click();

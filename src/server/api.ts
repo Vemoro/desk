@@ -71,7 +71,8 @@ action('POST','/projects/{id}/zammad/link','Zammad-Ticket verknüpfen',zammadLin
 action('POST','/projects/{id}/zammad/tickets','Zammad-Ticket anlegen',zammadCreateInput,({path},input)=>linkTicket(path[1],input));
 action('POST','/projects/{id}/zammad/messages','Zammad-Antwort senden',zammadMessage,({path},input)=>send(path[1],input));
 action('POST','/projects/{id}/zammad/outgoing/{messageId}','Sendeversuch prüfen oder ausdrücklich erneut senden',
-  z.strictObject({ retry:z.boolean() }),({path},input)=>reviewOutgoing(path[1],path[4],input.retry));
+  z.strictObject({ retry:z.boolean(),expected_attempt:z.string().min(1).max(64).optional() }),
+  ({path},input)=>reviewOutgoing(path[1],path[4],input.retry,input.expected_attempt));
 
 const pageSchema = z.object({ limit:z.coerce.number().int().min(1).max(200).default(100), offset:z.coerce.number().int().min(0).max(1_000_000).default(0) });
 const headers = { 'Cache-Control':'no-store','X-Content-Type-Options':'nosniff' };

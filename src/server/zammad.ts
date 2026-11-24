@@ -36,7 +36,9 @@ export async function conversations(projectId: string) {
   const [ticket, articles, outgoing] = await Promise.all([
     remote.request(`/tickets/${project.zammad_ticket_id}`),
     loadArticles(remote, project.zammad_ticket_id),
-    rows(db, 'SELECT id,status,recipient,subject,attempted_at FROM outgoing WHERE project_id=$1 AND ticket_id=$2 ORDER BY attempted_at DESC LIMIT 30',[projectId,project.zammad_ticket_id]),
+    rows<Pick<Outgoing,'id'|'status'|'recipient'|'subject'|'attempted_at'> & {attempt_key:string}>(db,
+      'SELECT id,status,recipient,subject,attempted_at,attempted_at::text AS attempt_key FROM outgoing WHERE project_id=$1 AND ticket_id=$2 ORDER BY attempted_at DESC LIMIT 30',
+      [projectId,project.zammad_ticket_id]),
   ]);
   return { ticket: { ...ticketSchema.parse(ticket), url: `${remote.origin}/#ticket/zoom/${project.zammad_ticket_id}` }, articles, outgoing };
 }
@@ -61,7 +63,7 @@ export async function send(projectId: string, message: z.infer<typeof zammadMess
   return deliver(remote,saved);
 }
 
-export async function reviewOutgoing(projectId: string, id: string, retry: boolean) {
+export async function reviewOutgoing(projectId: string, id: string, retry: boolean, expectedAttempt?: string) {
   const current = required(await first<Outgoing>(db,'SELECT *,attempted_at::text AS attempt_key FROM outgoing WHERE id=$1 AND project_id=$2',[id,projectId]));
   const project = await getProject(projectId);
   if (project.zammad_ticket_id !== current.ticket_id) throw new DeskError(409, 'Der Sendeversuch gehört zu einem anderen Ticket.');
@@ -73,6 +75,9 @@ export async function reviewOutgoing(projectId: string, id: string, retry: boole
     return { id,status:'sent' };
   }
   if (!retry) return { id,status:current.status };
+  if (expectedAttempt !== undefined && expectedAttempt !== current.attempt_key) {
+    throw new DeskError(409, 'Der Sendeversuch wurde inzwischen aktualisiert.');
+  }
   if (current.status !== 'failed' && Date.now() - +current.attempted_at < 60_000) {
     throw new DeskError(409, 'Mindestens eine Minute warten und den Ticketverlauf erneut prüfen.');
   }

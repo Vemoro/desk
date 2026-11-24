@@ -97,9 +97,10 @@ describe('API und Integrationen',()=>{
   });
 
   test('Unklaren Zammad-Versand im Verlauf wiederfinden, ohne erneut zu senden',async()=>{
-    const { send,reviewOutgoing }=await import('../src/server/zammad');
+    const { conversations,send,reviewOutgoing }=await import('../src/server/zammad');
     const data=await fixture(saveCore,'Zammad-Verlauf');
-    await db.unsafe('UPDATE projects SET zammad_ticket_id=$1 WHERE id=$2',[Math.floor(Math.random()*1_000_000)+100,data.project]);
+    const ticketId=Math.floor(Math.random()*1_000_000)+100;
+    await db.unsafe('UPDATE projects SET zammad_ticket_id=$1 WHERE id=$2',[ticketId,data.project]);
     let article: {id:number;body:string}|undefined;
     let sends=0;
     let remoteMode:'unknown'|'reject'|'accept'='unknown';
@@ -112,6 +113,9 @@ describe('API und Integrationen',()=>{
         if(remoteMode==='accept') return Response.json({id:43},{status:201});
         article={id:42,body:incoming.body};
         return new Response('Gateway timeout',{status:504});
+      }
+      if(new URL(request.url).pathname.endsWith('/tickets/'+ticketId)) {
+        return Response.json({id:ticketId,number:String(ticketId),title:'Musterangebot'});
       }
       return Response.json(article?[article]:[]);
     }});
@@ -128,9 +132,17 @@ describe('API und Integrationen',()=>{
       remoteMode='reject';
       const rejected={...message,id:crypto.randomUUID()};
       expect(await send(data.project,rejected)).toMatchObject({status:'failed'});
+      const before=(await conversations(data.project)).outgoing.find(row=>row.id===rejected.id)?.attempt_key;
+      if(!before) throw new Error('Der erste Sendeversuch braucht eine Kennung.');
+      expect(await reviewOutgoing(data.project,rejected.id,true,before)).toMatchObject({status:'failed'});
+      const after=(await conversations(data.project)).outgoing.find(row=>row.id===rejected.id)?.attempt_key;
+      if(!after) throw new Error('Der wiederholte Sendeversuch braucht eine Kennung.');
+      expect(after).not.toBe(before);
       remoteMode='accept';
-      expect(await reviewOutgoing(data.project,rejected.id,true)).toMatchObject({status:'sent'});
+      await expect(reviewOutgoing(data.project,rejected.id,true,before)).rejects.toMatchObject({status:409});
       expect(sends).toBe(3);
+      expect(await reviewOutgoing(data.project,rejected.id,true,after)).toMatchObject({status:'sent'});
+      expect(sends).toBe(4);
     } finally {
       if(priorUrl===undefined)delete process.env.ZAMMAD_URL; else process.env.ZAMMAD_URL=priorUrl;
       if(priorToken===undefined)delete process.env.ZAMMAD_TOKEN; else process.env.ZAMMAD_TOKEN=priorToken;

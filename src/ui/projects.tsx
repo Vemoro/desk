@@ -205,7 +205,7 @@ type ZammadMessage={
 };
 type ZammadDraft={
   message:ZammadMessage;
-  previousAttemptAt?:string;
+  previousAttemptKey?:string;
   status:Exclude<ZammadStatus,'sent'>|'posting'|'unconfirmed'|'retry-unconfirmed'|'missing';
 };
 
@@ -231,12 +231,12 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
     setComposeVersion(value=>value+1);
   }
 
-  function updateDraft(id:string,status:ZammadStatus,attemptedAt?:string) {
+  function updateDraft(id:string,status:ZammadStatus,attemptKey?:string) {
     const current=draftRef.current;
     if(current?.message.id!==id) return;
     // Dieselbe Ablehnung kann aus der Zeit vor der Wiederholung stammen.
     if(current.status==='retry-unconfirmed' && status==='failed'
-      && !(Date.parse(attemptedAt ?? '') > Date.parse(current.previousAttemptAt ?? ''))) return;
+      && (!attemptKey || !current.previousAttemptKey || attemptKey===current.previousAttemptKey)) return;
     if(status==='sent') resetDraft();
     else setDraft({...current,status});
   }
@@ -252,8 +252,8 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
       const current=await api(`projects/${project.id}/zammad`);
       if (!isCurrent()) return;
       if(observedDraft && draftRef.current===observedDraft && observedDraft.status!=='posting') {
-        const entry=current.outgoing.find((attempt:{id:string;status:ZammadStatus;attempted_at?:string})=>attempt.id===observedDraft.message.id);
-        if(entry) updateDraft(entry.id,entry.status,entry.attempted_at);
+        const entry=current.outgoing.find((attempt:{id:string;status:ZammadStatus;attempt_key?:string})=>attempt.id===observedDraft.message.id);
+        if(entry) updateDraft(entry.id,entry.status,entry.attempt_key);
       }
       setConversation(current);
       setProblem('');
@@ -304,15 +304,15 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
     }
   }
 
-  async function reviewAttempt(id:string,retry:boolean,previousAttemptAt?:string) {
+  async function reviewAttempt(id:string,retry:boolean,previousAttemptKey?:string) {
     const current=draftRef.current;
     const tracked=current?.message.id===id && current.status!=='posting' ? current : undefined;
-    const observed:ZammadDraft|undefined=retry && tracked ? {...tracked,status:'posting',previousAttemptAt} : tracked;
+    const observed:ZammadDraft|undefined=retry && tracked ? {...tracked,status:'posting',previousAttemptKey} : tracked;
     if(retry && observed) setDraft(observed);
 
     let result;
     try {
-      result=await request(`outgoing/${id}`,{retry});
+      result=await request(`outgoing/${id}`,{retry,expected_attempt:retry?previousAttemptKey:undefined});
     } catch(error) {
       if(retry && observed && draftRef.current===observed) setDraft({...observed,status:'retry-unconfirmed'});
       throw error;
@@ -388,7 +388,7 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
                   actionLabel:'Erneut senden',
                   trigger:event.currentTarget,
                   submit:async()=>{
-                    const status=await reviewAttempt(entry.id,true,entry.attempted_at);
+                    const status=await reviewAttempt(entry.id,true,entry.attempt_key);
                     if(status==='failed') throw new Error('Zammad hat den Sendeversuch abgelehnt.');
                     if(status!=='sent') throw new Error('Der Ausgang des Sendeversuchs ist weiterhin unklar.');
                   },
