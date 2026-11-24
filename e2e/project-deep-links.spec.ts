@@ -1,0 +1,62 @@
+import { expect, test } from '@playwright/test';
+
+test('Projektansichten bleiben im Direktlink und im Browserverlauf erhalten',async({page,baseURL})=>{
+  const origin=new URL(baseURL!).origin;
+  const password=process.env.DESK_DEMO_PASSWORD!;
+  const login=await page.request.post('/api/v1/login',{data:{email:'mira@example.test',password},headers:{Origin:origin}});
+  expect(login.ok()).toBeTruthy();
+  const items=await (await page.request.get('/api/v1/projects')).json();
+  const name='Veranstaltungsbetreuung im Kulturhaus';
+  const project=items.find((entry:{name:string})=>entry.name===name);
+  const detail=`/#projects/${project.id}`;
+  await page.context().clearCookies();
+
+  await page.goto(detail+'/tasks');
+  await page.getByLabel('E-Mail').fill('mira@example.test');
+  await page.getByLabel('Passwort').fill(password);
+  await page.getByRole('button',{name:'Anmelden',exact:true}).click();
+  const tabs=page.getByRole('navigation',{name:'Projektansichten'});
+  const kanban=tabs.getByRole('link',{name:'Kanban'});
+  const controlling=tabs.getByRole('link',{name:'Controlling'});
+  await expect(page.getByRole('heading',{name,exact:true})).toBeVisible();
+  await expect(kanban).toHaveAttribute('aria-current','page');
+  await page.reload();
+  await expect(kanban).toHaveAttribute('aria-current','page');
+  await expect(page.getByRole('heading',{name:'Aufgaben',exact:true})).toBeVisible();
+  const skip=page.getByRole('link',{name:'Zum Inhalt'});
+  await skip.focus();
+  await skip.press('Enter');
+  await expect(page.getByRole('main')).toBeFocused();
+  expect(new URL(page.url()).hash).toBe(detail.slice(1)+'/tasks');
+
+  await page.goto('/');
+  await expect(page.getByRole('heading',{name:'Übersicht',exact:true})).toBeVisible();
+  await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Projekte',exact:true}).click();
+  const projectLink=page.getByRole('button',{name,exact:true});
+  await projectLink.click();
+  await expect(tabs.getByRole('link',{name:'Überblick'})).toHaveAttribute('aria-current','page');
+  await kanban.click();
+  await controlling.click();
+  await expect(page.getByRole('heading',{name:'Belegbezogene Ist-Kosten'})).toBeVisible();
+  await page.goBack();
+  await expect(kanban).toHaveAttribute('aria-current','page');
+  await page.goBack();
+  await expect(tabs.getByRole('link',{name:'Überblick'})).toHaveAttribute('aria-current','page');
+  await page.goBack();
+  await expect(projectLink).toBeVisible();
+  await page.goBack();
+  await expect(page.getByRole('heading',{name:'Übersicht',exact:true})).toBeVisible();
+  await page.goForward();
+  await expect(projectLink).toBeVisible();
+  await page.goForward();
+  await expect(tabs.getByRole('link',{name:'Überblick'})).toHaveAttribute('aria-current','page');
+  await page.goForward();
+  await expect(kanban).toHaveAttribute('aria-current','page');
+
+  await page.goto(detail+'/unbekannt');
+  await expect(tabs.getByRole('link',{name:'Überblick'})).toHaveAttribute('aria-current','page');
+  await page.goto('/#projects/11111111-1111-4111-8111-111111111111/tasks');
+  await expect(page.getByText('Dieses Projekt ist nicht verfügbar.')).toBeVisible();
+  await expect(projectLink).toBeVisible();
+  await expect(page.getByRole('heading',{name,exact:true})).toHaveCount(0);
+});

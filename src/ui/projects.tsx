@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, date, downloadPositions, euros, moment, money, name, projectStages, reservationStages, taskStages, type Row } from './client';
 import { Expand, Form, options, Panel, Pill, Table, type Run } from './widgets';
+import { projectHash, projectViews, type ProjectView } from './project-views';
 
 export type Data = Record<'contacts'|'projects'|'tasks'|'users'|'lines'|'reservations'|'locations'|'items'|'movements'|'costs'|'stock',Row[]>;
 type Flags = { haben:boolean; zammad:boolean };
@@ -85,13 +86,11 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
   </>;
 }
 
-export function Project({project,data,run,flags,back}:{project:Row;data:Data;run:Run;flags:Flags;back:()=>void}) {
-  const [tab,setTab]=useState('overview');
-  const tabs:Record<string,string>={overview:'Überblick',tasks:'Kanban',planning:'Ressourcen & Kalkulation',finance:'Controlling',communication:'Kommunikation'};
+export function Project({project,data,run,flags,back,tab}:{tab:ProjectView;project:Row;data:Data;run:Run;flags:Flags;back:()=>void}) {
   return <>
     <div className="breadcrumb"><button className="text-button" onClick={back}>Projekte</button><span>/</span>{project.name}</div>
     <div className="project-head"><div><h1>{project.name}</h1><div className="subtle">{name(data.contacts,project.contact_id)} · Termin {date(project.due)}</div></div><Pill label={projectStages[project.stage]} tone="accent"/></div>
-    <nav className="tabs" aria-label="Projektansichten">{Object.entries(tabs).map(([key,label])=><button key={key} aria-current={tab===key?'page':undefined} onClick={()=>setTab(key)}>{label}</button>)}</nav>
+    <nav className="tabs" aria-label="Projektansichten">{(Object.keys(projectViews) as ProjectView[]).map((key)=><a key={key} href={projectHash(project.id,key)} aria-current={tab===key?'page':undefined}>{projectViews[key]}</a>)}</nav>
     {tab==='overview' && <Overview project={project} data={data} run={run} haben={flags.haben}/>}
     {tab==='tasks' && <Kanban project={project} data={data} run={run}/>}
     {tab==='planning' && <Planning project={project} data={data} run={run}/>}

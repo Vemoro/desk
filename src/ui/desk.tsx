@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { all, api, ApiError, compileCsv, date, euros, moment, money, movementStages, name, projectStages, type Row } from './client';
 import { defaultProjectFilters, Project, Projects, type Data } from './projects';
+import { projectHash, projectView, type ProjectView } from './project-views';
 import { Expand, Form, options, Panel, Pill, Table, type Run } from './widgets';
 
 const sections = {
@@ -18,6 +19,7 @@ export function Desk() {
   const [flags,setFlags]=useState({haben:false,zammad:false});
   const [section,setSection]=useState<Section>('dashboard');
   const [projectId,setProjectId]=useState('');
+  const [view,setView]=useState<ProjectView>('overview');
   const [projectFilters,setProjectFilters]=useState(defaultProjectFilters);
   const [theme,setTheme]=useState('light');
   const [notice,setNotice]=useState({message:'',error:false});
@@ -35,8 +37,12 @@ export function Desk() {
     const current=localStorage.getItem('desk-theme');
     if(current==='dark')setTheme(current);
     function onHash() {
-      const [route,id]=location.hash.slice(1).split('/');
-      if(route in sections) {setSection(route as Section);setProjectId(id??'');}
+      const [route,id,requestedView]=location.hash.slice(1).split('/');
+      if(route==='desk-main') return;
+      const section=Object.hasOwn(sections,route) ? route as Section : 'dashboard';
+      setSection(section);
+      setProjectId(section==='projects' ? id ?? '' : '');
+      setView(projectView(section==='projects' && id ? requestedView : undefined));
     }
     onHash();
     window.addEventListener('hashchange',onHash);
@@ -70,7 +76,8 @@ export function Desk() {
     setNotice({message:'',error:false});
     setSection(to);
     setProjectId(id);
-    location.hash=id?`${to}/${id}`:to;
+    setView('overview');
+    location.hash=id && to==='projects' ? projectHash(id) : to;
   }
 
   const alert=notice.message && <div className={`notice ${notice.error?'error':''}`} role={notice.error?'alert':'status'}>{notice.message}</div>;
@@ -89,7 +96,7 @@ export function Desk() {
     </div></main>;
 
   return <div className="frame">
-    <a href="#desk-main" className="skip">Zum Inhalt</a>
+    <a href="#desk-main" className="skip" onClick={(event)=>{event.preventDefault();document.getElementById('desk-main')?.focus();}}>Zum Inhalt</a>
     <aside className="sidebar"><div className="brand"><span className="mark">D</span><strong>Desk</strong></div>
       <nav aria-label="Hauptnavigation">{Object.entries(sections).map(([key,[label,glyph]])=>
         key==='settings'&&person.role!=='admin'?null:<button key={key} aria-current={section===key?'page':undefined}
@@ -104,7 +111,8 @@ export function Desk() {
       {section!=='projects'||!project?<header className="page-title"><h1>{sections[section][0]}</h1></header>:null}
       {alert}
       {section==='dashboard' && <Dashboard data={data} select={(id)=>navigate('projects',id)} open={()=>navigate('projects')}/>}
-      {section==='projects' && (project?<Project key={project.id} project={project} data={data} run={run} flags={flags} back={()=>navigate('projects')}/>
+      {section==='projects' && projectId && !project && <p className="notice" role="status">Dieses Projekt ist nicht verfügbar.</p>}
+      {section==='projects' && (project?<Project key={project.id} tab={view} project={project} data={data} run={run} flags={flags} back={()=>navigate('projects')}/>
         :<Projects data={data} run={run} filters={projectFilters} onFilter={setProjectFilters} select={(id)=>navigate('projects',id)}/>)}
       {section==='contacts' && <Contacts data={data} run={run} haben={flags.haben}/>}
       {section==='warehouse' && <Warehouse data={data} run={run}/>}
