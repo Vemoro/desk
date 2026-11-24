@@ -241,15 +241,23 @@ function WarehouseMovements({data}:{data:Data}) {
   const [action,setAction]=useState('');
   const [project,setProject]=useState('');
   const [search,setSearch]=useState('');
+  const [from,setFrom]=useState('');
+  const [to,setTo]=useState('');
   const query=search.trim().toLowerCase();
   const itemsById=new Map(data.items.map(item=>[item.id,item]));
-  const filtered=Boolean(action || project || search);
-  const movements=data.movements.filter((row)=>{
+  const filtered=Boolean(action || project || search || from || to);
+  const invalidRange=Boolean(from && to && from>to);
+  const movements=invalidRange ? [] : data.movements.filter((row)=>{
     const item=itemsById.get(row.item_id);
     const matchesSearch=!query || [item?.name,item?.code,item?.inventory_number,row.delivery_reference]
       .some(value=>value?.toLowerCase().includes(query));
-    return matchesSearch && (!action || row.action===action)
+    const matchesFilters=matchesSearch && (!action || row.action===action)
       && (!project || (project==='unassigned'?!row.project_id:row.project_id===project));
+    if(!matchesFilters || (!from && !to)) return matchesFilters;
+    const bookedAt=new Date(row.created_at);
+    const day=[bookedAt.getFullYear(),bookedAt.getMonth()+1,bookedAt.getDate()]
+      .map(part=>String(part).padStart(2,'0')).join('-');
+    return (!from || day>=from) && (!to || day<=to);
   });
 
   return <Panel title="Lagerbewegungen" action={<span className="subtle">{movements.length} {movements.length===1?'Bewegung':'Bewegungen'}</span>}>
@@ -264,9 +272,16 @@ function WarehouseMovements({data}:{data:Data}) {
         <option value="">Alle Projekte</option><option value="unassigned">Ohne Projektbezug</option>
         {options(data.projects).map(({value,label})=><option key={value} value={value}>{label}</option>)}
       </select></label>
-      <button type="button" disabled={!filtered} onClick={()=>{setAction('');setProject('');setSearch('');}}>Filter zurücksetzen</button>
+      <label><span>Vom Datum</span><input type="date" value={from} aria-invalid={invalidRange}
+        onChange={(event)=>setFrom(event.target.value)}/></label>
+      <label><span>Bis Datum</span><input type="date" value={to} aria-invalid={invalidRange}
+        onChange={(event)=>setTo(event.target.value)}/></label>
+      <button type="button" disabled={!filtered} onClick={()=>{
+        setAction('');setProject('');setSearch('');setFrom('');setTo('');
+      }}>Filter zurücksetzen</button>
     </div>
-    {movements.length || !filtered?<Table headers={['Zeitpunkt','Bewegung','Artikel','Lagerort','Projekt','Menge','Lieferschein','Erfasst durch']} rows={movements.map((row)=>({key:row.id,cells:[
+    {invalidRange ? <p className="empty" role="alert">Das Bis-Datum liegt vor dem Vom-Datum.</p>
+      : movements.length || !filtered?<Table headers={['Zeitpunkt','Bewegung','Artikel','Lagerort','Projekt','Menge','Lieferschein','Erfasst durch']} rows={movements.map((row)=>({key:row.id,cells:[
       moment(row.created_at),movementStages[row.action],itemsById.get(row.item_id)?.name ?? '–',name(data.locations,row.location_id),name(data.projects,row.project_id),row.quantity,row.delivery_reference||'–',name(data.users,row.actor_id),
     ]}))}/> : <p className="empty" role="status">Keine Bewegungen für diese Filter.</p>}
   </Panel>;
