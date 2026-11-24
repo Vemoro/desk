@@ -24,7 +24,10 @@ export function Projects({data,run,select}:{data:Data;run:Run;select:(id:string)
             { name:'contact_id',label:'Interessent',choices:options(data.contacts),required:true },
             { name:'due',label:'Termin',type:'date' },
             { name:'notes',label:'Notiz',type:'textarea' },
-          ]} submit={(fields)=>run(async()=>{const project=await api('projects','POST',{...fields,due:fields.due||null});select(project.id);},'Projekt angelegt.')}/>
+          ]} submit={(fields)=>run(async(isCurrent)=>{
+            const project=await api('projects','POST',{...fields,due:fields.due||null});
+            if(isCurrent()) select(project.id);
+          },'Projekt angelegt.')}/>
         </Expand>
       </div>
       <Table headers={['Projekt','Kontakt','Status','Termin']} rows={data.projects
@@ -119,12 +122,12 @@ function Planning({project,data,run,accountId}:{project:Row;data:Data;run:Run;ac
     <Panel title="Ressourcenplanung"><div className="panel-body compact-actions">
       <Expand title="Personal vormerken"><Form caption="Person vormerken" retryScope={`reservations:${accountId}:${project.id}:person`} prepare={reservationTimes} fields={[
         {name:'user_id',label:'Person',choices:options(data.users),required:true},...timeFields,
-      ]} submit={(v,key)=>run(()=>api('reservations','POST',{...v,project_id:project.id,quantity:1},key),'Person vorgemerkt.',true)}/></Expand>
+      ]} submit={(v,key)=>run(()=>api('reservations','POST',{...v,project_id:project.id,quantity:1},key),'Person vorgemerkt.',{reportWriteRejection:true})}/></Expand>
       <Expand title="Inventar vormerken"><Form caption="Inventar vormerken" retryScope={`reservations:${accountId}:${project.id}:item`} prepare={reservationTimes} fields={[
         {name:'item_id',label:'Artikel',choices:options(data.items),required:true},
         {name:'location_id',label:'Lagerort',choices:options(data.locations),required:true},
         {name:'quantity',label:'Menge',type:'number',value:1,min:1,required:true},...timeFields,
-      ]} submit={(v,key)=>run(()=>api('reservations','POST',{...v,project_id:project.id,quantity:Number(v.quantity)},key),'Inventar vorgemerkt.',true)}/></Expand>
+      ]} submit={(v,key)=>run(()=>api('reservations','POST',{...v,project_id:project.id,quantity:Number(v.quantity)},key),'Inventar vorgemerkt.',{reportWriteRejection:true})}/></Expand>
     </div><Table headers={['Ressource','Zeitraum','Menge','Status','Aktion']} rows={reservations.map((row)=>({
       key:row.id,cells:[row.user_id ? name(data.users,row.user_id) : <>{name(data.items,row.item_id)}<small>{name(data.locations,row.location_id)}</small></>,
         <>{moment(row.starts_at)}<small>bis {moment(row.ends_at)}</small></>,row.quantity,
@@ -132,7 +135,10 @@ function Planning({project,data,run,accountId}:{project:Row;data:Data;run:Run;ac
         <div className="actions">{row.status==='tentative' && ['confirmed','running'].includes(project.stage) && <button onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'firm'}),'Fest reserviert.')}>Fest reservieren</button>}
           {row.status!=='released' && <button onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'released'}),'Reservierung freigegeben.')}>Freigeben</button>}</div>],
     }))}/></Panel>
-    <Panel title="Kalkulation" action={<button onClick={()=>run(async()=>downloadPositions(project,await api(`projects/${project.id}/offer-positions`)))}>Angebotspositionen exportieren</button>}>
+    <Panel title="Kalkulation" action={<button onClick={()=>run(async(isCurrent)=>{
+      const positions=await api(`projects/${project.id}/offer-positions`);
+      if(isCurrent()) downloadPositions(project,positions);
+    },undefined,{kind:'read'})}>Angebotspositionen exportieren</button>}>
       <div className="panel-body"><Expand title="Position anlegen"><Form caption="Position speichern" fields={[
         {name:'kind',label:'Art',choices:[{value:'buy',label:'Einkauf'},{value:'sell',label:'Verkauf'}],required:true},
         {name:'name',label:'Position',required:true},{name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},
@@ -222,25 +228,27 @@ function Communication({project,zammad,run}:{project:Row;zammad:boolean;run:Run}
           </li>)}</ol>
           <Expand title="Antwort schreiben"><Form key={composeVersion} caption="Über Zammad senden" fields={[
             {name:'recipient',label:'Empfänger',type:'email',required:true},{name:'subject',label:'Betreff',required:true},{name:'body',label:'Nachricht',type:'textarea',required:true},
-          ]} submit={(v)=>run(async()=>{
+          ]} submit={(v)=>run(async(isCurrent)=>{
             const message:{[key:string]:unknown}={...v,id:draftId.current ??= crypto.randomUUID()};
             if(file) {
               if(file.size>5_242_880) throw new Error('PDF-Anhänge sind bis 5 MB möglich.');
               const bytes=new Uint8Array(await file.arrayBuffer());
               message.attachment={name:file.name,data:bytes.toBase64()};
             }
+            if(!isCurrent()) return;
             const result=await request('messages',message);
+            if(!isCurrent()) return;
             await refresh();
             if(result.status!=='sent') throw new Error('Sendezustand prüfen. Der Versuch steht im Projektverlauf.');
-            setFile(undefined);
+            if(isCurrent()) setFile(undefined);
           },'Nachricht an Zammad übergeben.')}>
             <label className="wide"><span>PDF-Anhang</span><input type="file" accept="application/pdf,.pdf" onChange={(event)=>setFile(event.target.files?.[0])}/></label>
           </Form></Expand>
           <Table headers={['Sendeversuch','Status','Aktion']} rows={(conversation?.outgoing ?? []).map((entry:Row)=>({
             key:entry.id,cells:[entry.subject,({sent:'An Zammad übergeben',pending:'Ausstehend',failed:'Abgelehnt',unknown:'Ausgang unklar'} as Record<string,string>)[entry.status],
               entry.status==='sent' ? '–' : <div className="actions">
-                <button onClick={()=>run(async()=>{await request(`outgoing/${entry.id}`,{retry:false});await refresh();})}>Prüfen</button>
-                <button onClick={()=>{if(window.confirm('Ticketverlauf prüfen und, falls die Nachricht fehlt, erneut senden?')) void run(async()=>{await request(`outgoing/${entry.id}`,{retry:true});await refresh();});}}>Erneut senden</button>
+                <button onClick={()=>run(async(isCurrent)=>{await request(`outgoing/${entry.id}`,{retry:false});if(isCurrent()) await refresh();})}>Prüfen</button>
+                <button onClick={()=>{if(window.confirm('Ticketverlauf prüfen und, falls die Nachricht fehlt, erneut senden?')) void run(async(isCurrent)=>{await request(`outgoing/${entry.id}`,{retry:true});if(isCurrent()) await refresh();});}}>Erneut senden</button>
               </div>],
           }))}/>
         </>}
