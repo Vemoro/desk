@@ -22,6 +22,7 @@ export function Desk() {
   const displayedSavedVersion=useRef(0);
   const loadVersion=useRef(0);
   const sessionVersion=useRef(0);
+  const logoutPending=useRef(false);
   const project=data.projects.find((row)=>row.id===projectId);
 
   async function load(session:number) {
@@ -149,6 +150,7 @@ export function Desk() {
         {name:'email',label:'E-Mail',type:'email',required:true,autoComplete:'username'},
         {name:'password',label:'Passwort',type:'password',required:true,autoComplete:'current-password'},
       ]} submit={async(input)=>{
+        if(logoutPending.current) throw new Error('Die Abmeldung läuft noch. Versuche es gleich erneut.');
         const session=sessionVersion.current;
         await api('login','POST',input);
         const current=await api<Person>('me');
@@ -162,6 +164,8 @@ export function Desk() {
   return <div className="frame">
     <a href="#desk-main" className="skip">Zum Inhalt</a>
     <Navigation person={person} section={section} themeButton={themeButton} onNavigate={navigate} onLogout={async()=>{
+      if(logoutPending.current) return;
+      logoutPending.current=true;
       const session=sessionVersion.current;
       try {
         await api('logout','POST');
@@ -170,6 +174,8 @@ export function Desk() {
         setNotice({message:'',error:false});
       } catch {
         if(session===sessionVersion.current) setNotice({message:'Abmelden fehlgeschlagen.',error:true});
+      } finally {
+        logoutPending.current=false;
       }
     }}/>
     <main id="desk-main" tabIndex={-1} className="main">

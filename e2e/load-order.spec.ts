@@ -192,3 +192,27 @@ test('Ein Haben-Kontaktkonflikt zeigt beide Stände ohne Hinweis auf eine Speich
   await expect(page.getByRole('button',{name:'Ansicht aktualisieren',exact:true})).toHaveCount(0);
   expect(reads).toBe(1);
 });
+
+test('Zwei schnelle Abmeldeklicks lösen nur eine Abmeldung aus',async({page})=>{
+  let requests=0;
+  const delayed=holdRoute();
+  await page.route('**/api/v1/logout',route=>{
+    requests++;
+    if(requests===1){delayed.resolve(route);return;}
+    return route.continue();
+  });
+  await signIn(page);
+  const logout=page.getByRole('button',{name:'Abmelden',exact:true});
+  await logout.evaluate((button:HTMLButtonElement)=>{button.click();button.click();});
+  const first=await delayed.request;
+  try{
+    const response=await first.fetch();
+    await first.fulfill({response});
+    await expect(page.getByRole('heading',{name:'Anmelden',exact:true})).toBeVisible();
+    expect(requests).toBe(1);
+    await signIn(page);
+    await expect(page.getByRole('navigation',{name:'Hauptnavigation'})).toBeVisible();
+  }finally{
+    await first.abort().catch(()=>{});
+  }
+});
