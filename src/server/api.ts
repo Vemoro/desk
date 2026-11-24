@@ -127,8 +127,11 @@ export async function handle(request: Request) {
   } catch (error) {
     if (error instanceof DeskError) return json({ error:error.message },error.status);
     if (error instanceof z.ZodError) return json({ error:error.issues.map((issue)=>`${issue.path.join('.') || 'Eingabe'}: ${issue.message}`).join('; ') },400);
-    const databaseError = error as { errno?:string; code?:string };
+    const databaseError = error as { errno?:string; code?:string; constraint?:string };
     const sqlState = databaseError.errno ?? databaseError.code;
+    if (sqlState === '23505' && databaseError.constraint === 'project_cost_center_idx') {
+      return json({error:'Diese Kostenstelle ist bereits einem Projekt zugeordnet.'},409);
+    }
     if (sqlState === '23505') return json({error:'Dieser Wert oder diese Zuordnung ist bereits vorhanden.'},409);
     if (sqlState === '23503' || sqlState === '23514') return json({error:'Unzulässige Zuordnung oder ungültiger Wert.'},409);
     console.error('Desk API:', error instanceof Error ? error.name : 'Unbekannter Fehler', databaseError.code ?? '');
