@@ -1,0 +1,31 @@
+# Einen Desk-Release-Kandidaten prüfen
+
+Halte im Prüfprotokoll den vollständigen Git-Commit, die verwendeten Bun- und PostgreSQL-Versionen, die isolierte Testumgebung und das Datum fest. Verknüpfe den CI-Lauf für denselben Stand und die Ergebnisse der praktischen Abnahme. Wenn ein Schritt offenbleibt, nenne den fehlenden Zugang, die Abhängigkeit oder den beobachteten Fehler. Zugangsdaten, echte Belege und personenbezogene Daten bleiben außerhalb des Protokolls.
+
+| Prüfung | Erwartetes Ergebnis |
+| --- | --- |
+| Build und Erstinstallation | Aus einem frischen Checkout bauen und eine leere PostgreSQL-Datenbank migrieren. Das erste Administrationskonto anlegen, den gebauten Dienst starten und die Anmeldung prüfen. Wenn ein Containerimage zur Veröffentlichung vorgesehen ist, dieselbe Prüfung mit diesem Image durchführen. |
+| Beide Musteraufträge ohne Anbindungen | Die Veranstaltungsbetreuung im Kulturhaus und die Büroinstallation Westflügel vom Kontakt über Aufgaben, Planung, Kalkulation und Lager bis zur Rechnungsreferenz durchspielen. Prüfe die deaktivierten Anbindungen über `/api/v1/integrations`. Erstelle für die Freigabe die vorgesehenen Bilder und prüfe die Ansichten. |
+| Wiederholung von Buchungen | Eine Übertragung mit unklarer Antwort erneut auslösen. Prüfe für Reservierung, Ausgabe, Rückgabe, Verbrauch und Ist-Kosten, dass ein erneut gesendeter Vorgang keine zweite fachliche Buchung erzeugt. |
+| Buchung am richtigen Lagerort | Denselben Artikel für ein Projekt an zwei Lagerorten reservieren. Im Buchungsformular den beabsichtigten Eintrag auswählen. Prüfe, ob die Bewegung den gewählten Ort verändert und ob dieser im Verlauf sichtbar ist. |
+| Upgrade und Wiederanlauf | Einen synthetischen Bestand der unterstützten Ausgangsversion sichern. Den Restore mit Migration zum Kandidaten und den Wiederanlauf der Ausgangsversion getrennt erproben. Im migrierten Bestand Projekt, Buchungen und Belegzuordnungen prüfen. Beim ersten Release dokumentieren, welcher Entwicklungsstand als Ausgang dient. |
+| Haben | Im simulierten Dienst den Angebotsstatus und den Kontaktabgleich prüfen. Für die Abnahme der vorgesehenen Haben-Version ein autorisiertes Testkonto und ausdrücklich dafür angelegte Beispieldaten verwenden. Rechte und tatsächlich unterstützte API-Vorgänge festhalten. |
+| Zammad | Ticket und Verlauf mit synthetischen Antworten im Test prüfen. Für die Abnahme an Zammad ein Testticket, die vorgesehene Ticketgruppe und ein Testpostfach verwenden. Ticket anlegen oder verknüpfen, Verlauf lesen und Zustellung einer Antwort mit PDF prüfen. |
+| Freigabe | Den geprüften Stand im PR dokumentieren. Offene Befunde und externe Grenzen erfassen. Die Entscheidung über Merge und Release liegt beim Maintainer. |
+
+Die [Betriebsdoku](desk.md) beschreibt den Ablauf, die [Entwicklungsdoku](entwicklung.md#befehle-und-screenshot-workflow) die Befehle für Build, Tests und Bilder. Die [Wiederherstellungsprobe](https://github.com/Vemoro/desk/pull/192) zeigt getrennte Datenbanken für Upgrade und Wiederanlauf. Release-Notizen beschreiben anschließend das Update aus Sicht der Nutzenden. [Issue #179](https://github.com/Vemoro/desk/issues/179)
+
+## Probe am Entwicklungsstand vom 24. November 2026
+
+Geprüft wurde der Stand [`b7a69f4b644c74296bca895f1c6c4f6babff9b42`](https://github.com/Vemoro/desk/commit/b7a69f4b644c74296bca895f1c6c4f6babff9b42) aus [PR #7](https://github.com/Vemoro/desk/pull/7). Der Lauf verwendete Bun 1.4.5, PostgreSQL 17.12 und getrennte lokale Datenbanken für Fachtests, Demobetrieb und eine leere Erstinstallation. Die Browser- und Anmeldeprüfungen liefen gegen den lokal gebauten Dienst. [CI desselben Stands](https://github.com/Vemoro/desk/actions/runs/45281416686)
+
+| Prüfung | Ergebnis der Probe |
+| --- | --- |
+| Build und Erstinstallation | Build, Typprüfung und `001_core.sql` erfolgreich. Auf der leeren Datenbank ein Administrationskonto eingerichtet und per HTTP angemeldet. Die Projektliste war leer. Die Containerprüfung ist im Kern-PR separat protokolliert. |
+| Beide Musteraufträge ohne Anbindungen | Sieben Fach- und Schnittstellentests, beide Browserfälle und der lokale Screenshot-Lauf bestanden. Die authentifizierte Integrationsabfrage meldete Haben und Zammad als deaktiviert. Vorgangslink und Notiz ließen sich bei beiden Beispielprojekten speichern und erneut lesen. |
+| Wiederholung von Buchungen | Offener Befund zur Konsistenz. Ein Wareneingang von zehn Einheiten und eine feste Reservierung über vier Einheiten dienten als Ausgang. Nach dem ersten Verbrauchsaufruf für eine Einheit waren neun Einheiten physisch vorhanden und drei reserviert. Die identische Wiederholung erhielt eine neue Bewegungs-ID und änderte die Werte auf acht und zwei. [Abnahmekriterium aus Issue #1](https://github.com/Vemoro/desk/issues/1) |
+| Buchung am richtigen Lagerort | Das unabhängige Review reproduzierte zwei gleich beschriftete Reservierungen an unterschiedlichen Orten. Im geprüften Stand fehlt außerdem der Lagerort im Verlauf. Die Korrekturen liegen in offenen Folge-PRs. [Lagerort im Verlauf](https://github.com/Vemoro/desk/pull/54) · [Eindeutige Auswahl](https://github.com/Vemoro/desk/pull/55) |
+| Upgrade und Wiederanlauf | Dieser Commit diente in der [separaten Upgrade-Probe](https://github.com/Vemoro/desk/pull/192) als Ausgang und wurde aus einem Vorab-Dump erneut gestartet. Die Migration auf diesen Commit als Ziel mit einem älteren Bestand bleibt offen. |
+| Haben | Statusübernahme und beidseitige Kontaktänderungen gegen den simulierten Dienst geprüft. Die Abnahme an der vorgesehenen Haben-Version steht aus. Desk übergibt Angebotspositionen per CSV und erfasst Ist-Kosten über Zuordnung oder CSV. Offene Schnittstellen betreffen Angebotsentwürfe und den Abruf projektbezogener Ist-Kosten. [Issue #5](https://github.com/Vemoro/desk/issues/5) · [Issue #6](https://github.com/Vemoro/desk/issues/6) |
+| Zammad | Der simulierte Test fand einen unklaren Sendeversuch im Verlauf wieder. PR #7 protokolliert einen separaten Lauf mit echtem Testticket und PDF-Zustellung. Diese lokale Probe wiederholte die Zustellung nicht. |
+| Freigabe | Die Befunde im Projektlager und die Abnahme an der vorgesehenen Haben-Version sind offen. Der Kern-PR bleibt im Entwurf. |
