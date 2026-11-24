@@ -1,6 +1,6 @@
 # Desk installieren
 
-Desk kann eigenständig arbeiten oder ein Zammad-System für Tickets und Nachrichten nutzen. Dieser Plan beschreibt drei Installationswege und die Abnahme vor der Freigabe für den Betrieb.
+Desk kann eigenständig arbeiten oder ein Zammad-System für Tickets und Nachrichten nutzen. Dieser Plan beschreibt drei Installationswege und die Prüfungen für ihre Freigabe. Der Stand der Prüfungen ist im Abschnitt [Abnahme und Folgearbeiten](#abnahme-und-folgearbeiten) festgehalten.
 
 | Weg | Geeignet, wenn | Zuständigkeit |
 | --- | --- | --- |
@@ -11,8 +11,8 @@ Desk kann eigenständig arbeiten oder ein Zammad-System für Tickets und Nachric
 ## Voraussetzungen für alle Wege
 
 1. Einen Desk-Stand festlegen und dessen Commit oder Release für spätere Updates dokumentieren. Für Desk eine eigene PostgreSQL-Datenbank bereitstellen. Die lokale Compose-Datei verwendet PostgreSQL 17. [Compose-Datei](../compose.yaml)
-2. Desk mit dem [Dockerfile](../Dockerfile) bauen oder den Build und Start auf dem Server ausführen. `DATABASE_URL` für die Desk-Datenbank und `DESK_ORIGIN` auf die tatsächlich verwendete HTTPS-Adresse setzen. Zugangsdaten über die Laufzeitkonfiguration bereitstellen.
-3. Vor dem Dienststart die Migration anwenden und das erste Admin-Konto anlegen. Für eine Probeinstallation eine eigene Instanz und eine Demo-Datenbank mit dem Suffix `_demo` verwenden. [Lokaler Einstieg](../README.md) · [Betrieb](desk.md#betrieb) · [Demo-Daten](entwicklung.md#befehle-und-screenshot-workflow)
+2. Desk mit dem [Dockerfile](../Dockerfile) oder aus dem Quellcheckout bauen. `DATABASE_URL` für die Desk-Datenbank und `DESK_ORIGIN` auf die tatsächlich verwendete HTTPS-Adresse setzen. `DESK_AUTH_SECRET` mit einem zufälligen Wert aus mindestens 32 Zeichen dauerhaft im Desk-Dienst hinterlegen. Zugangsdaten über die Laufzeitkonfiguration bereitstellen.
+3. Vor dem Dienststart die Migration für den gewählten Installationsweg anwenden und das erste Admin-Konto mit der passenden CLI anlegen. Für eine Probeinstallation eine eigene Instanz und eine Demo-Datenbank mit dem Suffix `_demo` verwenden. [Lokaler Einstieg](../README.md) · [Betrieb](desk.md#betrieb) · [Admin-CLI](desk.md#update-auf-better-auth) · [Demo-Daten](entwicklung.md#befehle-und-screenshot-workflow)
 
 ## A · Neue Zammad-Instanz einbinden
 
@@ -40,7 +40,7 @@ Für diesen Weg ist ein separat aktualisierbarer Zammad-Compose-Stack als option
 | B | Desk-Datenbank und Laufzeitkonfiguration sichern. Die Wiederherstellung in einer getrennten Instanz proben, dort das Desk-Update mit Migration anwenden und das Testticket prüfen. Änderungen an Zammad mit dessen Betriebsteam abstimmen. | Bei einem fehlgeschlagenen Desk-Upgrade mit Migration den vorherigen Desk-Anwendungsstand mit der passenden Vorab-Sicherung und Konfiguration in einer getrennten Umgebung wiederherstellen. Bei einer reinen Fehlkonfiguration der Anbindung die vorherigen Einstellungen zurückspielen oder die Verbindung vorübergehend deaktivieren. Eine Wiederherstellung von Zammad führt sein Betriebsteam durch. |
 | C | Desk-Datenbank sichern und Migration in einer Wiederherstellung testen. | Den vorherigen Desk-Stand mit passender Konfiguration und Vorab-Sicherung wiederherstellen und den Ablauf mit Vorgangslink und Notiz prüfen. |
 
-Bei einem Wechsel auf eine andere Zammad-Instanz die gespeicherten Ticket-IDs vor erneuter Nutzung prüfen. Gleiche Nummern können dort andere Tickets bezeichnen. Vor der Rückkehr nach einer Datenwiederherstellung klären, welche Vorgänge seit der Sicherung hinzugekommen sind und welche Nachrichten Zammad bereits übernommen hat. [Zammad aktualisieren](https://docs.zammad.org/en/latest/install/update.html) · [Zammad sichern und wiederherstellen](https://docs.zammad.org/en/latest/appendix/backup-and-restore/docker-compose.html)
+Bei einem Wechsel auf eine andere Zammad-Instanz die gespeicherten Ticket-IDs vor erneuter Nutzung prüfen. Dieselbe ID kann dort zu einem anderen Ticket gehören. Vor der Rückkehr nach einer Datenwiederherstellung klären, welche Vorgänge seit der Sicherung hinzugekommen sind und welche Nachrichten Zammad bereits übernommen hat. [Zammad aktualisieren](https://docs.zammad.org/en/latest/install/update.html) · [Zammad sichern und wiederherstellen](https://docs.zammad.org/en/latest/appendix/backup-and-restore/docker-compose.html)
 
 ## Abnahme und Folgearbeiten
 
