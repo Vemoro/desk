@@ -64,16 +64,17 @@ async function reserveCapacity(query: Query, request: Reservation) {
   if (count - reserved < request.quantity) throw new DeskError(409, 'Für diese Reservierung reicht der freie Bestand nicht.');
 }
 
-export async function createReservation(input: z.infer<typeof reservationInput>) {
-  return db.begin(async (transaction) => {
-    await lockPlanning(transaction);
+export async function createReservation(input: z.infer<typeof reservationInput>, request?:WriteRequest) {
+  const normalized={...input,project_id:input.project_id.toLowerCase(),user_id:input.user_id?.toLowerCase(),
+    item_id:input.item_id?.toLowerCase(),location_id:input.location_id?.toLowerCase()};
+  return planningWrite('reservations',request,normalized,async transaction=>{
     const project = await getProject(input.project_id, transaction);
     if (['complete','cancelled'].includes(project.stage)) throw new DeskError(409, 'Das Projekt ist abgeschlossen.');
     if (input.item_id) {
       const material = await item(transaction, input.item_id);
       if (material.inventory_number && input.quantity !== 1) throw new DeskError(400, 'Ein Einzelgerät hat die Menge 1.');
     }
-    return first(transaction, `INSERT INTO reservations(project_id,user_id,item_id,location_id,quantity,starts_at,ends_at)
+    return first<Reservation>(transaction, `INSERT INTO reservations(project_id,user_id,item_id,location_id,quantity,starts_at,ends_at)
       VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
       [input.project_id,input.user_id ?? null,input.item_id ?? null,input.location_id ?? null,input.quantity,input.starts_at,input.ends_at]);
   });

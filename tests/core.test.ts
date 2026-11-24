@@ -82,6 +82,48 @@ describe('Fachlicher Projektablauf', () => {
 });
 
 describe('API und Integrationen',()=>{
+  test('Vormerkungen verwenden pro Konto und Endpunkt denselben Vorgangsschlüssel nur einmal',async()=>{
+    const data=await fixture(saveCore,'Wiederholte Vormerkungen');
+    const owner=await createToken(actor,{label:'Muster-Planung',scope:'write'});
+    const other=(await createAccount({email:crypto.randomUUID()+'@example.test',name:'Zweite Testperson',
+      password:'muster-test-passwort',role:'admin'}))!;
+    const otherToken=await createToken(other,{label:'Zweite Muster-Planung',scope:'write'});
+    const key=crypto.randomUUID();
+    async function call(input:object,requestKey?:string,token=owner.token,path='reservations'){
+      const headers:Record<string,string>={Authorization:`Bearer ${token}`,'Content-Type':'application/json'};
+      if(requestKey) headers['Idempotency-Key']=requestKey;
+      return handle(new Request(`http://desk.local/api/v1/${path}`,{method:'POST',headers,body:JSON.stringify(input)}));
+    }
+    async function create(input:object,requestKey?:string,token=owner.token){
+      const response=await call(input,requestKey,token);
+      expect(response.status).toBe(201);
+      return await response.json() as {id:string;status:string};
+    }
+    async function count(){
+      return (await first<{count:number}>(db,'SELECT count(*)::int AS count FROM reservations WHERE project_id=$1',[data.project]))?.count;
+    }
+    const {location_id:_,...period}=data.booking;
+    const personnel={...period,user_id:actor.id,quantity:1};
+    const [left,right]=await Promise.all([create(personnel,key),create(personnel,key)]);
+    expect(left).toEqual(right);
+    expect(await count()).toBe(1);
+    const equipment={...data.booking,item_id:data.equipment,quantity:2};
+    expect((await call(equipment,key)).status).toBe(409);
+    expect(await count()).toBe(1);
+    expect((await create(personnel,key,otherToken.token)).id).not.toBe(left.id);
+    expect((await create(personnel,crypto.randomUUID())).id).not.toBe(left.id);
+    expect(await count()).toBe(3);
+    const equipmentKey=crypto.randomUUID();
+    const itemReservation=await create(equipment,equipmentKey);
+    await setReservation(itemReservation.id,'released');
+    expect(await create(equipment,equipmentKey)).toEqual(itemReservation);
+    expect(await count()).toBe(4);
+    expect((await call({action:'receive',item_id:data.material,location_id:data.location,quantity:1},key,owner.token,'movements')).status).toBe(201);
+    await create(equipment);
+    await create(equipment);
+    expect(await count()).toBe(6);
+  });
+
   test('Lagerbewegungen mit demselben Vorgangsschlüssel werden genau einmal gebucht',async()=>{
     const data=await fixture(saveCore,'Wiederholte Lagerbewegungen');
     await changeStage(data.project,'planning');

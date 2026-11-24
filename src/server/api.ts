@@ -57,7 +57,8 @@ get('/projects/{id}/offer-positions','Verkaufspositionen für das Angebot',async
   return rows(db,"SELECT name,quantity,unit_cents FROM lines WHERE project_id=$1 AND kind='sell' ORDER BY id",[path[1]]);
 });
 get('/reservations','Reservierungen auflisten',({limit,offset})=>listReservations(limit,offset));
-action('POST','/reservations','Ressource vormerken',reservationInput,(context,input)=>createReservation(input));
+action('POST','/reservations','Ressource vormerken',reservationInput,({actor,requestKey},input)=>
+  createReservation(input,requestKey ? {actorId:actor.id,key:requestKey} : undefined),true);
 action('PATCH','/reservations/{id}','Reservierung festlegen oder freigeben',reservationStatus,({path},input)=>setReservation(path[1],input.status));
 get('/stock','Lagerbestand je Lagerort',()=>listStock());
 get('/movements','Lagerbewegungen',({limit,offset})=>listMovements(limit,offset));
