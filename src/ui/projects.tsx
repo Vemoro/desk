@@ -128,6 +128,7 @@ function reservationDuration(start:string,end:string) {
 }
 
 function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
+  const [sort,setSort]=useState('standard');
   const [resourceFilter,setResourceFilter]=useState('');
   const [statusFilter,setStatusFilter]=useState('');
   const [dayFilter,setDayFilter]=useState('');
@@ -141,6 +142,9 @@ function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
     && (!onlyCheckedOut || (equipmentIds.has(row.item_id) && row.checked_out>0))
     && (!dayRange || (dayRange.start<dayRange.end
       && Date.parse(row.starts_at)<dayRange.end && Date.parse(row.ends_at)>dayRange.start)));
+  if(sort==='start'){
+    visibleReservations.sort((left,right)=>Date.parse(left.starts_at)-Date.parse(right.starts_at));
+  }
   const lines=data.lines.filter((row)=>row.project_id===project.id);
   const timeFields=[
     {name:'starts_at',label:'Von',type:'datetime-local',required:true},
@@ -161,6 +165,10 @@ function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
           <input type="checkbox" checked={onlyCheckedOut} onChange={(event)=>setOnlyCheckedOut(event.target.checked)}/>
           <span>Nur offene Geräteausgaben</span>
         </label>
+        <label><span>Reservierungen sortieren</span><select value={sort} onChange={(event)=>setSort(event.target.value)}>
+          <option value="standard">Standard</option>
+          <option value="start">Frühester Beginn zuerst</option>
+        </select></label>
         <button type="button" disabled={!resourceFilter&&!statusFilter&&!dayFilter&&!onlyCheckedOut}
           onClick={()=>{setResourceFilter('');setStatusFilter('');setDayFilter('');setOnlyCheckedOut(false);}}>Filter zurücksetzen</button>
       </div>
