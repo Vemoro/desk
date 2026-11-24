@@ -12,7 +12,7 @@ Bun und PostgreSQL werden benötigt. Für eine lokale Entwicklungsdatenbank lieg
 4. `DESK_ADMIN_PASSWORD` im Prozess setzen, dann `bun run admin admin@example.test "Desk Admin"`.
 5. `bun run dev` starten und die von Vite ausgegebene Adresse öffnen. `DESK_ORIGIN` muss dieser Adresse entsprechen.
 
-[Benutzung und Betrieb](docs/desk.md) · [Entwicklung und Screenshots](docs/entwicklung.md) · [AGPL-3.0](LICENSE)
+[Benutzung und Betrieb](docs/desk.md) · [Entwicklung und Screenshots](docs/entwicklung.md) · [AGPL-3.0-only](LICENSE)
 
 ## Einblick
 

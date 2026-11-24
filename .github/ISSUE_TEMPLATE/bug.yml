@@ -1,0 +1,49 @@
+name: Fehler melden
+description: Einen beobachteten Fehler so beschreiben, dass das Desk-Team ihn nachstellen kann.
+title: "[Fehler] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Prüfe zuerst die [vorhandenen Issues](https://github.com/Vemoro/desk/issues).
+        Verwende fiktive oder anonymisierte Angaben. Entferne Zugangsdaten und personenbezogene Daten auch aus Logs und Screenshots.
+  - type: input
+    id: tested-version
+    attributes:
+      label: Getesteter Stand
+      description: "Pflichtangabe. Nenne das Release oder den Commit, auf dem der Fehler auftrat."
+      placeholder: "Beispiel: Commit a1b2c3d"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Schritte zum Nachstellen
+      description: "Pflichtangabe. Beschreibe die Ausgangssituation und die Schritte in ihrer Reihenfolge."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Erwartetes Verhalten
+      description: "Pflichtangabe. Was hättest du nach diesen Schritten erwartet?"
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Beobachtetes Verhalten
+      description: "Pflichtangabe. Was ist stattdessen passiert?"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser und Bildschirmgröße
+      description: "Optional. Ergänze Browser, Version und Bildschirmgröße, wenn sie für den Fehler relevant sind."
+  - type: textarea
+    id: details
+    attributes:
+      label: Weitere Angaben
+      description: "Optional. Ergänze bereinigte Fehlermeldungen, Logs oder Screenshots."
