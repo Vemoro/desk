@@ -50,6 +50,27 @@ test('Der ausgelieferte API-Vertrag entspricht dem Schema seiner OpenAPI-Version
   expect(await specificationErrors(await servedSpecification())).toEqual([]);
 });
 
+test('Der API-Vertrag beschreibt Seitennavigation nur für paginierte Listen',async()=>{
+  const byPath=new Map(entries(await servedSpecification()));
+  const paginated=new Set(['contacts','projects','tasks','lines','locations','items','reservations','movements','costs']);
+  for(const [path,value] of byPath){
+    const operation=/^\/paths\/~1([^/]+)\/(?:get|post|patch|delete)\/parameters$/.exec(path);
+    if(!operation) continue;
+    const parameters=(value as {in:string}[]).filter(parameter=>parameter.in==='query');
+    if(path.endsWith('/get/parameters') && paginated.delete(operation[1])){
+      const operationPath=path.slice(0,-'/parameters'.length);
+      expect(byPath.get(operationPath+'/description')).toMatch(/Reihenfolge.*Änderungen zwischen Seiten/);
+      expect(parameters).toEqual([
+        expect.objectContaining({name:'limit',schema:{type:'integer',minimum:1,maximum:200,default:100}}),
+        expect.objectContaining({name:'offset',schema:{type:'integer',minimum:0,maximum:1_000_000,default:0}}),
+      ]);
+    }else{
+      expect(parameters).toEqual([]);
+    }
+  }
+  expect(paginated.size).toBe(0);
+});
+
 test('Die OpenAPI-Prüfung meldet den Pfad eines fehlenden Pflichtelements',async()=>{
   const invalid=structuredClone(await servedSpecification());
   delete invalid.info.title;

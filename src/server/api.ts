@@ -10,11 +10,11 @@ import { conversations, linkTicket, reviewOutgoing, send } from './zammad';
 import { integrationStatus } from './remote';
 
 type Context = { actor: Actor; path: string[]; limit: number; offset: number };
-type Operation = { method: string; path: string; summary: string; run: (context: Context, input: unknown) => Promise<unknown>; input?: z.ZodType };
+type Operation = { method: string; path: string; summary: string; run: (context: Context, input: unknown) => Promise<unknown>; input?: z.ZodType; pageOrder?: string };
 const operations: Operation[] = [];
 
-function get(path: string, summary: string, run: (context: Context) => Promise<unknown>) {
-  operations.push({ method: 'GET', path, summary, run });
+function get(path: string, summary: string, run: (context: Context) => Promise<unknown>, pageOrder?: string) {
+  operations.push({ method: 'GET', path, summary, run, pageOrder });
 }
 
 function action<T>(method: 'POST'|'PATCH', path: string, summary: string, input: z.ZodType<T>, run: (context: Context, input: T) => Promise<unknown>) {
@@ -24,7 +24,8 @@ function action<T>(method: 'POST'|'PATCH', path: string, summary: string, input:
 for (const name of Object.keys(schemas) as Collection[]) {
   const schema = schemas[name];
   const path = `/${name}`;
-  get(path,'Einträge auflisten',({limit,offset})=>listCore(name,limit,offset));
+  get(path,'Einträge auflisten',({limit,offset})=>listCore(name,limit,offset),
+    name==='lines' ? 'Art, Name, ID' : 'Name, ID');
   get(`${path}/{id}`,'Eintrag lesen',({path})=>getCore(name,path[1]));
   action('POST',path,'Eintrag anlegen',schema,(context,input)=>saveCore(name,input));
   action('PATCH',`${path}/{id}`,'Eintrag ändern',schema.partial(),({path},input)=>saveCore(name,input,path[1]));
@@ -54,13 +55,15 @@ get('/projects/{id}/offer-positions','Verkaufspositionen für das Angebot',async
   await getProject(path[1]);
   return rows(db,"SELECT name,quantity,unit_cents FROM lines WHERE project_id=$1 AND kind='sell' ORDER BY id",[path[1]]);
 });
-get('/reservations','Reservierungen auflisten',({limit,offset})=>listReservations(limit,offset));
+get('/reservations','Reservierungen auflisten',({limit,offset})=>listReservations(limit,offset),
+  'Startzeit, bei gleichem Start Personal vor Geräten und Material, ID');
 action('POST','/reservations','Ressource vormerken',reservationInput,(context,input)=>createReservation(input));
 action('PATCH','/reservations/{id}','Reservierung festlegen oder freigeben',reservationStatus,({path},input)=>setReservation(path[1],input.status));
 get('/stock','Lagerbestand je Lagerort',()=>listStock());
-get('/movements','Lagerbewegungen',({limit,offset})=>listMovements(limit,offset));
+get('/movements','Lagerbewegungen',({limit,offset})=>listMovements(limit,offset),'Zeitpunkt absteigend, ID');
 action('POST','/movements','Lagerbewegung erfassen',movementInput,({actor},input)=>createMovement(input,actor.id));
-get('/costs','Ist-Kosten und offene Zuordnungen',({limit,offset})=>listCosts(limit,offset));
+get('/costs','Ist-Kosten und offene Zuordnungen',({limit,offset})=>listCosts(limit,offset),
+  'Nicht zugeordnete Kosten zuerst, Name, ID');
 action('POST','/costs','Ist-Kosten übernehmen',costBatch,(context,input)=>importCosts(input.entries));
 action('PATCH','/costs/{id}','Ist-Kosten einem Projekt zuordnen',costAssignment,({path},input)=>assignCost(path[1],input.project_id));
 action('POST','/haben/contacts/import','Neue Haben-Kontakte importieren',z.strictObject({}),()=>pullContacts());
@@ -73,7 +76,12 @@ action('POST','/projects/{id}/zammad/messages','Zammad-Antwort senden',zammadMes
 action('POST','/projects/{id}/zammad/outgoing/{messageId}','Sendeversuch prüfen oder ausdrücklich erneut senden',
   z.strictObject({ retry:z.boolean() }),({path},input)=>reviewOutgoing(path[1],path[4],input.retry));
 
-const pageSchema = z.object({ limit:z.coerce.number().int().min(1).max(200).default(100), offset:z.coerce.number().int().min(0).max(1_000_000).default(0) });
+const limitBounds = {minimum:1,maximum:200,default:100};
+const offsetBounds = {minimum:0,maximum:1_000_000,default:0};
+const pageSchema = z.object({
+  limit:z.coerce.number().int().min(limitBounds.minimum).max(limitBounds.maximum).default(limitBounds.default),
+  offset:z.coerce.number().int().min(offsetBounds.minimum).max(offsetBounds.maximum).default(offsetBounds.default),
+});
 const headers = { 'Cache-Control':'no-store','X-Content-Type-Options':'nosniff' };
 const json = (value: unknown, status = 200, extra: Record<string,string> = {}) =>
   Response.json(value,{ status,headers:{ ...headers,...extra } });
@@ -139,10 +147,17 @@ export async function handle(request: Request) {
 function openApi() {
   const paths: Record<string,Record<string,unknown>> = {};
   for (const op of operations) {
+    const pathParameters = [...op.path.matchAll(/\{(\w+)\}/g)]
+      .map(([,name])=>({name,in:'path',required:true,schema:{type:'string',format:'uuid'}}));
+    const pageParameters = op.pageOrder ? [
+      {name:'limit',in:'query',description:'Höchstzahl der Einträge pro Seite.',schema:{type:'integer',...limitBounds}},
+      {name:'offset',in:'query',description:'Anzahl der zu überspringenden Einträge.',schema:{type:'integer',...offsetBounds}},
+    ] : [];
     (paths[op.path] ??= {})[op.method.toLowerCase()] = {
       summary:op.summary,
       security:[{token:[]}],
-      parameters:[...op.path.matchAll(/\{(\w+)\}/g)].map(([,name])=>({name,in:'path',required:true,schema:{type:'string',format:'uuid'}})),
+      ...(op.pageOrder ? {description:`Reihenfolge (${op.pageOrder}). Eine Seite mit weniger Einträgen als limit oder eine leere Seite beendet die Abfrage. Liegt der nächste offset über der Obergrenze, endet der Abruf möglicherweise vor dem Listenende. Änderungen zwischen Seiten können Einträge verschieben.`} : {}),
+      parameters:[...pathParameters,...pageParameters],
       ...(op.input ? { requestBody:{ required:true,content:{'application/json':{schema:z.toJSONSchema(op.input,{target:'draft-2020-12',io:'input'})}} } } : {}),
       responses:{ [op.method === 'POST' ? '201' : '200']:{description:'Erfolg'}, 400:{description:'Ungültige Eingabe'},
         401:{description:'Anmeldung erforderlich'},403:{description:'Zugriff verweigert'},409:{description:'Konflikt'} },

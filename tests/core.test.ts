@@ -96,6 +96,40 @@ describe('API und Integrationen',()=>{
     expect((await handle(new Request('http://desk.local/api/v1/projects',{headers}))).status).toBe(401);
   });
 
+  test('Projektliste liefert die Standardseite, weitere Einträge und eine leere Seite',async()=>{
+    const contact=getId(await saveCore('contacts',{name:'Muster Auftragsservice'}));
+    const token=await createToken(actor,{label:'Seitennavigation',scope:'read'});
+    const list=(query='')=>handle(new Request('http://desk.local/api/v1/projects'+query,{
+      headers:{Authorization:`Bearer ${token.token}`},
+    }));
+    async function projectIds(query=''){
+      const response=await list(query);
+      expect(response.status).toBe(200);
+      const projects=await response.json() as {id:string}[];
+      return projects.map(project=>project.id);
+    }
+    try {
+      await db.unsafe(`INSERT INTO projects (contact_id,name)
+        SELECT $1::uuid,'Musterauftrag ' || lpad(n::text,3,'0') FROM generate_series(1,105) AS n`,[contact]);
+      const all=await db.unsafe<{id:string}[]>('SELECT id FROM projects ORDER BY name,id');
+      const firstPage=await projectIds();
+      const secondPage=await projectIds('?limit=100&offset=100');
+      expect(firstPage).toHaveLength(100);
+      expect(secondPage.length).toBeGreaterThan(0);
+      const projectIdsOnPages=[...firstPage,...secondPage];
+      expect(new Set(projectIdsOnPages).size).toBe(projectIdsOnPages.length);
+      expect(projectIdsOnPages).toEqual(all.slice(0,200).map(project=>project.id));
+      expect(await projectIds('?limit=200&offset=1000000')).toEqual([]);
+      for(const query of ['?limit=0','?limit=201','?limit=1.5','?offset=-1','?offset=1000001']){
+        expect((await list(query)).status).toBe(400);
+      }
+    } finally {
+      await db.unsafe('DELETE FROM projects WHERE contact_id=$1',[contact]);
+      await db.unsafe('DELETE FROM contacts WHERE id=$1',[contact]);
+      await db.unsafe('DELETE FROM api_tokens WHERE id=$1',[token.id]);
+    }
+  });
+
   test('Unklaren Zammad-Versand im Verlauf wiederfinden, ohne erneut zu senden',async()=>{
     const { send,reviewOutgoing }=await import('../src/server/zammad');
     const data=await fixture(saveCore,'Zammad-Verlauf');

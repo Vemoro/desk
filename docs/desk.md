@@ -26,6 +26,20 @@ Desk legt Angebote in der ersten Version über die manuelle Übergabe an Haben a
 - Teamkonten und widerrufbare API-Tokens stehen in den Einstellungen. Der API-Vertrag ist unter `/api/v1/openapi.json` verfügbar. Schreibende Tickets, Kontakte und andere Vorgänge laufen über die jeweils eingerichteten Serverzugänge.
 - PostgreSQL sichern. Vor einem Update die Wiederherstellung in einer getrennten Instanz prüfen. Für Desktop und Smartphone dieselbe HTTPS-Adresse verwenden.
 
+### Seitennavigation der REST-API
+
+`limit` bestimmt die Höchstzahl der Einträge pro Seite (1 bis 200, Standard 100). `offset` überspringt Einträge am Anfang der aktuellen sortierten Liste (0 bis 1.000.000, Standard 0). Diese Parameter gelten für die folgenden GET-Listen:
+
+| Routen unter `/api/v1` | Reihenfolge |
+| --- | --- |
+| `/contacts`, `/projects`, `/tasks`, `/locations`, `/items` | Name, ID |
+| `/lines` | Art, Name, ID |
+| `/reservations` | Startzeit, bei gleichem Start Personal vor Geräten und Material, ID |
+| `/movements` | Zeitpunkt absteigend, ID |
+| `/costs` | Nicht zugeordnete Kosten zuerst, Name, ID |
+
+Für die Projektliste des fiktiven Muster Auftragsservice öffnet `GET /api/v1/projects?limit=100&offset=0` die ersten 100 Projekte. `GET /api/v1/projects?limit=100&offset=100` liest die nächste Seite, etwa ab „Musterauftrag 101“, wenn die synthetischen Projekte entsprechend benannt sind. Erhöhe den Offset nach jeder vollen Seite um das Limit. Eine kürzere oder leere Seite beendet die Abfrage. Liegt der nächste Offset über 1.000.000, endet der Abruf möglicherweise vor dem Listenende. Änderungen zwischen den Abfragen können Einträge verschieben und dadurch doppelt erscheinen oder übersprungen werden.
+
 ## Ansichten
 
 <picture>
