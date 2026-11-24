@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.59.0",
+    "@seriousme/openapi-schema-validator": "^2.12.0",
     "@types/bun": "latest",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
