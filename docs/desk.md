@@ -36,3 +36,12 @@ Desk legt Angebote in der ersten Version über die manuelle Übergabe an Haben a
 </picture>
 
 [Projektlager auf dem Smartphone, hell](screenshots/projektlager-hell-handy.png) · [Projektlager auf dem Smartphone, dunkel](screenshots/projektlager-dunkel-handy.png)
+
+## Navigation am Smartphone
+
+Die Kopfleiste zeigt **Menü**. Dahinter liegen die Hauptnavigation, Hell- und Dunkelmodus sowie der Kontobereich. Nach Auswahl eines Bereichs schließt das Menü und der Tastaturfokus wechselt zum Hauptinhalt. Escape schließt es und bringt den Tastaturfokus zurück zum Schalter.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="screenshots/navigation-dunkel-handy-offen.png">
+  <img src="screenshots/navigation-hell-handy-offen.png" width="375" alt="Geöffnetes Handymenü mit Hauptnavigation, Designwechsel und Kontobereich">
+</picture>

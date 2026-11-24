@@ -17,6 +17,7 @@ test('Buchungsoptionen unterscheiden Lagerort und Zeitraum und behalten ihre Zuo
   await page.route('**/api/v1/reservations?*',route=>route.fulfill({json:reservations.map(row=>({...row,project_id:'projekt',item_id:'koffer'}))}));
   await page.route('**/api/v1/movements',route=>route.fulfill({status:201,json:{id:'movement'}}));
   await signIn(page);
+  await page.getByRole('button',{name:'Menü',exact:true}).click();
   await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Projektlager',exact:true}).click();
   await page.getByText('Ausgabe, Rückgabe oder Verbrauch',{exact:true}).click();
   const choice=page.locator('select[name="reservation_id"]');

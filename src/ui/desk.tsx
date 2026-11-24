@@ -2,13 +2,9 @@ import { useEffect, useState } from 'react';
 import { all, api, ApiError, compileCsv, date, euros, moment, money, movementStages, name, projectStages, type Row } from './client';
 import { Project, Projects, type Data } from './projects';
 import { Expand, Form, options, Panel, Pill, Table, type Run } from './widgets';
+import { Icon } from './icons';
+import { Navigation, sections, type Person, type Section } from './navigation';
 
-const sections = {
-  dashboard:['Übersicht','▦'], projects:['Projekte','▤'], contacts:['Kontakte','◎'],
-  warehouse:['Projektlager','▧'], costs:['Ist-Kosten','≋'], settings:['Einstellungen','⚙'],
-};
-type Section=keyof typeof sections;
-type Person={id:string;name:string;role:'admin'|'member'};
 const collections = ['contacts','projects','tasks','users','lines','reservations','locations','items','movements','costs','stock'] as const;
 const initialData=Object.fromEntries(collections.map((key)=>[key,[]])) as unknown as Data;
 
@@ -76,7 +72,7 @@ export function Desk() {
   }
 
   const alert=notice.message && <div className={`notice ${notice.error?'error':''}`} role={notice.error?'alert':'status'}>{notice.message}</div>;
-  const themeButton=<button className="theme" onClick={()=>setTheme(theme==='light'?'dark':'light')} aria-label={theme==='light'?'Dunkles Design':'Helles Design'}>{theme==='light'?'◐':'☀'}</button>;
+  const themeButton=<button className="theme" onClick={()=>setTheme(theme==='light'?'dark':'light')} aria-label={theme==='light'?'Dunkles Design':'Helles Design'}><Icon name={theme==='light'?'moon':'sun'}/></button>;
 
   if(person===undefined) return <main className="login"><p>Desk wird geladen …</p></main>;
   if(!person) return <main className="login">
@@ -92,16 +88,10 @@ export function Desk() {
 
   return <div className="frame">
     <a href="#desk-main" className="skip">Zum Inhalt</a>
-    <aside className="sidebar"><div className="brand"><span className="mark">D</span><strong>Desk</strong></div>
-      <nav aria-label="Hauptnavigation">{Object.entries(sections).map(([key,[label,glyph]])=>
-        key==='settings'&&person.role!=='admin'?null:<button key={key} aria-current={section===key?'page':undefined}
-          onClick={()=>navigate(key as Section)}><span aria-hidden="true">{glyph}</span>{label}</button>,
-      )}</nav>
-      <footer className="sidebar-foot"><div className="account"><span className="avatar">{person.name.slice(0,1)}</span>
-        <div><strong>{person.name}</strong><small>{person.role==='admin'?'Administration':'Mitarbeit'}</small></div>{themeButton}</div>
-        <button onClick={async()=>{try { await api('logout','POST');setPerson(null);setData(initialData);setNotice({message:'',error:false}); } catch { setNotice({message:'Abmelden fehlgeschlagen.',error:true}); }}}>Abmelden</button>
-      </footer>
-    </aside>
+    <Navigation person={person} section={section} themeButton={themeButton} onNavigate={navigate} onLogout={async()=>{
+      try { await api('logout','POST');setPerson(null);setData(initialData);setNotice({message:'',error:false}); }
+      catch { setNotice({message:'Abmelden fehlgeschlagen.',error:true}); }
+    }}/>
     <main id="desk-main" tabIndex={-1} className="main">
       {section!=='projects'||!project?<header className="page-title"><h1>{sections[section][0]}</h1></header>:null}
       {alert}
