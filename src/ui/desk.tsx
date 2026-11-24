@@ -184,6 +184,16 @@ function Warehouse({data,run}:{data:Data;run:Run}) {
   const bookings=data.reservations.filter((row)=>row.item_id&&(row.status==='firm'||row.checked_out>0));
   const [projectFilter,setProjectFilter]=useState('');
   const [locationFilter,setLocationFilter]=useState('');
+  const [stockQuery,setStockQuery]=useState('');
+  const [stockLocation,setStockLocation]=useState('');
+  const itemsById=new Map(data.items.map((item)=>[item.id,item]));
+  const stockTerm=stockQuery.trim().toLowerCase();
+  const visibleStock=data.stock.filter((row)=>{
+    const item=itemsById.get(row.item_id);
+    return (!stockLocation || row.location_id===stockLocation)
+      && (!stockTerm || [item?.name,item?.code,item?.inventory_number]
+        .some((value)=>value?.toLowerCase().includes(stockTerm)));
+  });
   const openCheckouts=bookings.filter((row)=>row.checked_out>0);
   const visibleCheckouts=openCheckouts.filter((row)=>
     (!projectFilter || row.project_id===projectFilter) && (!locationFilter || row.location_id===locationFilter));
@@ -208,9 +218,18 @@ function Warehouse({data,run}:{data:Data;run:Run}) {
         {name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},
       ]} submit={(input)=>run(()=>api('movements','POST',{...input,quantity:Number(input.quantity)}),'Lagerbewegung gebucht.')}/></Expand>
     </div>
-    <Table headers={['Artikel','Lagerort','Physisch','Reserviert','Frei']} rows={data.stock.map((row)=>({key:`${row.item_id}/${row.location_id}`,cells:[
+    <div className="panel-body form-grid">
+      <label><span>Bestand suchen</span><input type="search" value={stockQuery} onChange={(event)=>setStockQuery(event.target.value)}/></label>
+      <label><span>Lagerort filtern</span><select value={stockLocation} onChange={(event)=>setStockLocation(event.target.value)}>
+        <option value="">Alle Lagerorte</option>
+        {options(data.locations).map(({value,label})=><option key={value} value={value}>{label}</option>)}
+      </select></label>
+      <button type="button" disabled={!stockQuery&&!stockLocation}
+        onClick={()=>{setStockQuery('');setStockLocation('');}}>Filter zurücksetzen</button>
+    </div>
+    {visibleStock.length || !stockTerm&&!stockLocation ? <Table headers={['Artikel','Lagerort','Physisch','Reserviert','Frei']} rows={visibleStock.map((row)=>({key:`${row.item_id}/${row.location_id}`,cells:[
       name(data.items,row.item_id),name(data.locations,row.location_id),row.physical,row.reserved,<strong>{row.free}</strong>,
-    ]}))}/></Panel>
+    ]}))}/> : <p className="empty" role="status">Kein Bestand für diese Filter.</p>}</Panel>
     <Panel title="Offene Ausgaben">
       <div className="panel-body">
         <div className="form-grid">
