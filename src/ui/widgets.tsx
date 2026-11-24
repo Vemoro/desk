@@ -27,9 +27,9 @@ function storedAttempt(storageKey:string): Attempt | undefined {
   } catch {}
 }
 
-export function Form({fields,caption,submit,children,className='form-grid',retryScope,prepare}:{
+export function Form({fields,caption,submit,children,className='form-grid',retryScope,prepare,retryNote}:{
   fields:Field[]; caption:string; submit:(values:Fields,requestKey?:string)=>Promise<unknown>;
-  children?:ReactNode; className?:string; retryScope?:string; prepare?:(values:Fields)=>Fields;
+  children?:ReactNode; className?:string; retryScope?:string; prepare?:(values:Fields)=>Fields; retryNote?:string;
 }) {
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
@@ -108,7 +108,7 @@ export function Form({fields,caption,submit,children,className='form-grid',retry
     {children}
     {error && <p role="alert" className="inline-error wide">{error}</p>}
     {pending && <div className="wide">
-      <p role="status">Der letzte Vorgang kann bereits gespeichert sein. Sende dieselben Angaben erneut, um ihn zu prüfen.</p>
+      <p role="status">Der letzte Vorgang kann bereits gespeichert sein. Sende dieselben Angaben erneut, um ihn zu prüfen.{retryNote && <> {retryNote}</>}</p>
       <div className="actions">
         <button type="button" disabled={busy} onClick={()=>{if(attempt.current) void send(attempt.current.values);}}>
           Letzten Vorgang erneut senden

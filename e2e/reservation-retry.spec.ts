@@ -13,6 +13,7 @@ for(const [summary,caption,hour] of [['Personal vormerken','Person vormerken','1
     await page.getByRole('button',{name:'Ressourcen & Kalkulation',exact:true}).click();
     const target=planningForm(page,summary);
     await target.locator('summary').click();
+    await expect(target.getByText('Die Zeitzone für neue Eingaben ist Europe/Berlin.')).toBeVisible();
     if(summary==='Personal vormerken'){
       await target.getByRole('combobox',{name:'Person',exact:true}).selectOption({label:'Noah Beispiel'});
     }else{
@@ -60,6 +61,8 @@ for(const [summary,caption,hour] of [['Personal vormerken','Person vormerken','1
       await recovered.getByRole('button',{name:'Ressourcen & Kalkulation',exact:true}).click();
       const recoveredForm=planningForm(recovered,summary);
       await recoveredForm.locator('summary').click();
+      await expect(recoveredForm.getByText('Die Zeitzone für neue Eingaben ist UTC.')).toBeVisible();
+      await expect(recoveredForm.getByRole('status')).toContainText('Die Wiederholung verwendet die ursprünglich bestätigten Zeitpunkte.');
       await expect(recoveredForm.getByLabel('Von',{exact:true})).toHaveValue(`2028-05-25T${hour}:00`);
       expect(await recoveredForm.getByLabel('Von',{exact:true}).evaluate(iso)).not.toBe(startsAt);
       await recoveredForm.getByRole('button',{name:'Letzten Vorgang erneut senden'}).click();

@@ -115,16 +115,19 @@ function Planning({project,data,run,accountId}:{project:Row;data:Data;run:Run;ac
     {name:'starts_at',label:'Von',type:'datetime-local',required:true},
     {name:'ends_at',label:'Bis',type:'datetime-local',required:true},
   ];
+  const timeZone=Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const timeZoneHint=<p className="subtle wide">Die Zeitzone für neue Eingaben ist {timeZone}.</p>;
+  const retryNote='Die Wiederholung verwendet die ursprünglich bestätigten Zeitpunkte.';
   return <>
     <Panel title="Ressourcenplanung"><div className="panel-body compact-actions">
-      <Expand title="Personal vormerken"><Form caption="Person vormerken" retryScope={`reservations:${accountId}:${project.id}:person`} prepare={reservationTimes} fields={[
+      <Expand title="Personal vormerken"><Form caption="Person vormerken" retryScope={`reservations:${accountId}:${project.id}:person`} prepare={reservationTimes} retryNote={retryNote} fields={[
         {name:'user_id',label:'Person',choices:options(data.users),required:true},...timeFields,
-      ]} submit={(v,key)=>run(()=>api('reservations','POST',{...v,project_id:project.id,quantity:1},key),'Person vorgemerkt.')}/></Expand>
-      <Expand title="Inventar vormerken"><Form caption="Inventar vormerken" retryScope={`reservations:${accountId}:${project.id}:item`} prepare={reservationTimes} fields={[
+      ]} submit={(v,key)=>run(()=>api('reservations','POST',{...v,project_id:project.id,quantity:1},key),'Person vorgemerkt.')}>{timeZoneHint}</Form></Expand>
+      <Expand title="Inventar vormerken"><Form caption="Inventar vormerken" retryScope={`reservations:${accountId}:${project.id}:item`} prepare={reservationTimes} retryNote={retryNote} fields={[
         {name:'item_id',label:'Artikel',choices:options(data.items),required:true},
         {name:'location_id',label:'Lagerort',choices:options(data.locations),required:true},
         {name:'quantity',label:'Menge',type:'number',value:1,min:1,required:true},...timeFields,
-      ]} submit={(v,key)=>run(()=>api('reservations','POST',{...v,project_id:project.id,quantity:Number(v.quantity)},key),'Inventar vorgemerkt.')}/></Expand>
+      ]} submit={(v,key)=>run(()=>api('reservations','POST',{...v,project_id:project.id,quantity:Number(v.quantity)},key),'Inventar vorgemerkt.')}>{timeZoneHint}</Form></Expand>
     </div><Table headers={['Ressource','Zeitraum','Menge','Status','Aktion']} rows={reservations.map((row)=>({
       key:row.id,cells:[row.user_id ? name(data.users,row.user_id) : <>{name(data.items,row.item_id)}<small>{name(data.locations,row.location_id)}</small></>,
         <>{moment(row.starts_at)}<small>bis {moment(row.ends_at)}</small></>,row.quantity,
