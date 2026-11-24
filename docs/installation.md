@@ -20,7 +20,7 @@ Für diesen Weg ist ein separat aktualisierbarer Zammad-Compose-Stack als option
 
 1. Einen konkreten Stand des offiziellen Compose-Stacks und der Zammad-Images auswählen. Die Ressourcen anhand der Zammad-Vorgaben prüfen und eine eigene HTTPS-Basisadresse mit vertrauenswürdigem Zertifikat vorsehen. Für den Reverse Proxy das unterstützte HTTPS-Szenario des Stacks wählen. [Zammad-Compose-Szenarien](https://docs.zammad.org/en/latest/install/docker-compose/docker-compose-scenarios.html)
 2. In Zammad eine Gruppe für Desk und einen eigenen Agentenzugang dafür einrichten. Das Team konfiguriert in Zammad auch den E-Mail-Kanal, sofern es Antworten per E-Mail versenden will. Den Kanal in der Testumgebung an ein isoliertes Testpostfach anbinden.
-3. Desk wie in Weg B konfigurieren und dessen Test mit einem vorbereiteten Ticket durchführen. Zusätzlich aus Desk ein zweites Testticket anlegen und prüfen, ob es in der richtigen Gruppe mit der erwarteten internen Notiz erscheint.
+3. Desk wie in Weg B konfigurieren und dessen Test mit einem vorbereiteten Ticket durchführen. In einem zweiten Musterprojekt ohne Ticketverknüpfung aus Desk ein neues Testticket anlegen. Prüfen, ob es in der richtigen Gruppe mit der erwarteten internen Notiz erscheint.
 
 ## B · Bestehende Zammad-Instanz anbinden
 
@@ -41,6 +41,8 @@ Für diesen Weg ist ein separat aktualisierbarer Zammad-Compose-Stack als option
 | C | Desk-Datenbank sichern und Migration in einer Wiederherstellung testen. | Den vorherigen Desk-Stand mit passender Konfiguration und Vorab-Sicherung wiederherstellen und den Ablauf mit Vorgangslink und Notiz prüfen. |
 
 Bei einem Wechsel auf eine andere Zammad-Instanz die gespeicherten Ticket-IDs vor erneuter Nutzung prüfen. Dieselbe ID kann dort zu einem anderen Ticket gehören. Vor der Rückkehr nach einer Datenwiederherstellung klären, welche Vorgänge seit der Sicherung hinzugekommen sind und welche Nachrichten Zammad bereits übernommen hat. [Zammad aktualisieren](https://docs.zammad.org/en/latest/install/update.html) · [Zammad sichern und wiederherstellen](https://docs.zammad.org/en/latest/appendix/backup-and-restore/docker-compose.html)
+
+Vor der Freigabe einer wiederhergestellten Desk-Datenbank alle vorhandenen Desk-Sitzungstabellen gemäß der Betriebsdoku leeren. Das Team meldet sich danach neu an. [Sitzungen nach der Wiederherstellung](desk.md#update-auf-better-auth)
 
 ## Abnahme und Folgearbeiten
 
