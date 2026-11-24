@@ -3,7 +3,7 @@ import { project, signIn } from './session';
 
 const record={id:'projekt',name:'Musterinstallation',stage:'planning',zammad_ticket_id:42};
 const path='**/api/v1/projects/projekt/zammad';
-type Attempt={id:string;subject:string;status:string};
+type Attempt={id:string;subject:string;status:string;attempted_at?:string};
 
 async function compose(page:Page,send:(route:Route)=>Promise<void>) {
   const messages:Record<string,unknown>[]=[];
@@ -147,11 +147,11 @@ test('Bestätigter Eingabefehler vor Speicherung lässt sich korrigieren',async(
   expect(ui.messages[1].id).not.toBe(ui.messages[0].id);
 });
 
-test('Verbindungsabbruch beim Wiederholen sperrt den abgelehnten Entwurf bis zur Klärung',async({page})=>{
+test('Verbindungsabbruch beim Wiederholen sperrt den abgelehnten Entwurf bis zur erneuten Ablehnung',async({page})=>{
   let reviews=0;
   const ui=await compose(page,route=>{
     const message=route.request().postDataJSON();
-    ui.outgoing.push({...message,status:'failed'});
+    ui.outgoing.push({...message,status:'failed',attempted_at:'2026-11-24T10:00:00.000Z'});
     return route.fulfill({json:{id:message.id,status:'failed'}});
   });
   await page.route(path+'/outgoing/*',route=>{
@@ -161,7 +161,8 @@ test('Verbindungsabbruch beim Wiederholen sperrt den abgelehnten Entwurf bis zur
     if(retry){
       return route.abort();
     }
-    return route.fulfill({json:{id:ui.messages[0].id,status:reviews===2?'failed':'sent'}});
+    if(reviews===3) ui.outgoing[0].attempted_at='2026-11-24T10:01:00.000Z';
+    return route.fulfill({json:{id:ui.messages[0].id,status:'failed'}});
   });
   await ui.submit.click();
   const next=ui.panel.getByRole('button',{name:'Neuen Entwurf beginnen'});
@@ -182,6 +183,8 @@ test('Verbindungsabbruch beim Wiederholen sperrt den abgelehnten Entwurf bis zur
   await expect(next).toHaveCount(0);
   await expect(ui.body).toBeDisabled();
   await check.click();
+  await expect(next).toBeVisible();
+  await next.click();
   await expect(ui.body).toBeEnabled();
   await expect(ui.body).toHaveValue('');
   expect(ui.messages).toHaveLength(1);
