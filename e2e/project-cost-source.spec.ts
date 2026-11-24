@@ -15,6 +15,10 @@ test('Kostenquelle filtert nur Belege des offenen Projekts und lässt Projektken
   ];
   await page.route('**/api/v1/projects?*',route=>route.fulfill({json:projects}));
   await page.route('**/api/v1/costs?*',route=>route.fulfill({json:costs}));
+  await page.route('**/api/v1/lines?*',route=>route.fulfill({json:[
+    {id:'buy',project_id:'first',kind:'buy',name:'Muster-Einkauf',quantity:2,unit_cents:1250},
+    {id:'sale',project_id:'first',kind:'sell',name:'Muster-Verkauf',quantity:3,unit_cents:2200},
+  ]}));
   await page.route('**/api/v1/costs',route=>{
     expect(route.request().method()).toBe('POST');
     costs=costs.filter(entry=>entry.id!=='a');
@@ -30,15 +34,24 @@ test('Kostenquelle filtert nur Belege des offenen Projekts und lässt Projektken
   const filter=panel.getByLabel('Kostenquelle filtern');
   const rows=panel.locator('tbody tr');
   const actual=page.locator('.metric').filter({has:page.getByText('Ist-Kosten',{exact:true})});
-  await expect(actual).toContainText('40,00');
+  const assertProjectTotals=async()=>{
+    for(const [label,value] of [
+      ['Einkauf geplant','25,00'],['Ist-Kosten','40,00'],['Abweichung','15,00'],['Verkauf geplant','66,00'],
+    ]){
+      const metric=page.locator('.metric').filter({has:page.getByText(label,{exact:true})});
+      await expect(metric.locator('strong')).toHaveText(value+' €');
+    }
+  };
+  await assertProjectTotals();
   await expect(filter.locator('option')).toHaveText(['Alle Quellen','haben-export','manual']);
   await filter.selectOption('haben-export');
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText('RE-01');
-  await expect(actual).toContainText('40,00');
+  await assertProjectTotals();
   await filter.selectOption('');
   await expect(rows).toHaveCount(2);
   await expect(rows.nth(1)).toContainText('RE-02');
+  await assertProjectTotals();
 
   await filter.selectOption('haben-export');
   await panel.getByText('Ist-Kosten erfassen',{exact:true}).click();
