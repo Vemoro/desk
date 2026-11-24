@@ -33,6 +33,12 @@ test('Projektansichten bleiben im Direktlink und im Browserverlauf erhalten',asy
   await expect(page.getByRole('heading',{name:'Übersicht',exact:true})).toBeVisible();
   await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Projekte',exact:true}).click();
   const projectLink=page.getByRole('button',{name,exact:true});
+  async function expectProjectList() {
+    await expect(page).toHaveURL(origin+'/#projects');
+    await expect(page.getByRole('heading',{name:'Projekte',exact:true,level:1})).toBeVisible();
+    await expect(projectLink).toBeVisible();
+  }
+  await expectProjectList();
   await projectLink.click();
   await expect(tabs.getByRole('link',{name:'Überblick'})).toHaveAttribute('aria-current','page');
   await kanban.click();
@@ -43,16 +49,19 @@ test('Projektansichten bleiben im Direktlink und im Browserverlauf erhalten',asy
   await page.goBack();
   await expect(tabs.getByRole('link',{name:'Überblick'})).toHaveAttribute('aria-current','page');
   await page.goBack();
-  await expect(projectLink).toBeVisible();
+  await expectProjectList();
   await page.goBack();
   await expect(page.getByRole('heading',{name:'Übersicht',exact:true})).toBeVisible();
   await page.goForward();
-  await expect(projectLink).toBeVisible();
+  await expectProjectList();
   await page.goForward();
   await expect(tabs.getByRole('link',{name:'Überblick'})).toHaveAttribute('aria-current','page');
   await page.goForward();
   await expect(kanban).toHaveAttribute('aria-current','page');
 
+  await page.goto(detail);
+  await page.reload();
+  await expect(tabs.getByRole('link',{name:'Überblick'})).toHaveAttribute('aria-current','page');
   await page.goto(detail+'/unbekannt');
   await expect(tabs.getByRole('link',{name:'Überblick'})).toHaveAttribute('aria-current','page');
   await page.goto('/#projects/11111111-1111-4111-8111-111111111111/tasks');
