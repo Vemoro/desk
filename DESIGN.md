@@ -4,7 +4,7 @@
 
 Desk verwendet Blau für Navigation, Fokus und Primäraktionen in Hell und Dunkel. Grün bleibt die Markenfarbe von Haben. Fachzustände werden mit Text benannt und lassen sich ohne Farbe unterscheiden.
 
-Verwende eine konsistente Icon-Komponente mit verständlichen Beschriftungen. Ein allein stehendes Symbol braucht einen zugänglichen Namen. Am Smartphone öffnet ein beschrifteter Menüknopf die Hauptnavigation. Der aktuelle Bereich bleibt erkennbar. Der Menüentwurf und die einheitlichen Icons stehen in [PR #18](https://github.com/Vemoro/desk/pull/18) zur Prüfung.
+Verwende eine konsistente Icon-Komponente mit verständlichen Beschriftungen. Ein allein stehendes Symbol braucht einen zugänglichen Namen. Am Smartphone öffnet ein beschrifteter Menüknopf die Hauptnavigation. Der aktuelle Bereich bleibt erkennbar.
 
 ## Aktionen und Formulare
 
