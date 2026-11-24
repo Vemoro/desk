@@ -235,9 +235,13 @@ function Warehouse({data,run,filters,onFilter}:{data:Data;run:Run}&MovementFilte
             onClick={()=>{setProjectFilter('');setLocationFilter('');}}>Filter zurücksetzen</button>
         </div>
       </div>
-      {visibleCheckouts.length ? <Table headers={['Projekt','Artikel','Lagerort','Ausgegeben']} rows={visibleCheckouts.map((row)=>({
-        key:row.id,cells:[name(data.projects,row.project_id),name(data.items,row.item_id),name(data.locations,row.location_id),row.checked_out],
-      }))}/> : <p className="empty" role="status">{openCheckouts.length?'Keine offenen Ausgaben für diese Filter.':'Es gibt keine offenen Ausgaben.'}</p>}
+      {visibleCheckouts.length ? <Table headers={['Projekt','Artikel','Lagerort','Ausgegeben']} rows={visibleCheckouts.map((row)=>{
+        const project=data.projects.find((entry)=>entry.id===row.project_id);
+        return {key:row.id,cells:[
+          project ? <a href={`#projects/${project.id}`}>{project.name}</a> : 'Projekt nicht verfügbar',
+          name(data.items,row.item_id),name(data.locations,row.location_id),row.checked_out,
+        ]};
+      })}/> : <p className="empty" role="status">{openCheckouts.length?'Keine offenen Ausgaben für diese Filter.':'Es gibt keine offenen Ausgaben.'}</p>}
     </Panel>
     <WarehouseMovements data={data} filters={filters} onFilter={onFilter}/>
   </>;
