@@ -12,5 +12,6 @@ export default defineConfig({
   projects:[
     {name:'core',testMatch:'core.spec.ts',use:{...devices['Desktop Chrome']}},
     {name:'screenshots',testMatch:'screenshots.spec.ts',use:{...devices['Desktop Chrome']}},
+    {name:'runtime-image',testMatch:'runtime-image.spec.ts',use:{...devices['Desktop Chrome'],trace:'off'}},
   ],
 });

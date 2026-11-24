@@ -40,6 +40,7 @@ jobs:
       - run: bun run migrate && bun run demo && bun run e2e
         env:
           DATABASE_URL: postgres://desk:desk@127.0.0.1:5438/desk_demo
+      - run: bash scripts/check-runtime-image.sh
       - uses: actions/upload-artifact@v6
         if: failure()
         with:
