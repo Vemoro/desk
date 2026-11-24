@@ -1,10 +1,13 @@
 import { APIError } from 'better-auth';
 import { deskAuth } from './desk-auth';
+import { db } from './db';
 
+const authenticationOptions='/api/auth/passkey/generate-authenticate-options';
+const registrationOptions='/api/auth/passkey/generate-register-options';
 const endpoints=new Map([
-  ['GET /api/auth/passkey/generate-authenticate-options',false],
+  ['GET '+authenticationOptions,false],
   ['POST /api/auth/passkey/verify-authentication',false],
-  ['GET /api/auth/passkey/generate-register-options',true],
+  ['GET '+registrationOptions,true],
   ['POST /api/auth/passkey/verify-registration',true],
   ['GET /api/auth/passkey/list-user-passkeys',true],
   ['POST /api/auth/passkey/delete-passkey',true],
@@ -25,7 +28,10 @@ export async function handlePasskey(request:Request) {
     }
     const response=await deskAuth().handler(request);
     for(const [name,value] of Object.entries(headers)) response.headers.set(name,value);
-    if(response.ok && path==='/api/auth/passkey/generate-authenticate-options') {
+    if(response.ok && (path===authenticationOptions || path===registrationOptions)) {
+      await db.unsafe('DELETE FROM auth_verifications WHERE "expiresAt"<=now()');
+    }
+    if(response.ok && path===authenticationOptions) {
       const options=await response.json();
       const responseHeaders=new Headers(response.headers);
       responseHeaders.delete('Content-Length');

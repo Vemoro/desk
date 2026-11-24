@@ -12,3 +12,4 @@ CREATE TABLE auth_passkeys (
   aaguid text
 );
 CREATE INDEX auth_passkeys_user_idx ON auth_passkeys("userId");
+CREATE INDEX auth_verifications_expires_idx ON auth_verifications("expiresAt");
