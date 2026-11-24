@@ -33,7 +33,24 @@ test('Zammad zeigt den letzten Sendeversuch in lokaler Zeit und aktualisiert ihn
   await expect(dateCell).toHaveText('24.11.2026, 10:05');
   await dateCell.scrollIntoViewIfNeeded();
   await expect(dateCell).toBeInViewport();
-  expect(await dateCell.evaluate(cell=>getComputedStyle(cell,'::before').content)).toContain('Letzter Versuch');
+  const presentation=await dateCell.locator('time').evaluate((time)=>{
+    const cell=time.closest('td')!;
+    const label=getComputedStyle(cell,'::before');
+    const range=document.createRange();
+    range.selectNodeContents(time);
+    const text=range.getBoundingClientRect();
+    const bounds=cell.getBoundingClientRect();
+    return {
+      label:label.content,
+      labelVisible:label.display!=='none' && label.visibility==='visible'
+        && Number(label.opacity)>0 && Number.parseFloat(label.width)>0,
+      textFits:text.width>0 && text.left>=Math.max(0,bounds.left) && text.right<=Math.min(window.innerWidth,bounds.right)
+        && text.top>=Math.max(0,bounds.top) && text.bottom<=Math.min(window.innerHeight,bounds.bottom),
+    };
+  });
+  expect(presentation.label).toContain('Letzter Versuch');
+  expect(presentation.labelVisible).toBe(true);
+  expect(presentation.textFits).toBe(true);
   await expect(second.locator('td[data-label="Letzter Versuch"]')).toHaveText('24.11.2026, 09:10');
   await expect(panel.getByText('kontakt@example.test · 24.11.2026, 09:10')).toBeVisible();
   await expect(third.locator('td[data-label="Letzter Versuch"]')).toHaveText('–');
