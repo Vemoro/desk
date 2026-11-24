@@ -7,8 +7,11 @@ test('API-Token-Liste unterscheidet Laden, Fehler und echte Leerantwort',async({
   let response:'error'|'list'|'empty'='error';
   let release!:()=>void;
   const first=new Promise<void>((resolve)=>{release=resolve;});
+  page.on('request',(request)=>{
+    const path=new URL(request.url()).pathname;
+    if(request.method()!=='GET' && (path==='/api/v1/tokens' || path.startsWith('/api/v1/tokens/'))) writes++;
+  });
   await page.route('**/api/v1/tokens',async(route)=>{
-    if(route.request().method()!=='GET') writes++;
     requests++;
     if(response==='error'){
       await first;
