@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import type { Row } from './client';
+import { ApiError, type Row } from './client';
 
-export type Run = (operation:()=>Promise<unknown>, feedback?:string)=>Promise<boolean>;
+export type Run = (operation:()=>Promise<unknown>, feedback?:string,reportWriteRejection?:boolean)=>Promise<boolean>;
 type Field = {
   name:string; label:string; type?:string; placeholder?:string; value?:string|number;
   required?:boolean; choices?:{value:string;label:string}[]; min?:number; max?:number; autoComplete?:string; onChange?:(value:string)=>void; describedBy?:string;
@@ -38,6 +38,7 @@ export function Form({fields,caption,submit,children,className='form-grid',retry
   const attempt=useRef<Attempt|undefined>(undefined);
   const submitting=useRef(false);
   const storageKey=retryScope && `desk-pending-write:${retryScope}`;
+  const fieldsLocked=Boolean(storageKey && (busy || pending));
 
   const restoreFields=useEffectEvent((values:Fields)=>{
     for(const [name,value] of Object.entries(values)){
@@ -82,6 +83,7 @@ export function Form({fields,caption,submit,children,className='form-grid',retry
   async function send(values:Fields) {
     if(storageKey && submitting.current) return;
     setError('');
+    const retrying=Boolean(attempt.current);
     let key:string|undefined;
     submitting.current=true;
     setBusy(true);
@@ -96,7 +98,8 @@ export function Form({fields,caption,submit,children,className='form-grid',retry
       else if(key) setPending(true);
     }
     catch(error) {
-      if(key) setPending(true);
+      if(key && !retrying && error instanceof ApiError && [400,409].includes(error.status)) clearAttempt(key);
+      else if(key) setPending(true);
       setError(error instanceof Error ? error.message : 'Die Eingabe konnte nicht gespeichert werden.');
     }
     finally {
@@ -108,10 +111,10 @@ export function Form({fields,caption,submit,children,className='form-grid',retry
     {fields.map((field)=><label key={field.name} className={field.type==='textarea'?'wide':''}>
       <span>{field.label}</span>
       {field.choices ? <select name={field.name} value={field.onChange ? field.value ?? '' : undefined} defaultValue={field.onChange ? undefined : field.value ?? ''}
-        required={field.required} aria-describedby={field.describedBy} onChange={(event)=>field.onChange?.(event.target.value)}><option value="">Auswählen</option>
+        disabled={fieldsLocked} required={field.required} aria-describedby={field.describedBy} onChange={(event)=>field.onChange?.(event.target.value)}><option value="">Auswählen</option>
         {field.choices.map((choice)=><option value={choice.value} key={choice.value}>{choice.label}</option>)}</select>
-      : field.type==='textarea' ? <textarea name={field.name} defaultValue={field.value} required={field.required} placeholder={field.placeholder}/>
-      : <input name={field.name} type={field.type ?? 'text'} defaultValue={field.value} required={field.required}
+      : field.type==='textarea' ? <textarea name={field.name} defaultValue={field.value} disabled={fieldsLocked} required={field.required} placeholder={field.placeholder}/>
+      : <input name={field.name} type={field.type ?? 'text'} defaultValue={field.value} disabled={fieldsLocked} required={field.required}
           placeholder={field.placeholder} min={field.min} max={field.max} autoComplete={field.autoComplete}/>}
     </label>)}
     {children}
@@ -127,7 +130,7 @@ export function Form({fields,caption,submit,children,className='form-grid',retry
         </button>
       </div>
     </div>}
-    <div className="form-action"><button className="primary" disabled={busy}>{busy?'Wird gespeichert …':caption}</button></div>
+    <div className="form-action"><button className="primary" disabled={busy || fieldsLocked}>{busy?'Wird gespeichert …':caption}</button></div>
   </form>;
 }
 

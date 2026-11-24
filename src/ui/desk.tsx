@@ -51,14 +51,17 @@ export function Desk() {
 
   useEffect(()=>{document.documentElement.dataset.theme=theme;localStorage.setItem('desk-theme',theme);},[theme]);
 
-  const run:Run=async(operation,feedback)=>{
+  const run:Run=async(operation,feedback,reportWriteRejection)=>{
     setNotice({message:'',error:false});
+    let written=false;
     try {
       await operation();
+      written=true;
       await load();
       if(feedback)setNotice({message:feedback,error:false});
       return true;
     } catch(error) {
+      if(reportWriteRejection && !written && error instanceof ApiError && [400,409].includes(error.status)) throw error;
       if(error instanceof ApiError && error.status===401)setPerson(null);
       setNotice({message:error instanceof Error?error.message:'Die Aktion ist fehlgeschlagen.',error:true});
       return false;
@@ -206,12 +209,12 @@ function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
         {name:'item_id',label:'Artikel',choices:options(data.items),required:true},{name:'location_id',label:'Lagerort',choices:options(data.locations),required:true},
         {name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},{name:'project_id',label:'Projektbezug',choices:options(data.projects)},
       ]} submit={(input,key)=>run(()=>api('movements','POST',{action:'receive',item_id:input.item_id,location_id:input.location_id,
-        quantity:Number(input.quantity),project_id:input.project_id||undefined},key),'Wareneingang erfasst.')}/></Expand>
+        quantity:Number(input.quantity),project_id:input.project_id||undefined},key),'Wareneingang erfasst.',true)}/></Expand>
       <Expand title="Ausgabe, Rückgabe oder Verbrauch"><Form caption="Bewegung buchen" retryScope={`movements:${accountId}:booking`} fields={[
         {name:'action',label:'Bewegungsart',choices:[{value:'issue',label:'Ausgabe'},{value:'return',label:'Rückgabe'},{value:'consume',label:'Verbrauch'}],required:true},
         {name:'reservation_id',label:'Projektreservierung',choices:bookingChoices,required:true,value:selectedBooking?.value,onChange:setBookingId,describedBy:selectedBooking?'warehouse-booking-details':undefined},
         {name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},
-      ]} submit={(input,key)=>run(()=>api('movements','POST',{...input,quantity:Number(input.quantity)},key),'Lagerbewegung gebucht.')}>
+      ]} submit={(input,key)=>run(()=>api('movements','POST',{...input,quantity:Number(input.quantity)},key),'Lagerbewegung gebucht.',true)}>
         {selectedBooking&&<p id="warehouse-booking-details" className="wide booking-details">{selectedBooking.label}</p>}
       </Form></Expand>
     </div>

@@ -31,14 +31,17 @@ async function openMovement(page:Page,action:'consume'|'return',bookingId:string
   await page.getByLabel('Projektreservierung').selectOption(bookingId);
 }
 
-async function loseFirstResponse(page:Page){
+async function loseFirstResponse(page:Page,beforeAbort?:Promise<void>){
   const calls:{key:string|undefined;id:string}[]=[];
   await page.route('**/api/v1/movements',async route=>{
     const response=await route.fetch();
     expect(response.status()).toBe(201);
     const result=await response.json() as {id:string};
     calls.push({key:route.request().headers()['idempotency-key'],id:result.id});
-    if(calls.length===1) await route.abort('failed');
+    if(calls.length===1){
+      await beforeAbort;
+      await route.abort('failed');
+    }
     else await route.fulfill({response});
   });
   return calls;
@@ -54,10 +57,28 @@ async function stock(page:Page,itemId:string){
 test('Ein Verbrauch lässt sich nach Neuladen und verlorener Antwort ohne Doppelbuchung wiederholen',async({page})=>{
   const {item,booking}=await warehouseBooking(page,'consumable');
   await openMovement(page,'consume',booking.id);
-  const calls=await loseFirstResponse(page);
+  const bookingField=page.getByLabel('Projektreservierung');
+  const quantity=page.locator('details').filter({has:page.getByText('Ausgabe, Rückgabe oder Verbrauch',{exact:true})}).getByLabel('Menge');
   const book=page.getByRole('button',{name:'Bewegung buchen'});
+  const retry=page.getByRole('button',{name:'Letzten Vorgang erneut senden'});
+  await quantity.fill('5');
   await book.click();
+  await expect(page.getByRole('alert')).toContainText('Die Bewegung übersteigt die reservierte Menge.');
+  await expect(retry).toHaveCount(0);
+  await quantity.fill('1');
+
+  let releaseResponse!:()=>void;
+  const beforeAbort=new Promise<void>(resolve=>{releaseResponse=resolve;});
+  const calls=await loseFirstResponse(page,beforeAbort);
+  try {
+    await book.click();
+    await expect.poll(()=>calls.length).toBe(1);
+    await expect(bookingField).toBeDisabled();
+    await expect(bookingField).toHaveValue(booking.id);
+  } finally { releaseResponse(); }
   await expect(page.getByText('Der letzte Vorgang kann bereits gespeichert sein.',{exact:false})).toBeVisible();
+  await expect(bookingField).toBeDisabled();
+  await expect(bookingField).toHaveValue(booking.id);
   expect(calls[0].key).toBeTruthy();
   expect(await stock(page,item.id)).toMatchObject({physical:9,reserved:3});
 
