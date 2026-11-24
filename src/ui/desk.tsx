@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { all, api, ApiError, compileCsv, date, euros, moment, money, movementStages, name, projectStages, type Row } from './client';
 import { Project, Projects, type Data } from './projects';
 import { Expand, Form, options, Panel, Pill, Table, type Run } from './widgets';
@@ -234,8 +234,26 @@ function Costs({data,run}:{data:Data;run:Run}) {
 function Settings({data,run,flags}:{data:Data;run:Run;flags:{haben:boolean;zammad:boolean}}) {
   const [tokens,setTokens]=useState<Row[]>([]);
   const [issued,setIssued]=useState('');
-  async function refresh(){setTokens(await api('tokens'));}
-  useEffect(()=>{void refresh().catch(()=>{});},[]);
+  const [listState,setListState]=useState<'loading'|'loaded'|'failed'>('loading');
+  const requestVersion=useRef(0);
+
+  async function refresh(){
+    const request=++requestVersion.current;
+    setListState('loading');
+    try {
+      const current=await api<Row[]>('tokens');
+      if(request!==requestVersion.current) return;
+      setTokens(current);
+      setListState('loaded');
+    } catch {
+      if(request===requestVersion.current) setListState('failed');
+    }
+  }
+
+  useEffect(()=>{
+    void refresh();
+    return ()=>{requestVersion.current++;};
+  },[]);
   return <>
     <Panel title="Team"><div className="panel-body"><Expand title="Konto anlegen"><Form caption="Konto speichern" fields={[
       {name:'name',label:'Name',required:true},{name:'email',label:'E-Mail',type:'email',required:true},
@@ -248,9 +266,18 @@ function Settings({data,run,flags}:{data:Data;run:Run;flags:{haben:boolean;zamma
         {name:'label',label:'Name',required:true},{name:'scope',label:'Berechtigung',choices:[{value:'read',label:'Lesen'},{value:'write',label:'Lesen und schreiben'}],required:true},
       ]} submit={(input)=>run(async()=>{const result=await api('tokens','POST',input);setIssued(result.token); await refresh();},'API-Token erzeugt.')}/></Expand>
       {issued&&<label><span>Token jetzt kopieren</span><input value={issued} readOnly onFocus={(e)=>e.target.select()}/></label>}
-    </div><Table headers={['Name','Berechtigung','Aktion']} rows={tokens.map((row)=>({key:row.id,cells:[row.label,row.scope==='read'?'Lesen':'Lesen und schreiben',
-      <button onClick={()=>run(async()=>{await api(`tokens/${row.id}`,'DELETE');setIssued('');await refresh();},'Token widerrufen.')}>Widerrufen</button>,
-    ]}))}/></Panel>
+    </div>
+    {listState==='loading'&&<p className="empty" role="status">API-Token werden geladen …</p>}
+    {listState==='failed'&&<div className="panel-body">
+      <p role="alert" className="inline-error">Die API-Token konnten nicht geladen werden.</p>
+      <div className="actions"><button type="button" onClick={()=>void refresh()}>Erneut laden</button></div>
+    </div>}
+    {listState==='loaded'&&(tokens.length
+      ? <Table headers={['Name','Berechtigung','Aktion']} rows={tokens.map((row)=>({key:row.id,cells:[row.label,row.scope==='read'?'Lesen':'Lesen und schreiben',
+        <button onClick={()=>run(async()=>{await api(`tokens/${row.id}`,'DELETE');setIssued('');await refresh();},'Token widerrufen.')}>Widerrufen</button>,
+      ]}))}/>
+      : <p className="empty" role="status">Keine API-Token erstellt.</p>)}
+    </Panel>
     <Panel title="Integrationen"><div className="panel-body actions">
       <Pill label={flags.haben?'Haben eingerichtet':'Haben optional'} tone={flags.haben?'accent':'neutral'}/>
       <Pill label={flags.zammad?'Zammad eingerichtet':'Zammad optional'} tone={flags.zammad?'accent':'neutral'}/>

@@ -23,7 +23,7 @@ Desk legt Angebote in der ersten Version über die manuelle Übergabe an Haben a
 
 - Für die Produktion `bun run build` ausführen, die Migrationen mit `bun run migrate` anwenden und `bun run start` starten. Alternativ mit dem Dockerfile bauen und den Container neben einer bereitgestellten PostgreSQL-Instanz betreiben.
 - `DESK_ORIGIN` auf die externe HTTPS-Adresse setzen. Den Dienst hinter einem HTTPS-Reverse-Proxy betreiben. Für eine Demo eine separate Datenbank mit dem Suffix `_demo` verwenden.
-- Teamkonten und widerrufbare API-Tokens stehen in den Einstellungen. Der API-Vertrag ist unter `/api/v1/openapi.json` verfügbar. Schreibende Tickets, Kontakte und andere Vorgänge laufen über die jeweils eingerichteten Serverzugänge.
+- Teamkonten und widerrufbare API-Tokens stehen in den Einstellungen. Wenn die Tokenliste nicht geladen werden konnte, startet **Erneut laden** einen neuen Abruf. Der API-Vertrag ist unter `/api/v1/openapi.json` verfügbar. Schreibende Tickets, Kontakte und andere Vorgänge laufen über die jeweils eingerichteten Serverzugänge.
 - PostgreSQL sichern. Vor einem Update die Wiederherstellung in einer getrennten Instanz prüfen. Für Desktop und Smartphone dieselbe HTTPS-Adresse verwenden.
 
 ## Ansichten
