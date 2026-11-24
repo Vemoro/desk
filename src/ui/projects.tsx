@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, date, downloadPositions, euros, moment, money, name, projectStages, reservationStages, taskStages, type Row } from './client';
+import { useLocalDay } from './local-day';
 import { Expand, Form, options, Panel, Pill, Table, type Run } from './widgets';
 
 export type Data = Record<'contacts'|'projects'|'tasks'|'users'|'lines'|'reservations'|'locations'|'items'|'movements'|'costs'|'stock',Row[]>;
@@ -79,10 +80,19 @@ function Kanban({project,data,run,viewerId}:{project:Row;data:Data;run:Run;viewe
   const [assignee,setAssignee]=useState('all');
   const [search,setSearch]=useState('');
   const [sort,setSort]=useState('standard');
+  const [dueFilter,setDueFilter]=useState('all');
+  const today=useLocalDay();
   const term=search.trim().toLowerCase();
-  const tasks=data.tasks.filter((task)=>task.project_id===project.id
-    && task.name.toLowerCase().includes(term)
-    && (assignee==='all' || (assignee==='me' && task.assignee_id===viewerId) || (assignee==='unassigned' && !task.assignee_id)));
+  const tasks=data.tasks.filter((task)=>{
+    if(task.project_id!==project.id || !task.name.toLowerCase().includes(term)) return false;
+    if(assignee==='me' && task.assignee_id!==viewerId) return false;
+    if(assignee==='unassigned' && task.assignee_id) return false;
+    const due=task.due?.slice(0,10);
+    if(dueFilter==='overdue') return Boolean(due && due<today && task.status!=='done');
+    if(dueFilter==='today') return due===today;
+    if(dueFilter==='undated') return !due;
+    return true;
+  });
   if(sort==='due'){
     tasks.sort((left,right)=>{
       if(!left.due) return right.due?1:0;
@@ -90,7 +100,7 @@ function Kanban({project,data,run,viewerId}:{project:Row;data:Data;run:Run;viewe
       return left.due.localeCompare(right.due);
     });
   }
-  const emptyMessage=term
+  const emptyMessage=term || dueFilter!=='all'
     ? 'Keine Aufgaben für diese Filter.'
     : assignee==='all'?'In diesem Projekt sind noch keine Aufgaben.':'Keine Aufgaben für diesen Filter.';
   return <>
@@ -102,6 +112,12 @@ function Kanban({project,data,run,viewerId}:{project:Row;data:Data;run:Run;viewe
             <option value="all">Alle</option>
             <option value="me">Mir zugeordnet</option>
             <option value="unassigned">Ohne Zuständigkeit</option>
+          </select></label>
+          <label><span>Aufgabentermine filtern</span><select value={dueFilter} onChange={(event)=>setDueFilter(event.target.value)}>
+            <option value="all">Alle Termine</option>
+            <option value="overdue">Überfällig</option>
+            <option value="today">Heute</option>
+            <option value="undated">Ohne Termin</option>
           </select></label>
           <label><span>Aufgaben sortieren</span><select value={sort} onChange={(event)=>setSort(event.target.value)}>
             <option value="standard">Standard</option>

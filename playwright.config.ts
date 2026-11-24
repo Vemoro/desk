@@ -10,7 +10,7 @@ export default defineConfig({
     env:{DESK_ORIGIN:baseURL},reuseExistingServer:!process.env.CI,
   },
   projects:[
-    {name:'core',testMatch:['core.spec.ts','kanban-assignee.spec.ts','kanban-title-search.spec.ts','kanban-due-sort.spec.ts'],use:{...devices['Desktop Chrome']}},
+    {name:'core',testMatch:['core.spec.ts','kanban-assignee.spec.ts','kanban-title-search.spec.ts','kanban-due-sort.spec.ts','kanban-due-filter.spec.ts'],use:{...devices['Desktop Chrome']}},
     {name:'screenshots',testMatch:'screenshots.spec.ts',use:{...devices['Desktop Chrome']}},
   ],
 });
