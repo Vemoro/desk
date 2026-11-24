@@ -89,6 +89,7 @@ tr:last-child td { border-bottom:0; }
 .task { background:var(--paper); margin-top:8px; border:1px solid var(--border); border-radius:9px; padding:11px; display:grid; gap:8px; }
 .task[draggable] { cursor:grab; }
 .task select { font-size:.88rem; min-height:35px; }
+.compose-fields { min-inline-size:0; margin:0; padding:0; border:0; }
 .thread { list-style:none; padding:0; margin:0; display:grid; gap:10px; }
 .thread li { border:1px solid var(--border); border-radius:8px; padding:14px; }
 .thread p { margin-top:8px; white-space:pre-wrap; overflow-wrap:anywhere; }

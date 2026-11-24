@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { api, date, downloadPositions, euros, moment, money, name, projectStages, reservationStages, taskStages, type Row } from './client';
+import { api, ApiError, date, downloadPositions, euros, moment, money, name, projectStages, reservationStages, taskStages, type Row } from './client';
 import { ConfirmDialog, Expand, Form, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
 
 export type Data = Record<'contacts'|'projects'|'tasks'|'users'|'lines'|'reservations'|'locations'|'items'|'movements'|'costs'|'stock',Row[]>;
@@ -195,6 +195,19 @@ function Communication({project,zammad,run}:{project:Row;zammad:boolean;run:Run}
   </>;
 }
 
+type ZammadStatus='sent'|'pending'|'failed'|'unknown';
+type ZammadMessage={
+  id:string;
+  recipient:string;
+  subject:string;
+  body:string;
+  attachment?:{name:string;data:string};
+};
+type ZammadDraft={
+  message:ZammadMessage;
+  status:Exclude<ZammadStatus,'sent'>|'posting'|'unconfirmed'|'missing';
+};
+
 function ZammadConversation({project,run}:{project:Row;run:Run}) {
   const [confirmation,setConfirmation]=useState<Confirmation>();
   const zammadPanel=useRef<HTMLElement>(null);
@@ -202,21 +215,41 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
   const [problem,setProblem]=useState('');
   const [file,setFile]=useState<File>();
   const [composeVersion,setComposeVersion]=useState(0);
-  const draftId=useRef<string | undefined>(undefined);
+  const [draft,setDraftState]=useState<ZammadDraft>();
+  const draftRef=useRef<ZammadDraft|undefined>(undefined);
+  const preparing=useRef(false);
+
+  function setDraft(value?:ZammadDraft) {
+    draftRef.current=value;
+    setDraftState(value);
+  }
+
+  function resetDraft() {
+    setDraft();
+    setFile(undefined);
+    setComposeVersion(value=>value+1);
+  }
+
+  function updateDraft(id:string,status:ZammadStatus) {
+    const current=draftRef.current;
+    if(current?.message.id!==id) return;
+    if(status==='sent') resetDraft();
+    else setDraft({...current,status});
+  }
   const active=useRef(false);
   const requestVersion=useRef(0);
 
   async function refresh() {
     if (!active.current || !project.zammad_ticket_id) return;
+    const observedDraft=draftRef.current;
     const version=++requestVersion.current;
     const isCurrent=()=>active.current && requestVersion.current===version;
     try {
       const current=await api(`projects/${project.id}/zammad`);
       if (!isCurrent()) return;
-      if (draftId.current && current.outgoing.some((entry:Row)=>entry.id===draftId.current && entry.status==='sent')) {
-        draftId.current=undefined;
-        setFile(undefined);
-        setComposeVersion((value)=>value+1);
+      if(observedDraft && draftRef.current===observedDraft && observedDraft.status!=='posting') {
+        const entry=current.outgoing.find((attempt:{id:string;status:ZammadStatus})=>attempt.id===observedDraft.message.id);
+        if(entry) updateDraft(entry.id,entry.status);
       }
       setConversation(current);
       setProblem('');
@@ -233,7 +266,67 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
       requestVersion.current++;
     };
   },[]);
-  const request=(suffix:string,input:unknown)=>api(`projects/${project.id}/zammad/${suffix}`,'POST',input);
+  const request=(suffix:string,input:unknown)=>api<{id:string;status:ZammadStatus}>(`projects/${project.id}/zammad/${suffix}`,'POST',input);
+
+  async function transmit(message:ZammadMessage,firstAttempt:boolean) {
+    setDraft({message,status:'posting'});
+    let result;
+    try {
+      result=await request('messages',message);
+    } catch(error) {
+      setDraft(firstAttempt && error instanceof ApiError && error.status===400
+        ? undefined
+        : {message,status:'unconfirmed'});
+      throw error;
+    }
+    updateDraft(message.id,result.status);
+    await refresh();
+    if(result.status!=='sent') throw new Error('Sendezustand prüfen. Der Versuch steht im Projektverlauf.');
+  }
+
+  async function submitDraft(values:Record<string,string>) {
+    if(draftRef.current || preparing.current) return;
+    preparing.current=true;
+    try {
+      const message:ZammadMessage={id:crypto.randomUUID(),recipient:values.recipient,subject:values.subject,body:values.body};
+      if(file) {
+        if(file.size>5_242_880) throw new Error('PDF-Anhänge sind bis 5 MB möglich.');
+        const bytes=new Uint8Array(await file.arrayBuffer());
+        message.attachment={name:file.name,data:bytes.toBase64()};
+      }
+      await transmit(message,true);
+    } finally {
+      preparing.current=false;
+    }
+  }
+
+  async function reviewAttempt(id:string,retry:boolean) {
+    const result=await request(`outgoing/${id}`,{retry});
+    updateDraft(id,result.status);
+    await refresh();
+    return result.status;
+  }
+
+  async function checkDraft() {
+    const current=draftRef.current;
+    if(current?.status!=='unconfirmed') return;
+    try {
+      await reviewAttempt(current.message.id,false);
+    } catch(error) {
+      if(!(error instanceof ApiError) || error.status!==404) throw error;
+      if(draftRef.current===current) setDraft({...current,status:'missing'});
+      await refresh();
+    }
+  }
+
+  const draftNotice=draft && {
+    posting:'Desk übermittelt den Entwurf an Zammad.',
+    unconfirmed:'Der Versandstatus ist unklar. Prüfe zuerst den Sendeversuch.',
+    missing:'Desk hat keinen Sendeversuch für diesen Entwurf gefunden.',
+    pending:'Der Sendeversuch steht aus. Prüfe den Versuch in der Liste.',
+    unknown:'Der Ausgang ist unklar. Prüfe den Versuch in der Liste.',
+    failed:'Zammad hat die Nachricht abgelehnt. Wiederhole den Versuch in der Liste oder beginne einen neuen Entwurf.',
+  }[draft.status];
   return <>
     <Panel title="Zammad" focusRef={zammadPanel} action={conversation?.ticket && <a href={conversation.ticket.url} target="_blank" rel="noreferrer">Ticket {conversation.ticket.number} öffnen</a>}>
       <div className="panel-body">
@@ -251,36 +344,37 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
             <p>{article.content_type==='text/html' ? plainText(article.body) : article.body}</p>
             {article.attachments?.map((attachment:{filename:string})=><small key={attachment.filename}>{attachment.filename}</small>)}
           </li>)}</ol>
-          <Expand title="Antwort schreiben"><Form key={composeVersion} caption="Über Zammad senden" fields={[
-            {name:'recipient',label:'Empfänger',type:'email',required:true},{name:'subject',label:'Betreff',required:true},{name:'body',label:'Nachricht',type:'textarea',required:true},
-          ]} submit={(v)=>run(async()=>{
-            const message:{[key:string]:unknown}={...v,id:draftId.current ??= crypto.randomUUID()};
-            if(file) {
-              if(file.size>5_242_880) throw new Error('PDF-Anhänge sind bis 5 MB möglich.');
-              const bytes=new Uint8Array(await file.arrayBuffer());
-              message.attachment={name:file.name,data:bytes.toBase64()};
-            }
-            const result=await request('messages',message);
-            await refresh();
-            if(result.status!=='sent') throw new Error('Sendezustand prüfen. Der Versuch steht im Projektverlauf.');
-            setFile(undefined);
-          },'Nachricht an Zammad übergeben.')}>
-            <label className="wide"><span>PDF-Anhang</span><input type="file" accept="application/pdf,.pdf" onChange={(event)=>setFile(event.target.files?.[0])}/></label>
-          </Form></Expand>
+          <Expand title="Antwort schreiben">
+            <fieldset className="compose-fields" disabled={Boolean(draft)} aria-label="Zammad-Entwurf">
+              <Form key={composeVersion} caption="Über Zammad senden" fields={[
+                {name:'recipient',label:'Empfänger',type:'email',required:true},{name:'subject',label:'Betreff',required:true},{name:'body',label:'Nachricht',type:'textarea',required:true},
+              ]} submit={(values)=>run(()=>submitDraft(values),'Nachricht an Zammad übergeben.')}>
+                <label className="wide"><span>PDF-Anhang</span><input type="file" accept="application/pdf,.pdf" onChange={(event)=>setFile(event.target.files?.[0])}/></label>
+              </Form>
+            </fieldset>
+            {draft && <div>
+              <p role="status">{draftNotice}</p>
+              {draft.status==='unconfirmed' && <button onClick={()=>void run(checkDraft)}>Sendeversuch prüfen</button>}
+              {draft.status==='missing' && <button onClick={()=>void run(async()=>{
+                const current=draftRef.current;
+                if(current?.status==='missing') await transmit(current.message,false);
+              },'Nachricht an Zammad übergeben.')}>Unveränderten Entwurf erneut übermitteln</button>}
+              {draft.status==='failed' && <button onClick={()=>{if(draftRef.current?.status==='failed') resetDraft();}}>Neuen Entwurf beginnen</button>}
+            </div>}
+          </Expand>
           <Table headers={['Sendeversuch','Status','Aktion']} rows={(conversation?.outgoing ?? []).map((entry:Row)=>({
             key:entry.id,cells:[entry.subject,({sent:'An Zammad übergeben',pending:'Ausstehend',failed:'Abgelehnt',unknown:'Ausgang unklar'} as Record<string,string>)[entry.status],
               entry.status==='sent' ? '–' : <div className="actions">
-                <button onClick={()=>run(async()=>{await request(`outgoing/${entry.id}`,{retry:false});await refresh();})}>Prüfen</button>
+                <button onClick={()=>run(()=>reviewAttempt(entry.id,false))}>Prüfen</button>
                 <button onClick={(event)=>setConfirmation({
                   title:'Zammad-Sendeversuch wiederholen',
                   description:`Desk prüft den Ticketverlauf auf „${entry.subject}“. Fehlt die Nachricht, sendet Zammad sie erneut.`,
                   actionLabel:'Erneut senden',
                   trigger:event.currentTarget,
                   submit:async()=>{
-                    const result=await request(`outgoing/${entry.id}`,{retry:true});
-                    await refresh();
-                    if(result.status==='failed') throw new Error('Zammad hat den Sendeversuch abgelehnt.');
-                    if(result.status!=='sent') throw new Error('Der Ausgang des Sendeversuchs ist weiterhin unklar.');
+                    const status=await reviewAttempt(entry.id,true);
+                    if(status==='failed') throw new Error('Zammad hat den Sendeversuch abgelehnt.');
+                    if(status!=='sent') throw new Error('Der Ausgang des Sendeversuchs ist weiterhin unklar.');
                   },
                   feedback:'Sendeversuch bestätigt.',
                 })}>Erneut senden</button>
