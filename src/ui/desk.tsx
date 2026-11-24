@@ -19,6 +19,7 @@ export function Desk() {
   const [refreshRequired,setRefreshRequired]=useState(false);
   const [refreshing,setRefreshing]=useState(false);
   const savedVersion=useRef(0);
+  const displayedSavedVersion=useRef(0);
   const loadVersion=useRef(0);
   const sessionVersion=useRef(0);
   const project=data.projects.find((row)=>row.id===projectId);
@@ -35,6 +36,7 @@ export function Desk() {
       if(!isCurrent()) return false;
       setFlags(integrations);
       setData(Object.fromEntries(collections.map((key,index)=>[key,result[index]])) as unknown as Data);
+      displayedSavedVersion.current=saved;
       setRefreshRequired(false);
       return true;
     } catch(error) {
@@ -45,6 +47,7 @@ export function Desk() {
 
   function endSession() {
     sessionVersion.current++;
+    displayedSavedVersion.current=savedVersion.current;
     setPerson(null);
     setData(initialData);
     setFlags({haben:false,zammad:false});
@@ -107,7 +110,12 @@ export function Desk() {
       const result=await operation(isCurrent);
       if(!isCurrent()) return false;
       if(result===noWrite) return true;
-      if(kind==='read' && !await load(session)) return true;
+      if(kind==='read') {
+        const refreshed=displayedSavedVersion.current===savedVersion.current
+          ? await load(session)
+          : await refreshSavedData(session);
+        if(!refreshed) return true;
+      }
     } catch(error) {
       if(!isCurrent()) return false;
       if(reportWriteRejection && error instanceof ApiError && [400,409].includes(error.status)) throw error;

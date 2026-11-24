@@ -1,4 +1,4 @@
-import { expect,test,type Page } from '@playwright/test';
+import { expect,test,type Page,type Route } from '@playwright/test';
 import { signIn } from './session';
 
 async function warehouseBooking(page:Page,kind:'consumable'|'equipment'){
@@ -125,8 +125,8 @@ test('Die letzte Rückgabe bleibt prüfbar, wenn ihre Reservierung keine offene 
 
 test('Die bestätigte Buchung gibt das erneut geöffnete Formular nach einem Lesefehler frei',async({page})=>{
   let writes=0;
-  let release!:(route:import('@playwright/test').Route)=>void;
-  const delayed=new Promise<import('@playwright/test').Route>(resolve=>{release=resolve;});
+  let release!:(route:Route)=>void;
+  const delayed=new Promise<Route>(resolve=>{release=resolve;});
   let held=false;
   await page.route('**/api/v1/movements', async route=>{
     const response=await route.fetch();

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type Route } from '@playwright/test';
 import { signIn } from './session';
 
 async function createWithFailedRefresh(page:Page,status:401|503) {
@@ -112,4 +112,48 @@ test('Ein älterer Abruf kann den Hinweis nach einer weiteren Speicherung nicht 
   await retry.click();
   await expect(page.getByRole('heading',{name:second,exact:true})).toBeVisible();
   expect(writes).toBe(2);
+});
+
+test('Ein fehlgeschlagener neuerer Export-Abruf hält die bestätigte Speicherung sichtbar',async({page})=>{
+  let writes=0;
+  let readsAfterWrite=0;
+  let holdFirst!:(route:Route)=>void;
+  const firstRead=new Promise<Route>(resolve=>{holdFirst=resolve;});
+  await page.route('**/api/v1/contacts',async route=>{
+    const response=await route.fetch();
+    if(route.request().method()==='POST' && response.ok()) writes++;
+    await route.fulfill({response});
+  });
+  await page.route('**/api/v1/stock',route=>{
+    if(!writes) return route.continue();
+    readsAfterWrite++;
+    if(readsAfterWrite===1){holdFirst(route);return;}
+    if(readsAfterWrite===2) return route.fulfill({status:503,json:{error:'Zweiter Abruf fehlgeschlagen'}});
+    return route.continue();
+  });
+  await signIn(page);
+  const nav=page.getByRole('navigation',{name:'Hauptnavigation'});
+  await nav.getByRole('button',{name:'Kontakte',exact:true}).click();
+  await page.getByText('Kontakt anlegen',{exact:true}).click();
+  const name='Musterkontakt '+crypto.randomUUID().slice(0,8);
+  await page.getByLabel('Name',{exact:true}).fill(name);
+  await page.getByRole('button',{name:'Kontakt speichern',exact:true}).click();
+  const first=await firstRead;
+  try{
+    await nav.getByRole('button',{name:'Projekte',exact:true}).click();
+    await page.getByRole('button',{name:'Büroinstallation Westflügel',exact:true}).click();
+    await page.getByRole('button',{name:'Ressourcen & Kalkulation',exact:true}).click();
+    await page.getByRole('button',{name:'Angebotspositionen exportieren',exact:true}).click();
+    await expect.poll(()=>readsAfterWrite).toBe(2);
+    await first.fulfill({status:503,json:{error:'Erster Abruf fehlgeschlagen'}});
+    const retry=page.getByRole('button',{name:'Ansicht aktualisieren',exact:true});
+    await expect(page.getByText('Die Änderung wurde gespeichert. Die Ansicht konnte nicht aktualisiert werden.')).toBeVisible();
+    await retry.click();
+    await expect(retry).toHaveCount(0);
+    await nav.getByRole('button',{name:'Kontakte',exact:true}).click();
+    await expect(page.getByRole('button',{name,exact:true})).toBeVisible();
+    expect(writes).toBe(1);
+  }finally{
+    await first.abort().catch(()=>{});
+  }
 });
