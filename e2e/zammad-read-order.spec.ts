@@ -124,7 +124,7 @@ for(const [order,status] of [['old-first',200],['old-first',503],['latest-first'
     await page.getByRole('button',{name:'Kommunikation',exact:true}).click();
     await initial.arrived;
     const panel=page.getByRole('region',{name:'Zammad'});
-    const loading=panel.getByRole('status').filter({hasText:'Verlauf wird geladen …'});
+    const loading=panel.getByRole('status',{name:'Abrufstatus'}).filter({hasText:'Verlauf wird geladen …'});
     const refresh=panel.getByRole('button',{name:'Verlauf aktualisieren'});
     await expect(loading).toBeVisible();
     await settle(page,initial);

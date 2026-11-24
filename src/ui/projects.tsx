@@ -366,7 +366,7 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
           ]} submit={(v)=>run(()=>request('tickets',v),'Ticket angelegt.')}/></Expand>
         </> : <>
           <button onClick={()=>void refresh()}>Verlauf aktualisieren</button>
-          <p className={loading?"subtle":"sr-only"} role="status">{loading?"Verlauf wird geladen …":""}</p>
+          <p className={loading?"subtle":"sr-only"} role="status" aria-label="Abrufstatus">{loading?"Verlauf wird geladen …":""}</p>
           <ol className="thread">{conversation?.articles.map((article:any)=><li key={article.id}>
             <div><strong>{article.subject || 'Nachricht'}</strong><small>{article.from} · {moment(article.created_at)}</small></div>
             <p>{article.content_type==='text/html' ? plainText(article.body) : article.body}</p>
@@ -381,7 +381,7 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
               </Form>
             </fieldset>
             {draft && <div>
-              <p role="status">{draftNotice}</p>
+              <p role="status" aria-label="Versandstatus">{draftNotice}</p>
               {canCheckDraft && <button onClick={()=>void run(checkDraft)}>Sendeversuch prüfen</button>}
               {draft.status==='missing' && <button onClick={()=>void run(async()=>{
                 const current=draftRef.current;

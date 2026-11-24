@@ -56,7 +56,7 @@ for(const status of ['pending','unknown'] as const){
     const update=page.waitForResponse(response=>response.url().endsWith('/projekt/zammad'));
     await ui.panel.getByRole('button',{name:'Verlauf aktualisieren'}).click();
     await (await update).finished();
-    await expect(ui.panel.getByRole('status')).toContainText(status==='pending'?'Sendeversuch steht aus':'Ausgang ist unklar');
+    await expect(ui.panel.getByRole('status',{name:'Versandstatus'})).toContainText(status==='pending'?'Sendeversuch steht aus':'Ausgang ist unklar');
     expect(ui.messages).toHaveLength(1);
 
     // Eine bestätigte Prüfung räumt den Entwurf auch bei einem folgenden Abruffehler auf.
