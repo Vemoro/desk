@@ -2,7 +2,7 @@
 
 ## Ein Auftrag
 
-1. Einen Kontakt und ein Projekt anlegen. Beim lokalen Anlegen zeigt Desk mögliche Dubletten mit gleichem Namen oder gleicher E-Mail-Adresse. Treffer lassen sich öffnen. Ein zusätzlicher Kontakt braucht eine Bestätigung. Aufgaben im Kanban verteilen und den Projektstatus auf Planung setzen.
+1. Einen Kontakt und ein Projekt anlegen. Beim lokalen Anlegen zeigt Desk mögliche Dubletten mit gleichem Namen oder gleicher E-Mail-Adresse. Treffer lassen sich öffnen. Ein zusätzlicher Kontakt braucht eine Bestätigung. Im Kontaktdetail lassen sich die zugehörigen Projekte mit Status und Termin öffnen. Aufgaben im Kanban verteilen und den Projektstatus auf Planung setzen.
 2. Personal und Inventar vormerken. Geplante Einkaufskosten und Verkaufspositionen erfassen. Die Verkaufspositionen können als CSV exportiert werden. Beim Entfernen zeigt Desk den Namen der Position zur Bestätigung.
 3. Eine Angebotsreferenz ergänzen. Bei eingerichteter Haben-Verbindung die ID des vorhandenen Angebots eintragen und abgleichen. Desk zeigt den Status des Angebots an und kann die Bestätigung übernehmen. Ohne Haben wird der Projektstatus von Hand gesetzt.
 4. Nach der Bestätigung Ressourcen fest reservieren. Zeitliche Überschneidungen bei Personal und Geräten sowie Mengenüberschreitungen werden abgelehnt. Eine Freigabe entfernt die Reservierung. Bereits ausgegebene Geräte bleiben bis zur Rückgabe sichtbar.
