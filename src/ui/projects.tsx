@@ -117,6 +117,7 @@ function localDayRange(value:string) {
 }
 
 function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
+  const [resourceSearch,setResourceSearch]=useState('');
   const [resourceFilter,setResourceFilter]=useState('');
   const [statusFilter,setStatusFilter]=useState('');
   const [dayFilter,setDayFilter]=useState('');
@@ -124,12 +125,18 @@ function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
   const dayRange=dayFilter ? localDayRange(dayFilter) : null;
   const reservations=data.reservations.filter((row)=>row.project_id===project.id);
   const equipmentIds=new Set(data.items.filter(item=>item.kind==='equipment').map(item=>item.id));
-  const visibleReservations=reservations.filter((row)=>
-    (!resourceFilter || (row.user_id ? 'user' : 'item')===resourceFilter)
-    && (!statusFilter || row.status===statusFilter)
-    && (!onlyCheckedOut || (equipmentIds.has(row.item_id) && row.checked_out>0))
-    && (!dayRange || (dayRange.start<dayRange.end
-      && Date.parse(row.starts_at)<dayRange.end && Date.parse(row.ends_at)>dayRange.start)));
+  const term=resourceSearch.trim().toLowerCase();
+  const visibleReservations=reservations.filter((row)=>{
+    if(resourceFilter && (row.user_id ? 'user' : 'item')!==resourceFilter) return false;
+    if(statusFilter && row.status!==statusFilter) return false;
+    if(onlyCheckedOut && !(equipmentIds.has(row.item_id) && row.checked_out>0)) return false;
+    if(dayRange && !(dayRange.start<dayRange.end
+      && Date.parse(row.starts_at)<dayRange.end && Date.parse(row.ends_at)>dayRange.start)) return false;
+    if(!term) return true;
+    if(row.user_id) return name(data.users,row.user_id).toLowerCase().includes(term);
+    const item=data.items.find(entry=>entry.id===row.item_id);
+    return [item?.name,item?.inventory_number].some(value=>value?.toLowerCase().includes(term));
+  });
   const lines=data.lines.filter((row)=>row.project_id===project.id);
   const timeFields=[
     {name:'starts_at',label:'Von',type:'datetime-local',required:true},
@@ -138,6 +145,7 @@ function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
   return <>
     <Panel title="Ressourcenplanung" action={<span className="subtle">{visibleReservations.length} {visibleReservations.length===1?'Reservierung':'Reservierungen'}</span>}>
       <div className="panel-body form-grid">
+        <label><span>Ressourcen suchen</span><input type="search" value={resourceSearch} onChange={(event)=>setResourceSearch(event.target.value)}/></label>
         <label><span>Ressourcentyp</span><select value={resourceFilter} onChange={(event)=>setResourceFilter(event.target.value)}>
           <option value="">Alle</option><option value="user">Personal</option><option value="item">Inventar</option>
         </select></label>
@@ -150,8 +158,8 @@ function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
           <input type="checkbox" checked={onlyCheckedOut} onChange={(event)=>setOnlyCheckedOut(event.target.checked)}/>
           <span>Nur offene Geräteausgaben</span>
         </label>
-        <button type="button" disabled={!resourceFilter&&!statusFilter&&!dayFilter&&!onlyCheckedOut}
-          onClick={()=>{setResourceFilter('');setStatusFilter('');setDayFilter('');setOnlyCheckedOut(false);}}>Filter zurücksetzen</button>
+        <button type="button" disabled={!resourceSearch&&!resourceFilter&&!statusFilter&&!dayFilter&&!onlyCheckedOut}
+          onClick={()=>{setResourceSearch('');setResourceFilter('');setStatusFilter('');setDayFilter('');setOnlyCheckedOut(false);}}>Filter zurücksetzen</button>
       </div>
       <div className="panel-body compact-actions">
       <Expand title="Personal vormerken"><Form caption="Person vormerken" fields={[
