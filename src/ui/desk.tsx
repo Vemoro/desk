@@ -104,7 +104,7 @@ export function Desk() {
     <main id="desk-main" tabIndex={-1} className="main">
       {section!=='projects'||!project?<header className="page-title"><h1>{sections[section][0]}</h1></header>:null}
       {alert}
-      {section==='dashboard' && <Dashboard data={data} select={(id)=>navigate('projects',id)} open={()=>navigate('projects')}/>}
+      {section==='dashboard' && <Dashboard data={data} personId={person.id} select={(id)=>navigate('projects',id)} open={()=>navigate('projects')}/>}
       {section==='projects' && (project?<Project key={project.id} project={project} data={data} run={run} flags={flags} back={()=>navigate('projects')}/>
         :<Projects data={data} run={run} filters={projectFilters} onFilter={setProjectFilters} select={(id)=>navigate('projects',id)}/>)}
       {section==='contacts' && <Contacts data={data} run={run} haben={flags.haben}/>}
@@ -115,12 +115,14 @@ export function Desk() {
   </div>;
 }
 
-function Dashboard({data,select,open}:{data:Data;select:(id:string)=>void;open:()=>void}) {
+function Dashboard({data,personId,select,open}:{data:Data;personId:string;select:(id:string)=>void;open:()=>void}) {
+  const [assignee,setAssignee]=useState('all');
   const active=data.projects.filter((project)=>!['complete','cancelled'].includes(project.stage));
   const today=useLocalDay();
   const activeIds=new Set(active.map((project)=>project.id));
   const dueTasks=data.tasks
     .filter((task)=>task.status!=='done' && task.due && activeIds.has(task.project_id))
+    .filter((task)=>assignee==='all' || (assignee==='mine' ? task.assignee_id===personId : !task.assignee_id))
     .sort((first,second)=>first.due.slice(0,10).localeCompare(second.due.slice(0,10)))
     .slice(0,10);
   const metrics=[
@@ -134,14 +136,20 @@ function Dashboard({data,select,open}:{data:Data;select:(id:string)=>void;open:(
         <button className="text-button" onClick={()=>select(row.id)}>{row.name}</button>,name(data.contacts,row.contact_id),<Pill label={projectStages[row.stage]} tone="accent"/>,date(row.due),
       ]}))}/>
     </Panel>
-    <Panel title="Fällige Aufgaben">
+    <Panel title="Fällige Aufgaben" action={<label><span>Zuständigkeit</span>
+      <select value={assignee} onChange={(event)=>setAssignee(event.target.value)}>
+        <option value="all">Alle</option>
+        <option value="mine">Mir zugeordnet</option>
+        <option value="unassigned">Ohne Zuständigkeit</option>
+      </select>
+    </label>}>
       {dueTasks.length ? <Table headers={['Aufgabe','Projekt','Verantwortlich','Termin']} rows={dueTasks.map((task)=>{
         const due=task.due.slice(0,10);
         return {key:task.id,cells:[task.name,<button className="text-button" onClick={()=>select(task.project_id)}>{name(data.projects,task.project_id)}</button>,
           name(data.users,task.assignee_id),<div className="actions">{date(due)}
             {due<=today && <Pill label={due<today?'Überfällig':'Heute'} tone="accent"/>}
           </div>]};
-      })}/> : <p className="empty">Keine offenen Aufgaben mit Termin.</p>}
+      })}/> : <p className="empty">{assignee==='all'?'Keine offenen Aufgaben mit Termin.':'Keine offenen Aufgaben mit Termin für diese Zuständigkeit.'}</p>}
     </Panel>
   </>;
 }
