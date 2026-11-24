@@ -152,11 +152,15 @@ function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
 
 export function Controlling({project,data,run}:{project:Row;data:Data;run:Run}) {
   const [source,setSource]=useState('');
+  const [search,setSearch]=useState('');
   const lines=data.lines.filter((row)=>row.project_id===project.id);
   const costs=data.costs.filter((row)=>row.project_id===project.id);
   const sources=[...new Set(costs.map(row=>row.source))].sort();
   const selectedSource=sources.includes(source)?source:'';
-  const visibleCosts=costs.filter(row=>!selectedSource || row.source===selectedSource);
+  const term=search.trim().toLowerCase();
+  const filtering=Boolean(selectedSource || term);
+  const visibleCosts=costs.filter(row=>(!selectedSource || row.source===selectedSource)
+    && [row.reference,row.name].some(value=>value.toLowerCase().includes(term)));
   useEffect(()=>{
     if(source && !selectedSource) setSource('');
   },[source,selectedSource]);
@@ -168,6 +172,7 @@ export function Controlling({project,data,run}:{project:Row;data:Data;run:Run}) 
     ].map(([label,value])=><div className="metric" key={label}><span>{label}</span><strong>{euros(Number(value))}</strong></div>)}</div>
     <Panel title="Belegbezogene Ist-Kosten">
       <div className="panel-body">
+        <label className="filter"><span>Belege suchen</span><input type="search" value={search} onChange={(event)=>setSearch(event.target.value)}/></label>
         <label className="filter"><span>Kostenquelle filtern</span>
           <select value={selectedSource} onChange={(event)=>setSource(event.target.value)}>
             <option value="">Alle Quellen</option>
@@ -177,8 +182,9 @@ export function Controlling({project,data,run}:{project:Row;data:Data;run:Run}) 
         <Expand title="Ist-Kosten erfassen"><Form caption="Kosten speichern" fields={[
         {name:'reference',label:'Belegreferenz',required:true},{name:'name',label:'Bezeichnung',required:true},{name:'amount',label:'Netto in Euro',required:true},
       ]} submit={(fields)=>run(()=>api('costs','POST',{entries:[{project_id:project.id,source:'manual',reference:fields.reference,name:fields.name,cents:money(fields.amount)}]}),'Ist-Kosten gespeichert.')}/></Expand></div>
-      <Table headers={['Belegreferenz','Bezeichnung','Quelle','Netto']} rows={visibleCosts.map((row)=>({key:row.id,cells:[row.reference,row.name,row.source,euros(row.cents)]}))}/>
-      {selectedSource && <div className="panel-body">Summe der sichtbaren Belege <strong>{euros(visibleCosts.reduce((sum,row)=>sum+row.cents,0))}</strong></div>}
+      {filtering && !visibleCosts.length ? <p className="empty" role="status">Keine Belege für diese Filter.</p>
+        : <Table headers={['Belegreferenz','Bezeichnung','Quelle','Netto']} rows={visibleCosts.map((row)=>({key:row.id,cells:[row.reference,row.name,row.source,euros(row.cents)]}))}/>}
+      {filtering && visibleCosts.length>0 && <div className="panel-body">Summe der sichtbaren Belege <strong>{euros(visibleCosts.reduce((sum,row)=>sum+row.cents,0))}</strong></div>}
     </Panel>
   </>;
 }
