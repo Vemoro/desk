@@ -12,12 +12,17 @@ type Person={id:string;name:string;role:'admin'|'member'};
 const collections = ['contacts','projects','tasks','users','lines','reservations','locations','items','movements','costs','stock'] as const;
 const initialData=Object.fromEntries(collections.map((key)=>[key,[]])) as unknown as Data;
 
+type MovementFilters={action:string;projectId:string;search:string;from:string;to:string};
+type MovementFilterControl={filters:MovementFilters;onFilter:(filters:MovementFilters)=>void};
+const emptyMovementFilters:MovementFilters={action:'',projectId:'',search:'',from:'',to:''};
+
 export function Desk() {
   const [person,setPerson]=useState<Person|null>();
   const [data,setData]=useState<Data>(initialData);
   const [flags,setFlags]=useState({haben:false,zammad:false});
   const [section,setSection]=useState<Section>('dashboard');
   const [projectId,setProjectId]=useState('');
+  const [movementFilters,setMovementFilters]=useState(emptyMovementFilters);
   const [theme,setTheme]=useState('light');
   const [notice,setNotice]=useState({message:'',error:false});
   const project=data.projects.find((row)=>row.id===projectId);
@@ -83,7 +88,8 @@ export function Desk() {
         {name:'email',label:'E-Mail',type:'email',required:true,autoComplete:'username'},
         {name:'password',label:'Passwort',type:'password',required:true,autoComplete:'current-password'},
       ]} submit={async(input)=>{
-        await api('login','POST',input); const current=await api<Person>('me'); await load();setPerson(current);setNotice({message:'',error:false});
+        await api('login','POST',input); const current=await api<Person>('me'); await load();
+        setMovementFilters(emptyMovementFilters);setPerson(current);setNotice({message:'',error:false});
       }}/>
     </div></main>;
 
@@ -96,7 +102,7 @@ export function Desk() {
       )}</nav>
       <footer className="sidebar-foot"><div className="account"><span className="avatar">{person.name.slice(0,1)}</span>
         <div><strong>{person.name}</strong><small>{person.role==='admin'?'Administration':'Mitarbeit'}</small></div>{themeButton}</div>
-        <button onClick={async()=>{try { await api('logout','POST');setPerson(null);setData(initialData);setNotice({message:'',error:false}); } catch { setNotice({message:'Abmelden fehlgeschlagen.',error:true}); }}}>Abmelden</button>
+        <button onClick={async()=>{try { await api('logout','POST');setPerson(null);setData(initialData);setMovementFilters(emptyMovementFilters);setNotice({message:'',error:false}); } catch { setNotice({message:'Abmelden fehlgeschlagen.',error:true}); }}}>Abmelden</button>
       </footer>
     </aside>
     <main id="desk-main" tabIndex={-1} className="main">
@@ -106,7 +112,7 @@ export function Desk() {
       {section==='projects' && (project?<Project key={project.id} project={project} data={data} run={run} flags={flags} back={()=>navigate('projects')}/>
         :<Projects data={data} run={run} select={(id)=>navigate('projects',id)}/>)}
       {section==='contacts' && <Contacts data={data} run={run} haben={flags.haben}/>}
-      {section==='warehouse' && <Warehouse data={data} run={run}/>}
+      {section==='warehouse' && <Warehouse data={data} run={run} filters={movementFilters} onFilter={setMovementFilters}/>}
       {section==='costs' && <Costs data={data} run={run}/>}
       {section==='settings'&&person.role==='admin' && <Settings data={data} run={run} flags={flags}/>}
     </main>
@@ -180,7 +186,7 @@ function Contacts({data,run,haben}:{data:Data;run:Run;haben:boolean}) {
   </>;
 }
 
-function Warehouse({data,run}:{data:Data;run:Run}) {
+function Warehouse({data,run,filters,onFilter}:{data:Data;run:Run}&MovementFilterControl) {
   const bookings=data.reservations.filter((row)=>row.item_id&&(row.status==='firm'||row.checked_out>0));
   const [projectFilter,setProjectFilter]=useState('');
   const [locationFilter,setLocationFilter]=useState('');
@@ -233,26 +239,23 @@ function Warehouse({data,run}:{data:Data;run:Run}) {
         key:row.id,cells:[name(data.projects,row.project_id),name(data.items,row.item_id),name(data.locations,row.location_id),row.checked_out],
       }))}/> : <p className="empty" role="status">{openCheckouts.length?'Keine offenen Ausgaben für diese Filter.':'Es gibt keine offenen Ausgaben.'}</p>}
     </Panel>
-    <WarehouseMovements data={data}/>
+    <WarehouseMovements data={data} filters={filters} onFilter={onFilter}/>
   </>;
 }
 
-function WarehouseMovements({data}:{data:Data}) {
-  const [action,setAction]=useState('');
-  const [project,setProject]=useState('');
-  const [search,setSearch]=useState('');
-  const [from,setFrom]=useState('');
-  const [to,setTo]=useState('');
+function WarehouseMovements({data,filters,onFilter}:{data:Data}&MovementFilterControl) {
+  const {action,projectId,search,from,to}=filters;
   const query=search.trim().toLowerCase();
   const itemsById=new Map(data.items.map(item=>[item.id,item]));
-  const filtered=Boolean(action || project || search || from || to);
+  const projectsById=new Map(data.projects.map(project=>[project.id,project]));
+  const filtered=Boolean(action || projectId || search || from || to);
   const invalidRange=Boolean(from && to && from>to);
   const movements=invalidRange ? [] : data.movements.filter((row)=>{
     const item=itemsById.get(row.item_id);
     const matchesSearch=!query || [item?.name,item?.code,item?.inventory_number,row.delivery_reference]
       .some(value=>value?.toLowerCase().includes(query));
     const matchesFilters=matchesSearch && (!action || row.action===action)
-      && (!project || (project==='unassigned'?!row.project_id:row.project_id===project));
+      && (!projectId || (projectId==='unassigned'?!row.project_id:row.project_id===projectId));
     if(!matchesFilters || (!from && !to)) return matchesFilters;
     const bookedAt=new Date(row.created_at);
     const day=[bookedAt.getFullYear(),bookedAt.getMonth()+1,bookedAt.getDate()]
@@ -263,27 +266,30 @@ function WarehouseMovements({data}:{data:Data}) {
   return <Panel title="Lagerbewegungen" action={<span className="subtle">{movements.length} {movements.length===1?'Bewegung':'Bewegungen'}</span>}>
     <div className="panel-body form-grid">
       <label><span>Lagerbewegungen suchen</span><input type="search" value={search}
-        onChange={(event)=>setSearch(event.target.value)}/></label>
-      <label><span>Bewegungsart filtern</span><select value={action} onChange={(event)=>setAction(event.target.value)}>
+        onChange={(event)=>onFilter({...filters,search:event.target.value})}/></label>
+      <label><span>Bewegungsart filtern</span><select value={action} onChange={(event)=>onFilter({...filters,action:event.target.value})}>
         <option value="">Alle Bewegungsarten</option>
         {Object.entries(movementStages).map(([value,label])=><option key={value} value={value}>{label}</option>)}
       </select></label>
-      <label><span>Projekt filtern</span><select value={project} onChange={(event)=>setProject(event.target.value)}>
+      <label><span>Projekt filtern</span><select value={projectId} onChange={(event)=>onFilter({...filters,projectId:event.target.value})}>
         <option value="">Alle Projekte</option><option value="unassigned">Ohne Projektbezug</option>
         {options(data.projects).map(({value,label})=><option key={value} value={value}>{label}</option>)}
       </select></label>
       <label><span>Vom Datum</span><input type="date" value={from} aria-invalid={invalidRange}
-        onChange={(event)=>setFrom(event.target.value)}/></label>
+        onChange={(event)=>onFilter({...filters,from:event.target.value})}/></label>
       <label><span>Bis Datum</span><input type="date" value={to} aria-invalid={invalidRange}
-        onChange={(event)=>setTo(event.target.value)}/></label>
-      <button type="button" disabled={!filtered} onClick={()=>{
-        setAction('');setProject('');setSearch('');setFrom('');setTo('');
-      }}>Filter zurücksetzen</button>
+        onChange={(event)=>onFilter({...filters,to:event.target.value})}/></label>
+      <button type="button" disabled={!filtered} onClick={()=>onFilter(emptyMovementFilters)}>Filter zurücksetzen</button>
     </div>
     {invalidRange ? <p className="empty" role="alert">Das Bis-Datum liegt vor dem Vom-Datum.</p>
-      : movements.length || !filtered?<Table headers={['Zeitpunkt','Bewegung','Artikel','Lagerort','Projekt','Menge','Lieferschein','Erfasst durch']} rows={movements.map((row)=>({key:row.id,cells:[
-      moment(row.created_at),movementStages[row.action],itemsById.get(row.item_id)?.name ?? '–',name(data.locations,row.location_id),name(data.projects,row.project_id),row.quantity,row.delivery_reference||'–',name(data.users,row.actor_id),
-    ]}))}/> : <p className="empty" role="status">Keine Bewegungen für diese Filter.</p>}
+      : movements.length || !filtered?<Table headers={['Zeitpunkt','Bewegung','Artikel','Lagerort','Projekt','Menge','Lieferschein','Erfasst durch']} rows={movements.map((row)=>{
+      const project=projectsById.get(row.project_id);
+      return {key:row.id,cells:[
+        moment(row.created_at),movementStages[row.action],itemsById.get(row.item_id)?.name ?? '–',name(data.locations,row.location_id),
+        project ? <a href={`#projects/${project.id}`}>{project.name}</a> : '–',
+        row.quantity,row.delivery_reference||'–',name(data.users,row.actor_id),
+      ]};
+    })}/> : <p className="empty" role="status">Keine Bewegungen für diese Filter.</p>}
   </Panel>;
 }
 
