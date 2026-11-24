@@ -119,6 +119,7 @@ function localDayRange(value:string) {
 function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
   const [resourceSearch,setResourceSearch]=useState('');
   const [resourceFilter,setResourceFilter]=useState('');
+  const [locationFilter,setLocationFilter]=useState('');
   const [statusFilter,setStatusFilter]=useState('');
   const [dayFilter,setDayFilter]=useState('');
   const [onlyCheckedOut,setOnlyCheckedOut]=useState(false);
@@ -128,6 +129,7 @@ function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
   const term=resourceSearch.trim().toLowerCase();
   const visibleReservations=reservations.filter((row)=>{
     if(resourceFilter && (row.user_id ? 'user' : 'item')!==resourceFilter) return false;
+    if(locationFilter && (row.user_id || row.location_id!==locationFilter)) return false;
     if(statusFilter && row.status!==statusFilter) return false;
     if(onlyCheckedOut && !(equipmentIds.has(row.item_id) && row.checked_out>0)) return false;
     if(dayRange && !(dayRange.start<dayRange.end
@@ -149,6 +151,10 @@ function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
         <label><span>Ressourcentyp</span><select value={resourceFilter} onChange={(event)=>setResourceFilter(event.target.value)}>
           <option value="">Alle</option><option value="user">Personal</option><option value="item">Inventar</option>
         </select></label>
+        <label><span>Lagerort</span><select value={locationFilter} onChange={(event)=>setLocationFilter(event.target.value)}>
+          <option value="">Alle Lagerorte</option>
+          {options(data.locations).map(({value,label})=><option key={value} value={value}>{label}</option>)}
+        </select></label>
         <label><span>Status filtern</span><select value={statusFilter} onChange={(event)=>setStatusFilter(event.target.value)}>
           <option value="">Alle</option>
           {Object.entries(reservationStages).map(([value,label])=><option key={value} value={value}>{label}</option>)}
@@ -158,8 +164,8 @@ function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
           <input type="checkbox" checked={onlyCheckedOut} onChange={(event)=>setOnlyCheckedOut(event.target.checked)}/>
           <span>Nur offene Geräteausgaben</span>
         </label>
-        <button type="button" disabled={!resourceSearch&&!resourceFilter&&!statusFilter&&!dayFilter&&!onlyCheckedOut}
-          onClick={()=>{setResourceSearch('');setResourceFilter('');setStatusFilter('');setDayFilter('');setOnlyCheckedOut(false);}}>Filter zurücksetzen</button>
+        <button type="button" disabled={!resourceSearch&&!resourceFilter&&!locationFilter&&!statusFilter&&!dayFilter&&!onlyCheckedOut}
+          onClick={()=>{setResourceSearch('');setResourceFilter('');setLocationFilter('');setStatusFilter('');setDayFilter('');setOnlyCheckedOut(false);}}>Filter zurücksetzen</button>
       </div>
       <div className="panel-body compact-actions">
       <Expand title="Personal vormerken"><Form caption="Person vormerken" fields={[
