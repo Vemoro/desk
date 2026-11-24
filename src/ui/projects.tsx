@@ -205,7 +205,7 @@ type ZammadMessage={
 };
 type ZammadDraft={
   message:ZammadMessage;
-  status:Exclude<ZammadStatus,'sent'>|'posting'|'unconfirmed'|'missing';
+  status:Exclude<ZammadStatus,'sent'>|'posting'|'unconfirmed'|'retry-unconfirmed'|'missing';
 };
 
 function ZammadConversation({project,run}:{project:Row;run:Run}) {
@@ -233,6 +233,8 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
   function updateDraft(id:string,status:ZammadStatus) {
     const current=draftRef.current;
     if(current?.message.id!==id) return;
+    // Dieselbe Ablehnung kann aus der Zeit vor der Wiederholung stammen.
+    if(current.status==='retry-unconfirmed' && status==='failed') return;
     if(status==='sent') resetDraft();
     else setDraft({...current,status});
   }
@@ -301,19 +303,30 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
   }
 
   async function reviewAttempt(id:string,retry:boolean) {
-    const result=await request(`outgoing/${id}`,{retry});
-    updateDraft(id,result.status);
+    const current=draftRef.current;
+    const tracked=current?.message.id===id && current.status!=='posting' ? current : undefined;
+    const observed:ZammadDraft|undefined=retry && tracked ? {...tracked,status:'posting'} : tracked;
+    if(retry && observed) setDraft(observed);
+
+    let result;
+    try {
+      result=await request(`outgoing/${id}`,{retry});
+    } catch(error) {
+      if(retry && observed && draftRef.current===observed) setDraft({...observed,status:'retry-unconfirmed'});
+      throw error;
+    }
+    if(observed && draftRef.current===observed) updateDraft(id,result.status);
     await refresh();
     return result.status;
   }
 
   async function checkDraft() {
     const current=draftRef.current;
-    if(current?.status!=='unconfirmed') return;
+    if(current?.status!=='unconfirmed' && current?.status!=='retry-unconfirmed') return;
     try {
       await reviewAttempt(current.message.id,false);
     } catch(error) {
-      if(!(error instanceof ApiError) || error.status!==404) throw error;
+      if(current.status!=='unconfirmed' || !(error instanceof ApiError) || error.status!==404) throw error;
       if(draftRef.current===current) setDraft({...current,status:'missing'});
       await refresh();
     }
@@ -322,6 +335,7 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
   const draftNotice=draft && {
     posting:'Desk übermittelt den Entwurf an Zammad.',
     unconfirmed:'Der Versandstatus ist unklar. Prüfe zuerst den Sendeversuch.',
+    'retry-unconfirmed':'Der Ausgang der Wiederholung ist unklar. Prüfe den Versuch oder wiederhole ihn in der Liste.',
     missing:'Desk hat keinen Sendeversuch für diesen Entwurf gefunden.',
     pending:'Der Sendeversuch steht aus. Prüfe den Versuch in der Liste.',
     unknown:'Der Ausgang ist unklar. Prüfe den Versuch in der Liste.',
@@ -354,7 +368,7 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
             </fieldset>
             {draft && <div>
               <p role="status">{draftNotice}</p>
-              {draft.status==='unconfirmed' && <button onClick={()=>void run(checkDraft)}>Sendeversuch prüfen</button>}
+              {(draft.status==='unconfirmed'||draft.status==='retry-unconfirmed') && <button onClick={()=>void run(checkDraft)}>Sendeversuch prüfen</button>}
               {draft.status==='missing' && <button onClick={()=>void run(async()=>{
                 const current=draftRef.current;
                 if(current?.status==='missing') await transmit(current.message,false);
@@ -365,8 +379,8 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
           <Table headers={['Sendeversuch','Status','Aktion']} rows={(conversation?.outgoing ?? []).map((entry:Row)=>({
             key:entry.id,cells:[entry.subject,({sent:'An Zammad übergeben',pending:'Ausstehend',failed:'Abgelehnt',unknown:'Ausgang unklar'} as Record<string,string>)[entry.status],
               entry.status==='sent' ? '–' : <div className="actions">
-                <button onClick={()=>run(()=>reviewAttempt(entry.id,false))}>Prüfen</button>
-                <button onClick={(event)=>setConfirmation({
+                <button disabled={draft?.message.id===entry.id && draft.status==='posting'} onClick={()=>run(()=>reviewAttempt(entry.id,false))}>Prüfen</button>
+                <button disabled={draft?.message.id===entry.id && draft.status==='posting'} onClick={(event)=>setConfirmation({
                   title:'Zammad-Sendeversuch wiederholen',
                   description:`Desk prüft den Ticketverlauf auf „${entry.subject}“. Fehlt die Nachricht, sendet Zammad sie erneut.`,
                   actionLabel:'Erneut senden',

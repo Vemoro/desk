@@ -146,3 +146,44 @@ test('Bestätigter Eingabefehler vor Speicherung lässt sich korrigieren',async(
   expect(ui.messages[1]).not.toHaveProperty('attachment');
   expect(ui.messages[1].id).not.toBe(ui.messages[0].id);
 });
+
+test('Verbindungsabbruch beim Wiederholen sperrt den abgelehnten Entwurf bis zur Klärung',async({page})=>{
+  let reviews=0;
+  const ui=await compose(page,route=>{
+    const message=route.request().postDataJSON();
+    ui.outgoing.push({...message,status:'failed'});
+    return route.fulfill({json:{id:message.id,status:'failed'}});
+  });
+  await page.route(path+'/outgoing/*',route=>{
+    const {retry}=route.request().postDataJSON();
+    expect(route.request().url().split('/').at(-1)).toBe(ui.messages[0].id);
+    reviews++;
+    if(retry){
+      return route.abort();
+    }
+    return route.fulfill({json:{id:ui.messages[0].id,status:reviews===2?'failed':'sent'}});
+  });
+  await ui.submit.click();
+  const next=ui.panel.getByRole('button',{name:'Neuen Entwurf beginnen'});
+  await expect(next).toBeVisible();
+  await ui.panel.getByRole('button',{name:'Erneut senden',exact:true}).click();
+  const dialog=page.getByRole('dialog');
+  await dialog.getByRole('button',{name:'Erneut senden',exact:true}).click();
+  await expect(dialog.getByRole('alert')).toBeVisible();
+  await dialog.getByRole('button',{name:'Schließen',exact:true}).click();
+  await expect(next).toHaveCount(0);
+  await expect(ui.body).toBeDisabled();
+  await expect(ui.body).toHaveValue('Unser Musterangebot für die Installation.');
+  expect(ui.messages).toHaveLength(1);
+  const check=ui.panel.getByRole('button',{name:'Sendeversuch prüfen'});
+  const refreshed=page.waitForResponse(response=>response.url().endsWith('/projekt/zammad'));
+  await check.click();
+  await (await refreshed).finished();
+  await expect(next).toHaveCount(0);
+  await expect(ui.body).toBeDisabled();
+  await check.click();
+  await expect(ui.body).toBeEnabled();
+  await expect(ui.body).toHaveValue('');
+  expect(ui.messages).toHaveLength(1);
+  expect(reviews).toBe(3);
+});
