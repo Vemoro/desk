@@ -27,6 +27,17 @@ Desk legt Angebote in der ersten Version über die manuelle Übergabe an Haben a
 - Teamkonten und widerrufbare API-Tokens stehen in den Einstellungen. Der API-Vertrag ist unter `/api/v1/openapi.json` verfügbar. Schreibende Tickets, Kontakte und andere Vorgänge laufen über die jeweils eingerichteten Serverzugänge.
 - PostgreSQL sichern. Vor einem Update die Wiederherstellung in einer getrennten Instanz prüfen. Für Desktop und Smartphone dieselbe HTTPS-Adresse verwenden.
 
+### Desk-Stand für Fehlerberichte
+
+Unter **Desk-Version** in der Seitenleiste lässt sich die Programmversion mit dem Git-Commit kopieren. Die Programmversion stammt aus `package.json`. Stelle den vollständigen Commit beim Bau des ausgecheckten Stands bereit:
+
+```sh
+DESK_BUILD_COMMIT="$(git rev-parse HEAD)" bun run build
+docker build --build-arg DESK_BUILD_COMMIT="$(git rev-parse HEAD)" -t desk:lokal .
+```
+
+Für Docker Compose steht der Aufruf im [Installationsleitfaden](installation.md#eigenständiger-start-mit-docker-compose). Starte anschließend den gebauten Dienst und vergleiche die unter **Desk-Version** angezeigte Angabe mit `git rev-parse HEAD`. Die Angabe bleibt bei einem Neustart desselben Builds erhalten. Ein Build ohne Commit-Angabe zeigt **Stand unbekannt**.
+
 ## Ansichten
 
 <picture>

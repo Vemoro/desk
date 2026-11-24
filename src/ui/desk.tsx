@@ -97,6 +97,7 @@ export function Desk() {
       <footer className="sidebar-foot"><div className="account"><span className="avatar">{person.name.slice(0,1)}</span>
         <div><strong>{person.name}</strong><small>{person.role==='admin'?'Administration':'Mitarbeit'}</small></div>{themeButton}</div>
         <button onClick={async()=>{try { await api('logout','POST');setPerson(null);setData(initialData);setNotice({message:'',error:false}); } catch { setNotice({message:'Abmelden fehlgeschlagen.',error:true}); }}}>Abmelden</button>
+        <BuildInfo/>
       </footer>
     </aside>
     <main id="desk-main" tabIndex={-1} className="main">
@@ -111,6 +112,26 @@ export function Desk() {
       {section==='settings'&&person.role==='admin' && <Settings data={data} run={run} flags={flags}/>}
     </main>
   </div>;
+}
+
+function BuildInfo() {
+  const [copyStatus,setCopyStatus]=useState('');
+  const commit=__DESK_BUILD_COMMIT__ ? `Git-Commit ${__DESK_BUILD_COMMIT__}` : 'Stand unbekannt';
+  const value=`Desk ${__DESK_VERSION__} · ${commit}`;
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopyStatus('Kopiert.');
+    } catch {
+      setCopyStatus('Angabe im Feld auswählen und kopieren.');
+    }
+  }
+  return <details className="build-info">
+    <summary>Desk-Version</summary>
+    <label><span>Version und Git-Commit</span><textarea rows={4} readOnly value={value} onFocus={(event)=>event.currentTarget.select()}/></label>
+    <button type="button" onClick={copy}>Kopieren</button>
+    {copyStatus && <small role="status">{copyStatus}</small>}
+  </details>;
 }
 
 function Dashboard({data,select,open}:{data:Data;select:(id:string)=>void;open:()=>void}) {
