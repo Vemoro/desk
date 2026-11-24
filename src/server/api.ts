@@ -10,22 +10,30 @@ import { conversations, linkTicket, reviewOutgoing, send } from './zammad';
 import { integrationStatus } from './remote';
 
 type Context = { actor: Actor; path: string[]; limit: number; offset: number };
-type Operation = { method: string; path: string; summary: string; run: (context: Context, input: unknown) => Promise<unknown>; input?: z.ZodType; pageOrder?: string };
+type Operation = {
+  method: string;
+  path: string;
+  summary: string;
+  run: (context: Context, input: unknown) => Promise<unknown>;
+  input?: z.ZodType;
+  adminSession?: true;
+  pageOrder?: string;
+};
 const operations: Operation[] = [];
 
-function get(path: string, summary: string, run: (context: Context) => Promise<unknown>, pageOrder?: string) {
-  operations.push({ method: 'GET', path, summary, run, pageOrder });
+function get(path: string, summary: string, run: (context: Context) => Promise<unknown>, options: Pick<Operation,'adminSession'|'pageOrder'> = {}) {
+  operations.push({ method: 'GET', path, summary, run, ...options });
 }
 
-function action<T>(method: 'POST'|'PATCH', path: string, summary: string, input: z.ZodType<T>, run: (context: Context, input: T) => Promise<unknown>) {
-  operations.push({ method,path,summary,input,run:(context,value)=>run(context,input.parse(value)) });
+function action<T>(method: 'POST'|'PATCH', path: string, summary: string, input: z.ZodType<T>, run: (context: Context, input: T) => Promise<unknown>, options: Pick<Operation,'adminSession'> = {}) {
+  operations.push({ method,path,summary,input,run:(context,value)=>run(context,input.parse(value)), ...options });
 }
 
 for (const name of Object.keys(schemas) as Collection[]) {
   const schema = schemas[name];
   const path = `/${name}`;
   get(path,'Einträge auflisten',({limit,offset})=>listCore(name,limit,offset),
-    name==='lines' ? 'Art, Name, ID' : 'Name, ID');
+    {pageOrder:name==='lines' ? 'Art, Name, ID' : 'Name, ID'});
   get(`${path}/{id}`,'Eintrag lesen',({path})=>getCore(name,path[1]));
   action('POST',path,'Eintrag anlegen',schema,(context,input)=>saveCore(name,input));
   action('PATCH',`${path}/{id}`,'Eintrag ändern',schema.partial(),({path},input)=>saveCore(name,input,path[1]));
@@ -39,13 +47,13 @@ get('/users','Team auflisten',()=>rows(db,'SELECT id,name,role FROM users ORDER 
 action('POST','/users','Teamkonto anlegen',accountInput,({actor},input)=>{
   requireAdmin(actor);
   return createAccount(input);
-});
+},{adminSession:true});
 get('/tokens','API-Tokens auflisten',({actor})=>{
   requireAdmin(actor);
   return rows(db,'SELECT id,label,scope,created_at FROM api_tokens ORDER BY created_at DESC');
-});
-action('POST','/tokens','API-Token erzeugen',tokenInput,({actor},input)=>createToken(actor,input));
-operations.push({ method:'DELETE', path:'/tokens/{id}', summary:'API-Token widerrufen', async run({ actor,path }) {
+},{adminSession:true});
+action('POST','/tokens','API-Token erzeugen',tokenInput,({actor},input)=>createToken(actor,input),{adminSession:true});
+operations.push({ method:'DELETE', path:'/tokens/{id}', summary:'API-Token widerrufen', adminSession:true, async run({ actor,path }) {
   requireAdmin(actor);
   return required(await first(db,'DELETE FROM api_tokens WHERE id=$1 RETURNING id',[path[1]]));
 }});
@@ -56,14 +64,14 @@ get('/projects/{id}/offer-positions','Verkaufspositionen für das Angebot',async
   return rows(db,"SELECT name,quantity,unit_cents FROM lines WHERE project_id=$1 AND kind='sell' ORDER BY id",[path[1]]);
 });
 get('/reservations','Reservierungen auflisten',({limit,offset})=>listReservations(limit,offset),
-  'Startzeit, bei gleichem Start Personal vor Geräten und Material, ID');
+  {pageOrder:'Startzeit, bei gleichem Start Personal vor Geräten und Material, ID'});
 action('POST','/reservations','Ressource vormerken',reservationInput,(context,input)=>createReservation(input));
 action('PATCH','/reservations/{id}','Reservierung festlegen oder freigeben',reservationStatus,({path},input)=>setReservation(path[1],input.status));
 get('/stock','Lagerbestand je Lagerort',()=>listStock());
-get('/movements','Lagerbewegungen',({limit,offset})=>listMovements(limit,offset),'Zeitpunkt absteigend, ID');
+get('/movements','Lagerbewegungen',({limit,offset})=>listMovements(limit,offset),{pageOrder:'Zeitpunkt absteigend, ID'});
 action('POST','/movements','Lagerbewegung erfassen',movementInput,({actor},input)=>createMovement(input,actor.id));
 get('/costs','Ist-Kosten und offene Zuordnungen',({limit,offset})=>listCosts(limit,offset),
-  'Nicht zugeordnete Kosten zuerst, Name, ID');
+  {pageOrder:'Nicht zugeordnete Kosten zuerst, Name, ID'});
 action('POST','/costs','Ist-Kosten übernehmen',costBatch,(context,input)=>importCosts(input.entries));
 action('PATCH','/costs/{id}','Ist-Kosten einem Projekt zuordnen',costAssignment,({path},input)=>assignCost(path[1],input.project_id));
 action('POST','/haben/contacts/import','Neue Haben-Kontakte importieren',z.strictObject({}),()=>pullContacts());
@@ -155,7 +163,8 @@ function openApi() {
     ] : [];
     (paths[op.path] ??= {})[op.method.toLowerCase()] = {
       summary:op.summary,
-      security:[{token:[]}],
+      security:op.adminSession ? [{session:[]}] : [{session:[]},{token:[]}],
+      ...(op.adminSession ? {description:'Für die Verwaltung von Teamkonten und API-Tokens ist eine Sitzung mit der Rolle Administration erforderlich.'} : {}),
       ...(op.pageOrder ? {description:`Reihenfolge (${op.pageOrder}). Eine Seite mit weniger Einträgen als limit oder eine leere Seite beendet die Abfrage. Liegt der nächste offset über der Obergrenze, endet der Abruf möglicherweise vor dem Listenende. Änderungen zwischen Seiten können Einträge verschieben.`} : {}),
       parameters:[...pathParameters,...pageParameters],
       ...(op.input ? { requestBody:{ required:true,content:{'application/json':{schema:z.toJSONSchema(op.input,{target:'draft-2020-12',io:'input'})}} } } : {}),
@@ -164,5 +173,8 @@ function openApi() {
     };
   }
   return { openapi:'3.1.0',info:{title:'Desk API',version:'1.0.0'},servers:[{url:'/api/v1'}],paths,
-    components:{securitySchemes:{token:{type:'http',scheme:'bearer'}}} };
+    components:{securitySchemes:{
+      session:{type:'apiKey',in:'cookie',name:'desk_session',description:'Sitzung eines angemeldeten Desk-Kontos.'},
+      token:{type:'http',scheme:'bearer',description:'Ein Lese-Token erlaubt nur Lesezugriffe. Für Schreibzugriffe ist ein Schreib-Token erforderlich.'},
+    }} };
 }
