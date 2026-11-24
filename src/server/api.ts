@@ -10,15 +10,22 @@ import { conversations, linkTicket, reviewOutgoing, send } from './zammad';
 import { integrationStatus } from './remote';
 
 type Context = { actor: Actor; path: string[]; limit: number; offset: number };
-type Operation = { method: string; path: string; summary: string; run: (context: Context, input: unknown) => Promise<unknown>; input?: z.ZodType };
+type Operation = {
+  method: string;
+  path: string;
+  summary: string;
+  run: (context: Context, input: unknown) => Promise<unknown>;
+  input?: z.ZodType;
+  adminSession?: true;
+};
 const operations: Operation[] = [];
 
-function get(path: string, summary: string, run: (context: Context) => Promise<unknown>) {
-  operations.push({ method: 'GET', path, summary, run });
+function get(path: string, summary: string, run: (context: Context) => Promise<unknown>, options: Pick<Operation,'adminSession'> = {}) {
+  operations.push({ method: 'GET', path, summary, run, ...options });
 }
 
-function action<T>(method: 'POST'|'PATCH', path: string, summary: string, input: z.ZodType<T>, run: (context: Context, input: T) => Promise<unknown>) {
-  operations.push({ method,path,summary,input,run:(context,value)=>run(context,input.parse(value)) });
+function action<T>(method: 'POST'|'PATCH', path: string, summary: string, input: z.ZodType<T>, run: (context: Context, input: T) => Promise<unknown>, options: Pick<Operation,'adminSession'> = {}) {
+  operations.push({ method,path,summary,input,run:(context,value)=>run(context,input.parse(value)), ...options });
 }
 
 for (const name of Object.keys(schemas) as Collection[]) {
@@ -38,13 +45,13 @@ get('/users','Team auflisten',()=>rows(db,'SELECT id,name,role FROM users ORDER 
 action('POST','/users','Teamkonto anlegen',accountInput,({actor},input)=>{
   requireAdmin(actor);
   return createAccount(input);
-});
+},{adminSession:true});
 get('/tokens','API-Tokens auflisten',({actor})=>{
   requireAdmin(actor);
   return rows(db,'SELECT id,label,scope,created_at FROM api_tokens ORDER BY created_at DESC');
-});
-action('POST','/tokens','API-Token erzeugen',tokenInput,({actor},input)=>createToken(actor,input));
-operations.push({ method:'DELETE', path:'/tokens/{id}', summary:'API-Token widerrufen', async run({ actor,path }) {
+},{adminSession:true});
+action('POST','/tokens','API-Token erzeugen',tokenInput,({actor},input)=>createToken(actor,input),{adminSession:true});
+operations.push({ method:'DELETE', path:'/tokens/{id}', summary:'API-Token widerrufen', adminSession:true, async run({ actor,path }) {
   requireAdmin(actor);
   return required(await first(db,'DELETE FROM api_tokens WHERE id=$1 RETURNING id',[path[1]]));
 }});
@@ -141,7 +148,8 @@ function openApi() {
   for (const op of operations) {
     (paths[op.path] ??= {})[op.method.toLowerCase()] = {
       summary:op.summary,
-      security:[{token:[]}],
+      security:op.adminSession ? [{session:[]}] : [{session:[]},{token:[]}],
+      ...(op.adminSession ? {description:'Für die Verwaltung von Teamkonten und API-Tokens ist eine Sitzung mit der Rolle Administration erforderlich.'} : {}),
       parameters:[...op.path.matchAll(/\{(\w+)\}/g)].map(([,name])=>({name,in:'path',required:true,schema:{type:'string',format:'uuid'}})),
       ...(op.input ? { requestBody:{ required:true,content:{'application/json':{schema:z.toJSONSchema(op.input,{target:'draft-2020-12',io:'input'})}} } } : {}),
       responses:{ [op.method === 'POST' ? '201' : '200']:{description:'Erfolg'}, 400:{description:'Ungültige Eingabe'},
@@ -149,5 +157,8 @@ function openApi() {
     };
   }
   return { openapi:'3.1.0',info:{title:'Desk API',version:'1.0.0'},servers:[{url:'/api/v1'}],paths,
-    components:{securitySchemes:{token:{type:'http',scheme:'bearer'}}} };
+    components:{securitySchemes:{
+      session:{type:'apiKey',in:'cookie',name:'desk_session',description:'Sitzung eines angemeldeten Desk-Kontos.'},
+      token:{type:'http',scheme:'bearer',description:'Ein Lese-Token erlaubt nur Lesezugriffe. Für Schreibzugriffe ist ein Schreib-Token erforderlich.'},
+    }} };
 }
