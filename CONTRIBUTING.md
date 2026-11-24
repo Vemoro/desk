@@ -1,14 +1,22 @@
 # An Desk mitwirken
 
+Auch ohne Programmierkenntnisse kannst du mitwirken. Du kannst Fehler melden, die Doku verbessern oder einen Ablauf mit den Beispieldaten testen und deine Beobachtungen teilen.
+
 Dieses Repository ist derzeit privat. Wer Zugriff hat, kann Fehler und Vorschläge als GitHub-Issue erfassen und Änderungen als Pull Request einreichen. Die Regeln für Entwicklungsarbeit, Prüfung und Freigabe stehen in der [Entwicklungsdoku](docs/entwicklung.md).
 
 ## Fehler und Vorschläge melden
+
+Sieh vor einem neuen Issue in den [offenen Issues](https://github.com/Vemoro/desk/issues) und auf der [Desk Roadmap](https://github.com/orgs/Vemoro/projects/2) nach, ob das Thema bereits erfasst ist. Ergänze neue Beobachtungen im bestehenden Issue.
 
 - **Fehlerbericht:** Nenne den getesteten Stand, die Schritte zur Reproduktion sowie das erwartete und beobachtete Verhalten. Wenn es für den Fehler wichtig ist, ergänze Browser, Bildschirmgröße oder Fehlermeldung.
 - **Vorschlag:** Beschreibe, wer die Funktion braucht, welchen Ablauf sie verbessert und woran sich das Ergebnis prüfen lässt. Bei mehreren Anliegen helfen getrennte Issues.
 - Verwende fiktive oder anonymisierte Beispiele. Entferne Zugangsdaten und personenbezogene Details aus Beschreibungen, Logs und Screenshots.
 
 Ein fiktiver Fehlerbericht könnte zum Beispiel „Kommunikationsnotiz fehlt nach Neuladen“ heißen. Als Reproduktion öffnet die Testperson im Musterprojekt den Bereich Kommunikation, speichert eine kurze Notiz und lädt die Seite neu. Im Bericht steht, ob die Notiz danach sichtbar ist und was stattdessen zu sehen war.
+
+## Eine Aufgabe übernehmen
+
+Wähle in der [Desk Roadmap](https://github.com/orgs/Vemoro/projects/2) eine freie Aufgabe aus „Geplant“. Schreib im verknüpften Issue kurz, welchen Teil du bearbeiten möchtest. Kläre dort vorab offene Fragen zum Umfang und zur Abnahme.
 
 ## Einen Pull Request vorbereiten
 
