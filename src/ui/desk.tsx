@@ -391,6 +391,7 @@ function Costs({data,run}:{data:Data;run:Run}) {
 function Settings({data,run,flags}:{data:Data;run:Run;flags:{haben:boolean;zammad:boolean}}) {
   const [tokens,setTokens]=useState<Row[]>([]);
   const [issued,setIssued]=useState('');
+  const [checkedTicket,setCheckedTicket]=useState<number>();
   async function refresh(){setTokens(await api('tokens'));}
   useEffect(()=>{void refresh().catch(()=>{});},[]);
   return <>
@@ -411,6 +412,16 @@ function Settings({data,run,flags}:{data:Data;run:Run;flags:{haben:boolean;zamma
     <Panel title="Integrationen"><div className="panel-body actions">
       <Pill label={flags.haben?'Haben eingerichtet':'Haben optional'} tone={flags.haben?'accent':'neutral'}/>
       <Pill label={flags.zammad?'Zammad eingerichtet':'Zammad optional'} tone={flags.zammad?'accent':'neutral'}/>
+    </div><div className="panel-body">
+      <Form caption="Zammad-Verbindung prüfen" busyCaption="Wird geprüft …" fields={[
+        {name:'id',label:'Zammad-Ticket-ID',type:'number',min:1,max:2_147_483_647,required:true},
+      ]} submit={async({id})=>{
+        const ticket=Number(id);
+        setCheckedTicket(undefined);
+        await api('integrations/zammad/check','POST',{id:ticket});
+        setCheckedTicket(ticket);
+      }}/>
+      {checkedTicket!==undefined && <p role="status">Ticket {checkedTicket} und sein Verlauf sind erreichbar.</p>}
     </div></Panel>
   </>;
 }

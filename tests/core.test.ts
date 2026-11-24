@@ -265,4 +265,67 @@ describe('API und Integrationen',()=>{
       service.stop(true);
     }
   });
+
+  test('Zammad-Verbindung wird nur mit Administratorsitzung und per Lesezugriff geprüft',async()=>{
+    const origin=process.env.DESK_ORIGIN ?? 'http://127.0.0.1';
+    const password='muster-test-passwort';
+    const staffEmail=crypto.randomUUID()+'@example.test';
+    await createAccount({email:staffEmail,name:'Musterperson',password,role:'member'});
+    const token=await createToken(actor,{label:'Verbindungsprüfung',scope:'write'});
+    async function loginCookie(email:string){
+      const response=await handle(new Request(origin+'/api/v1/login',{method:'POST',
+        headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({email,password})}));
+      expect(response.status).toBe(200);
+      return response.headers.get('Set-Cookie')!.split(';')[0];
+    }
+    const adminCookie=await loginCookie(actor.email);
+    const staffCookie=await loginCookie(staffEmail);
+    const check=(auth:Record<string,string>)=>handle(new Request(origin+'/api/v1/integrations/zammad/check',
+      {method:'POST',headers:{Origin:origin,'Content-Type':'application/json',...auth},body:'{"id":42}'}));
+    const calls: string[]=[];
+    const ticketPath='/api/v1/tickets/42';
+    const articlePath='/api/v1/ticket_articles/by_ticket/42';
+    let allowed=true;
+    const service=Bun.serve({hostname:'127.0.0.1',port:0,fetch(request){
+      const path=new URL(request.url).pathname;
+      calls.push(`${request.method} ${path}`);
+      if(request.method!=='GET' || request.headers.get('authorization')!=='Token token=muster-zammad-token'){
+        return new Response('Unerwarteter Aufruf',{status:400});
+      }
+      if(path===ticketPath) return Response.json({id:42,number:'42',title:'Synthetisches Testticket'});
+      if(path===articlePath) return allowed ? Response.json([{id:17,body:'Synthetischer Artikel'}])
+        : new Response('Interne Antwort mit muster-zammad-token',{status:403});
+      return new Response('Unbekannter Pfad',{status:404});
+    }});
+    const previousUrl=process.env.ZAMMAD_URL;
+    const previousToken=process.env.ZAMMAD_TOKEN;
+    try {
+      process.env.ZAMMAD_URL=service.url.origin;
+      process.env.ZAMMAD_TOKEN='muster-zammad-token';
+      expect((await check({Cookie:staffCookie})).status).toBe(403);
+      expect((await check({Authorization:`Bearer ${token.token}`})).status).toBe(403);
+      expect(calls).toEqual([]);
+      const success=await check({Cookie:adminCookie});
+      expect(success.status).toBe(201);
+      expect(await success.json()).toEqual({ok:true});
+      expect(calls.splice(0)).toEqual([`GET ${ticketPath}`,`GET ${articlePath}`]);
+
+      allowed=false;
+      const denied=await check({Cookie:adminCookie});
+      expect(denied.status).toBe(502);
+      expect(await denied.json()).toEqual({error:'Zammad verweigert den Zugriff auf das Ticket oder den Verlauf.'});
+      expect(calls.splice(0)).toEqual([`GET ${ticketPath}`,`GET ${articlePath}`]);
+
+      delete process.env.ZAMMAD_TOKEN;
+      const unconfigured=await check({Cookie:adminCookie});
+      expect(unconfigured.status).toBe(503);
+      expect(await unconfigured.json()).toEqual({error:'ZAMMAD ist nicht eingerichtet.'});
+      expect(calls).toEqual([]);
+    } finally {
+      if(previousUrl===undefined) delete process.env.ZAMMAD_URL; else process.env.ZAMMAD_URL=previousUrl;
+      if(previousToken===undefined) delete process.env.ZAMMAD_TOKEN; else process.env.ZAMMAD_TOKEN=previousToken;
+      service.stop(true);
+      await db.unsafe('DELETE FROM api_tokens WHERE id=$1',[token.id]);
+    }
+  });
 });

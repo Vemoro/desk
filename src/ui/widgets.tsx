@@ -32,9 +32,9 @@ function storedAttempt(storageKey:string): Attempt | undefined {
   } catch {}
 }
 
-export function Form({fields,caption,submit,children,className='form-grid',retryScope,prepare}:{
+export function Form({fields,caption,submit,children,className='form-grid',retryScope,prepare,busyCaption='Wird gespeichert …'}:{
   fields:Field[]; caption:string; submit:(values:Fields,requestKey?:string)=>Promise<unknown>;
-  children?:ReactNode; className?:string; retryScope?:string; prepare?:(values:Fields)=>Fields;
+  children?:ReactNode; className?:string; retryScope?:string; prepare?:(values:Fields)=>Fields; busyCaption?:string;
 }) {
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
@@ -147,7 +147,7 @@ export function Form({fields,caption,submit,children,className='form-grid',retry
         </button>
       </div>
     </div>}
-    <div className="form-action"><button className="primary" disabled={busy || fieldsLocked}>{busy?'Wird gespeichert …':caption}</button></div>
+    <div className="form-action"><button className="primary" disabled={busy || fieldsLocked}>{busy?busyCaption:caption}</button></div>
   </form>;
 }
 

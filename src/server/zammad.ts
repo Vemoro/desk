@@ -13,6 +13,28 @@ type Outgoing = { id: string; ticket_id: number; status: 'pending'|'unknown'|'se
   recipient: string; subject: string; body: string; attachment_name: string | null; attachment_data: string | null };
 const marker = (id: string) => `Desk-Referenz: ${id}`;
 
+export async function checkZammadConnection(id: number) {
+  const remote = integration('ZAMMAD');
+  try {
+    const ticket = ticketSchema.safeParse(await remote.request(`/tickets/${id}`));
+    if (!ticket.success || ticket.data.id !== id) {
+      throw new RemoteError('Zammad hat das Testticket nicht in der erwarteten Form geliefert.');
+    }
+    await loadArticles(remote, id);
+    return { ok:true };
+  } catch (error) {
+    if (error instanceof RemoteError) {
+      if (error.upstream === 401 || error.upstream === 403) {
+        throw new DeskError(502, 'Zammad verweigert den Zugriff auf das Ticket oder den Verlauf.');
+      }
+      if (error.upstream === 404) {
+        throw new DeskError(502, 'Zammad findet das Ticket oder den Verlauf nicht.');
+      }
+    }
+    throw error;
+  }
+}
+
 export async function linkTicket(projectId: string, link: number | z.infer<typeof zammadCreateInput>) {
   const remote = integration('ZAMMAD');
   return db.begin(async (transaction) => {
