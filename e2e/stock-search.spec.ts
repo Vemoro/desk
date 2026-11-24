@@ -18,10 +18,10 @@ test('Lagerbestand nach Artikelmerkmalen und Lagerort suchen',async({page})=>{
   await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Projektlager',exact:true}).click();
   const panel=page.getByRole('heading',{name:'Bestand je Lagerort',exact:true}).locator('xpath=../..');
   const search=panel.getByRole('searchbox',{name:'Bestand suchen'});
-  const location=panel.getByLabel('Lagerort filtern',{exact:true});
+  const location=panel.getByRole('combobox',{name:'Lagerort filtern',exact:true});
   await expect(panel.getByRole('row')).toHaveCount(4);
   await location.selectOption({label:'Lager West'});
-  for(const query of ['montage','art-35','inv-42']){
+  for(const query of ['montage','rt-3','nv-4']){
     await search.fill(query);
     await expect(panel.getByRole('row')).toHaveCount(2);
     await expect(panel.getByRole('row').nth(1).getByRole('cell')).toHaveText(['Montagekoffer','Lager West','8','5','3']);
@@ -29,10 +29,14 @@ test('Lagerbestand nach Artikelmerkmalen und Lagerort suchen',async({page})=>{
   await search.fill('Klebeband');
   await expect(panel.getByText('Kein Bestand für diese Filter.',{exact:true})).toBeVisible();
   const open=page.getByRole('heading',{name:'Offene Ausgaben',exact:true}).locator('xpath=../..');
-  await open.getByLabel('Lagerort filtern',{exact:true}).selectOption({label:'Lager Ost'});
+  await open.getByRole('combobox',{name:'Lagerort filtern',exact:true}).selectOption({label:'Lager Ost'});
   await panel.getByRole('button',{name:'Filter zurücksetzen',exact:true}).click();
   await expect(panel.getByRole('row')).toHaveCount(4);
+  await expect(panel.getByRole('row').filter({hasText:'Lager Ost'}).filter({hasText:'Montagekoffer'}).getByRole('cell'))
+    .toHaveText(['Montagekoffer','Lager Ost','7','2','5']);
+  await expect(panel.getByRole('row').filter({hasText:'Lager West'}).getByRole('cell'))
+    .toHaveText(['Montagekoffer','Lager West','8','5','3']);
   await expect(search).toHaveValue('');
   await expect(location).toHaveValue('');
-  await expect(open.getByLabel('Lagerort filtern',{exact:true})).toHaveValue('ost');
+  await expect(open.getByRole('combobox',{name:'Lagerort filtern',exact:true})).toHaveValue('ost');
 });
