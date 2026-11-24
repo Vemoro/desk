@@ -47,16 +47,20 @@ Doku, Oberfläche und Beiträge werden auf Deutsch geschrieben, Code-Bezeichner 
 
 ## Entwicklungsrunden für Agenten
 
-Der fortlaufende Ablauf verwendet das mit dem Maintainer vereinbarte Soll. Jedes Issue wird vor „Geplant“ durch einen frischen Agenten auf Bestand, Abgrenzung, Abhängigkeiten und Akzeptanz geprüft. Übergib ihm Issue, Zielbasis und Prüfauftrag ohne den Entstehungsverlauf. Nach wesentlichen Änderungen folgt eine neue Prüfung. Beginne die PRs der Runde nach dem Issue-Soll. Ein PR zählt nach seiner Selbstprüfung, unabhängigen Prüfung und grüner erforderlicher CI für den aktuellen Stand. Bei betroffener Oberfläche zählen die Vergleichsbilder zur Abnahme.
+Beginne mit dem höchsten belegten Nutzen für Desk. Prüfe vorhandene Issues, PRs und Abhängigkeiten, bevor du neue Arbeit anlegst. Bearbeite ein passendes bestehendes Issue weiter. Lege ein neues Issue an, wenn ein konkreter Bedarf einen eigenen Umfang und prüfbare Abnahmekriterien hat. Ein Umfang kann einen einzelnen PR oder mehrere fachlich begründete PRs brauchen.
 
-| Runde | Für die Runde geprüfte Issues in „Geplant“ | PRs zur Freigabe bereit |
+Lass die aktuelle Fassung eines Issues vor dem Einordnen unter „Geplant“ durch einen frischen Agenten auf Bestand, Abgrenzung, Abhängigkeiten und Akzeptanz prüfen. Übergib Issue, Zielbasis und Prüfauftrag ohne den Entstehungsverlauf. Nach wesentlichen Änderungen folgt eine neue Prüfung. Ein PR ist nach Selbstprüfung, unabhängigem Review und grüner erforderlicher CI auf seinem aktuellen Stand prüfbereit. Bei betroffener Oberfläche gehören Vergleichsbilder zur Abnahme.
+
+Die bisherige Viererfolge samt Startwert ist eine Orientierung für die Planung. Passe Aufgaben und Umfang an Priorität, Risiken, Abhängigkeiten und verfügbare Zeit für Tests und Reviews an. Kann ein geprüftes Issue sinnvoll umgesetzt werden, starte den PR direkt im vereinbarten Auftrag. Leert sich die umsetzbare Warteschlange, prüfe den Bestand und fülle sie mit geeigneten Aufgaben auf.
+
+| Planungssituation | Richtwert für geprüfte Issues | Richtwert für prüfbereite PRs |
 | --- | ---: | ---: |
-| Start oder Neustart | 10 | 1 |
-| Danach | 5 zusätzliche | 1 |
-| Folgerunde | 3 zusätzliche | 2 |
-| Folgerunde | 2 zusätzliche | 3 |
-| Folgerunde | 1 zusätzliches | 5 |
+| Start oder leere Warteschlange | 10 | 1 |
+| Folgerunde 1 | 5 zusätzliche | 1 |
+| Folgerunde 2 | 3 zusätzliche | 2 |
+| Folgerunde 3 | 2 zusätzliche | 3 |
+| Folgerunde 4 | 1 zusätzliches | 5 |
 
-Danach wiederholt sich die Reihe ab 5/1. Nur beim Leerlaufen der umsetzbaren Warteschlange beginnt sie erneut bei 10/1. Prüfe dabei vorhandene Karten, externe Hindernisse und offene Entscheidungen. Halte am Rundenende und nach abgeschlossenen PRs kurz den Stand, Belege, nächste Entscheidung und mögliche Verbesserungen der Agenten-Doku fest. Die erste [Neubewertung des Bestands](neubewertung.md) beginnt nach dem Grundlagen-Merge.
+Halte nach abgeschlossenen PRs und bei einer Neuplanung kurz fest, was der Nutzer jetzt tun kann, welche Nachweise vorliegen, welche Abhängigkeiten und Entscheidungen offen sind und welcher Schritt als Nächstes sinnvoll ist. Nutze Board-Zahlen bei Bedarf, um die Warteschlange einzuschätzen. Halte sinnvolle Verbesserungen der Agenten-Doku fest. Für die einmalige [Neubewertung des Bestands](neubewertung.md) gelten die dort beschriebenen Regeln.
 
 Die [Auswertung der Haben-Arbeitsweise](haben-uebernahme.md) dokumentiert die Herkunft der Regeln und die Entscheidungen für Desk.
