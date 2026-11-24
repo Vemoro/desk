@@ -121,7 +121,7 @@ function Dashboard({data,personId,select,open}:{data:Data;personId:string;select
   const active=data.projects.filter((project)=>!['complete','cancelled'].includes(project.stage));
   const today=useLocalDay();
   const activeIds=new Set(active.map((project)=>project.id));
-  const dueTasks=data.tasks
+  const matchingTasks=data.tasks
     .filter((task)=>task.status!=='done' && task.due && activeIds.has(task.project_id))
     .filter((task)=>assignee==='all' || (assignee==='mine' ? task.assignee_id===personId : !task.assignee_id))
     .filter((task)=>{
@@ -131,8 +131,11 @@ function Dashboard({data,personId,select,open}:{data:Data;personId:string;select
       if(period==='overdue') return due<today;
       return due>today;
     })
-    .sort((first,second)=>first.due.slice(0,10).localeCompare(second.due.slice(0,10)))
-    .slice(0,10);
+    .sort((first,second)=>first.due.slice(0,10).localeCompare(second.due.slice(0,10)));
+  const dueTasks=matchingTasks.slice(0,10);
+  const taskCount=matchingTasks.length;
+  const taskCountLabel=taskCount>dueTasks.length ? `${dueTasks.length} von ${taskCount} Aufgaben angezeigt`
+    : taskCount===1 ? '1 Aufgabe' : `${taskCount} Aufgaben`;
   const metrics=[
     ['Aktive Projekte',active.length],['Offene Aufgaben',data.tasks.filter((task)=>task.status!=='done').length],
     ['Feste Reservierungen',data.reservations.filter((entry)=>entry.status==='firm').length],['Kosten ohne Zuordnung',data.costs.filter((entry)=>!entry.project_id).length],
@@ -160,6 +163,7 @@ function Dashboard({data,personId,select,open}:{data:Data;personId:string;select
         <option value="unassigned">Ohne Zuständigkeit</option>
       </select>
     </label></div>}>
+      <p className={taskCount?"panel-body subtle":"sr-only"} role="status">{taskCount ? taskCountLabel : ''}</p>
       {dueTasks.length ? <Table headers={['Aufgabe','Projekt','Verantwortlich','Termin']} rows={dueTasks.map((task)=>{
         const due=task.due.slice(0,10);
         return {key:task.id,cells:[task.name,<button className="text-button" onClick={()=>select(task.project_id)}>{name(data.projects,task.project_id)}</button>,
