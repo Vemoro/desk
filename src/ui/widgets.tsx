@@ -11,19 +11,25 @@ export function options(records:Row[]) {
   return records.map((record)=>({value:record.id,label:record.name ?? record.label ?? record.id}));
 }
 
-type Attempt = {key:string; values:Record<string,string>};
+type Fields = Record<string,string>;
+type Attempt = {key:string; values:Fields; prepared?:Fields};
+
+function isFields(value:unknown): value is Fields {
+  return Boolean(value && typeof value==='object' && !Array.isArray(value) &&
+    Object.values(value).every(field=>typeof field==='string'));
+}
 
 function storedAttempt(storageKey:string): Attempt | undefined {
   try {
     const value=JSON.parse(sessionStorage.getItem(storageKey) ?? 'null');
-    if(typeof value?.key==='string' && value.values && typeof value.values==='object' &&
-      Object.values(value.values).every(field=>typeof field==='string')) return value;
+    if(typeof value?.key==='string' && isFields(value.values) &&
+      (value.prepared===undefined || isFields(value.prepared))) return value;
   } catch {}
 }
 
-export function Form({fields,caption,submit,children,className='form-grid',retryScope}:{
-  fields:Field[]; caption:string; submit:(values:Record<string,string>,requestKey?:string)=>Promise<unknown>;
-  children?:ReactNode; className?:string; retryScope?:string;
+export function Form({fields,caption,submit,children,className='form-grid',retryScope,prepare}:{
+  fields:Field[]; caption:string; submit:(values:Fields,requestKey?:string)=>Promise<unknown>;
+  children?:ReactNode; className?:string; retryScope?:string; prepare?:(values:Fields)=>Fields;
 }) {
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
@@ -65,18 +71,19 @@ export function Form({fields,caption,submit,children,className='form-grid',retry
     await send(values);
   }
 
-  async function send(values:Record<string,string>) {
+  async function send(values:Fields) {
     if(storageKey && submitting.current) return;
     setError('');
-    if(storageKey && !attempt.current) {
-      attempt.current={key:crypto.randomUUID(),values};
-      try { sessionStorage.setItem(storageKey,JSON.stringify(attempt.current)); } catch {}
-    }
-    const key=attempt.current?.key;
+    let key:string|undefined;
     submitting.current=true;
     setBusy(true);
     try {
-      const result=await submit(values,key);
+      if(storageKey && !attempt.current) {
+        attempt.current={key:crypto.randomUUID(),values,prepared:prepare?.(values)};
+        try { sessionStorage.setItem(storageKey,JSON.stringify(attempt.current)); } catch {}
+      }
+      key=attempt.current?.key;
+      const result=await submit(attempt.current?.prepared ?? values,key);
       if(key && result===true) clearAttempt(key);
       else if(key) setPending(true);
     }

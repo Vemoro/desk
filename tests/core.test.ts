@@ -107,16 +107,24 @@ describe('API und Integrationen',()=>{
     const [left,right]=await Promise.all([create(personnel,key),create(personnel,key)]);
     expect(left).toEqual(right);
     expect(await count()).toBe(1);
-    const equipment={...data.booking,item_id:data.equipment,quantity:2};
+    const equipment={...data.booking,item_id:data.equipment,quantity:2,
+      starts_at:'2028-05-25T11:00:00.123456+02:00',ends_at:'2028-05-25T17:00:00+02:00'};
     expect((await call(equipment,key)).status).toBe(409);
     expect(await count()).toBe(1);
     expect((await create(personnel,key,otherToken.token)).id).not.toBe(left.id);
     expect((await create(personnel,crypto.randomUUID())).id).not.toBe(left.id);
     expect(await count()).toBe(3);
     const equipmentKey=crypto.randomUUID();
-    const itemReservation=await create(equipment,equipmentKey);
+    const utcEquipment={...equipment,starts_at:'2028-05-25T09:00:00.123456Z',ends_at:'2028-05-25T15:00:00Z'};
+    const [itemReservation,parallelItem]=await Promise.all([
+      create(equipment,equipmentKey),create(utcEquipment,equipmentKey),
+    ]);
+    expect(parallelItem).toEqual(itemReservation);
+    expect(await count()).toBe(4);
+    expect((await call({...equipment,quantity:3},equipmentKey)).status).toBe(409);
+    expect((await call({...utcEquipment,starts_at:'2028-05-25T09:00:00.123457Z'},equipmentKey)).status).toBe(409);
     await setReservation(itemReservation.id,'released');
-    expect(await create(equipment,equipmentKey)).toEqual(itemReservation);
+    expect(await create(utcEquipment,equipmentKey)).toEqual(itemReservation);
     expect(await count()).toBe(4);
     expect((await call({action:'receive',item_id:data.material,location_id:data.location,quantity:1},key,owner.token,'movements')).status).toBe(201);
     await create(equipment);

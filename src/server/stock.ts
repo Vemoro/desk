@@ -67,7 +67,12 @@ async function reserveCapacity(query: Query, request: Reservation) {
 export async function createReservation(input: z.infer<typeof reservationInput>, request?:WriteRequest) {
   const normalized={...input,project_id:input.project_id.toLowerCase(),user_id:input.user_id?.toLowerCase(),
     item_id:input.item_id?.toLowerCase(),location_id:input.location_id?.toLowerCase()};
-  return planningWrite('reservations',request,normalized,async transaction=>{
+  return planningWrite('reservations',request,async transaction=>{
+    const period=required(await first<{starts_at:string;ends_at:string}>(transaction,
+      `SELECT extract(epoch FROM $1::timestamptz)::text AS starts_at,
+              extract(epoch FROM $2::timestamptz)::text AS ends_at`,[input.starts_at,input.ends_at]));
+    return {...normalized,...period};
+  },async transaction=>{
     const project = await getProject(input.project_id, transaction);
     if (['complete','cancelled'].includes(project.stage)) throw new DeskError(409, 'Das Projekt ist abgeschlossen.');
     if (input.item_id) {
@@ -95,15 +100,16 @@ export async function setReservation(id: string, status: 'firm' | 'released') {
   });
 }
 
-async function planningWrite<T extends object>(operation:string, request:WriteRequest | undefined, input:object,
+async function planningWrite<T extends object>(operation:string, request:WriteRequest | undefined, input:object | ((query:Query)=>Promise<object>),
   write:(transaction:Query)=>Promise<T | undefined>) {
   return db.begin(async (transaction) => {
     await lockPlanning(transaction);
     if (!request) return write(transaction);
     const identity = [request.actorId,operation,request.key];
+    const payload = typeof input==='function' ? await input(transaction) : input;
     const saved = await first<{ matches:boolean; response_data:T }>(transaction,
       `SELECT request_data=$4::jsonb AS matches,response_data FROM stock_write_requests
-       WHERE actor_id=$1 AND operation=$2 AND request_key=$3`,[...identity,input]);
+       WHERE actor_id=$1 AND operation=$2 AND request_key=$3`,[...identity,payload]);
     if (saved) {
       if (!saved.matches) throw new DeskError(409, 'Der Vorgangsschlüssel wurde bereits mit anderen Angaben verwendet.');
       return saved.response_data;
@@ -111,7 +117,7 @@ async function planningWrite<T extends object>(operation:string, request:WriteRe
     const response = required(await write(transaction));
     await transaction.unsafe(
       `INSERT INTO stock_write_requests(actor_id,operation,request_key,request_data,response_data)
-       VALUES($1,$2,$3,$4::jsonb,$5::jsonb)`,[...identity,input,response]);
+       VALUES($1,$2,$3,$4::jsonb,$5::jsonb)`,[...identity,payload,response]);
     return response;
   });
 }
