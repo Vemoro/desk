@@ -216,7 +216,30 @@ function Warehouse({data,run}:{data:Data;run:Run}) {
 }
 
 function Costs({data,run}:{data:Data;run:Run}) {
-  return <Panel title="Belege und Zuordnung"><div className="panel-body">
+  const [query,setQuery]=useState('');
+  const [source,setSource]=useState('');
+  const [assignment,setAssignment]=useState('');
+  const term=query.trim().toLowerCase();
+  const sources=Array.from(new Set(data.costs.map((row)=>String(row.source)))).sort();
+  const visibleCosts=data.costs.filter((row)=>
+    (!term || [row.reference,row.name].some((value)=>value.toLowerCase().includes(term)))
+    && (!source || row.source===source)
+    && (!assignment || Boolean(row.project_id)===(assignment==='assigned')));
+  const sourceLabels=new Map([['manual','Manuell'],['haben-export','Haben-Export']]);
+  return <Panel title="Belege und Zuordnung" action={<span className="subtle">{visibleCosts.length} {visibleCosts.length===1?'Beleg':'Belege'}</span>}>
+  <div className="panel-body form-grid">
+    <label><span>Belege suchen</span><input type="search" value={query} onChange={(event)=>setQuery(event.target.value)}/></label>
+    <label><span>Quelle filtern</span><select value={source} onChange={(event)=>setSource(event.target.value)}>
+      <option value="">Alle Quellen</option>
+      {sources.map((value)=><option key={value} value={value}>{sourceLabels.get(value)??value}</option>)}
+    </select></label>
+    <label><span>Zuordnung filtern</span><select value={assignment} onChange={(event)=>setAssignment(event.target.value)}>
+      <option value="">Alle Belege</option><option value="assigned">Zugeordnet</option><option value="unassigned">Ohne Zuordnung</option>
+    </select></label>
+    <button type="button" disabled={!query&&!source&&!assignment}
+      onClick={()=>{setQuery('');setSource('');setAssignment('');}}>Filter zurücksetzen</button>
+  </div>
+  <div className="panel-body">
     <Expand title="Kosten aus CSV übernehmen"><Form caption="Kosten übernehmen" fields={[
       {name:'csv',label:'CSV-Inhalt mit reference, name, amount und optional cost_center',type:'textarea',required:true},
     ]} submit={({csv})=>run(()=>api('costs','POST',{entries:compileCsv(csv)}),'Kosten übernommen.')}/></Expand>
@@ -224,11 +247,11 @@ function Costs({data,run}:{data:Data;run:Run}) {
       {name:'reference',label:'Belegreferenz',required:true},{name:'name',label:'Bezeichnung',required:true},
       {name:'amount',label:'Netto in Euro',required:true},{name:'project_id',label:'Projekt',choices:options(data.projects)},
     ]} submit={(input)=>run(()=>api('costs','POST',{entries:[{reference:input.reference,name:input.name,cents:money(input.amount),source:'manual',project_id:input.project_id||null}]}),'Beleg gespeichert.')}/></Expand>
-  </div><Table headers={['Beleg','Bezeichnung','Netto','Projektzuordnung']} rows={data.costs.map((row)=>({key:row.id,cells:[
-    row.reference,row.name,euros(row.cents),<select aria-label={`Projekt für ${row.reference}`} value={row.project_id??''}
+  </div>{visibleCosts.length || !term&&!source&&!assignment ? <Table headers={['Beleg','Bezeichnung','Quelle','Netto','Projektzuordnung']} rows={visibleCosts.map((row)=>({key:row.id,cells:[
+    row.reference,row.name,sourceLabels.get(row.source)??row.source,euros(row.cents),<select aria-label={`Projekt für ${row.reference}`} value={row.project_id??''}
       onChange={(event)=>run(()=>api(`costs/${row.id}`,'PATCH',{project_id:event.target.value||null}),'Zuordnung gespeichert.')}>
       <option value="">Ohne Zuordnung</option>{data.projects.map((project)=><option value={project.id} key={project.id}>{project.name}</option>)}</select>,
-  ]}))}/></Panel>;
+  ]}))}/> : <p className="empty" role="status">Keine Belege für diese Filter.</p>}</Panel>;
 }
 
 function Settings({data,run,flags}:{data:Data;run:Run;flags:{haben:boolean;zammad:boolean}}) {
