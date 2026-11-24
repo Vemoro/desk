@@ -21,4 +21,4 @@ Branchenspezifische Funktionen folgen nach dem allgemeinen Kern. Bestandsbewertu
 
 Setze bei Planung zuerst den Kernablauf und Risiken für Daten, Berechtigungen und die Wiederholbarkeit von Buchungen. Ein Desk-Adapter erhält eine eigene Aufgabe auf dem Desk-Board. Verlinke eine erforderliche externe Änderung mit dem vorhandenen externen Issue oder der belegten Schnittstellenlücke.
 
-Der [Rundentakt](entwicklung.md#entwicklungsrunden-für-agenten) beschreibt das Vorgehen bei fortlaufender Entwicklung. Die [Neubewertung](neubewertung.md) beschreibt die einmalige Überprüfung des Bestands nach dem ersten Grundlagen-Merge.
+Die [Entwicklungsrunden](entwicklung.md#entwicklungsrunden-für-agenten) beschreiben die flexible Planung nach Nutzen, Risiken und Abhängigkeiten. Die [Neubewertung](neubewertung.md) beschreibt die einmalige Überprüfung des Bestands nach dem ersten Grundlagen-Merge.
