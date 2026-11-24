@@ -182,7 +182,17 @@ function Contacts({data,run,haben}:{data:Data;run:Run;haben:boolean}) {
 
 function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
   const bookings=data.reservations.filter((row)=>row.item_id&&(row.status==='firm'||row.checked_out>0));
-  const bookingChoices=bookings.map((row)=>({value:row.id,label:`${name(data.projects,row.project_id)} · ${name(data.items,row.item_id)}`}));
+  const [projectFilter,setProjectFilter]=useState('');
+  const [locationFilter,setLocationFilter]=useState('');
+  const [bookingId,setBookingId]=useState('');
+  const openCheckouts=bookings.filter((row)=>row.checked_out>0);
+  const visibleCheckouts=openCheckouts.filter((row)=>
+    (!projectFilter || row.project_id===projectFilter) && (!locationFilter || row.location_id===locationFilter));
+  const bookingChoices=bookings.map((row)=>({
+    value:row.id,
+    label:`${name(data.projects,row.project_id)} · ${name(data.items,row.item_id)} · ${name(data.locations,row.location_id)} · ${moment(row.starts_at)} bis ${moment(row.ends_at)}`,
+  }));
+  const selectedBooking=bookingChoices.find((choice)=>choice.value===bookingId);
   return <>
     <Panel title="Bestand je Lagerort"><div className="panel-body compact-actions">
       <Expand title="Lagerort anlegen"><Form caption="Lagerort speichern" fields={[{name:'name',label:'Lagerort',required:true}]}
@@ -199,18 +209,38 @@ function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
         quantity:Number(input.quantity),project_id:input.project_id||undefined},key),'Wareneingang erfasst.')}/></Expand>
       <Expand title="Ausgabe, Rückgabe oder Verbrauch"><Form caption="Bewegung buchen" retryScope={`movements:${accountId}:booking`} fields={[
         {name:'action',label:'Bewegungsart',choices:[{value:'issue',label:'Ausgabe'},{value:'return',label:'Rückgabe'},{value:'consume',label:'Verbrauch'}],required:true},
-        {name:'reservation_id',label:'Projektreservierung',choices:bookingChoices,required:true},
+        {name:'reservation_id',label:'Projektreservierung',choices:bookingChoices,required:true,value:selectedBooking?.value,onChange:setBookingId,describedBy:selectedBooking?'warehouse-booking-details':undefined},
         {name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},
-      ]} submit={(input,key)=>run(()=>api('movements','POST',{...input,quantity:Number(input.quantity)},key),'Lagerbewegung gebucht.')}/></Expand>
+      ]} submit={(input,key)=>run(()=>api('movements','POST',{...input,quantity:Number(input.quantity)},key),'Lagerbewegung gebucht.')}>
+        {selectedBooking&&<p id="warehouse-booking-details" className="wide booking-details">{selectedBooking.label}</p>}
+      </Form></Expand>
     </div>
     <Table headers={['Artikel','Lagerort','Physisch','Reserviert','Frei']} rows={data.stock.map((row)=>({key:`${row.item_id}/${row.location_id}`,cells:[
       name(data.items,row.item_id),name(data.locations,row.location_id),row.physical,row.reserved,<strong>{row.free}</strong>,
     ]}))}/></Panel>
-    <Panel title="Offene Ausgaben"><Table headers={['Projekt','Artikel','Lagerort','Ausgegeben']} rows={bookings.filter((row)=>row.checked_out>0).map((row)=>({
-      key:row.id,cells:[name(data.projects,row.project_id),name(data.items,row.item_id),name(data.locations,row.location_id),row.checked_out],
-    }))}/></Panel>
-    <Panel title="Lagerbewegungen"><Table headers={['Zeitpunkt','Bewegung','Artikel','Projekt','Menge','Erfasst durch']} rows={data.movements.map((row)=>({key:row.id,cells:[
-      moment(row.created_at),movementStages[row.action],name(data.items,row.item_id),name(data.projects,row.project_id),row.quantity,name(data.users,row.actor_id),
+    <Panel title="Offene Ausgaben">
+      <div className="panel-body">
+        <div className="form-grid">
+          <label><span>Projekt filtern</span><select value={projectFilter} onChange={(event)=>setProjectFilter(event.target.value)}>
+            <option value="">Alle Projekte</option>
+            {options(data.projects).map(({value,label})=><option key={value} value={value}>{label}</option>)}
+          </select></label>
+          <label><span>Lagerort filtern</span><select value={locationFilter} onChange={(event)=>setLocationFilter(event.target.value)}>
+            <option value="">Alle Lagerorte</option>
+            {options(data.locations).map(({value,label})=><option key={value} value={value}>{label}</option>)}
+          </select></label>
+        </div>
+        <div className="actions">
+          <button type="button" disabled={!projectFilter && !locationFilter}
+            onClick={()=>{setProjectFilter('');setLocationFilter('');}}>Filter zurücksetzen</button>
+        </div>
+      </div>
+      {visibleCheckouts.length ? <Table headers={['Projekt','Artikel','Lagerort','Ausgegeben']} rows={visibleCheckouts.map((row)=>({
+        key:row.id,cells:[name(data.projects,row.project_id),name(data.items,row.item_id),name(data.locations,row.location_id),row.checked_out],
+      }))}/> : <p className="empty" role="status">{openCheckouts.length?'Keine offenen Ausgaben für diese Filter.':'Es gibt keine offenen Ausgaben.'}</p>}
+    </Panel>
+    <Panel title="Lagerbewegungen"><Table headers={['Zeitpunkt','Bewegung','Artikel','Lagerort','Projekt','Menge','Erfasst durch']} rows={data.movements.map((row)=>({key:row.id,cells:[
+      moment(row.created_at),movementStages[row.action],name(data.items,row.item_id),name(data.locations,row.location_id),name(data.projects,row.project_id),row.quantity,name(data.users,row.actor_id),
     ]}))}/></Panel>
   </>;
 }

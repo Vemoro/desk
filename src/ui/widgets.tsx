@@ -4,7 +4,7 @@ import type { Row } from './client';
 export type Run = (operation:()=>Promise<unknown>, feedback?:string)=>Promise<boolean>;
 type Field = {
   name:string; label:string; type?:string; placeholder?:string; value?:string|number;
-  required?:boolean; choices?:{value:string;label:string}[]; min?:number; max?:number; autoComplete?:string;
+  required?:boolean; choices?:{value:string;label:string}[]; min?:number; max?:number; autoComplete?:string; onChange?:(value:string)=>void; describedBy?:string;
 };
 
 export function options(records:Row[]) {
@@ -99,7 +99,8 @@ export function Form({fields,caption,submit,children,className='form-grid',retry
   return <form ref={formRef} className={className} onSubmit={onSubmit}>
     {fields.map((field)=><label key={field.name} className={field.type==='textarea'?'wide':''}>
       <span>{field.label}</span>
-      {field.choices ? <select name={field.name} defaultValue={field.value ?? ''} required={field.required}><option value="">Auswählen</option>
+      {field.choices ? <select name={field.name} value={field.onChange ? field.value ?? '' : undefined} defaultValue={field.onChange ? undefined : field.value ?? ''}
+        required={field.required} aria-describedby={field.describedBy} onChange={(event)=>field.onChange?.(event.target.value)}><option value="">Auswählen</option>
         {field.choices.map((choice)=><option value={choice.value} key={choice.value}>{choice.label}</option>)}</select>
       : field.type==='textarea' ? <textarea name={field.name} defaultValue={field.value} required={field.required} placeholder={field.placeholder}/>
       : <input name={field.name} type={field.type ?? 'text'} defaultValue={field.value} required={field.required}
