@@ -10,7 +10,7 @@ Von der ersten Anfrage bis zur Rechnungsreferenz bleibt der Auftrag an einem Ort
   <a href="#schnellstart">Schnellstart</a> ·
   <a href="#anbindungen">Anbindungen</a> ·
   <a href="docs/desk.md">Betriebsdoku</a> ·
-  <a href="docs/entwicklung.md">Mitwirken</a>
+  <a href="CONTRIBUTING.md">Mitwirken</a>
 </p>
 
 <picture>
@@ -74,4 +74,4 @@ Das Controlling zeigt hier einen Beleg und seinen Anteil an den Ist-Kosten des M
 
 ## Mitwirken
 
-Die Entwicklungsdoku beschreibt lokale Prüfungen, Reviews und Beiträge. Desk steht unter der AGPL-3.0-only. [Entwicklung und Beiträge](docs/entwicklung.md) · [Lizenz](LICENSE)
+Die Beitragsrichtlinie erklärt den Einstieg. Desk steht unter der AGPL-3.0-only. [Mitwirken](CONTRIBUTING.md) · [Entwicklungsdoku](docs/entwicklung.md) · [Lizenz](LICENSE)
