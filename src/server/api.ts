@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { db, first, rows } from './db';
 import { DeskError, required } from './errors';
 import { accountInput, authenticate, createAccount, createToken, login, loginInput, logout, protectOrigin, requireAdmin, sessionCookie, tokenInput, type Actor } from './auth';
-import { schemas, id, projectStage, reservationInput, reservationStatus, movementInput, costBatch, costAssignment, habenOfferInput, habenContactInput, zammadLinkInput, zammadCreateInput, zammadMessage } from './contracts';
+import { schemas, id, projectResponse, projectStage, reservationInput, reservationStatus, movementInput, costBatch, costAssignment, habenOfferInput, habenContactInput, zammadLinkInput, zammadCreateInput, zammadMessage } from './contracts';
 import { assignCost, changeStage, controlling, getCore, getProject, importCosts, listCore, listCosts, saveCore, type Collection } from './core';
 import { createMovement, createReservation, listMovements, listReservations, listStock, setReservation } from './stock';
 import { pullContacts, syncContact, syncOffer } from './haben';
@@ -16,12 +16,13 @@ type Operation = {
   summary: string;
   run: (context: Context, input: unknown) => Promise<unknown>;
   input?: z.ZodType;
+  response?: z.ZodType;
   adminSession?: true;
   pageOrder?: string;
 };
 const operations: Operation[] = [];
 
-function get(path: string, summary: string, run: (context: Context) => Promise<unknown>, options: Pick<Operation,'adminSession'|'pageOrder'> = {}) {
+function get(path: string, summary: string, run: (context: Context) => Promise<unknown>, options: Pick<Operation,'adminSession'|'pageOrder'|'response'> = {}) {
   operations.push({ method: 'GET', path, summary, run, ...options });
 }
 
@@ -33,8 +34,9 @@ for (const name of Object.keys(schemas) as Collection[]) {
   const schema = schemas[name];
   const path = `/${name}`;
   get(path,'Einträge auflisten',({limit,offset})=>listCore(name,limit,offset),
-    {pageOrder:name==='lines' ? 'Art, Name, ID' : 'Name, ID'});
-  get(`${path}/{id}`,'Eintrag lesen',({path})=>getCore(name,path[1]));
+    {pageOrder:name==='lines' ? 'Art, Name, ID' : 'Name, ID',response:name==='projects' ? z.array(projectResponse) : undefined});
+  get(`${path}/{id}`,'Eintrag lesen',({path})=>getCore(name,path[1]),
+    {response:name==='projects' ? projectResponse : undefined});
   action('POST',path,'Eintrag anlegen',schema,(context,input)=>saveCore(name,input));
   action('PATCH',`${path}/{id}`,'Eintrag ändern',schema.partial(),({path},input)=>saveCore(name,input,path[1]));
 }
@@ -168,7 +170,10 @@ function openApi() {
       ...(op.pageOrder ? {description:`Reihenfolge (${op.pageOrder}). Eine Seite mit weniger Einträgen als limit oder eine leere Seite beendet die Abfrage. Liegt der nächste offset über der Obergrenze, endet der Abruf möglicherweise vor dem Listenende. Änderungen zwischen Seiten können Einträge verschieben.`} : {}),
       parameters:[...pathParameters,...pageParameters],
       ...(op.input ? { requestBody:{ required:true,content:{'application/json':{schema:z.toJSONSchema(op.input,{target:'draft-2020-12',io:'input'})}} } } : {}),
-      responses:{ [op.method === 'POST' ? '201' : '200']:{description:'Erfolg'}, 400:{description:'Ungültige Eingabe'},
+      responses:{ [op.method === 'POST' ? '201' : '200']:{
+        description:'Erfolg',
+        ...(op.response ? {content:{'application/json':{schema:z.toJSONSchema(op.response,{target:'draft-2020-12',io:'output'})}}} : {}),
+      }, 400:{description:'Ungültige Eingabe'},
         401:{description:'Anmeldung erforderlich'},403:{description:'Zugriff verweigert'},409:{description:'Konflikt'} },
     };
   }

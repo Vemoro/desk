@@ -29,6 +29,17 @@ export const schemas = {
 };
 export const stages = ['inquiry','planning','offered','confirmed','running','complete','cancelled'] as const;
 export const projectStage = z.strictObject({ stage: z.enum(stages) });
+export const habenOfferStatus = z.enum(['entwurf','offen','abgelaufen','angenommen','abgelehnt','abgerechnet']);
+export const projectResponse = z.strictObject({
+  id, name:z.string(), contact_id:id, stage:projectStage.shape.stage, notes:z.string(),
+  due:z.iso.datetime().nullable(), offer_ref:z.string(), invoice_ref:z.string(),
+  external_link:z.string(), communication_note:z.string(), haben_offer_id:id.nullable(),
+  haben_offer:z.strictObject({
+    status:habenOfferStatus,
+    url:z.url(), invoiceLink:z.url().nullable(), fetchedAt:z.iso.datetime(),
+  }).nullable(),
+  cost_center:z.string(), zammad_ticket_id:z.number().int().positive().nullable(),
+});
 export const reservationInput = z.strictObject({
   project_id: id, user_id: id.optional(), item_id: id.optional(), location_id: id.optional(),
   quantity, starts_at: z.iso.datetime({ offset: true }), ends_at: z.iso.datetime({ offset: true }),

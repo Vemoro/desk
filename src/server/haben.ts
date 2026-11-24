@@ -3,11 +3,11 @@ import { db, first } from './db';
 import { DeskError, required } from './errors';
 import { getProject } from './core';
 import { integration, RemoteError } from './remote';
-import type { habenContactInput } from './contracts';
+import { habenOfferStatus, type habenContactInput } from './contracts';
 
 const offerSchema = z.object({
   id: z.uuid(), number: z.string().nullable().optional(), contactId: z.uuid().nullable().optional(),
-  listStatus: z.enum(['entwurf','offen','abgelaufen','angenommen','abgelehnt','abgerechnet']),
+  listStatus: habenOfferStatus,
   invoiceNumber: z.string().nullable().optional(), invoiceId: z.uuid().nullable().optional(),
 });
 const contactSchema = z.object({
