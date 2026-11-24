@@ -12,7 +12,7 @@ Sieh vor einem neuen Issue in den [offenen Issues](https://github.com/Vemoro/des
 - **Vorschlag:** Beschreibe, wer die Funktion braucht, welchen Ablauf sie verbessert und woran sich das Ergebnis prüfen lässt. Bei mehreren Anliegen helfen getrennte Issues.
 - Verwende fiktive oder anonymisierte Beispiele. Entferne Zugangsdaten und personenbezogene Details aus Beschreibungen, Logs und Screenshots.
 
-Ein fiktiver Fehlerbericht könnte zum Beispiel „Kommunikationsnotiz fehlt nach Neuladen“ heißen. Als Reproduktion öffnet die Testperson im Musterprojekt den Bereich Kommunikation, speichert eine kurze Notiz und lädt die Seite neu. Im Bericht steht, ob die Notiz danach sichtbar ist und was stattdessen zu sehen war.
+Ein fiktiver Fehlerbericht könnte zum Beispiel „Kommunikationsnotiz fehlt nach Neuladen“ heißen. Zur Reproduktion öffnet die Testperson im Musterprojekt „Kommunikation“, trägt im Feld „Kommunikationsnotiz“ eine kurze Notiz ein und klickt auf „Verweis speichern“. Danach lädt sie die Seite neu, öffnet erneut „Kommunikation“ und prüft, ob die Notiz sichtbar ist.
 
 ## Eine Aufgabe übernehmen
 
