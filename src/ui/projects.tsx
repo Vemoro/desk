@@ -270,7 +270,7 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
       requestVersion.current++;
     };
   },[]);
-  const request=(suffix:string,input:unknown)=>api<{id:string;status:ZammadStatus}>(`projects/${project.id}/zammad/${suffix}`,'POST',input);
+  const request=(suffix:string,input:unknown)=>api<{id:string;status:ZammadStatus;attempt_key?:string}>(`projects/${project.id}/zammad/${suffix}`,'POST',input);
 
   async function transmit(message:ZammadMessage,firstAttempt:boolean) {
     setDraft({message,status:'posting'});
@@ -314,17 +314,20 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
     try {
       result=await request(`outgoing/${id}`,{retry,expected_attempt:retry?previousAttemptKey:undefined});
     } catch(error) {
-      if(retry && observed && draftRef.current===observed) setDraft({...observed,status:'retry-unconfirmed'});
+      if(retry && observed && draftRef.current===observed){
+        if(error instanceof ApiError && error.status===424) setDraft(tracked);
+        else setDraft({...observed,status:'retry-unconfirmed'});
+      }
       throw error;
     }
-    if(observed && draftRef.current===observed) updateDraft(id,result.status);
+    if(observed && draftRef.current===observed) updateDraft(id,result.status,result.attempt_key);
     await refresh();
     return result.status;
   }
 
   async function checkDraft() {
     const current=draftRef.current;
-    if(current?.status!=='unconfirmed' && current?.status!=='retry-unconfirmed') return;
+    if(!current || current.status==='posting' || current.status==='missing' || current.status==='failed') return;
     try {
       await reviewAttempt(current.message.id,false);
     } catch(error) {
@@ -334,13 +337,18 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
     }
   }
 
+  const draftIsListed=draft && conversation?.outgoing.some((entry:Row)=>entry.id===draft.message.id);
+  const canCheckDraft=draft && (
+    draft.status==='unconfirmed' || draft.status==='retry-unconfirmed'
+    || (!draftIsListed && (draft.status==='pending' || draft.status==='unknown'))
+  );
   const draftNotice=draft && {
     posting:'Desk übermittelt den Entwurf an Zammad.',
     unconfirmed:'Der Versandstatus ist unklar. Prüfe zuerst den Sendeversuch.',
     'retry-unconfirmed':'Der Ausgang der Wiederholung ist unklar. Prüfe den Versuch oder wiederhole ihn in der Liste.',
     missing:'Desk hat keinen Sendeversuch für diesen Entwurf gefunden.',
-    pending:'Der Sendeversuch steht aus. Prüfe den Versuch in der Liste.',
-    unknown:'Der Ausgang ist unklar. Prüfe den Versuch in der Liste.',
+    pending:draftIsListed?'Der Sendeversuch steht aus. Prüfe den Versuch in der Liste.':'Der Sendeversuch steht aus. Prüfe den Sendeversuch.',
+    unknown:draftIsListed?'Der Ausgang ist unklar. Prüfe den Versuch in der Liste.':'Der Ausgang ist unklar. Prüfe den Sendeversuch.',
     failed:'Zammad hat die Nachricht abgelehnt. Wiederhole den Versuch in der Liste oder beginne einen neuen Entwurf.',
   }[draft.status];
   return <>
@@ -370,7 +378,7 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
             </fieldset>
             {draft && <div>
               <p role="status">{draftNotice}</p>
-              {(draft.status==='unconfirmed'||draft.status==='retry-unconfirmed') && <button onClick={()=>void run(checkDraft)}>Sendeversuch prüfen</button>}
+              {canCheckDraft && <button onClick={()=>void run(checkDraft)}>Sendeversuch prüfen</button>}
               {draft.status==='missing' && <button onClick={()=>void run(async()=>{
                 const current=draftRef.current;
                 if(current?.status==='missing') await transmit(current.message,false);

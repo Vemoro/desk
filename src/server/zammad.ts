@@ -68,13 +68,23 @@ export async function reviewOutgoing(projectId: string, id: string, retry: boole
   const project = await getProject(projectId);
   if (project.zammad_ticket_id !== current.ticket_id) throw new DeskError(409, 'Der Sendeversuch gehört zu einem anderen Ticket.');
   if (current.status === 'sent') return { id, status:'sent' };
-  const remote = integration('ZAMMAD');
-  const match = (await loadArticles(remote,current.ticket_id)).find((article) => article.body.includes(marker(id)));
+  let remote;
+  let articles;
+  try {
+    remote = integration('ZAMMAD');
+    articles = await loadArticles(remote,current.ticket_id);
+  } catch(error) {
+    if(retry && expectedAttempt !== undefined && error instanceof DeskError) {
+      throw new DeskError(424,error.message);
+    }
+    throw error;
+  }
+  const match = articles.find((article) => article.body.includes(marker(id)));
   if (match) {
     await updateOutgoing(id,'sent',match.id);
     return { id,status:'sent' };
   }
-  if (!retry) return { id,status:current.status };
+  if (!retry) return { id,status:current.status,attempt_key:current.attempt_key };
   if (expectedAttempt !== undefined && expectedAttempt !== current.attempt_key) {
     throw new DeskError(409, 'Der Sendeversuch wurde inzwischen aktualisiert.');
   }

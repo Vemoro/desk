@@ -103,6 +103,7 @@ describe('API und Integrationen',()=>{
     await db.unsafe('UPDATE projects SET zammad_ticket_id=$1 WHERE id=$2',[ticketId,data.project]);
     let article: {id:number;body:string}|undefined;
     let sends=0;
+    let articleLookupFails=false;
     let remoteMode:'unknown'|'reject'|'accept'='unknown';
     const service=Bun.serve({port:0,hostname:'127.0.0.1', async fetch(request){
       if(request.method==='POST') {
@@ -117,6 +118,7 @@ describe('API und Integrationen',()=>{
       if(new URL(request.url).pathname.endsWith('/tickets/'+ticketId)) {
         return Response.json({id:ticketId,number:String(ticketId),title:'Musterangebot'});
       }
+      if(articleLookupFails) return new Response('Ausfall',{status:503});
       return Response.json(article?[article]:[]);
     }});
     const priorUrl=process.env.ZAMMAD_URL;
@@ -134,6 +136,11 @@ describe('API und Integrationen',()=>{
       expect(await send(data.project,rejected)).toMatchObject({status:'failed'});
       const before=(await conversations(data.project)).outgoing.find(row=>row.id===rejected.id)?.attempt_key;
       if(!before) throw new Error('Der erste Sendeversuch braucht eine Kennung.');
+      articleLookupFails=true;
+      await expect(reviewOutgoing(data.project,rejected.id,true,before)).rejects.toMatchObject({status:424});
+      expect(sends).toBe(2);
+      articleLookupFails=false;
+      expect(await reviewOutgoing(data.project,rejected.id,false)).toMatchObject({status:'failed',attempt_key:before});
       expect(await reviewOutgoing(data.project,rejected.id,true,before)).toMatchObject({status:'failed'});
       const after=(await conversations(data.project)).outgoing.find(row=>row.id===rejected.id)?.attempt_key;
       if(!after) throw new Error('Der wiederholte Sendeversuch braucht eine Kennung.');

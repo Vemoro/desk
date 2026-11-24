@@ -191,3 +191,50 @@ test('Verbindungsabbruch beim Wiederholen sperrt den abgelehnten Entwurf bis zur
   expect(ui.messages).toHaveLength(1);
   expect(reviews).toBe(3);
 });
+
+test('Bestätigter Fehler vor einer Wiederholung lässt einen neuen Entwurf zu',async({page})=>{
+  const ui=await compose(page,route=>{
+    const message=route.request().postDataJSON();
+    ui.outgoing.push({...message,status:'failed',attempt_key:'erster-versuch'});
+    return route.fulfill({json:{id:message.id,status:'failed'}});
+  });
+  await page.route(path+'/outgoing/*',route=>{
+    expect(route.request().postDataJSON()).toEqual({retry:true,expected_attempt:'erster-versuch'});
+    return route.fulfill({status:424,json:{error:'Der Ticketverlauf konnte nicht geprüft werden.'}});
+  });
+  await ui.submit.click();
+  const next=ui.panel.getByRole('button',{name:'Neuen Entwurf beginnen'});
+  await expect(next).toBeVisible();
+  await ui.panel.getByRole('button',{name:'Erneut senden',exact:true}).click();
+  const dialog=page.getByRole('dialog');
+  await dialog.getByRole('button',{name:'Erneut senden',exact:true}).click();
+  await expect(dialog.getByRole('alert')).toHaveText('Der Ticketverlauf konnte nicht geprüft werden.');
+  await dialog.getByRole('button',{name:'Schließen',exact:true}).click();
+  await next.click();
+  await expect(ui.body).toBeEnabled();
+  await expect(ui.body).toHaveValue('');
+  expect(ui.messages).toHaveLength(1);
+});
+
+test('Ein nicht gelisteter Entwurf bleibt anhand seiner ID prüfbar',async({page})=>{
+  const ui=await compose(page,route=>{
+    const message=route.request().postDataJSON();
+    ui.outgoing.push({...message,status:'unknown'});
+    return route.fulfill({json:{id:message.id,status:'unknown'}});
+  });
+  await page.route(path+'/outgoing/*',route=>{
+    expect(route.request().url().split('/').at(-1)).toBe(ui.messages[0].id);
+    expect(route.request().postDataJSON()).toEqual({retry:false});
+    return route.fulfill({json:{id:ui.messages[0].id,status:'sent'}});
+  });
+  await ui.submit.click();
+  await expect(ui.panel.getByRole('button',{name:'Prüfen',exact:true})).toBeVisible();
+  ui.outgoing.length=0;
+  await ui.panel.getByRole('button',{name:'Verlauf aktualisieren'}).click();
+  await expect(ui.panel.getByRole('button',{name:'Prüfen',exact:true})).toHaveCount(0);
+  await expect(ui.body).toBeDisabled();
+  await ui.panel.getByRole('button',{name:'Sendeversuch prüfen'}).click();
+  await expect(ui.body).toBeEnabled();
+  await expect(ui.body).toHaveValue('');
+  expect(ui.messages).toHaveLength(1);
+});
