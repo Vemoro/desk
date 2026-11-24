@@ -78,10 +78,18 @@ function Overview({project,data,run,haben}:{project:Row;data:Data;run:Run;haben:
 function Kanban({project,data,run,viewerId}:{project:Row;data:Data;run:Run;viewerId:string}) {
   const [assignee,setAssignee]=useState('all');
   const [search,setSearch]=useState('');
+  const [sort,setSort]=useState('standard');
   const term=search.trim().toLowerCase();
   const tasks=data.tasks.filter((task)=>task.project_id===project.id
     && task.name.toLowerCase().includes(term)
     && (assignee==='all' || (assignee==='me' && task.assignee_id===viewerId) || (assignee==='unassigned' && !task.assignee_id)));
+  if(sort==='due'){
+    tasks.sort((left,right)=>{
+      if(!left.due) return right.due?1:0;
+      if(!right.due) return -1;
+      return left.due.localeCompare(right.due);
+    });
+  }
   const emptyMessage=term
     ? 'Keine Aufgaben für diese Filter.'
     : assignee==='all'?'In diesem Projekt sind noch keine Aufgaben.':'Keine Aufgaben für diesen Filter.';
@@ -94,6 +102,10 @@ function Kanban({project,data,run,viewerId}:{project:Row;data:Data;run:Run;viewe
             <option value="all">Alle</option>
             <option value="me">Mir zugeordnet</option>
             <option value="unassigned">Ohne Zuständigkeit</option>
+          </select></label>
+          <label><span>Aufgaben sortieren</span><select value={sort} onChange={(event)=>setSort(event.target.value)}>
+            <option value="standard">Standard</option>
+            <option value="due">Frühester Termin zuerst</option>
           </select></label>
           <button type="button" disabled={!search} onClick={()=>setSearch('')}>Suche leeren</button>
         </div>
