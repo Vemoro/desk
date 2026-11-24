@@ -13,6 +13,7 @@ COPY --from=build --chown=bun:bun /desk/scripts/migrate.ts ./scripts/migrate.ts
 COPY --from=build --chown=bun:bun /desk/scripts/admin.ts ./scripts/admin.ts
 COPY --from=build --chown=bun:bun /desk/src/server/db.ts ./src/server/db.ts
 COPY --from=build --chown=bun:bun /desk/src/server/auth.ts ./src/server/auth.ts
+COPY --from=build --chown=bun:bun /desk/src/server/origin.ts ./src/server/origin.ts
 COPY --from=build --chown=bun:bun /desk/src/server/errors.ts ./src/server/errors.ts
 COPY --from=build --chown=bun:bun /desk/node_modules/zod ./node_modules/zod
 USER bun

@@ -3,6 +3,7 @@ import { password } from 'bun';
 import { z } from 'zod';
 import { db, first } from './db';
 import { DeskError } from './errors';
+import { configuredOrigin } from './origin';
 
 export const loginInput = z.object({ email: z.email().max(254), password: z.string().min(1).max(200) });
 export const accountInput = loginInput.extend({ name: z.string().trim().min(1).max(160), password: z.string().min(12).max(200), role: z.enum(['admin', 'member']) });
@@ -28,13 +29,13 @@ function cookie(request: Request) {
 }
 
 export function sessionCookie(request: Request, value: string, age: number) {
-  const origin = process.env.DESK_ORIGIN ?? new URL(request.url).origin;
+  const origin = configuredOrigin() ?? new URL(request.url).origin;
   return `desk_session=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${age}${origin.startsWith('https:') ? '; Secure' : ''}`;
 }
 
 export function protectOrigin(request: Request) {
   if (['GET', 'HEAD'].includes(request.method) || request.headers.get('authorization')?.startsWith('Bearer ')) return;
-  const expected = process.env.DESK_ORIGIN ?? new URL(request.url).origin;
+  const expected = configuredOrigin() ?? new URL(request.url).origin;
   if (request.headers.get('origin') !== expected) throw new DeskError(403, 'Die Herkunft der Anfrage stimmt nicht.');
 }
 

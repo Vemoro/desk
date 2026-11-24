@@ -6,5 +6,5 @@ import { nitro } from 'nitro/vite';
 export default defineConfig({
   optimizeDeps: { exclude: ['bun'] },
   ssr: { external: ['bun'] },
-  plugins: [tanstackStart(), react(), nitro({ preset: 'bun' })],
+  plugins: [tanstackStart(), react(), nitro({ preset: 'bun', plugins: ['./src/server/startup.ts'] })],
 });

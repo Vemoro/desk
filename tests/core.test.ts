@@ -96,6 +96,23 @@ describe('API und Integrationen',()=>{
     expect((await handle(new Request('http://desk.local/api/v1/projects',{headers}))).status).toBe(401);
   });
 
+  test('Anmeldung akzeptiert die normalisierte HTTPS-Origin und setzt ein Secure-Cookie',async()=>{
+    const previous=process.env.DESK_ORIGIN;
+    process.env.DESK_ORIGIN='https://desk.example.test/';
+    const request=(origin:string)=>handle(new Request('http://127.0.0.1/api/v1/login',{
+      method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},
+      body:JSON.stringify({email:actor.email,password:'muster-test-passwort'}),
+    }));
+    try {
+      const login=await request('https://desk.example.test');
+      expect(login.status).toBe(200);
+      expect(login.headers.get('Set-Cookie')).toContain('; Secure');
+      expect((await request('https://fremd.example.test')).status).toBe(403);
+    } finally {
+      if(previous===undefined) delete process.env.DESK_ORIGIN; else process.env.DESK_ORIGIN=previous;
+    }
+  });
+
   test('Unklaren Zammad-Versand im Verlauf wiederfinden, ohne erneut zu senden',async()=>{
     const { send,reviewOutgoing }=await import('../src/server/zammad');
     const data=await fixture(saveCore,'Zammad-Verlauf');
