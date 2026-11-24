@@ -16,6 +16,8 @@ export function options(records:Row[]) {
 
 type Fields = Record<string,string>;
 type Attempt = {key:string; values:Fields; prepared?:Fields};
+type ClearedAttempt = {storageKey:string; key:string};
+const attemptCleared='desk-write-attempt-cleared';
 
 function isFields(value:unknown): value is Fields {
   return Boolean(value && typeof value==='object' && !Array.isArray(value) &&
@@ -61,11 +63,23 @@ export function Form({fields,caption,submit,children,className='form-grid',retry
     attempt.current=storageKey ? storedAttempt(storageKey) : undefined;
     setPending(Boolean(attempt.current));
     if(attempt.current) restoreFields(attempt.current.values);
+    if(!storageKey) return;
+    function reflectClearedAttempt(event:Event){
+      const cleared=(event as CustomEvent<ClearedAttempt>).detail;
+      if(cleared.storageKey!==storageKey || cleared.key!==attempt.current?.key) return;
+      attempt.current=undefined;
+      setPending(false);
+    }
+    window.addEventListener(attemptCleared,reflectClearedAttempt);
+    return ()=>window.removeEventListener(attemptCleared,reflectClearedAttempt);
   },[storageKey]);
 
   function clearAttempt(key:string){
     if(storageKey && storedAttempt(storageKey)?.key===key){
-      try { sessionStorage.removeItem(storageKey); } catch {}
+      try {
+        sessionStorage.removeItem(storageKey);
+        window.dispatchEvent(new CustomEvent<ClearedAttempt>(attemptCleared,{detail:{storageKey,key}}));
+      } catch {}
     }
     if(attempt.current?.key===key) {
       attempt.current=undefined;

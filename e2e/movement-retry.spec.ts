@@ -122,3 +122,47 @@ test('Die letzte Rückgabe bleibt prüfbar, wenn ihre Reservierung keine offene 
   expect(calls[1]).toEqual(calls[0]);
   expect(await stock(page,item.id)).toMatchObject({physical:10,reserved:0});
 });
+
+test('Die bestätigte Buchung gibt das erneut geöffnete Formular nach einem Lesefehler frei',async({page})=>{
+  let writes=0;
+  let release!:(route:import('@playwright/test').Route)=>void;
+  const delayed=new Promise<import('@playwright/test').Route>(resolve=>{release=resolve;});
+  let held=false;
+  await page.route('**/api/v1/movements', async route=>{
+    const response=await route.fetch();
+    if(route.request().method()==='POST' && response.ok()) writes++;
+    await route.fulfill({response});
+  });
+  await page.route('**/api/v1/stock',route=>{
+    if(writes===1 && !held){
+      held=true;
+      release(route);
+      return;
+    }
+    return route.continue();
+  });
+  await signIn(page);
+  const nav=page.getByRole('navigation',{name:'Hauptnavigation'});
+  const warehouse=nav.getByRole('button',{name:'Projektlager',exact:true});
+  await warehouse.click();
+  const receive=page.getByText('Wareneingang',{exact:true}).first();
+  const form=page.locator('details').filter({has:page.locator('summary').getByText('Wareneingang',{exact:true})});
+  await receive.click();
+  await form.getByLabel('Artikel').selectOption({label:'Kabelbinder, Packung'});
+  await form.getByLabel('Lagerort').selectOption({label:'Hauptlager'});
+  await form.getByRole('button',{name:'Wareneingang buchen'}).click();
+  const request=await delayed;
+  try{
+    await nav.getByRole('button',{name:'Übersicht',exact:true}).click();
+    await warehouse.click();
+    await receive.click();
+    await expect(form.getByRole('button',{name:'Letzten Vorgang erneut senden'})).toBeVisible();
+    await request.fulfill({status:503,json:{error:'Abruf fehlgeschlagen'}});
+    await page.getByRole('button',{name:'Ansicht aktualisieren',exact:true}).click();
+    await expect(form.getByRole('button',{name:'Letzten Vorgang erneut senden'})).toHaveCount(0);
+    await expect(form.getByLabel('Artikel')).toBeEnabled();
+    expect(writes).toBe(1);
+  }finally{
+    await request.abort().catch(()=>{});
+  }
+});
