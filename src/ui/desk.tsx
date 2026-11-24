@@ -4,7 +4,7 @@ import { Project, Projects, type Data } from './projects';
 import { PasskeyLogin, PasskeySettings } from './passkeys';
 import { AccountPassword } from './account-password';
 import { WeeklyPlanning } from './weekly-planning';
-import { Expand, Form, hasPendingWrite, noWrite, options, Panel, Pill, Table, type Run } from './widgets';
+import { ConfirmDialog, Expand, Form, hasPendingWrite, noWrite, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
 import { Icon } from './icons';
 import { Navigation, sections, type Person, type Section } from './navigation';
 
@@ -273,10 +273,43 @@ function Contacts({data,run,haben}:{data:Data;run:Run;haben:boolean}) {
   const [search,setSearch]=useState('');
   const [selected,setSelected]=useState('');
   const [comparison,setComparison]=useState<any>();
+  const [duplicates,setDuplicates]=useState<{input:Record<string,string>;contacts:Row[]}>();
+  const [confirmation,setConfirmation]=useState<Confirmation>();
+  const contactPanel=useRef<HTMLElement>(null);
+  const contactDetail=useRef<HTMLElement>(null);
+  const [focusContact,setFocusContact]=useState('');
   const contact=data.contacts.find((row)=>row.id===selected);
+  useEffect(()=>{
+    if(focusContact && contact?.id===focusContact){
+      contactDetail.current?.focus();
+      setFocusContact('');
+    }
+  },[focusContact,contact?.id]);
   function fields(record?:Row) {
     return [{name:'name',label:'Name',value:record?.name,required:true},{name:'email',label:'E-Mail',value:record?.email},
       {name:'phone',label:'Telefon',value:record?.phone,type:'tel'},{name:'notes',label:'Notiz',value:record?.notes,type:'textarea'}];
+  }
+
+  async function saveContact(input:Record<string,string>,isCurrent:()=>boolean) {
+    const result=await api('contacts','POST',input);
+    if(!isCurrent()) return;
+    setSelected(result.id);
+    setComparison(undefined);
+    setDuplicates(undefined);
+  }
+
+  async function createContact(fields:Record<string,string>) {
+    const input={...fields,name:fields.name.trim(),email:fields.email.trim()};
+    const contactName=input.name.toLowerCase();
+    const email=input.email.toLowerCase();
+    const matches=data.contacts.filter((row)=>row.name.trim().toLowerCase()===contactName
+      || (email && (row.email ?? '').trim().toLowerCase()===email));
+    const contacts=[...new Map(matches.map((row)=>[row.id,row])).values()];
+    if(contacts.length){
+      setDuplicates({input,contacts});
+      return;
+    }
+    await run(isCurrent=>saveContact(input,isCurrent),'Kontakt angelegt.');
   }
 
   async function sync(input:unknown) {
@@ -290,16 +323,34 @@ function Contacts({data,run,haben}:{data:Data;run:Run;haben:boolean}) {
   }
 
   return <>
-    <Panel title="Interessenten und Kontakte" action={haben&&<button onClick={()=>run(()=>api('haben/contacts/import','POST',{}),'Haben-Kontakte importiert.')}>Aus Haben importieren</button>}>
+    <Panel title="Interessenten und Kontakte" focusRef={contactPanel} action={haben&&<button onClick={()=>run(()=>api('haben/contacts/import','POST',{}),'Haben-Kontakte importiert.')}>Aus Haben importieren</button>}>
       <div className="panel-body"><label className="filter"><span>Kontakte suchen</span><input type="search" value={search} onChange={(event)=>setSearch(event.target.value)}/></label>
-        <Expand title="Kontakt anlegen"><Form caption="Kontakt speichern" fields={fields()} submit={(input)=>run(async(isCurrent)=>{
-          const result=await api('contacts','POST',input);
-          if(isCurrent()) {setSelected(result.id);setComparison(undefined);}
-        },'Kontakt angelegt.')}/></Expand></div>
+        <Expand title="Kontakt anlegen">
+          <div onInput={()=>setDuplicates(undefined)}>
+            <Form caption="Kontakt speichern" fields={fields()} submit={createContact}/>
+          </div>
+          {duplicates&&<section className="notice duplicate-contacts" aria-label="Mögliche Dubletten">
+            <h3>Mögliche Dubletten</h3>
+            <p>Desk hat Kontakte mit gleichem Namen oder gleicher E-Mail-Adresse gefunden.</p>
+            <ul>{duplicates.contacts.map((row)=><li key={row.id}>
+              <button type="button" className="text-button" onClick={()=>{setSelected(row.id);setComparison(undefined);setFocusContact(row.id);}}>
+                {row.email?`${row.name} · ${row.email}`:row.name}
+              </button>
+            </li>)}</ul>
+            <button type="button" onClick={(event)=>setConfirmation({
+              title:'Neuen Kontakt anlegen',
+              description:`„${duplicates.input.name}“ wird als zusätzlicher Kontakt gespeichert.`,
+              actionLabel:'Kontakt anlegen',
+              trigger:event.currentTarget,
+              submit:isCurrent=>saveContact(duplicates.input,isCurrent),
+              feedback:'Kontakt angelegt.',
+            })}>Trotzdem anlegen</button>
+          </section>}
+        </Expand></div>
       <Table headers={['Name','E-Mail','Telefon']} rows={data.contacts.filter((row)=>`${row.name} ${row.email}`.toLowerCase().includes(search.toLowerCase()))
         .map((row)=>({key:row.id,cells:[<button className="text-button" onClick={()=>{setSelected(row.id);setComparison(undefined);}}>{row.name}</button>,row.email||'–',row.phone||'–']}))}/>
     </Panel>
-    {contact&&<Panel title={contact.name}><div className="panel-body">
+    {contact&&<Panel title={contact.name} focusRef={contactDetail}><div className="panel-body">
       <Form key={contact.id} caption="Änderungen speichern" fields={fields(contact)} submit={(input)=>run(()=>api(`contacts/${contact.id}`,'PATCH',input),'Kontakt gespeichert.')}/>
       {haben&&<Expand title="Haben-Kontakt">
         <Form caption="Abgleichen" fields={[{name:'link_id',label:'Vorhandene Haben-Kontakt-ID',value:contact.haben_id ?? ''}]}
@@ -316,6 +367,7 @@ function Contacts({data,run,haben}:{data:Data;run:Run;haben:boolean}) {
         {comparison&&comparison.action!=='conflict'&&<p role="status">Abgleich abgeschlossen.</p>}
       </Expand>}
     </div></Panel>}
+    {confirmation&&<ConfirmDialog confirmation={confirmation} run={run} dismiss={()=>setConfirmation(undefined)} fallbackFocus={contactPanel}/>}
   </>;
 }
 
