@@ -1,54 +1,76 @@
-# Desk
+<div align="center">
 
-Desk hilft kleinen projektorientierten Teams, Kundenaufträge von der Anfrage bis zur Abrechnung zu organisieren. Kontakte, Aufgaben, Ressourcen, Lager und Kosten laufen im Projekt zusammen.
+<h1>Desk – Projektverwaltung für den eigenen Server</h1>
 
-Der allgemeine Desk-Kern ist in Entwicklung. Dieses Repository dokumentiert den aktuellen Funktionsumfang und den lokalen Einstieg.
+<p><strong>CRM, Kanban, Ressourcenplanung und Lager für kleine projektorientierte Teams.</strong><br>
+Von der ersten Anfrage bis zur Rechnungsreferenz bleibt der Auftrag an einem Ort.</p>
 
-## Vom Erstkontakt bis zur Abrechnung
+<p>
+  <a href="#funktionen">Funktionen</a> ·
+  <a href="#schnellstart">Schnellstart</a> ·
+  <a href="#anbindungen">Anbindungen</a> ·
+  <a href="docs/desk.md">Betriebsdoku</a> ·
+  <a href="docs/entwicklung.md">Mitwirken</a>
+</p>
 
-1. Den Kontakt im CRM erfassen, ein Projekt anlegen und Aufgaben mit Termin und Zuständigkeit im Kanban verteilen.
-2. Personal und Inventar vormerken sowie Einkauf und Verkauf kalkulieren. Nach der Auftragsbestätigung lassen sich Ressourcen fest buchen.
-3. Im Projektlager Bestände je Lagerort prüfen und Wareneingang, Ausgabe, Rückgabe oder Verbrauch buchen.
-4. Geplante Einkaufskosten mit den zugeordneten Ist-Kosten vergleichen. Angebots- und Rechnungsreferenzen am Projekt hinterlegen.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/kanban-dunkel.png">
+  <img src="docs/screenshots/kanban-hell.png" alt="Desk zeigt die Aufgaben einer Veranstaltungsbetreuung in den Kanban-Spalten Offen, In Arbeit, Prüfung und Erledigt" width="900">
+</picture>
 
-Projektarbeit, Kalkulation, Lager und Controlling stehen in Desk eigenständig zur Verfügung. Die REST-API stellt Kernressourcen über widerrufbare Tokens bereit. Ihre OpenAPI-Beschreibung liegt in der laufenden Instanz unter `/api/v1/openapi.json`.
+<sub>Kanban im Beispielprojekt des fiktiven Muster Auftragsservice</sub>
 
-### Optionale Anbindungen
+</div>
 
-- **Haben** erstellt Angebote und Rechnungen. Desk kann Verkaufspositionen als CSV für die Übergabe bereitstellen und ein vorhandenes Angebot über seine ID verknüpfen. Bei eingerichteter Anbindung liest Desk den Angebotsstatus ein. Kontakte lassen sich mit Haben abgleichen. Angebotsbestätigung und Referenzen können auch von Hand gepflegt werden.
-- **Zammad** führt den Ticketverlauf und versendet Antworten aus dem Projekt. In Desk lässt sich ein vorhandenes Ticket verknüpfen oder ein neues anlegen. Ohne Zammad stehen ein Vorgangslink und eine Kommunikationsnotiz am Projekt zur Verfügung.
+> [!NOTE]
+> **Entwicklungsstand:** Der allgemeine Desk-Kern befindet sich in Entwicklung. Diese README beschreibt die Funktionen des vorliegenden Stands und den lokalen Einstieg.
 
-## Lokal starten
+## Wie ein Auftrag in Desk läuft
 
-Für den lokalen Einstieg brauchst du Bun in der in `package.json` angegebenen Version und PostgreSQL. Die Compose-Datei stellt mit Docker Compose eine lokale Entwicklungsdatenbank bereit.
+Ein neuer Auftrag beginnt mit einem Kontakt und einem Projekt. Das Team verteilt Aufgaben, plant Personal und Material und kalkuliert Einkauf und Verkauf. Nach der Auftragsbestätigung lassen sich Ressourcen verbindlich buchen. Im Projekt bleiben Lagerbewegungen, zugeordnete Belege und die Referenzen zu Angebot und Rechnung sichtbar.
+
+## Funktionen
+
+| Bereich | Was du in Desk erledigst |
+| --- | --- |
+| CRM und Projekte | Kontakte erfassen, Projekte zuordnen und Auftragsstatus sowie Angebots- und Rechnungsreferenzen pflegen. |
+| Kanban und Termine | Aufgaben in vier Spalten bearbeiten, Verantwortliche zuweisen und Termine festhalten. |
+| Ressourcenplanung und Kalkulation | Personal und Inventar vormerken, Ressourcen fest buchen und Einkaufs- und Verkaufspositionen erfassen. |
+| Projektlager | Physischen, reservierten und freien Bestand je Lagerort prüfen. Wareneingang, Ausgabe, Rückgabe und Verbrauch erfassen. |
+| Controlling | Geplante Einkaufskosten und zugeordnete Ist-Kosten vergleichen. Belege per Referenz zuordnen oder aus CSV übernehmen. |
+| REST-API | Kernressourcen über widerrufbare Tokens nutzen. In der laufenden Instanz ist die OpenAPI-Beschreibung unter `/api/v1/openapi.json` erreichbar. |
+
+## Anbindungen
+
+Desk unterstützt Projektarbeit, Kalkulation, Lager und Controlling eigenständig. Haben und Zammad lassen sich je nach Arbeitsablauf ergänzen.
+
+| Anbindung | Zusammenspiel |
+| --- | --- |
+| Haben | Angebote und Rechnungen entstehen in Haben. Desk stellt Verkaufspositionen als CSV bereit, verknüpft ein vorhandenes Angebot und kann dessen Status einlesen. Kontakte lassen sich abgleichen. Angebotsbestätigung und Referenzen können auch von Hand gepflegt werden. |
+| Zammad | Desk kann ein Ticket anlegen oder verknüpfen. Der Verlauf erscheint im Projekt, Zammad versendet Antworten. Ohne Anbindung lassen sich Vorgangslink und Kommunikationsnotiz am Projekt pflegen. |
+
+Weitere Angaben zu Konfiguration und Berechtigungen stehen in der Betriebsdoku. [Haben](docs/desk.md#haben) · [Zammad](docs/desk.md#zammad)
+
+## Schnellstart
+
+Du brauchst die in `package.json` angegebene Bun-Version sowie PostgreSQL. Für die lokale Entwicklungsdatenbank kannst du Docker Compose verwenden.
 
 1. Im Repository `docker compose up -d db` ausführen.
 2. `.env.example` als `.env` kopieren. `DATABASE_URL` prüfen und `DESK_ORIGIN` auf `http://127.0.0.1:3000` setzen.
 3. `bun install --frozen-lockfile` und danach `bun run migrate` ausführen.
 4. Ein eigenes Passwort als Umgebungsvariable `DESK_ADMIN_PASSWORD` setzen. Das Konto mit `bun run admin admin@example.test "Desk Admin"` anlegen.
-5. `bun run dev --port 3000 --strictPort` ausführen und `http://127.0.0.1:3000` öffnen. Bei einem abweichenden Port `DESK_ORIGIN` und die Browseradresse entsprechend anpassen.
+5. `bun run dev --port 3000 --strictPort` starten und `http://127.0.0.1:3000` öffnen. Bei einem anderen Port `DESK_ORIGIN` und die Browseradresse entsprechend anpassen.
 
-Für einen dauerhaften Betrieb gelten die Hinweise zu Build, Container, HTTPS und Sicherung. [Installation und Betrieb](docs/desk.md#betrieb)
+Hinweise zu Build, Container, HTTPS und Sicherung stehen in der Betriebsdoku. [Installation und Betrieb](docs/desk.md#betrieb)
 
 ## Einblick in die Demo
 
-Die Bilder zeigen die Veranstaltungsbetreuung des fiktiven Muster Auftragsservice. Die Demo-Daten und Bilder lassen sich in einer separaten Testinstanz erzeugen. [Demo und Screenshots](docs/entwicklung.md#befehle-und-screenshot-workflow)
-
-### Kanban
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/kanban-dunkel.png">
-  <img src="docs/screenshots/kanban-hell.png" alt="Projekt-Kanban mit den Spalten Offen, In Arbeit, Prüfung und Erledigt">
-</picture>
-
-### Controlling
-
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/controlling-dunkel.png">
-  <img src="docs/screenshots/controlling-hell.png" alt="Projektcontrolling mit geplanten Einkaufskosten, Ist-Kosten, Abweichung und zugehörigem Beleg">
+  <img src="docs/screenshots/controlling-hell.png" alt="Controlling für eine Veranstaltungsbetreuung mit geplanten und tatsächlichen Einkaufskosten, Abweichung und einem zugeordneten Beleg" width="900">
 </picture>
 
-Weitere Ansichten, einschließlich des Projektlagers auf dem Smartphone, stehen in der Betriebsdoku. [Ansichten](docs/desk.md#ansichten)
+Das Controlling zeigt hier einen Beleg und seinen Anteil an den Ist-Kosten des Musterauftrags. Beispiele für das Projektlager auf dem Smartphone und die Anleitung zum Erzeugen der Bilder stehen in der Doku. [Weitere Ansichten](docs/desk.md#ansichten) · [Demo und Screenshots](docs/entwicklung.md#befehle-und-screenshot-workflow)
 
 ## Mitwirken
 
