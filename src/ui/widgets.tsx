@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import type { Row } from './client';
 
 export type Run = (operation:()=>Promise<unknown>, feedback?:string)=>Promise<boolean>;
@@ -11,47 +11,85 @@ export function options(records:Row[]) {
   return records.map((record)=>({value:record.id,label:record.name ?? record.label ?? record.id}));
 }
 
-export function Form({fields,caption,submit,children,className='form-grid',retryable=false}:{
+type Attempt = {key:string; values:Record<string,string>};
+
+function storedAttempt(storageKey:string): Attempt | undefined {
+  try {
+    const value=JSON.parse(sessionStorage.getItem(storageKey) ?? 'null');
+    if(typeof value?.key==='string' && value.values && typeof value.values==='object' &&
+      Object.values(value.values).every(field=>typeof field==='string')) return value;
+  } catch {}
+}
+
+export function Form({fields,caption,submit,children,className='form-grid',retryScope}:{
   fields:Field[]; caption:string; submit:(values:Record<string,string>,requestKey?:string)=>Promise<unknown>;
-  children?:ReactNode; className?:string; retryable?:boolean;
+  children?:ReactNode; className?:string; retryScope?:string;
 }) {
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [pending,setPending]=useState(false);
-  const attempt=useRef<{key:string;input:string;submitting:boolean}|undefined>(undefined);
+  const formRef=useRef<HTMLFormElement>(null);
+  const attempt=useRef<Attempt|undefined>(undefined);
+  const submitting=useRef(false);
+  const storageKey=retryScope && `desk-pending-write:${retryScope}`;
+
+  useEffect(()=>{
+    attempt.current=storageKey ? storedAttempt(storageKey) : undefined;
+    setPending(Boolean(attempt.current));
+    if(!attempt.current) return;
+    for(const [name,value] of Object.entries(attempt.current.values)){
+      const field=formRef.current?.elements.namedItem(name);
+      if(field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement){
+        field.value=value;
+      }
+    }
+  },[storageKey]);
+
+  function clearAttempt(key:string){
+    if(storageKey && storedAttempt(storageKey)?.key===key){
+      try { sessionStorage.removeItem(storageKey); } catch {}
+    }
+    if(attempt.current?.key===key) {
+      attempt.current=undefined;
+      setPending(false);
+    }
+  }
+
   async function onSubmit(event:FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError('');
-    const form=event.currentTarget;
-    const values=Object.fromEntries(Array.from(new FormData(form),([key,value])=>[key,String(value)]));
-    if(retryable) {
-      if(attempt.current?.submitting) return;
-      const input=JSON.stringify(values);
-      if(attempt.current && attempt.current.input!==input) {
-        setError('Sende die bisherigen Angaben erneut oder beginne einen neuen Vorgang.');
-        return;
-      }
-      attempt.current ??= {key:crypto.randomUUID(),input,submitting:false};
-      attempt.current.submitting=true;
+    const values=Object.fromEntries(Array.from(new FormData(event.currentTarget),([key,value])=>[key,String(value)]));
+    if(attempt.current && JSON.stringify(attempt.current.values)!==JSON.stringify(values)) {
+      setError('Sende die bisherigen Angaben erneut oder beginne einen neuen Vorgang.');
+      return;
     }
+    await send(values);
+  }
+
+  async function send(values:Record<string,string>) {
+    if(storageKey && submitting.current) return;
+    setError('');
+    if(storageKey && !attempt.current) {
+      attempt.current={key:crypto.randomUUID(),values};
+      try { sessionStorage.setItem(storageKey,JSON.stringify(attempt.current)); } catch {}
+    }
+    const key=attempt.current?.key;
+    submitting.current=true;
     setBusy(true);
     try {
-      const result=await submit(values,attempt.current?.key);
-      if(retryable && result===true){
-        attempt.current=undefined;
-        setPending(false);
-      } else if(retryable) setPending(true);
+      const result=await submit(values,key);
+      if(key && result===true) clearAttempt(key);
+      else if(key) setPending(true);
     }
     catch(error) {
-      if(retryable) setPending(true);
+      if(key) setPending(true);
       setError(error instanceof Error ? error.message : 'Die Eingabe konnte nicht gespeichert werden.');
     }
     finally {
-      if(attempt.current) attempt.current.submitting=false;
+      submitting.current=false;
       setBusy(false);
     }
   }
-  return <form className={className} onSubmit={onSubmit}>
+  return <form ref={formRef} className={className} onSubmit={onSubmit}>
     {fields.map((field)=><label key={field.name} className={field.type==='textarea'?'wide':''}>
       <span>{field.label}</span>
       {field.choices ? <select name={field.name} defaultValue={field.value ?? ''} required={field.required}><option value="">Auswählen</option>
@@ -64,9 +102,14 @@ export function Form({fields,caption,submit,children,className='form-grid',retry
     {error && <p role="alert" className="inline-error wide">{error}</p>}
     {pending && <div className="wide">
       <p role="status">Der letzte Vorgang kann bereits gespeichert sein. Sende dieselben Angaben erneut, um ihn zu prüfen.</p>
-      <button type="button" disabled={busy} onClick={()=>{attempt.current=undefined;setPending(false);setError('');}}>
-        Neuen Vorgang beginnen
-      </button>
+      <div className="actions">
+        <button type="button" disabled={busy} onClick={()=>{if(attempt.current) void send(attempt.current.values);}}>
+          Letzten Vorgang erneut senden
+        </button>
+        <button type="button" disabled={busy} onClick={()=>{if(attempt.current) clearAttempt(attempt.current.key);setError('');}}>
+          Neuen Vorgang beginnen
+        </button>
+      </div>
     </div>}
     <div className="form-action"><button className="primary" disabled={busy}>{busy?'Wird gespeichert …':caption}</button></div>
   </form>;

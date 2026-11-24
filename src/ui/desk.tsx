@@ -106,7 +106,7 @@ export function Desk() {
       {section==='projects' && (project?<Project key={project.id} project={project} data={data} run={run} flags={flags} back={()=>navigate('projects')}/>
         :<Projects data={data} run={run} select={(id)=>navigate('projects',id)}/>)}
       {section==='contacts' && <Contacts data={data} run={run} haben={flags.haben}/>}
-      {section==='warehouse' && <Warehouse data={data} run={run}/>}
+      {section==='warehouse' && <Warehouse data={data} run={run} accountId={person.id}/>}
       {section==='costs' && <Costs data={data} run={run}/>}
       {section==='settings'&&person.role==='admin' && <Settings data={data} run={run} flags={flags}/>}
     </main>
@@ -180,7 +180,7 @@ function Contacts({data,run,haben}:{data:Data;run:Run;haben:boolean}) {
   </>;
 }
 
-function Warehouse({data,run}:{data:Data;run:Run}) {
+function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
   const bookings=data.reservations.filter((row)=>row.item_id&&(row.status==='firm'||row.checked_out>0));
   const bookingChoices=bookings.map((row)=>({value:row.id,label:`${name(data.projects,row.project_id)} · ${name(data.items,row.item_id)}`}));
   return <>
@@ -192,12 +192,12 @@ function Warehouse({data,run}:{data:Data;run:Run}) {
         {name:'kind',label:'Artikelart',choices:[{value:'equipment',label:'Gerät'},{value:'consumable',label:'Verbrauchsmaterial'}],required:true},
         {name:'inventory_number',label:'Inventarnummer für Einzelgerät'},
       ]} submit={(input)=>run(()=>api('items','POST',{...input,inventory_number:input.inventory_number||null}),'Artikel angelegt.')}/></Expand>
-      <Expand title="Wareneingang"><Form caption="Wareneingang buchen" retryable fields={[
+      <Expand title="Wareneingang"><Form caption="Wareneingang buchen" retryScope={`movements:${accountId}:receive`} fields={[
         {name:'item_id',label:'Artikel',choices:options(data.items),required:true},{name:'location_id',label:'Lagerort',choices:options(data.locations),required:true},
         {name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},{name:'project_id',label:'Projektbezug',choices:options(data.projects)},
       ]} submit={(input,key)=>run(()=>api('movements','POST',{action:'receive',item_id:input.item_id,location_id:input.location_id,
         quantity:Number(input.quantity),project_id:input.project_id||undefined},key),'Wareneingang erfasst.')}/></Expand>
-      <Expand title="Ausgabe, Rückgabe oder Verbrauch"><Form caption="Bewegung buchen" retryable fields={[
+      <Expand title="Ausgabe, Rückgabe oder Verbrauch"><Form caption="Bewegung buchen" retryScope={`movements:${accountId}:booking`} fields={[
         {name:'action',label:'Bewegungsart',choices:[{value:'issue',label:'Ausgabe'},{value:'return',label:'Rückgabe'},{value:'consume',label:'Verbrauch'}],required:true},
         {name:'reservation_id',label:'Projektreservierung',choices:bookingChoices,required:true},
         {name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},

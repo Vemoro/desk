@@ -25,6 +25,7 @@ Desk legt Angebote in der ersten Version über die manuelle Übergabe an Haben a
 - `DESK_ORIGIN` auf die externe HTTPS-Adresse setzen. Den Dienst hinter einem HTTPS-Reverse-Proxy betreiben. Für eine Demo eine separate Datenbank mit dem Suffix `_demo` verwenden.
 - Teamkonten und widerrufbare API-Tokens stehen in den Einstellungen. Der API-Vertrag ist unter `/api/v1/openapi.json` verfügbar. Schreibende Tickets, Kontakte und andere Vorgänge laufen über die jeweils eingerichteten Serverzugänge.
 - Bei `POST /api/v1/movements` kann ein optionaler `Idempotency-Key` übermittelt werden. Bei unklarer Antwort denselben Schlüssel und dieselben Angaben vom selben Konto erneut senden. Desk gibt die gespeicherte Buchung mit HTTP 201 zurück. Andere Angaben zum selben Schlüssel ergeben HTTP 409. Für eine neue Buchung einen neuen Schlüssel verwenden. Ohne Schlüssel behandelt Desk jeden Aufruf als eigene Buchung.
+- Für offene Lagerbuchungen behält die Oberfläche den Vorgang im Browser-Tab über das Neuladen hinweg. Bei unklarer Antwort im selben Formular „Letzten Vorgang erneut senden“ wählen. „Neuen Vorgang beginnen“ startet eine neue Buchung.
 - PostgreSQL sichern. Vor einem Update die Wiederherstellung in einer getrennten Instanz prüfen. Für Desktop und Smartphone dieselbe HTTPS-Adresse verwenden.
 
 ## Ansichten
