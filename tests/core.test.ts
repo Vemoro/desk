@@ -106,6 +106,11 @@ describe('API und Integrationen',()=>{
     expect(response.status).toBe(201);
     expect((await response.json()).delivery_reference).toBe(valid);
     expect((await post('L'.repeat(161))).status).toBe(400);
+    const unicode='📦'.repeat(160);
+    const unicodeReceipt=await post(unicode);
+    expect(unicodeReceipt.status).toBe(201);
+    expect((await unicodeReceipt.json()).delivery_reference).toBe(unicode);
+    expect((await post('📦'.repeat(161))).status).toBe(400);
 
     await db.begin(async(transaction)=>{
       // A temporary copy models the pre-migration table without touching the live test schema.
