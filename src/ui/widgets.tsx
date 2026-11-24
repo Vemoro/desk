@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 import type { Row } from './client';
 
 export type Run = (operation:()=>Promise<unknown>, feedback?:string)=>Promise<boolean>;
@@ -11,20 +11,45 @@ export function options(records:Row[]) {
   return records.map((record)=>({value:record.id,label:record.name ?? record.label ?? record.id}));
 }
 
-export function Form({fields,caption,submit,children,className='form-grid'}:{
-  fields:Field[]; caption:string; submit:(values:Record<string,string>)=>Promise<unknown>; children?:ReactNode; className?:string;
+export function Form({fields,caption,submit,children,className='form-grid',retryable=false}:{
+  fields:Field[]; caption:string; submit:(values:Record<string,string>,requestKey?:string)=>Promise<unknown>;
+  children?:ReactNode; className?:string; retryable?:boolean;
 }) {
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
+  const [pending,setPending]=useState(false);
+  const attempt=useRef<{key:string;input:string;submitting:boolean}|undefined>(undefined);
   async function onSubmit(event:FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
     const form=event.currentTarget;
     const values=Object.fromEntries(Array.from(new FormData(form),([key,value])=>[key,String(value)]));
+    if(retryable) {
+      if(attempt.current?.submitting) return;
+      const input=JSON.stringify(values);
+      if(attempt.current && attempt.current.input!==input) {
+        setError('Sende die bisherigen Angaben erneut oder beginne einen neuen Vorgang.');
+        return;
+      }
+      attempt.current ??= {key:crypto.randomUUID(),input,submitting:false};
+      attempt.current.submitting=true;
+    }
     setBusy(true);
-    try { await submit(values); }
-    catch(error) { setError(error instanceof Error ? error.message : 'Die Eingabe konnte nicht gespeichert werden.'); }
-    finally { setBusy(false); }
+    try {
+      const result=await submit(values,attempt.current?.key);
+      if(retryable && result===true){
+        attempt.current=undefined;
+        setPending(false);
+      } else if(retryable) setPending(true);
+    }
+    catch(error) {
+      if(retryable) setPending(true);
+      setError(error instanceof Error ? error.message : 'Die Eingabe konnte nicht gespeichert werden.');
+    }
+    finally {
+      if(attempt.current) attempt.current.submitting=false;
+      setBusy(false);
+    }
   }
   return <form className={className} onSubmit={onSubmit}>
     {fields.map((field)=><label key={field.name} className={field.type==='textarea'?'wide':''}>
@@ -37,6 +62,12 @@ export function Form({fields,caption,submit,children,className='form-grid'}:{
     </label>)}
     {children}
     {error && <p role="alert" className="inline-error wide">{error}</p>}
+    {pending && <div className="wide">
+      <p role="status">Der letzte Vorgang kann bereits gespeichert sein. Sende dieselben Angaben erneut, um ihn zu prüfen.</p>
+      <button type="button" disabled={busy} onClick={()=>{attempt.current=undefined;setPending(false);setError('');}}>
+        Neuen Vorgang beginnen
+      </button>
+    </div>}
     <div className="form-action"><button className="primary" disabled={busy}>{busy?'Wird gespeichert …':caption}</button></div>
   </form>;
 }

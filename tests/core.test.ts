@@ -82,6 +82,66 @@ describe('Fachlicher Projektablauf', () => {
 });
 
 describe('API und Integrationen',()=>{
+  test('Lagerbewegungen mit demselben Vorgangsschlüssel werden genau einmal gebucht',async()=>{
+    const data=await fixture(saveCore,'Wiederholte Lagerbewegungen');
+    await changeStage(data.project,'planning');
+    await saveCore('projects',{offer_ref:'ANG-WIEDERHOLUNG'},data.project);
+    await changeStage(data.project,'offered');
+    await changeStage(data.project,'confirmed');
+    const token=await createToken(actor,{label:'Lagerwiederholung',scope:'write'});
+    async function call(input:object,key?:string){
+      const headers:Record<string,string>={Authorization:`Bearer ${token.token}`,'Content-Type':'application/json'};
+      if(key!==undefined) headers['Idempotency-Key']=key;
+      return handle(new Request('http://desk.local/api/v1/movements',{
+        method:'POST',headers,body:JSON.stringify(input),
+      }));
+    }
+    async function ok(input:object,key?:string){
+      const response=await call(input,key);
+      expect(response.status).toBe(201);
+      return await response.json() as {id:string};
+    }
+    const receipt={action:'receive',item_id:data.material,location_id:data.location,quantity:10};
+    const receiptKey=crypto.randomUUID();
+    const receipts=await Promise.all([ok(receipt,receiptKey),ok(receipt,receiptKey)]);
+    expect(receipts[0]).toEqual(receipts[1]);
+    expect((await call({...receipt,quantity:11},receiptKey)).status).toBe(409);
+    expect((await call(receipt,'ungültiger Schlüssel')).status).toBe(400);
+    expect((await listStock()).find(row=>row.item_id===data.material)?.physical).toBe(10);
+
+    const material=getId(await createReservation({...data.booking,item_id:data.material,quantity:4}));
+    await setReservation(material,'firm');
+    const consume={action:'consume',reservation_id:material,quantity:1};
+    const consumeKey=crypto.randomUUID();
+    const consumed=await ok(consume,consumeKey);
+    expect(await ok(consume,consumeKey)).toEqual(consumed);
+    expect((await listStock()).find(row=>row.item_id===data.material)).toMatchObject({physical:9,reserved:3});
+    expect((await ok(consume,crypto.randomUUID())).id).not.toBe(consumed.id);
+    expect((await listStock()).find(row=>row.item_id===data.material)).toMatchObject({physical:8,reserved:2});
+
+    await ok({action:'receive',item_id:data.equipment,location_id:data.location,quantity:4});
+    const equipment=getId(await createReservation({...data.booking,item_id:data.equipment,quantity:4,
+      starts_at:addMinutes(Date.now(),-5),ends_at:addMinutes(Date.now(),60)}));
+    const issue={action:'issue',reservation_id:equipment,quantity:2};
+    const issueKey=crypto.randomUUID();
+    expect((await call(issue,issueKey)).status).toBe(409);
+    await setReservation(equipment,'firm');
+    const issued=await ok(issue,issueKey);
+    expect(await ok(issue,issueKey)).toEqual(issued);
+    const giveBack={action:'return',reservation_id:equipment,quantity:1};
+    const returnKey=crypto.randomUUID();
+    const returned=await ok(giveBack,returnKey);
+    expect(await ok(giveBack,returnKey)).toEqual(returned);
+    await setReservation(equipment,'released');
+    expect(await ok(issue,issueKey)).toEqual(issued);
+    expect((await listStock()).find(row=>row.item_id===data.equipment)?.physical).toBe(3);
+    expect(await first(db,'SELECT count(*)::integer AS count FROM movements WHERE reservation_id=$1',[equipment]))
+      .toEqual({count:2});
+    await expect(ok(receipt)).resolves.toHaveProperty('id');
+    await expect(ok(receipt)).resolves.toHaveProperty('id');
+    expect((await listStock()).find(row=>row.item_id===data.material)?.physical).toBe(28);
+  });
+
   test('OpenAPI und Berechtigungen eines widerrufbaren Tokens',async()=>{
     const anonymous=await handle(new Request('http://desk.local/api/v1/projects'));
     expect(anonymous.status).toBe(401);

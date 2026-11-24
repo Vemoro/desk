@@ -192,16 +192,16 @@ function Warehouse({data,run}:{data:Data;run:Run}) {
         {name:'kind',label:'Artikelart',choices:[{value:'equipment',label:'Gerät'},{value:'consumable',label:'Verbrauchsmaterial'}],required:true},
         {name:'inventory_number',label:'Inventarnummer für Einzelgerät'},
       ]} submit={(input)=>run(()=>api('items','POST',{...input,inventory_number:input.inventory_number||null}),'Artikel angelegt.')}/></Expand>
-      <Expand title="Wareneingang"><Form caption="Wareneingang buchen" fields={[
+      <Expand title="Wareneingang"><Form caption="Wareneingang buchen" retryable fields={[
         {name:'item_id',label:'Artikel',choices:options(data.items),required:true},{name:'location_id',label:'Lagerort',choices:options(data.locations),required:true},
         {name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},{name:'project_id',label:'Projektbezug',choices:options(data.projects)},
-      ]} submit={(input)=>run(()=>api('movements','POST',{action:'receive',item_id:input.item_id,location_id:input.location_id,
-        quantity:Number(input.quantity),project_id:input.project_id||undefined}),'Wareneingang erfasst.')}/></Expand>
-      <Expand title="Ausgabe, Rückgabe oder Verbrauch"><Form caption="Bewegung buchen" fields={[
+      ]} submit={(input,key)=>run(()=>api('movements','POST',{action:'receive',item_id:input.item_id,location_id:input.location_id,
+        quantity:Number(input.quantity),project_id:input.project_id||undefined},key),'Wareneingang erfasst.')}/></Expand>
+      <Expand title="Ausgabe, Rückgabe oder Verbrauch"><Form caption="Bewegung buchen" retryable fields={[
         {name:'action',label:'Bewegungsart',choices:[{value:'issue',label:'Ausgabe'},{value:'return',label:'Rückgabe'},{value:'consume',label:'Verbrauch'}],required:true},
         {name:'reservation_id',label:'Projektreservierung',choices:bookingChoices,required:true},
         {name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},
-      ]} submit={(input)=>run(()=>api('movements','POST',{...input,quantity:Number(input.quantity)}),'Lagerbewegung gebucht.')}/></Expand>
+      ]} submit={(input,key)=>run(()=>api('movements','POST',{...input,quantity:Number(input.quantity)},key),'Lagerbewegung gebucht.')}/></Expand>
     </div>
     <Table headers={['Artikel','Lagerort','Physisch','Reserviert','Frei']} rows={data.stock.map((row)=>({key:`${row.item_id}/${row.location_id}`,cells:[
       name(data.items,row.item_id),name(data.locations,row.location_id),row.physical,row.reserved,<strong>{row.free}</strong>,

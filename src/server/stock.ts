@@ -9,7 +9,12 @@ type Reservation = {
   quantity: number; starts_at: Date; ends_at: Date; status: 'tentative' | 'firm' | 'released';
 };
 type Item = { id: string; kind: 'equipment' | 'consumable'; inventory_number: string | null };
+type Movement = {
+  id: string; item_id: string; location_id: string; project_id: string | null; reservation_id: string | null;
+  actor_id: string; action: string; quantity: number; created_at: Date | string;
+};
 type Stock = { item_id: string; location_id: string; physical: number; reserved: number; free: number };
+type WriteRequest = { actorId:string; key:string };
 const item = async (query: Query, id: string) =>
   required(await first<Item>(query, 'SELECT id,kind,inventory_number FROM items WHERE id=$1', [id]), 'Artikel fehlt.');
 const reservation = async (query: Query, id: string) =>
@@ -89,9 +94,32 @@ export async function setReservation(id: string, status: 'firm' | 'released') {
   });
 }
 
-export async function createMovement(input: z.infer<typeof movementInput>, actor: string) {
+async function planningWrite<T extends object>(operation:string, request:WriteRequest | undefined, input:object,
+  write:(transaction:Query)=>Promise<T | undefined>) {
   return db.begin(async (transaction) => {
     await lockPlanning(transaction);
+    if (!request) return write(transaction);
+    const identity = [request.actorId,operation,request.key];
+    const saved = await first<{ matches:boolean; response_data:T }>(transaction,
+      `SELECT request_data=$4::jsonb AS matches,response_data FROM stock_write_requests
+       WHERE actor_id=$1 AND operation=$2 AND request_key=$3`,[...identity,input]);
+    if (saved) {
+      if (!saved.matches) throw new DeskError(409, 'Der Vorgangsschlüssel wurde bereits mit anderen Angaben verwendet.');
+      return saved.response_data;
+    }
+    const response = required(await write(transaction));
+    await transaction.unsafe(
+      `INSERT INTO stock_write_requests(actor_id,operation,request_key,request_data,response_data)
+       VALUES($1,$2,$3,$4::jsonb,$5::jsonb)`,[...identity,input,response]);
+    return response;
+  });
+}
+
+export async function createMovement(input: z.infer<typeof movementInput>, actor: string, requestKey?:string) {
+  const normalized = input.action==='receive' ? {...input,item_id:input.item_id.toLowerCase(),
+    location_id:input.location_id.toLowerCase(),project_id:input.project_id?.toLowerCase()} :
+    {...input,reservation_id:input.reservation_id.toLowerCase()};
+  return planningWrite('movements',requestKey ? {actorId:actor,key:requestKey} : undefined,normalized,async transaction=>{
     if (input.action === 'receive') {
       const material = await item(transaction, input.item_id);
       if (material.inventory_number) {
@@ -126,7 +154,7 @@ export async function createMovement(input: z.infer<typeof movementInput>, actor
 }
 
 function insertMovement(query: Query, material: string, location: string, project: string | null, booking: string | null, actor: string, action: string, quantity: number) {
-  return first(query, `INSERT INTO movements(item_id,location_id,project_id,reservation_id,actor_id,action,quantity)
+  return first<Movement>(query, `INSERT INTO movements(item_id,location_id,project_id,reservation_id,actor_id,action,quantity)
     VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [material,location,project,booking,actor,action,quantity]);
 }
 
