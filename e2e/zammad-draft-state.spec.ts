@@ -267,3 +267,33 @@ test('Der Entwurf ist bereits beim Lesen des Dateianhangs gesperrt',async({page}
   expect(ui.messages).toHaveLength(1);
   await expect(ui.body).toHaveValue(String(ui.messages[0].body));
 });
+
+test('Der Versandstatus des Entwurfs bleibt während des Verlaufsabrufs sichtbar',async({page})=>{
+  const ui=await compose(page,route=>{
+    const message=route.request().postDataJSON();
+    ui.outgoing.push({...message,status:'unknown'});
+    return route.fulfill({json:{id:message.id,status:'unknown'}});
+  });
+  const refreshed=page.waitForResponse(response=>response.url().endsWith('/projekt/zammad'));
+  await ui.submit.click();
+  await (await refreshed).finished();
+  const shipping=ui.panel.getByRole('status',{name:'Versandstatus'});
+  await expect(shipping).toContainText('Ausgang ist unklar');
+
+  let release!:()=>void;
+  const gate=new Promise<void>(resolve=>{release=resolve;});
+  await page.route(path,async route=>{
+    await gate;
+    await route.fulfill({status:503,json:{error:'Verlauf vorübergehend nicht verfügbar.'}});
+  });
+  await ui.panel.getByRole('button',{name:'Verlauf aktualisieren'}).click();
+  const loading=ui.panel.getByRole('status',{name:'Abrufstatus'});
+  await expect(loading).toHaveText('Verlauf wird geladen …');
+  await expect(shipping).toBeVisible();
+  await expect(shipping).toContainText('Ausgang ist unklar');
+  expect(ui.messages).toHaveLength(1);
+  release();
+  await expect(loading).toBeEmpty();
+  await expect(ui.panel.getByRole('alert')).toHaveText('Verlauf vorübergehend nicht verfügbar.');
+  await expect(shipping).toContainText('Ausgang ist unklar');
+});
