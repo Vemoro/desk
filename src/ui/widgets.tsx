@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 import type { Row } from './client';
 
 export type Run = (operation:()=>Promise<unknown>, feedback?:string)=>Promise<boolean>;
@@ -16,15 +16,22 @@ export function Form({fields,caption,submit,children,className='form-grid'}:{
 }) {
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
+  const submitting=useRef(false);
   async function onSubmit(event:FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if(submitting.current) return;
+    submitting.current=true;
     setError('');
-    const form=event.currentTarget;
-    const values=Object.fromEntries(Array.from(new FormData(form),([key,value])=>[key,String(value)]));
     setBusy(true);
-    try { await submit(values); }
-    catch(error) { setError(error instanceof Error ? error.message : 'Die Eingabe konnte nicht gespeichert werden.'); }
-    finally { setBusy(false); }
+    try {
+      const values=Object.fromEntries(Array.from(new FormData(event.currentTarget),([key,value])=>[key,String(value)]));
+      await submit(values);
+    } catch(error) {
+      setError(error instanceof Error ? error.message : 'Die Eingabe konnte nicht gespeichert werden.');
+    } finally {
+      submitting.current=false;
+      setBusy(false);
+    }
   }
   return <form className={className} onSubmit={onSubmit}>
     {fields.map((field)=><label key={field.name} className={field.type==='textarea'?'wide':''}>
