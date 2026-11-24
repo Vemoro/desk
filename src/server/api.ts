@@ -143,7 +143,7 @@ function openApi() {
       summary:op.summary,
       security:[{token:[]}],
       parameters:[...op.path.matchAll(/\{(\w+)\}/g)].map(([,name])=>({name,in:'path',required:true,schema:{type:'string',format:'uuid'}})),
-      ...(op.input ? { requestBody:{ required:true,content:{'application/json':{schema:z.toJSONSchema(op.input,{target:'openapi-3.0',io:'input'})}} } } : {}),
+      ...(op.input ? { requestBody:{ required:true,content:{'application/json':{schema:z.toJSONSchema(op.input,{target:'draft-2020-12',io:'input'})}} } } : {}),
       responses:{ [op.method === 'POST' ? '201' : '200']:{description:'Erfolg'}, 400:{description:'Ungültige Eingabe'},
         401:{description:'Anmeldung erforderlich'},403:{description:'Zugriff verweigert'},409:{description:'Konflikt'} },
     };
