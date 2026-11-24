@@ -98,7 +98,7 @@ export async function createMovement(input: z.infer<typeof movementInput>, actor
         const existed = await first(transaction, "SELECT id FROM movements WHERE item_id=$1 AND action='receive' LIMIT 1", [input.item_id]);
         if (input.quantity !== 1 || existed) throw new DeskError(409, 'Ein Einzelgerät kann genau einmal als Wareneingang erfasst werden.');
       }
-      return insertMovement(transaction, input.item_id, input.location_id, input.project_id ?? null, null, actor, input.action, input.quantity);
+      return insertMovement(transaction, input.item_id, input.location_id, input.project_id ?? null, null, actor, input.action, input.quantity, input.delivery_reference || null);
     }
     const current = await reservation(transaction, input.reservation_id);
     if (!current.item_id || !current.location_id) throw new DeskError(400, 'Diese Reservierung betrifft kein Material.');
@@ -125,9 +125,9 @@ export async function createMovement(input: z.infer<typeof movementInput>, actor
   });
 }
 
-function insertMovement(query: Query, material: string, location: string, project: string | null, booking: string | null, actor: string, action: string, quantity: number) {
-  return first(query, `INSERT INTO movements(item_id,location_id,project_id,reservation_id,actor_id,action,quantity)
-    VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [material,location,project,booking,actor,action,quantity]);
+function insertMovement(query: Query, material: string, location: string, project: string | null, booking: string | null, actor: string, action: string, quantity: number, deliveryReference: string | null = null) {
+  return first(query, `INSERT INTO movements(item_id,location_id,project_id,reservation_id,actor_id,action,quantity,delivery_reference)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`, [material,location,project,booking,actor,action,quantity,deliveryReference]);
 }
 
 export async function listStock() {

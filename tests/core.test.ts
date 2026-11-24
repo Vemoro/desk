@@ -82,6 +82,43 @@ describe('Fachlicher Projektablauf', () => {
 });
 
 describe('API und Integrationen',()=>{
+  test('Wareneingang übernimmt optionale Lieferscheinreferenzen und erhält alte Buchungen',async()=>{
+    const data=await fixture(saveCore,'Lieferschein');
+    const token=await createToken(actor,{label:'Wareneingang',scope:'write'});
+    const headers={Authorization:`Bearer ${token.token}`,'Content-Type':'application/json'};
+    const payload={action:'receive',item_id:data.material,location_id:data.location,quantity:1};
+    const post=(reference?:string)=>handle(new Request('http://localhost/api/v1/movements',{
+      method:'POST',headers,body:JSON.stringify({...payload,delivery_reference:reference}),
+    }));
+
+    const firstReceipt=await post();
+    expect(firstReceipt.status).toBe(201);
+    const old=await firstReceipt.json();
+    expect(old.delivery_reference).toBeNull();
+    for(const value of ['', '   ']){
+      const response=await post(value);
+      expect(response.status).toBe(201);
+      expect((await response.json()).delivery_reference).toBeNull();
+    }
+
+    const valid='L'.repeat(160);
+    const response=await post(`  ${valid}  `);
+    expect(response.status).toBe(201);
+    expect((await response.json()).delivery_reference).toBe(valid);
+    expect((await post('L'.repeat(161))).status).toBe(400);
+
+    await db.begin(async(transaction)=>{
+      // A temporary copy models the pre-migration table without touching the live test schema.
+      await transaction.unsafe('CREATE TEMP TABLE movements (LIKE public.movements INCLUDING DEFAULTS) ON COMMIT DROP');
+      await transaction.unsafe('ALTER TABLE movements DROP COLUMN delivery_reference');
+      await transaction.unsafe('INSERT INTO movements(id,item_id,location_id,actor_id,action,quantity) VALUES($1,$2,$3,$4,$5,$6)',
+        [old.id,data.material,data.location,actor.id,'receive',1]);
+      await transaction.unsafe(await Bun.file(new URL('../migrations/002_delivery_reference.sql',import.meta.url)).text()).simple();
+      expect(await first(transaction,'SELECT id,delivery_reference FROM movements WHERE id=$1',[old.id]))
+        .toEqual({id:old.id,delivery_reference:null});
+    });
+  });
+
   test('OpenAPI und Berechtigungen eines widerrufbaren Tokens',async()=>{
     const anonymous=await handle(new Request('http://desk.local/api/v1/projects'));
     expect(anonymous.status).toBe(401);
