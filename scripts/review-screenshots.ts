@@ -57,7 +57,14 @@ async function capture(browser:Browser, target:Target, password:string) {
         viewport:{width,height},locale:'de-DE',timezoneId:'Europe/Berlin',serviceWorkers:'block',
       });
       try {
-        await context.route('**/*',route=>localRoute(route,target.origin));
+        await context.route('**/*',async route=>{
+          try {
+            await localRoute(route,target.origin);
+          } catch {
+            // A closed or unreachable target must not surface Playwright request details.
+            await route.abort().catch(()=>{});
+          }
+        });
         const page=await context.newPage();
         page.setDefaultTimeout(8_000);
         await page.clock.setFixedTime(new Date('2028-05-18T10:00:00Z'));
