@@ -5,13 +5,14 @@ const panel=(page:Page,name:string)=>page.locator('.panel').filter({has:page.get
 
 const first='Musterinstallation';
 const second='Musterbetreuung';
+const empty='Musterprojekt ohne Belege';
 async function show(page:Page,title:string){
   await project(page,title);
   await page.getByRole('button',{name:'Controlling',exact:true}).click();
 }
 async function openTarget(page:Page){
   const fixtures={
-    projects:[{id:'one',name:first,stage:'planning'},{id:'two',name:second,stage:'planning'}],
+    projects:[{id:'one',name:first,stage:'planning'},{id:'two',name:second,stage:'planning'},{id:'empty',name:empty,stage:'planning'}],
     costs:[
       {id:'a',project_id:'one',reference:'RE-M-24',name:'Material Montage',source:'haben-export',cents:3000},
       {id:'b',project_id:'one',reference:'GS-M-24',name:'Gutschrift',source:'haben-export',cents:-500},
@@ -109,4 +110,13 @@ test('Projektcontrolling setzt Belegsuche und Quellenfilter gemeinsam zurück',a
   await expect(noResults).toHaveCount(0);
   await expect(metrics).toHaveText(totals);
   await expect(reset).toBeDisabled();
+
+  await show(page,empty);
+  const emptyState=target.getByText('Noch keine Einträge.');
+  await expect(emptyState).toBeVisible();
+  await search.fill('Montage');
+  await expect(noResults).toBeVisible();
+  await reset.click();
+  await expect(emptyState).toBeVisible();
+  await expect(noResults).toHaveCount(0);
 });
