@@ -3,7 +3,7 @@ import { money } from './client';
 
 export const csvCostSource='haben-export';
 
-type RecordLine = { line:number; values:string[]; problem:string };
+type RecordLine = { line:number; values:string[]; problem?:{field:number;message:string} };
 export type CostPreviewRow = {
   line:number;
   reference:string;
@@ -20,7 +20,7 @@ function readRecords(text:string,delimiter:string) {
   let field='';
   let quoted=false;
   let closedQuote=false;
-  let problem='';
+  let problem:RecordLine['problem'];
 
   function finishField() {
     values.push(field);
@@ -32,7 +32,7 @@ function readRecords(text:string,delimiter:string) {
     finishField();
     if(problem || values.length>1 || values[0].trim()) records.push({line:startLine,values,problem});
     values=[];
-    problem='';
+    problem=undefined;
   }
 
   for(let index=0;index<text.length;index++){
@@ -53,11 +53,11 @@ function readRecords(text:string,delimiter:string) {
     } else if(char==='"' && !field && !closedQuote){
       quoted=true;
     } else {
-      if(char==='"' || (closedQuote && char!==' ' && char!=='\t')) problem='Ungültige Anführungszeichen.';
+      if(char==='"' || (closedQuote && char!==' ' && char!=='\t')) problem??={field:values.length,message:'Ungültige Anführungszeichen.'};
       field+=char;
     }
   }
-  if(quoted) problem='Nicht geschlossenes Anführungszeichen.';
+  if(quoted) problem??={field:values.length,message:'Nicht geschlossenes Anführungszeichen.'};
   finishRecord();
   return records;
 }
@@ -83,8 +83,11 @@ export function parseCostCsv(text:string):CostPreviewRow[] {
   return records.map((record)=>{
     const row=Object.fromEntries(columns.map((column,index)=>[column,record.values[index]?.trim() ?? '']));
     const problems:string[]=[];
-    if(record.problem) problems.push(`CSV: ${record.problem}`);
-    if(record.values.length>columns.length) problems.push('CSV: Mehr Felder als in der Kopfzeile.');
+    if(record.problem){
+      const {field,message}=record.problem;
+      problems.push(`${columns[field] ?? `Spalte ${field+1}`}: ${message}`);
+    }
+    if(record.values.length>columns.length) problems.push(`Spalte ${columns.length+1}: Mehr Felder als in der Kopfzeile.`);
     if((references.get(row.reference) ?? 0)>1) problems.push('reference: Doppelte Belegreferenz.');
     let cents:number|undefined;
     try { cents=money(row.amount); }

@@ -19,7 +19,7 @@ test('CSV meldet fehlerhafte Felder pro Zeile und lehnt doppelte Referenzen beid
   expect(rows[1].problems).toContain('reference: Doppelte Belegreferenz.');
   expect(rows[2].problems).toContain('name: Zwischen 1 und 160 Zeichen eingeben.');
   expect(rows[3].problems).toContain('amount: Betrag liegt außerhalb des zulässigen Bereichs.');
-  expect(rows[4].problems).toContain('CSV: Nicht geschlossenes Anführungszeichen.');
+  expect(rows[4].problems).toContain('name: Nicht geschlossenes Anführungszeichen.');
   expect(rows.every((row)=>!row.entry)).toBe(true);
 });
 
@@ -31,7 +31,7 @@ test('CSV blockiert ungültige oder mehrdeutige Kopfzeilen',()=>{
 test('Eine Referenz bleibt auch bei einem kaputten zweiten CSV-Datensatz doppelt',()=>{
   const rows=parseCostCsv('reference;name;amount\nB-1;Erster;1\nB-1;Defektes"Feld;2');
   expect(rows[0].problems).toContain('reference: Doppelte Belegreferenz.');
-  expect(rows[1].problems).toContain('CSV: Ungültige Anführungszeichen.');
+  expect(rows[1].problems).toContain('name: Ungültige Anführungszeichen.');
   expect(rows[1].problems).toContain('reference: Doppelte Belegreferenz.');
   expect(rows.every((row)=>!row.entry)).toBe(true);
 });

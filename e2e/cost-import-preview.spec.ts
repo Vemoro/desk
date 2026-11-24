@@ -9,6 +9,7 @@ const csv=[
   'B-4;Ersatz;falsch;K-2',
   'B-5;Schrauben;6;K-2',
   ' B-5 ;Schrauben erneut;6;K-2',
+  'B-6;Kaputtes"Feld;2;K-2',
 ].join('\r\n');
 
 test('Kosten-CSV lokal prüfen und nur gültige Zeilen ausdrücklich übernehmen',async({page})=>{
@@ -49,6 +50,7 @@ test('Kosten-CSV lokal prüfen und nur gültige Zeilen ausdrücklich übernehmen
   await expect(preview.getByRole('row').filter({hasText:'B-3'})).toContainText('Ohne Zuordnung');
   await expect(preview.getByRole('row').filter({hasText:'B-3'})).toContainText('Kostenstelle fehlt.');
   await expect(preview.getByRole('row').filter({hasText:'B-4'})).toContainText('amount');
+  await expect(preview.getByRole('row').filter({hasText:'B-6'})).toContainText('name: Ungültige Anführungszeichen.');
   await expect(preview.getByRole('row').filter({hasText:'B-5'})).toHaveCount(2);
   await expect(preview.getByText('reference: Doppelte Belegreferenz.',{exact:true})).toHaveCount(2);
   expect(posts).toHaveLength(0);
