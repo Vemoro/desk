@@ -10,7 +10,7 @@ export default defineConfig({
     env:{DESK_ORIGIN:baseURL},reuseExistingServer:!process.env.CI,
   },
   projects:[
-    {name:'core',testMatch:['core.spec.ts','refresh-after-save.spec.ts','confirmation-dialogs.spec.ts','calculation-totals.spec.ts','offer-export-preview.spec.ts'],use:{...devices['Desktop Chrome']}},
+    {name:'core',testMatch:['core.spec.ts','offer-preview-total.spec.ts','refresh-after-save.spec.ts','confirmation-dialogs.spec.ts','calculation-totals.spec.ts','offer-export-preview.spec.ts'],use:{...devices['Desktop Chrome']}},
     {name:'screenshots',testMatch:'screenshots.spec.ts',use:{...devices['Desktop Chrome']}},
   ],
 });

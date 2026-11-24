@@ -12,6 +12,7 @@ export function OfferExport({project,run}:{project:Pick<Row,'id'>;run:Run}) {
   const requestVersion=useRef(0);
   const [preview,setPreview]=useState<Preview>({status:'loading'});
   const positions=preview.status==='ready'?preview.positions:[];
+  const totalCents=positions.reduce((sum,{quantity,unit_cents})=>sum+quantity*unit_cents,0);
 
   useEffect(()=>()=>{requestVersion.current++;},[]);
 
@@ -57,6 +58,7 @@ export function OfferExport({project,run}:{project:Pick<Row,'id'>;run:Run}) {
           key:String(index),cells:[row.name,row.quantity,euros(row.unit_cents)],
         }))}/>
         : <p role="status">Für dieses Projekt sind keine Verkaufspositionen vorhanden.</p>)}
+      {positions.length>0 && <p><strong>Netto-Summe {euros(totalCents)}</strong></p>}
       <div className="actions">
         <button type="button" ref={closeButton} onClick={closePreview}>Schließen</button>
         {preview.status==='failed'&&<button type="button" onClick={()=>{closeButton.current?.focus();void loadPositions();}}>
