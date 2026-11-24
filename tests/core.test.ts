@@ -1,0 +1,250 @@
+import { beforeAll, describe, expect, test } from 'bun:test';
+
+const database = process.env.DATABASE_URL;
+if (!database || !new URL(database).pathname.endsWith('_test')) throw new Error('Tests benötigen eine isolierte DATABASE_URL mit Endung _test.');
+
+const { db, first } = await import('../src/server/db');
+const { createAccount, createToken } = await import('../src/server/auth');
+const { handle } = await import('../src/server/api');
+const { changeStage, controlling, importCosts, saveCore } = await import('../src/server/core');
+const { createReservation, setReservation, createMovement, listReservations, listStock } = await import('../src/server/stock');
+const { addMinutes, fixture } = await import('./fixture');
+let actor: NonNullable<Awaited<ReturnType<typeof createAccount>>>;
+const getId = (value:unknown)=>(value as {id:string}).id;
+
+beforeAll(async () => {
+  const existing = await first<{ id:string; name:string; email:string; role:'admin' }>(db,'SELECT id,name,email,role FROM users WHERE email=$1',['admin@example.test']);
+  actor=existing ?? (await createAccount({email:'admin@example.test',name:'Testperson',password:'muster-test-passwort',role:'admin'}))!;
+});
+
+describe('Fachlicher Projektablauf', () => {
+  for (const [example, reserve] of [['Veranstaltungsbetreuung', true],['Büroinstallation',false]] as const) {
+    test(`${example} ohne Integrationen bis zur Rechnungsreferenz`,async()=>{
+      const data=await fixture(saveCore,example);
+      const project=data.project;
+      await saveCore('tasks',{project_id:project,name:'Auftrag vorbereiten',assignee_id:actor.id,status:'todo'});
+      await changeStage(project,'planning');
+      await expect(changeStage(project,'offered')).rejects.toThrow('Angebotsreferenz');
+      await saveCore('projects',{offer_ref:'ANG-01'},project);
+      await changeStage(project,'offered');
+      await changeStage(project,'confirmed');
+      await saveCore('lines',{project_id:project,kind:'buy',name:'Material',quantity:2,unit_cents:2000});
+      await saveCore('lines',{project_id:project,kind:'sell',name:'Service',quantity:2,unit_cents:5000});
+      const cost={name:'Verbrauchsmaterial',cents:3000,source:project,reference:'Beleg-42',cost_center:data.center};
+      await importCosts([cost]); await importCosts([cost]);
+      expect(await controlling(project)).toEqual({planned_buy:4000,planned_sell:10000,actual:3000,difference:-1000});
+      if(reserve) {
+        await createMovement({ action:'receive',item_id:data.material,location_id:data.location,quantity:10 },actor.id);
+        const booking=getId(await createReservation({...data.booking,item_id:data.material,quantity:3}));
+        await setReservation(booking,'firm');
+        await createMovement({action:'consume',reservation_id:booking,quantity:2},actor.id);
+        expect((await listStock()).find((entry)=>entry.item_id===data.material)).toMatchObject({physical:8,reserved:1,free:7});
+      }
+      await changeStage(project,'running');
+      await expect(changeStage(project,'complete')).rejects.toThrow('Rechnungsreferenz');
+      await saveCore('projects',{invoice_ref:'RE-401',communication_note:'Extern bestätigt.'},project);
+      expect(await changeStage(project,'complete')).toMatchObject({stage:'complete'});
+    });
+  }
+
+  test('Konkurrierende Reservierungen, Teilausgabe und Rückgabe nach Absage',async()=>{
+    const data=await fixture(saveCore,'Doppelreservierung');
+    await changeStage(data.project,'planning'); await saveCore('projects',{offer_ref:'ANG-02'},data.project);
+    await changeStage(data.project,'offered'); await changeStage(data.project,'confirmed');
+    await createMovement({action:'receive',item_id:data.equipment,location_id:data.location,quantity:4},actor.id);
+    const reservationIds=await Promise.all([1,2].map(async()=>getId(await createReservation({...data.booking,item_id:data.equipment,quantity:3}))));
+    const results=await Promise.allSettled(reservationIds.map((id)=>setReservation(id,'firm')));
+    expect(results.filter((result)=>result.status==='fulfilled')).toHaveLength(1);
+    const id=reservationIds[results.findIndex((result)=>result.status==='fulfilled')];
+    await createMovement({action:'issue',reservation_id:id,quantity:2},actor.id);
+    await createMovement({action:'return',reservation_id:id,quantity:1},actor.id);
+    await changeStage(data.project,'cancelled');
+    expect((await listReservations(200,0)).find((row:any)=>row.id===id)).toMatchObject({status:'released',checked_out:1});
+    await createMovement({action:'return',reservation_id:id,quantity:1},actor.id);
+    expect((await listStock()).find((entry)=>entry.item_id===data.equipment)).toMatchObject({physical:4,reserved:0,free:4});
+    await expect(createMovement({action:'return',reservation_id:id,quantity:1},actor.id)).rejects.toThrow('Rückgabe');
+  });
+
+  test('Schichtgrenzen verhindern konkurrierende feste Personalbuchungen',async()=>{
+    const data=await fixture(saveCore,'Schichten');
+    await changeStage(data.project,'planning'); await saveCore('projects',{offer_ref:'ANG-03'},data.project);
+    await changeStage(data.project,'offered'); await changeStage(data.project,'confirmed');
+    const staff=(await createAccount({email:crypto.randomUUID()+'@example.test',name:'Planungstest',password:'muster-test-passwort',role:'member'}))!;
+    const common={project_id:data.project,user_id:staff.id,quantity:1};
+    const base=Date.now()+500_000_000;
+    const first=getId(await createReservation({...common,starts_at:addMinutes(base,0),ends_at:addMinutes(base,60)}));
+    const overlapping=getId(await createReservation({...common,starts_at:addMinutes(base,59),ends_at:addMinutes(base,65)}));
+    const beside=getId(await createReservation({...common,starts_at:addMinutes(base,60),ends_at:addMinutes(base,80)}));
+    await setReservation(first,'firm');
+    await expect(setReservation(overlapping,'firm')).rejects.toThrow('bereits fest');
+    expect(await setReservation(beside,'firm')).toMatchObject({status:'firm'});
+  });
+});
+
+describe('API und Integrationen',()=>{
+  test('Vormerkungen verwenden pro Konto und Endpunkt denselben Vorgangsschlüssel nur einmal',async()=>{
+    const data=await fixture(saveCore,'Wiederholte Vormerkungen');
+    const owner=await createToken(actor,{label:'Muster-Planung',scope:'write'});
+    const other=(await createAccount({email:crypto.randomUUID()+'@example.test',name:'Zweite Testperson',
+      password:'muster-test-passwort',role:'admin'}))!;
+    const otherToken=await createToken(other,{label:'Zweite Muster-Planung',scope:'write'});
+    const key=crypto.randomUUID();
+    async function call(input:object,requestKey?:string,token=owner.token,path='reservations'){
+      const headers:Record<string,string>={Authorization:`Bearer ${token}`,'Content-Type':'application/json'};
+      if(requestKey) headers['Idempotency-Key']=requestKey;
+      return handle(new Request(`http://desk.local/api/v1/${path}`,{method:'POST',headers,body:JSON.stringify(input)}));
+    }
+    async function create(input:object,requestKey?:string,token=owner.token){
+      const response=await call(input,requestKey,token);
+      expect(response.status).toBe(201);
+      return await response.json() as {id:string;status:string};
+    }
+    async function count(){
+      return (await first<{count:number}>(db,'SELECT count(*)::int AS count FROM reservations WHERE project_id=$1',[data.project]))?.count;
+    }
+    const {location_id:_,...period}=data.booking;
+    const personnel={...period,user_id:actor.id,quantity:1};
+    const [left,right]=await Promise.all([create(personnel,key),create(personnel,key)]);
+    expect(left).toEqual(right);
+    expect(await count()).toBe(1);
+    const equipment={...data.booking,item_id:data.equipment,quantity:2,
+      starts_at:'2028-05-25T11:00:00.123456+02:00',ends_at:'2028-05-25T17:00:00+02:00'};
+    expect((await call(equipment,key)).status).toBe(409);
+    expect(await count()).toBe(1);
+    expect((await create(personnel,key,otherToken.token)).id).not.toBe(left.id);
+    expect((await create(personnel,crypto.randomUUID())).id).not.toBe(left.id);
+    expect(await count()).toBe(3);
+    const equipmentKey=crypto.randomUUID();
+    const utcEquipment={...equipment,starts_at:'2028-05-25T09:00:00.123456Z',ends_at:'2028-05-25T15:00:00Z'};
+    const [itemReservation,parallelItem]=await Promise.all([
+      create(equipment,equipmentKey),create(utcEquipment,equipmentKey),
+    ]);
+    expect(parallelItem).toEqual(itemReservation);
+    expect(await count()).toBe(4);
+    expect((await call({...equipment,quantity:3},equipmentKey)).status).toBe(409);
+    expect((await call({...utcEquipment,starts_at:'2028-05-25T09:00:00.123457Z'},equipmentKey)).status).toBe(409);
+    await setReservation(itemReservation.id,'released');
+    expect(await create(utcEquipment,equipmentKey)).toEqual(itemReservation);
+    expect(await count()).toBe(4);
+    expect((await call({action:'receive',item_id:data.material,location_id:data.location,quantity:1},key,owner.token,'movements')).status).toBe(201);
+    await create(equipment);
+    await create(equipment);
+    expect(await count()).toBe(6);
+  });
+
+  test('Lagerbewegungen mit demselben Vorgangsschlüssel werden genau einmal gebucht',async()=>{
+    const data=await fixture(saveCore,'Wiederholte Lagerbewegungen');
+    await changeStage(data.project,'planning');
+    await saveCore('projects',{offer_ref:'ANG-WIEDERHOLUNG'},data.project);
+    await changeStage(data.project,'offered');
+    await changeStage(data.project,'confirmed');
+    const token=await createToken(actor,{label:'Lagerwiederholung',scope:'write'});
+    async function call(input:object,key?:string){
+      const headers:Record<string,string>={Authorization:`Bearer ${token.token}`,'Content-Type':'application/json'};
+      if(key!==undefined) headers['Idempotency-Key']=key;
+      return handle(new Request('http://desk.local/api/v1/movements',{
+        method:'POST',headers,body:JSON.stringify(input),
+      }));
+    }
+    async function ok(input:object,key?:string){
+      const response=await call(input,key);
+      expect(response.status).toBe(201);
+      return await response.json() as {id:string};
+    }
+    const receipt={action:'receive',item_id:data.material,location_id:data.location,quantity:10};
+    const receiptKey=crypto.randomUUID();
+    const receipts=await Promise.all([ok(receipt,receiptKey),ok(receipt,receiptKey)]);
+    expect(receipts[0]).toEqual(receipts[1]);
+    expect((await call({...receipt,quantity:11},receiptKey)).status).toBe(409);
+    expect((await call(receipt,'ungültiger Schlüssel')).status).toBe(400);
+    expect((await listStock()).find(row=>row.item_id===data.material)?.physical).toBe(10);
+
+    const material=getId(await createReservation({...data.booking,item_id:data.material,quantity:4}));
+    await setReservation(material,'firm');
+    const consume={action:'consume',reservation_id:material,quantity:1};
+    const consumeKey=crypto.randomUUID();
+    const consumed=await ok(consume,consumeKey);
+    expect(await ok(consume,consumeKey)).toEqual(consumed);
+    expect((await listStock()).find(row=>row.item_id===data.material)).toMatchObject({physical:9,reserved:3});
+    expect((await ok(consume,crypto.randomUUID())).id).not.toBe(consumed.id);
+    expect((await listStock()).find(row=>row.item_id===data.material)).toMatchObject({physical:8,reserved:2});
+
+    await ok({action:'receive',item_id:data.equipment,location_id:data.location,quantity:4});
+    const equipment=getId(await createReservation({...data.booking,item_id:data.equipment,quantity:4,
+      starts_at:addMinutes(Date.now(),-5),ends_at:addMinutes(Date.now(),60)}));
+    const issue={action:'issue',reservation_id:equipment,quantity:2};
+    const issueKey=crypto.randomUUID();
+    expect((await call(issue,issueKey)).status).toBe(409);
+    await setReservation(equipment,'firm');
+    const issued=await ok(issue,issueKey);
+    expect(await ok(issue,issueKey)).toEqual(issued);
+    const giveBack={action:'return',reservation_id:equipment,quantity:1};
+    const returnKey=crypto.randomUUID();
+    const returned=await ok(giveBack,returnKey);
+    expect(await ok(giveBack,returnKey)).toEqual(returned);
+    await setReservation(equipment,'released');
+    expect(await ok(issue,issueKey)).toEqual(issued);
+    expect((await listStock()).find(row=>row.item_id===data.equipment)?.physical).toBe(3);
+    expect(await first(db,'SELECT count(*)::integer AS count FROM movements WHERE reservation_id=$1',[equipment]))
+      .toEqual({count:2});
+    await expect(ok(receipt)).resolves.toHaveProperty('id');
+    await expect(ok(receipt)).resolves.toHaveProperty('id');
+    expect((await listStock()).find(row=>row.item_id===data.material)?.physical).toBe(28);
+  });
+
+  test('OpenAPI und Berechtigungen eines widerrufbaren Tokens',async()=>{
+    const anonymous=await handle(new Request('http://desk.local/api/v1/projects'));
+    expect(anonymous.status).toBe(401);
+    const schema=await handle(new Request('http://desk.local/api/v1/openapi.json'));
+    expect(schema.status).toBe(200);
+    expect(await schema.json()).toMatchObject({openapi:'3.1.0'});
+    const token=await createToken(actor,{label:'Lesetest',scope:'read'});
+    const headers={Authorization:`Bearer ${token.token}`,'Content-Type':'application/json'};
+    expect((await handle(new Request('http://desk.local/api/v1/projects',{headers}))).status).toBe(200);
+    expect((await handle(new Request('http://desk.local/api/v1/projects',{method:'POST',headers,body:'{}'}))).status).toBe(403);
+    await db.unsafe('DELETE FROM api_tokens WHERE id=$1',[token.id]);
+    expect((await handle(new Request('http://desk.local/api/v1/projects',{headers}))).status).toBe(401);
+  });
+
+  test('Unklaren Zammad-Versand im Verlauf wiederfinden, ohne erneut zu senden',async()=>{
+    const { send,reviewOutgoing }=await import('../src/server/zammad');
+    const data=await fixture(saveCore,'Zammad-Verlauf');
+    await db.unsafe('UPDATE projects SET zammad_ticket_id=$1 WHERE id=$2',[Math.floor(Math.random()*1_000_000)+100,data.project]);
+    let article: {id:number;body:string}|undefined;
+    let sends=0;
+    let remoteMode:'unknown'|'reject'|'accept'='unknown';
+    const service=Bun.serve({port:0,hostname:'127.0.0.1', async fetch(request){
+      if(request.method==='POST') {
+        sends++;
+        const incoming=await request.json() as {body:string;attachments:unknown[]};
+        expect(incoming.attachments).toHaveLength(1);
+        if(remoteMode==='reject') return new Response('Rejected',{status:422});
+        if(remoteMode==='accept') return Response.json({id:43},{status:201});
+        article={id:42,body:incoming.body};
+        return new Response('Gateway timeout',{status:504});
+      }
+      return Response.json(article?[article]:[]);
+    }});
+    const priorUrl=process.env.ZAMMAD_URL;
+    const priorToken=process.env.ZAMMAD_TOKEN;
+    try {
+      process.env.ZAMMAD_URL=`http://127.0.0.1:${service.port}`;process.env.ZAMMAD_TOKEN='demo-token';
+      const id=crypto.randomUUID();
+      const message={id,recipient:'muster@example.test',subject:'Musterangebot',body:'Angebot anbei',
+        attachment:{name:'angebot.pdf',data:Buffer.from('%PDF-1.7').toString('base64')}};
+      expect(await send(data.project,message)).toMatchObject({status:'unknown'});
+      expect(await reviewOutgoing(data.project,id,true)).toMatchObject({status:'sent'});
+      expect(sends).toBe(1);
+      remoteMode='reject';
+      const rejected={...message,id:crypto.randomUUID()};
+      expect(await send(data.project,rejected)).toMatchObject({status:'failed'});
+      remoteMode='accept';
+      expect(await reviewOutgoing(data.project,rejected.id,true)).toMatchObject({status:'sent'});
+      expect(sends).toBe(3);
+    } finally {
+      if(priorUrl===undefined)delete process.env.ZAMMAD_URL; else process.env.ZAMMAD_URL=priorUrl;
+      if(priorToken===undefined)delete process.env.ZAMMAD_TOKEN; else process.env.ZAMMAD_TOKEN=priorToken;
+      service.stop(true);
+    }
+  });
+});

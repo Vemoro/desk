@@ -37,6 +37,10 @@ Ergebnis, Fehlschläge und Auslassungen mit Grund gehören in den PR. Eine Wiede
 
 Nutze die Befehle der jeweiligen Zielbasis. Wenn auf dieser Basis die Desk-Anwendung vorhanden ist, gehören je nach Änderung `bun run build`, `bun run check`, `bun run migrate`, `bun run test` und bei betroffener Bedienung `bun run e2e` dazu. Integration und Browser verwenden getrennte PostgreSQL-Datenbanken mit `_test` beziehungsweise `_demo` und isolierte Testinstanzen.
 
+Die Anwendung erzeugt die TanStack-Routendatei beim ersten Build oder Entwicklungsstart. Für Browserfälle und Doku-Bilder lädt `bun run demo` mit `DESK_DEMO_PASSWORD` die synthetischen Beispieldaten des Muster Auftragsservice. `bunx playwright install chromium` installiert den Browser. Mit `DESK_E2E_URL` kann eine bereits gestartete isolierte Instanz verwendet werden.
+
+`bun run docs:screenshots` schreibt Doku-Bilder nach `build/screenshots/`. Der manuell startbare Workflow „Doku-Screenshots erstellen“ stellt die Bilder als Artefakt bereit. Übernimm ausgewählte Bilder nach Sichtprüfung mit Alternativtext in die Doku.
+
 Auf einem Stand mit Entwicklungsdoku allein prüfe die geänderten Regeln, Verweise, Skills und Beispiele. Halte dort offen fest, welche Anwendungstests mangels Anwendung auf dieser Zielbasis nicht laufen. Für Screenshots und Beispiele nutze fiktive oder anonymisierte Angaben. Zugangsdaten und personenbezogene Daten bleiben aus Repository, Issues, Prompts und Logs heraus.
 
 Doku, Oberfläche und Beiträge werden auf Deutsch geschrieben, Code-Bezeichner auf Englisch. Eine Regel steht an einer maßgeblichen Stelle. Der Skill verweist dorthin und beschreibt den Ablauf. Vorher-Nachher-Bilder nutzen vollständige Git-Stände, gleiche Daten und Viewports sowie Hell, Dunkel und bei betroffener Bedienung Smartphone. Der [Screenshot-Skill](../.agents/skills/desk-pr-screenshots/SKILL.md) beschreibt Aufnahme und Veröffentlichung.

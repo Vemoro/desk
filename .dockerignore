@@ -1,0 +1,9 @@
+.git
+.env
+node_modules
+.output
+data
+build
+test-results
+playwright-report
+src/*.mjs

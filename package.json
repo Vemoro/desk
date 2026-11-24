@@ -1,0 +1,37 @@
+{
+  "name": "vemoro-desk",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "packageManager": "bun@1.4.5",
+  "scripts": {
+    "dev": "bun --bun vite dev --host 127.0.0.1",
+    "build": "bun --bun vite build",
+    "start": "bun .output/server/index.mjs",
+    "check": "tsc --noEmit",
+    "test": "bun test tests",
+    "migrate": "bun scripts/migrate.ts",
+    "admin": "bun scripts/admin.ts",
+    "demo": "bun scripts/demo.ts",
+    "e2e": "playwright test --project core",
+    "docs:screenshots": "playwright test --project screenshots"
+  },
+  "dependencies": {
+    "@tanstack/react-router": "^1.169.7",
+    "@tanstack/react-start": "^1.169.7",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^4.3.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.0",
+    "@types/bun": "latest",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "nitro": "3.0.261103-rc",
+    "typescript": "^5.9.0",
+    "vite": "^8.3.0"
+  }
+}
