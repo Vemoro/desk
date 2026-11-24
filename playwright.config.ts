@@ -10,7 +10,7 @@ export default defineConfig({
     env:{DESK_ORIGIN:baseURL},reuseExistingServer:!process.env.CI,
   },
   projects:[
-    {name:'core',testMatch:['core.spec.ts','cost-filters.spec.ts'],use:{...devices['Desktop Chrome']}},
+    {name:'core',testMatch:['core.spec.ts','cost-filters.spec.ts','cost-import-preview.spec.ts'],use:{...devices['Desktop Chrome']}},
     {name:'screenshots',testMatch:'screenshots.spec.ts',use:{...devices['Desktop Chrome']}},
   ],
 });

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { all, api, ApiError, compileCsv, date, euros, moment, money, movementStages, name, projectStages, type Row } from './client';
+import { all, api, ApiError, date, euros, moment, money, movementStages, name, projectStages, type Row } from './client';
+import { CostImport } from './cost-import';
 import { Project, Projects, type Data } from './projects';
 import { Expand, Form, options, Panel, Pill, Table, type Run } from './widgets';
 
@@ -240,9 +241,7 @@ function Costs({data,run}:{data:Data;run:Run}) {
       onClick={()=>{setQuery('');setSource('');setAssignment('');}}>Filter zurücksetzen</button>
   </div>
   <div className="panel-body">
-    <Expand title="Kosten aus CSV übernehmen"><Form caption="Kosten übernehmen" fields={[
-      {name:'csv',label:'CSV-Inhalt mit reference, name, amount und optional cost_center',type:'textarea',required:true},
-    ]} submit={({csv})=>run(()=>api('costs','POST',{entries:compileCsv(csv)}),'Kosten übernommen.')}/></Expand>
+    <CostImport costs={data.costs} projects={data.projects} run={run}/>
     <Expand title="Kosten einzeln erfassen"><Form caption="Beleg speichern" fields={[
       {name:'reference',label:'Belegreferenz',required:true},{name:'name',label:'Bezeichnung',required:true},
       {name:'amount',label:'Netto in Euro',required:true},{name:'project_id',label:'Projekt',choices:options(data.projects)},
