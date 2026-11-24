@@ -214,7 +214,7 @@ export function Desk() {
         navigate('projects',id);
         if(!data.projects.some(plan=>plan.id===id)) void run(async()=>{},undefined,{kind:'read'});
       }}/>}
-      {section==='contacts' && <Contacts data={data} run={run} haben={flags.haben}/>}
+      {section==='contacts' && <Contacts data={data} run={run} haben={flags.haben} openProject={id=>navigate('projects',id)}/>}
       {section==='warehouse' && <Warehouse data={data} run={run} accountId={person.id}/>}
       {section==='costs' && <Costs data={data} run={run}/>}
       {section==='account' && <><AccountPassword/><PasskeySettings/><BuildInfo/></>}
@@ -269,7 +269,7 @@ function Dashboard({data,select,open}:{data:Data;select:(id:string)=>void;open:(
   </>;
 }
 
-function Contacts({data,run,haben}:{data:Data;run:Run;haben:boolean}) {
+function Contacts({data,run,haben,openProject}:{data:Data;run:Run;haben:boolean;openProject:(id:string)=>void}) {
   const [search,setSearch]=useState('');
   const [selected,setSelected]=useState('');
   const [comparison,setComparison]=useState<any>();
@@ -279,6 +279,7 @@ function Contacts({data,run,haben}:{data:Data;run:Run;haben:boolean}) {
   const contactDetail=useRef<HTMLElement>(null);
   const [focusContact,setFocusContact]=useState('');
   const contact=data.contacts.find((row)=>row.id===selected);
+  const projects=contact ? data.projects.filter((project)=>project.contact_id===contact.id) : [];
   useEffect(()=>{
     if(focusContact && contact?.id===focusContact){
       contactDetail.current?.focus();
@@ -366,7 +367,19 @@ function Contacts({data,run,haben}:{data:Data;run:Run;haben:boolean}) {
         </div>}
         {comparison&&comparison.action!=='conflict'&&<p role="status">Abgleich abgeschlossen.</p>}
       </Expand>}
-    </div></Panel>}
+    </div>
+      <section className="contact-projects" aria-labelledby="contact-projects-title">
+        <div className="panel-body">
+          <h3 id="contact-projects-title">Zugehörige Projekte</h3>
+          {!projects.length&&<p className="subtle">Diesem Kontakt sind noch keine Projekte zugeordnet.</p>}
+        </div>
+        {projects.length>0&&<Table headers={['Projekt','Status','Termin']} rows={projects.map((project)=>({key:project.id,cells:[
+          <button type="button" className="text-button" onClick={()=>openProject(project.id)}>{project.name}</button>,
+          <Pill label={projectStages[project.stage]} tone={project.stage==='confirmed'?'accent':'neutral'}/>,
+          date(project.due),
+        ]}))}/>}
+      </section>
+    </Panel>}
     {confirmation&&<ConfirmDialog confirmation={confirmation} run={run} dismiss={()=>setConfirmation(undefined)} fallbackFocus={contactPanel}/>}
   </>;
 }
