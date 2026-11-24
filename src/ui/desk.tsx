@@ -28,6 +28,7 @@ export function Desk() {
   const project=data.projects.find((row)=>row.id===projectId);
 
   async function load(session:number) {
+    if(session!==sessionVersion.current) return false;
     const request=++loadVersion.current;
     const saved=savedVersion.current;
     const isCurrent=()=>session===sessionVersion.current && request===loadVersion.current && saved===savedVersion.current;

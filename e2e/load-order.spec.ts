@@ -78,7 +78,7 @@ for(const staleStatus of [200,401]){
     await page.getByRole('button',{name:'Abmelden',exact:true}).click();
     await expect(page.getByRole('heading',{name:'Anmelden',exact:true})).toBeVisible();
     if(staleStatus===200){
-      await settleResponse(page,old,contact('Alter Kontakt'));
+      await settleResponse(page,secondOld!,contact('Alter Kontakt'));
       await expect(page.getByRole('heading',{name:'Anmelden',exact:true})).toBeVisible();
       await expect(page.getByRole('alert')).toHaveCount(0);
     }
@@ -89,7 +89,7 @@ for(const staleStatus of [200,401]){
     await nav.getByRole('button',{name:'Kontakte',exact:true}).click();
     await expect(page.getByRole('button',{name:'Neuer Kontakt',exact:true})).toBeVisible();
     if(secondOld){
-      await settleResponse(page,secondOld,contact('Alter Kontakt nach Anmeldung'));
+      await settleResponse(page,old,contact('Alter Kontakt nach Anmeldung'));
       await expect(page.getByRole('button',{name:'Neuer Kontakt',exact:true})).toBeVisible();
       await expect(page.getByRole('alert')).toHaveCount(0);
     } else {
@@ -102,3 +102,19 @@ for(const staleStatus of [200,401]){
     await expect(page.getByRole('heading',{name:'Anmelden',exact:true})).toBeVisible();
   });
 }
+
+test('ein verspäteter 401 hinterlässt vor der Neuanmeldung keine Meldung',async({page})=>{
+  const pending=holdRoute();
+  let calls=0;
+  await page.route('**/api/v1/contacts?*',route=>{
+    if(++calls===2) return pending.resolve(route);
+    return route.fulfill({json:contact('Mira Muster')});
+  });
+  await signIn(page);
+  await (await openExport(page)).click();
+  const request=await pending.request;
+  await page.getByRole('button',{name:'Abmelden',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Anmelden',exact:true})).toBeVisible();
+  await settleResponse(page,request,{error:'Alte Sitzung abgelaufen'},401);
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
