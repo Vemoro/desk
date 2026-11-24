@@ -53,7 +53,7 @@ test('Kanban grenzt Fälligkeiten im lokalen Kalender ein',async({page})=>{
   await expect(doing.locator('article strong')).toHaveText(['Material vorbereiten']);
   await expect(open.locator('article strong')).toHaveText(['Material inventarisieren']);
 
-  await page.getByRole('button',{name:'Suche leeren'}).click();
+  await search.fill('');
   await assignee.selectOption({label:'Alle'});
   await dateFilter.selectOption({label:'Ohne Termin'});
   await expect(cards).toHaveText(['Lageplan anfordern','Anfrage lesen']);

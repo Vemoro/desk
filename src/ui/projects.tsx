@@ -82,6 +82,7 @@ function Kanban({project,data,run,viewerId}:{project:Row;data:Data;run:Run;viewe
   const [sort,setSort]=useState('standard');
   const [dueFilter,setDueFilter]=useState('all');
   const today=useLocalDay();
+  const canResetFilters=search!=='' || assignee!=='all' || dueFilter!=='all';
   const term=search.trim().toLowerCase();
   const tasks=data.tasks.filter((task)=>{
     if(task.project_id!==project.id || !task.name.toLowerCase().includes(term)) return false;
@@ -123,7 +124,11 @@ function Kanban({project,data,run,viewerId}:{project:Row;data:Data;run:Run;viewe
             <option value="standard">Standard</option>
             <option value="due">Frühester Termin zuerst</option>
           </select></label>
-          <button type="button" disabled={!search} onClick={()=>setSearch('')}>Suche leeren</button>
+          <button type="button" disabled={!canResetFilters} onClick={()=>{
+            setSearch('');
+            setAssignee('all');
+            setDueFilter('all');
+          }}>Filter zurücksetzen</button>
         </div>
         {!tasks.length&&<p role="status" className="subtle">{emptyMessage}</p>}
         <Expand title="Aufgabe anlegen">

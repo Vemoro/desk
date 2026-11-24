@@ -32,7 +32,7 @@ test('Kanban kombiniert Titelsuche und Zuständigkeit',async({page})=>{
   await expect(page.getByRole('heading',{name:'In Arbeit 2',exact:true})).toBeVisible();
   await query.fill('unbekannt');
   await expect(page.getByText('Keine Aufgaben für diese Filter.')).toBeVisible();
-  await page.getByRole('button',{name:'Suche leeren',exact:true}).click();
+  await query.fill('');
   await expect(query).toHaveValue('');
   await expect(page.getByText('3 Aufgaben',{exact:true})).toBeVisible();
 });
