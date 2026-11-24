@@ -8,5 +8,5 @@ export default defineConfig(async () => ({
   define: { __DESK_MIGRATION_FILES__: JSON.stringify(await migrationFiles()) },
   optimizeDeps: { exclude: ['bun'] },
   ssr: { external: ['bun'] },
-  plugins: [tanstackStart(), react(), nitro({ preset: 'bun' })],
+  plugins: [tanstackStart(), react(), nitro({ preset: 'bun', plugins: ['./src/server/startup.ts'] })],
 }));
