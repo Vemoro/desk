@@ -184,10 +184,15 @@ function Warehouse({data,run}:{data:Data;run:Run}) {
   const bookings=data.reservations.filter((row)=>row.item_id&&(row.status==='firm'||row.checked_out>0));
   const [projectFilter,setProjectFilter]=useState('');
   const [locationFilter,setLocationFilter]=useState('');
+  const [bookingId,setBookingId]=useState('');
   const openCheckouts=bookings.filter((row)=>row.checked_out>0);
   const visibleCheckouts=openCheckouts.filter((row)=>
     (!projectFilter || row.project_id===projectFilter) && (!locationFilter || row.location_id===locationFilter));
-  const bookingChoices=bookings.map((row)=>({value:row.id,label:`${name(data.projects,row.project_id)} · ${name(data.items,row.item_id)}`}));
+  const bookingChoices=bookings.map((row)=>({
+    value:row.id,
+    label:`${name(data.projects,row.project_id)} · ${name(data.items,row.item_id)} · ${name(data.locations,row.location_id)} · ${moment(row.starts_at)} bis ${moment(row.ends_at)}`,
+  }));
+  const selectedBooking=bookingChoices.find((choice)=>choice.value===bookingId);
   return <>
     <Panel title="Bestand je Lagerort"><div className="panel-body compact-actions">
       <Expand title="Lagerort anlegen"><Form caption="Lagerort speichern" fields={[{name:'name',label:'Lagerort',required:true}]}
@@ -204,9 +209,11 @@ function Warehouse({data,run}:{data:Data;run:Run}) {
         quantity:Number(input.quantity),project_id:input.project_id||undefined}),'Wareneingang erfasst.')}/></Expand>
       <Expand title="Ausgabe, Rückgabe oder Verbrauch"><Form caption="Bewegung buchen" fields={[
         {name:'action',label:'Bewegungsart',choices:[{value:'issue',label:'Ausgabe'},{value:'return',label:'Rückgabe'},{value:'consume',label:'Verbrauch'}],required:true},
-        {name:'reservation_id',label:'Projektreservierung',choices:bookingChoices,required:true},
+        {name:'reservation_id',label:'Projektreservierung',choices:bookingChoices,required:true,value:selectedBooking?.value,onChange:setBookingId,describedBy:selectedBooking?'warehouse-booking-details':undefined},
         {name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},
-      ]} submit={(input)=>run(()=>api('movements','POST',{...input,quantity:Number(input.quantity)}),'Lagerbewegung gebucht.')}/></Expand>
+      ]} submit={(input)=>run(()=>api('movements','POST',{...input,quantity:Number(input.quantity)}),'Lagerbewegung gebucht.')}>
+        {selectedBooking&&<p id="warehouse-booking-details" className="wide booking-details">{selectedBooking.label}</p>}
+      </Form></Expand>
     </div>
     <Table headers={['Artikel','Lagerort','Physisch','Reserviert','Frei']} rows={data.stock.map((row)=>({key:`${row.item_id}/${row.location_id}`,cells:[
       name(data.items,row.item_id),name(data.locations,row.location_id),row.physical,row.reserved,<strong>{row.free}</strong>,
