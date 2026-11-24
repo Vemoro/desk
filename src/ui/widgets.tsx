@@ -1,7 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import type { Row } from './client';
 
-export type Run = (operation:()=>Promise<unknown>, feedback?:string)=>Promise<boolean>;
+export type Run = (operation:()=>Promise<unknown>, feedback?:string, kind?:'read'|'write')=>Promise<boolean>;
 type Field = {
   name:string; label:string; type?:string; placeholder?:string; value?:string|number;
   required?:boolean; choices?:{value:string;label:string}[]; min?:number; max?:number; autoComplete?:string;

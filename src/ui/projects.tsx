@@ -130,7 +130,7 @@ function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
         <div className="actions">{row.status==='tentative' && ['confirmed','running'].includes(project.stage) && <button onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'firm'}),'Fest reserviert.')}>Fest reservieren</button>}
           {row.status!=='released' && <button onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'released'}),'Reservierung freigegeben.')}>Freigeben</button>}</div>],
     }))}/></Panel>
-    <Panel title="Kalkulation" action={<button onClick={()=>run(async()=>downloadPositions(project,await api(`projects/${project.id}/offer-positions`)))}>Angebotspositionen exportieren</button>}>
+    <Panel title="Kalkulation" action={<button onClick={()=>run(async()=>downloadPositions(project,await api(`projects/${project.id}/offer-positions`)),undefined,'read')}>Angebotspositionen exportieren</button>}>
       <div className="panel-body"><Expand title="Position anlegen"><Form caption="Position speichern" fields={[
         {name:'kind',label:'Art',choices:[{value:'buy',label:'Einkauf'},{value:'sell',label:'Verkauf'}],required:true},
         {name:'name',label:'Position',required:true},{name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},

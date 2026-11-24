@@ -20,6 +20,8 @@ export function Desk() {
   const [projectId,setProjectId]=useState('');
   const [theme,setTheme]=useState('light');
   const [notice,setNotice]=useState({message:'',error:false});
+  const [refreshRequired,setRefreshRequired]=useState(false);
+  const [refreshing,setRefreshing]=useState(false);
   const project=data.projects.find((row)=>row.id===projectId);
 
   async function load() {
@@ -28,6 +30,7 @@ export function Desk() {
     )]);
     setFlags(integrations);
     setData(Object.fromEntries(collections.map((key,index)=>[key,result[index]])) as unknown as Data);
+    setRefreshRequired(false);
   }
 
   useEffect(()=>{
@@ -51,18 +54,41 @@ export function Desk() {
 
   useEffect(()=>{document.documentElement.dataset.theme=theme;localStorage.setItem('desk-theme',theme);},[theme]);
 
-  const run:Run=async(operation,feedback)=>{
+  async function refreshSavedData() {
+    try {
+      await load();
+      return true;
+    } catch(error) {
+      if(error instanceof ApiError && error.status===401) {
+        setRefreshRequired(false);
+        setPerson(null);
+        setNotice({message:'Die Änderung wurde gespeichert. Bitte erneut anmelden, um die Ansicht zu aktualisieren.',error:false});
+      } else {
+        setRefreshRequired(true);
+      }
+      return false;
+    }
+  }
+
+  async function retryRefresh() {
+    setRefreshing(true);
+    try { await refreshSavedData(); }
+    finally { setRefreshing(false); }
+  }
+
+  const run:Run=async(operation,feedback,kind='write')=>{
     setNotice({message:'',error:false});
     try {
       await operation();
-      await load();
-      if(feedback)setNotice({message:feedback,error:false});
-      return true;
+      if(kind==='read') await load();
     } catch(error) {
       if(error instanceof ApiError && error.status===401)setPerson(null);
       setNotice({message:error instanceof Error?error.message:'Die Aktion ist fehlgeschlagen.',error:true});
       return false;
     }
+    if(kind==='write' && !await refreshSavedData()) return true;
+    if(feedback)setNotice({message:feedback,error:false});
+    return true;
   };
 
   function navigate(to:Section,id='') {
@@ -102,6 +128,12 @@ export function Desk() {
     <main id="desk-main" tabIndex={-1} className="main">
       {section!=='projects'||!project?<header className="page-title"><h1>{sections[section][0]}</h1></header>:null}
       {alert}
+      {refreshRequired && <div className="notice actions">
+        <p role="status">Die Änderung wurde gespeichert. Die Ansicht konnte nicht aktualisiert werden.</p>
+        <button type="button" disabled={refreshing} onClick={()=>void retryRefresh()}>
+          {refreshing?'Ansicht wird aktualisiert …':'Ansicht aktualisieren'}
+        </button>
+      </div>}
       {section==='dashboard' && <Dashboard data={data} select={(id)=>navigate('projects',id)} open={()=>navigate('projects')}/>}
       {section==='projects' && (project?<Project key={project.id} project={project} data={data} run={run} flags={flags} back={()=>navigate('projects')}/>
         :<Projects data={data} run={run} select={(id)=>navigate('projects',id)}/>)}
