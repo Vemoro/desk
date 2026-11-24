@@ -345,6 +345,7 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
     draft.status==='unconfirmed' || draft.status==='retry-unconfirmed'
     || (!draftIsListed && (draft.status==='pending' || draft.status==='unknown'))
   );
+  const ticketTitle=conversation?.ticket?.title?.trim();
   const draftNotice=draft && {
     posting:'Desk übermittelt den Entwurf an Zammad.',
     unconfirmed:'Der Versandstatus ist unklar. Prüfe zuerst den Sendeversuch.',
@@ -365,6 +366,7 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
             {name:'note',label:'Interne Notiz',type:'textarea',required:true},
           ]} submit={(v)=>run(()=>request('tickets',v),'Ticket angelegt.')}/></Expand>
         </> : <>
+          {ticketTitle && <p className="ticket-title">{ticketTitle}</p>}
           <button onClick={()=>void refresh()}>Verlauf aktualisieren</button>
           <p className={loading?"subtle":"sr-only"} role="status" aria-label="Abrufstatus">{loading?"Verlauf wird geladen …":""}</p>
           <ol className="thread">{conversation?.articles.map((article:any)=><li key={article.id}>
