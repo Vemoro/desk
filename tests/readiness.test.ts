@@ -84,6 +84,43 @@ test('Desk meldet einen abgelehnten PostgreSQL-Verbindungsversuch als nicht bere
   });
 });
 
+test('Eine blockierte Bereitschaftsabfrage endet auch auf dem Datenbankserver',async()=>{
+  const control=new SQL(database);
+  const locked=Promise.withResolvers<void>();
+  const unlock=Promise.withResolvers<void>();
+  const transaction=control.begin(async held=>{
+    await held.unsafe('LOCK TABLE desk_migrations IN ACCESS EXCLUSIVE MODE');
+    locked.resolve();
+    await unlock.promise;
+  });
+  try {
+    await Promise.race([locked.promise,transaction]);
+    await runningDesk(database,async endpoint=>{
+      const start=performance.now();
+      const response=await fetch(endpoint);
+      expect(response.status).toBe(503);
+      expect(await response.json()).toEqual({ready:false});
+      expect(performance.now()-start).toBeLessThan(3_000);
+      const count=async()=>{
+        const [row]=await control.unsafe<{total:number}[]>(`SELECT count(*)::int AS total
+          FROM pg_stat_activity WHERE datname=current_database() AND state='active' AND query=$1`,
+        ['SELECT name FROM desk_migrations']);
+        return row.total;
+      };
+      let waiting=await count();
+      for(let attempt=0;waiting>0 && attempt<10;attempt++){
+        await Bun.sleep(50);
+        waiting=await count();
+      }
+      expect(waiting).toBe(0);
+    });
+  } finally {
+    unlock.resolve();
+    await transaction;
+    await control.close();
+  }
+});
+
 test('Desk begrenzt eine während des Verbindungsaufbaus verzögerte Prüfung',async()=>{
   let connections=0;
   const delayed=Bun.listen({hostname:'127.0.0.1',port:0,socket:{
