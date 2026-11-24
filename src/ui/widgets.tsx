@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useEffectEvent, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import type { Row } from './client';
 
 export type Run = (operation:()=>Promise<unknown>, feedback?:string)=>Promise<boolean>;
@@ -39,16 +39,24 @@ export function Form({fields,caption,submit,children,className='form-grid',retry
   const submitting=useRef(false);
   const storageKey=retryScope && `desk-pending-write:${retryScope}`;
 
-  useEffect(()=>{
-    attempt.current=storageKey ? storedAttempt(storageKey) : undefined;
-    setPending(Boolean(attempt.current));
-    if(!attempt.current) return;
-    for(const [name,value] of Object.entries(attempt.current.values)){
+  const restoreFields=useEffectEvent((values:Fields)=>{
+    for(const [name,value] of Object.entries(values)){
+      const onChange=fields.find((field)=>field.name===name)?.onChange;
+      if(onChange){
+        onChange(value);
+        continue;
+      }
       const field=formRef.current?.elements.namedItem(name);
       if(field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement){
         field.value=value;
       }
     }
+  });
+
+  useEffect(()=>{
+    attempt.current=storageKey ? storedAttempt(storageKey) : undefined;
+    setPending(Boolean(attempt.current));
+    if(attempt.current) restoreFields(attempt.current.values);
   },[storageKey]);
 
   function clearAttempt(key:string){
