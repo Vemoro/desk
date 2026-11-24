@@ -179,6 +179,11 @@ export function Controlling({project,data,run}:{project:Row;data:Data;run:Run}) 
             {sources.map(value=><option key={value} value={value}>{value}</option>)}
           </select>
         </label>
+        <div className="actions">
+          <button type="button" disabled={!selectedSource && !search} onClick={()=>{setSource('');setSearch('');}}>
+            Filter zurücksetzen
+          </button>
+        </div>
         <Expand title="Ist-Kosten erfassen"><Form caption="Kosten speichern" fields={[
         {name:'reference',label:'Belegreferenz',required:true},{name:'name',label:'Bezeichnung',required:true},{name:'amount',label:'Netto in Euro',required:true},
       ]} submit={(fields)=>run(()=>api('costs','POST',{entries:[{project_id:project.id,source:'manual',reference:fields.reference,name:fields.name,cents:money(fields.amount)}]}),'Ist-Kosten gespeichert.')}/></Expand></div>
