@@ -210,6 +210,7 @@ test('Bestätigter Fehler vor einer Wiederholung lässt einen neuen Entwurf zu',
   await dialog.getByRole('button',{name:'Erneut senden',exact:true}).click();
   await expect(dialog.getByRole('alert')).toHaveText('Der Ticketverlauf konnte nicht geprüft werden.');
   await dialog.getByRole('button',{name:'Schließen',exact:true}).click();
+  await expect(next).toBeVisible();
   await next.click();
   await expect(ui.body).toBeEnabled();
   await expect(ui.body).toHaveValue('');
@@ -233,8 +234,36 @@ test('Ein nicht gelisteter Entwurf bleibt anhand seiner ID prüfbar',async({page
   await ui.panel.getByRole('button',{name:'Verlauf aktualisieren'}).click();
   await expect(ui.panel.getByRole('button',{name:'Prüfen',exact:true})).toHaveCount(0);
   await expect(ui.body).toBeDisabled();
-  await ui.panel.getByRole('button',{name:'Sendeversuch prüfen'}).click();
+  const check=ui.panel.getByRole('button',{name:'Sendeversuch prüfen'});
+  await expect(check).toBeVisible();
+  await check.click();
   await expect(ui.body).toBeEnabled();
   await expect(ui.body).toHaveValue('');
   expect(ui.messages).toHaveLength(1);
+});
+
+test('Der Entwurf ist bereits beim Lesen des Dateianhangs gesperrt',async({page})=>{
+  const ui=await compose(page,route=>route.abort());
+  await page.evaluate(()=>{
+    const original=File.prototype.arrayBuffer;
+    File.prototype.arrayBuffer=function(){
+      return new Promise<ArrayBuffer>((resolve,reject)=>{
+        Object.assign(window,{
+          finishReading:()=>{void original.call(this).then(resolve,reject);},
+        });
+      });
+    };
+  });
+  await ui.panel.getByLabel('PDF-Anhang').setInputFiles({
+    name:'musterangebot.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4 Musterangebot'),
+  });
+  await ui.submit.click();
+  await page.waitForFunction(()=>typeof Reflect.get(window,'finishReading')==='function');
+  await expect(ui.body).toBeDisabled();
+  await expect(ui.panel.getByLabel('PDF-Anhang')).toBeDisabled();
+  expect(ui.messages).toHaveLength(0);
+  await page.evaluate(()=>Reflect.get(window,'finishReading')());
+  await expect(ui.panel.getByRole('button',{name:'Sendeversuch prüfen'})).toBeVisible();
+  expect(ui.messages).toHaveLength(1);
+  await expect(ui.body).toHaveValue(String(ui.messages[0].body));
 });

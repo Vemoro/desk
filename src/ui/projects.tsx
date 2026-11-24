@@ -218,7 +218,6 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
   const [composeVersion,setComposeVersion]=useState(0);
   const [draft,setDraftState]=useState<ZammadDraft>();
   const draftRef=useRef<ZammadDraft|undefined>(undefined);
-  const preparing=useRef(false);
 
   function setDraft(value?:ZammadDraft) {
     draftRef.current=value;
@@ -289,19 +288,20 @@ function ZammadConversation({project,run}:{project:Row;run:Run}) {
   }
 
   async function submitDraft(values:Record<string,string>) {
-    if(draftRef.current || preparing.current) return;
-    preparing.current=true;
+    if(draftRef.current) return;
+    let message:ZammadMessage={id:crypto.randomUUID(),recipient:values.recipient,subject:values.subject,body:values.body};
+    setDraft({message,status:'posting'});
     try {
-      const message:ZammadMessage={id:crypto.randomUUID(),recipient:values.recipient,subject:values.subject,body:values.body};
       if(file) {
         if(file.size>5_242_880) throw new Error('PDF-Anhänge sind bis 5 MB möglich.');
         const bytes=new Uint8Array(await file.arrayBuffer());
-        message.attachment={name:file.name,data:bytes.toBase64()};
+        message={...message,attachment:{name:file.name,data:bytes.toBase64()}};
       }
-      await transmit(message,true);
-    } finally {
-      preparing.current=false;
+    } catch(error) {
+      setDraft();
+      throw error;
     }
+    await transmit(message,true);
   }
 
   async function reviewAttempt(id:string,retry:boolean,previousAttemptKey?:string) {
