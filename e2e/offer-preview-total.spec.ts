@@ -22,7 +22,10 @@ test('Angebotsvorschau berechnet die Netto-Summe aus den tatsächlich angezeigte
   const download=dialog.getByRole('button',{name:'CSV herunterladen'});
   await open.click();
   await expect(dialog.getByText(/Netto-Summe\s+35,47\s*€/)).toBeVisible();
-  await expect(dialog.getByRole('row')).toHaveCount(3);
+  const rows=dialog.getByRole('row');
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(1).getByRole('cell')).toHaveText(['Montagekoffer','2',/10,25\s*€/]);
+  await expect(rows.nth(2).getByRole('cell')).toHaveText(['Material','3',/4,99\s*€/]);
   const downloaded=page.waitForEvent('download');
   await download.click();
   const csv=await readFile((await (await downloaded).path())!,'utf8');
