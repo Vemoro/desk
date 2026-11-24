@@ -49,7 +49,7 @@ Du brauchst die in `package.json` angegebene Bun-Version sowie PostgreSQL. Für 
 2. `.env.example` als `.env` kopieren. `DATABASE_URL` prüfen und `DESK_AUTH_SECRET` mit einem zufälligen Wert aus mindestens 32 Zeichen belegen.
 3. `bun install --frozen-lockfile` und danach `bun run migrate` ausführen.
 4. Ein eigenes Passwort als Umgebungsvariable `DESK_ADMIN_PASSWORD` setzen. Das Konto mit `bun run admin admin@example.test "Desk Admin"` anlegen.
-5. `bun run dev` starten und `http://localhost:5173` öffnen. Bei einem anderen Port `DESK_ORIGIN` an die Browseradresse anpassen.
+5. `bun run dev --port 5173 --strictPort` starten und `http://localhost:5173` öffnen. Bei einem anderen Port `DESK_ORIGIN` an die Browseradresse anpassen.
 
 Hinweise zu Build, Container, HTTPS und Sicherung stehen in der Betriebsdoku. [Installation und Betrieb](docs/desk.md#betrieb)
 
