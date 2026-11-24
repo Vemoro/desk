@@ -41,7 +41,8 @@ async function localRoute(route:Route, origin:string) {
   if(url.origin!==origin) { await route.abort(); return; }
   const response=await route.fetch({maxRedirects:0,timeout:10_000});
   const destination=response.headers().location;
-  if(response.status()>=300 && response.status()<400 && destination && new URL(destination,url).origin!==origin) {
+  // Browser interception does not cover every hop in a redirect chain.
+  if(response.status()>=300 && response.status()<400 && destination) {
     await route.abort();
     return;
   }
