@@ -77,18 +77,27 @@ function Overview({project,data,run,haben}:{project:Row;data:Data;run:Run;haben:
 
 function Kanban({project,data,run,viewerId}:{project:Row;data:Data;run:Run;viewerId:string}) {
   const [assignee,setAssignee]=useState('all');
-  const tasks=data.tasks.filter((task)=>task.project_id===project.id && (
-    assignee==='all' || (assignee==='me' && task.assignee_id===viewerId) || (assignee==='unassigned' && !task.assignee_id)
-  ));
+  const [search,setSearch]=useState('');
+  const term=search.trim().toLowerCase();
+  const tasks=data.tasks.filter((task)=>task.project_id===project.id
+    && task.name.toLowerCase().includes(term)
+    && (assignee==='all' || (assignee==='me' && task.assignee_id===viewerId) || (assignee==='unassigned' && !task.assignee_id)));
+  const emptyMessage=term
+    ? 'Keine Aufgaben für diese Filter.'
+    : assignee==='all'?'In diesem Projekt sind noch keine Aufgaben.':'Keine Aufgaben für diesen Filter.';
   return <>
     <Panel title="Aufgaben" action={<span className="subtle">{tasks.length} Aufgaben</span>}>
       <div className="panel-body">
-        <label className="filter"><span>Aufgaben anzeigen</span><select value={assignee} onChange={(event)=>setAssignee(event.target.value)}>
-          <option value="all">Alle</option>
-          <option value="me">Mir zugeordnet</option>
-          <option value="unassigned">Ohne Zuständigkeit</option>
-        </select></label>
-        {assignee!=='all' && !tasks.length && <p role="status" className="subtle">Keine Aufgaben für diesen Filter.</p>}
+        <div className="form-grid">
+          <label><span>Aufgabentitel suchen</span><input type="search" value={search} onChange={(event)=>setSearch(event.target.value)}/></label>
+          <label><span>Aufgaben anzeigen</span><select value={assignee} onChange={(event)=>setAssignee(event.target.value)}>
+            <option value="all">Alle</option>
+            <option value="me">Mir zugeordnet</option>
+            <option value="unassigned">Ohne Zuständigkeit</option>
+          </select></label>
+          <button type="button" disabled={!search} onClick={()=>setSearch('')}>Suche leeren</button>
+        </div>
+        {!tasks.length&&<p role="status" className="subtle">{emptyMessage}</p>}
         <Expand title="Aufgabe anlegen">
         <Form caption="Aufgabe speichern" fields={[
           {name:'name',label:'Aufgabe',required:true},{name:'assignee_id',label:'Verantwortlich',choices:options(data.users)},
