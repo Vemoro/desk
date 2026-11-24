@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: desk
+      POSTGRES_USER: desk
+      POSTGRES_PASSWORD: ${DESK_DB_PASSWORD:?DESK_DB_PASSWORD in .env.selfhost setzen}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "desk", "-d", "desk"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+  desk:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DESK_ORIGIN: ${DESK_ORIGIN:?DESK_ORIGIN in .env.selfhost setzen}
+      DATABASE_URL: postgres://desk:${DESK_DB_PASSWORD:?DESK_DB_PASSWORD in .env.selfhost setzen}@db:5432/desk
+    ports:
+      - "127.0.0.1:${DESK_PORT:-3000}:3000"
+
+volumes:
+  postgres:
