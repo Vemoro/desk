@@ -1,3 +1,4 @@
+import { SQL } from 'bun';
 import { expect, test } from 'bun:test';
 
 const database = process.env.DATABASE_URL;
@@ -38,6 +39,38 @@ test('Desk meldet die Bereitschaft bei erreichbarem PostgreSQL ohne Anmeldung',a
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ready:true});
   });
+});
+
+test('Desk meldet erst nach der Migration eines erreichbaren Schemas Bereitschaft',async()=>{
+  const schema='readiness_'+crypto.randomUUID().replaceAll('-','');
+  const url=new URL(database);
+  url.searchParams.set('options',`-c search_path=${schema}`);
+  const control=new SQL(database);
+  const isolated=new SQL(url.href);
+  try {
+    await control.unsafe(`CREATE SCHEMA "${schema}"`);
+    await runningDesk(url.href,async endpoint=>{
+      async function expectReady(ready:boolean) {
+        const response=await fetch(endpoint);
+        expect(response.status).toBe(ready?200:503);
+        expect(await response.json()).toEqual({ready});
+      }
+      await expectReady(false);
+      await isolated.unsafe('CREATE TABLE desk_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())');
+      await isolated.unsafe('INSERT INTO desk_migrations (name) VALUES ($1)',['synthetischer-altstand.sql']);
+      await expectReady(false);
+      const migrate=Bun.spawn([process.execPath,'scripts/migrate.ts'],{
+        env:{...process.env,DATABASE_URL:url.href},
+        stdout:'inherit',stderr:'inherit',
+      });
+      expect(await migrate.exited).toBe(0);
+      await expectReady(true);
+    });
+  } finally {
+    await isolated.close();
+    await control.unsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+    await control.close();
+  }
 });
 
 test('Desk meldet einen abgelehnten PostgreSQL-Verbindungsversuch als nicht bereit',async()=>{

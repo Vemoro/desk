@@ -9,6 +9,7 @@ FROM oven/bun:1.4.5
 WORKDIR /desk
 COPY --from=build --chown=bun:bun /desk/.output ./.output
 COPY --from=build --chown=bun:bun /desk/migrations ./migrations
+COPY --from=build --chown=bun:bun /desk/src/server/migration-files.ts ./src/server/migration-files.ts
 COPY --from=build --chown=bun:bun /desk/scripts/migrate.ts ./scripts/migrate.ts
 COPY --from=build --chown=bun:bun /desk/scripts/admin.ts ./scripts/admin.ts
 COPY --from=build --chown=bun:bun /desk/src/server/db.ts ./src/server/db.ts
