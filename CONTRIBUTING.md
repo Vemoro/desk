@@ -2,7 +2,7 @@
 
 Auch ohne Programmierkenntnisse kannst du mitwirken. Du kannst Fehler melden, die Doku verbessern oder einen Ablauf mit den Beispieldaten testen und deine Beobachtungen teilen.
 
-Dieses Repository ist derzeit privat. Wer Zugriff hat, kann Fehler und Vorschläge als GitHub-Issue erfassen und Änderungen als Pull Request einreichen. Die Regeln für Entwicklungsarbeit, Prüfung und Freigabe stehen in der [Entwicklungsdoku](docs/entwicklung.md).
+Dieses Repository ist derzeit privat. Mit Repository-Zugriff kannst du Fehler und Vorschläge als GitHub-Issue erfassen. Um einen Pull Request einzureichen, brauchst du Schreibzugriff für deinen Branch. Die Regeln für Entwicklungsarbeit, Prüfung und Freigabe stehen in der [Entwicklungsdoku](docs/entwicklung.md).
 
 ## Fehler und Vorschläge melden
 
@@ -22,7 +22,7 @@ Wenn du Zugriff auf die [Desk Roadmap](https://github.com/orgs/Vemoro/projects/2
 
 1. Kläre das Ziel und die Abnahme im zugehörigen Issue. Arbeite auf einem eigenen Branch und halte Änderung, Tests und betroffene Doku zusammen.
 2. Nutze die zur Änderung passenden lokalen Prüfungen und notiere das Ergebnis im PR. Führe Integrations- und Browser-Tests in einer getrennten Testinstanz mit synthetischen Daten aus. [Prüfbefehle und Beispieldaten](docs/entwicklung.md#befehle-und-screenshot-workflow)
-3. Zeige bei UI-Änderungen dieselbe Ansicht vor und nach dem Eingriff. Verwende gleiche Beispieldaten und Viewports. Desktop braucht Hell und Dunkel. Wenn die mobile Bedienung betroffen ist, kommen Smartphone-Bilder hinzu. [Screenshot-Workflow](docs/entwicklung.md#befehle-und-screenshot-workflow)
+3. Zeige bei UI-Änderungen dieselbe Ansicht vor und nach dem Eingriff. Verwende gleiche Beispieldaten und Viewports. Desktop braucht Hell und Dunkel. Wenn die mobile Bedienung betroffen ist, kommen Smartphone-Bilder hinzu. Bei einer neuen Ansicht zeigst du den Nachher-Stand und vermerkst, dass es kein Vorher-Bild gibt. [Screenshot-Workflow](docs/entwicklung.md#befehle-und-screenshot-workflow)
 4. Nenne im PR Ergebnis, Issue, Prüfstatus und Hinweise zum Update. Kennzeichne wesentliche KI-Unterstützung. Selbstprüfung, unabhängiges Review und die Freigabe des Maintainers richten sich nach den vorhandenen Projektregeln. [Review und Freigabe](docs/entwicklung.md#änderungen-prüfen)
 
 Für Beiträge mit Coding-Agenten gelten die vorhandenen Hinweise. [AGENTS.md](AGENTS.md) · [Entwicklungsdoku](docs/entwicklung.md)
