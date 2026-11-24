@@ -72,6 +72,8 @@ tr:last-child td { border-bottom:0; }
 .pill.accent { background:var(--tint); color:var(--accent-ink); }
 .empty { color:var(--muted); padding:22px 20px; }
 .form-grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr)); align-items:end; }
+.stock-availability { display:flex; align-items:center; gap:8px; min-height:42px; }
+.stock-availability input { width:18px; height:18px; min-height:0; margin:0; accent-color:var(--accent); }
 .wide,.form-action { grid-column:1/-1; }
 .expand { border:1px solid var(--border); border-radius:8px; min-width:0; }
 .expand summary { cursor:pointer; padding:10px 13px; font-size:.92rem; color:var(--accent-ink); font-weight:650; }

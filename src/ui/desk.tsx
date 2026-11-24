@@ -186,11 +186,13 @@ function Warehouse({data,run}:{data:Data;run:Run}) {
   const [locationFilter,setLocationFilter]=useState('');
   const [stockQuery,setStockQuery]=useState('');
   const [stockLocation,setStockLocation]=useState('');
+  const [onlyAvailable,setOnlyAvailable]=useState(false);
   const itemsById=new Map(data.items.map((item)=>[item.id,item]));
   const stockTerm=stockQuery.trim().toLowerCase();
   const visibleStock=data.stock.filter((row)=>{
     const item=itemsById.get(row.item_id);
-    return (!stockLocation || row.location_id===stockLocation)
+    return (!onlyAvailable || row.free>0)
+      && (!stockLocation || row.location_id===stockLocation)
       && (!stockTerm || [item?.name,item?.code,item?.inventory_number]
         .some((value)=>value?.toLowerCase().includes(stockTerm)));
   });
@@ -224,10 +226,14 @@ function Warehouse({data,run}:{data:Data;run:Run}) {
         <option value="">Alle Lagerorte</option>
         {options(data.locations).map(({value,label})=><option key={value} value={value}>{label}</option>)}
       </select></label>
-      <button type="button" disabled={!stockQuery&&!stockLocation}
-        onClick={()=>{setStockQuery('');setStockLocation('');}}>Filter zurücksetzen</button>
+      <label className="stock-availability">
+        <input type="checkbox" checked={onlyAvailable} onChange={(event)=>setOnlyAvailable(event.target.checked)}/>
+        <span>Nur mit freiem Bestand</span>
+      </label>
+      <button type="button" disabled={!stockQuery&&!stockLocation&&!onlyAvailable}
+        onClick={()=>{setStockQuery('');setStockLocation('');setOnlyAvailable(false);}}>Filter zurücksetzen</button>
     </div>
-    {visibleStock.length || !stockTerm&&!stockLocation ? <Table headers={['Artikel','Lagerort','Physisch','Reserviert','Frei']} rows={visibleStock.map((row)=>({key:`${row.item_id}/${row.location_id}`,cells:[
+    {visibleStock.length || !stockTerm&&!stockLocation&&!onlyAvailable ? <Table headers={['Artikel','Lagerort','Physisch','Reserviert','Frei']} rows={visibleStock.map((row)=>({key:`${row.item_id}/${row.location_id}`,cells:[
       name(data.items,row.item_id),name(data.locations,row.location_id),row.physical,row.reserved,<strong>{row.free}</strong>,
     ]}))}/> : <p className="empty" role="status">Kein Bestand für diese Filter.</p>}</Panel>
     <Panel title="Offene Ausgaben">
