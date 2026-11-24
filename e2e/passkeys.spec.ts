@@ -3,6 +3,30 @@ import { signIn } from './session';
 
 const passkeyPath='/api/auth/passkey/';
 
+test('Passkey-Anmeldung und Passwort-Anmeldung werden nacheinander ausgeführt',async({page})=>{
+  await page.goto('/');
+  await expect(page.getByRole('heading',{name:'Anmelden',exact:true})).toBeVisible();
+  const requestStarted=Promise.withResolvers<void>();
+  const cancelPasskey=Promise.withResolvers<void>();
+  await page.route('**'+passkeyPath+'generate-authenticate-options',async(route)=>{
+    requestStarted.resolve();
+    await cancelPasskey.promise;
+    await route.fulfill({status:400,json:{message:'Synthetischer Abbruch'}});
+  });
+  try {
+    await page.getByRole('button',{name:'Mit Passkey anmelden'}).click();
+    await requestStarted.promise;
+    await page.getByLabel('E-Mail').fill('mira@example.test');
+    await page.getByLabel('Passwort').fill(process.env.DESK_DEMO_PASSWORD!);
+    await page.getByRole('button',{name:'Anmelden',exact:true}).click();
+    await expect(page.getByRole('alert')).toHaveText('Eine Anmeldung läuft bereits.');
+  } finally {
+    cancelPasskey.resolve();
+  }
+  await expect(page.getByText('Die Anmeldung mit Passkey wurde nicht abgeschlossen.',{exact:false})).toBeVisible();
+  await signIn(page);
+});
+
 test('Passkeys gehören einem eigenen Konto und funktionieren neben dem Passwort',async({page,browser})=>{
   const authenticator=await page.context().newCDPSession(page);
   await authenticator.send('WebAuthn.enable');
@@ -50,7 +74,16 @@ test('Passkeys gehören einem eigenen Konto und funktionieren neben dem Passwort
     await memberAuthenticator.send('WebAuthn.addVirtualAuthenticator',{
       options:{protocol:'ctap2',transport:'internal',hasResidentKey:true,hasUserVerification:true,isUserVerified:true,automaticPresenceSimulation:true},
     });
-    await memberPage.goto('/#account');
+    await memberPage.setViewportSize({width:390,height:844});
+    await memberPage.goto('/');
+    const menu=memberPage.getByRole('button',{name:'Menü',exact:true});
+    const account=memberPage.getByRole('button',{name:'Mein Konto',exact:true});
+    await expect(menu).toBeVisible();
+    await expect(account).toBeHidden();
+    await menu.click();
+    await expect(memberPage.getByRole('button',{name:'Einstellungen',exact:true})).toHaveCount(0);
+    await account.click();
+    await expect(menu).toHaveAttribute('aria-expanded','false');
     await expect(memberPage.getByRole('heading',{name:'Mein Konto',exact:true})).toBeVisible();
     await memberPage.getByLabel('Name für den Passkey').fill('Muster Privat');
     await memberPage.getByRole('button',{name:'Passkey hinzufügen'}).click();

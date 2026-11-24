@@ -6,16 +6,17 @@ import { Panel } from './widgets';
 const authClient=createAuthClient({plugins:[passkeyClient()]});
 type Passkey = {id:string; name?:string | null};
 
-export function PasskeyLogin({onSignedIn}:{onSignedIn:()=>Promise<void>}) {
+export function PasskeyLogin({onSignIn}:{onSignIn:(authenticate:()=>Promise<void>)=>Promise<void>}) {
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   async function signIn() {
     setBusy(true);
     setError('');
     try {
-      const result=await authClient.signIn.passkey();
-      if(result.error || !result.data) throw new Error();
-      await onSignedIn();
+      await onSignIn(async()=>{
+        const result=await authClient.signIn.passkey();
+        if(result.error || !result.data) throw new Error();
+      });
     } catch {
       setError('Die Anmeldung mit Passkey wurde nicht abgeschlossen. Du kannst es erneut versuchen oder dein Passwort verwenden.');
     } finally {
