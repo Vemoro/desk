@@ -43,9 +43,11 @@ test('Kosten-CSV lokal prüfen und nur gültige Zeilen ausdrücklich übernehmen
   await input.fill(csv);
   await inspect.click();
   await expect(preview.getByRole('row').filter({hasText:'B-1'})).toContainText('Musterinstallation');
+  await expect(preview.getByRole('row').filter({hasText:'B-1'})).toContainText('Kostenstelle „FREMD“ unbekannt.');
   await expect(preview.getByRole('row').filter({hasText:'B-1'})).toContainText('Aktualisierung');
   await expect(preview.getByRole('row').filter({hasText:'B-2'})).toContainText('Werkstatt');
   await expect(preview.getByRole('row').filter({hasText:'B-3'})).toContainText('Ohne Zuordnung');
+  await expect(preview.getByRole('row').filter({hasText:'B-3'})).toContainText('Kostenstelle fehlt.');
   await expect(preview.getByRole('row').filter({hasText:'B-4'})).toContainText('amount');
   await expect(preview.getByRole('row').filter({hasText:'B-5'})).toHaveCount(2);
   await expect(preview.getByText('reference: Doppelte Belegreferenz.',{exact:true})).toHaveCount(2);

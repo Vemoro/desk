@@ -77,7 +77,7 @@ export function parseCostCsv(text:string):CostPreviewRow[] {
   const position=columns.indexOf('reference');
   for(const record of records){
     const reference=record.values[position]?.trim();
-    if(reference && !record.problem) references.set(reference,(references.get(reference) ?? 0)+1);
+    if(reference) references.set(reference,(references.get(reference) ?? 0)+1);
   }
 
   return records.map((record)=>{

@@ -59,11 +59,14 @@ export function CostImport({costs,projects,run}:{costs:Row[];projects:Row[];run:
       {overLimit&&<p className="inline-error" role="alert">Höchstens {costBatchLimit} gültige Zeilen pro Import übernehmen. Teile die CSV auf und prüfe sie erneut.</p>}
       <Table headers={['Zeile','Beleg','Bezeichnung','Netto','Status','Projekt']} rows={preview.map((row)=>{
         const existing=existingByReference.get(row.reference);
-        const project=row.entry && (existing?.project_id?projectById.get(existing.project_id):projectByCenter.get(row.entry.cost_center));
+        const center=row.entry?.cost_center;
+        const matchedProject=center?projectByCenter.get(center):undefined;
+        const project=existing?.project_id?projectById.get(existing.project_id):matchedProject;
+        const centerHint=!center?'Kostenstelle fehlt.':!matchedProject?`Kostenstelle „${center}“ unbekannt.`:undefined;
         return {key:String(row.line),cells:[
           row.line,row.reference||'–',row.name||'–',row.entry?euros(row.entry.cents):'–',
           row.entry?(existing?'Aktualisierung':'Neu'):<><strong>Fehlerhaft</strong>{row.problems.map((problem)=><small key={problem}>{problem}</small>)}</>,
-          row.entry?(project?.name ?? 'Ohne Zuordnung'):'–',
+          row.entry?<>{project?.name ?? 'Ohne Zuordnung'}{centerHint&&<small>{centerHint}</small>}</>:'–',
         ]};
       })}/>
       <div className="actions">

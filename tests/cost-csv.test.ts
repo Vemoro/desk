@@ -27,3 +27,11 @@ test('CSV blockiert ungültige oder mehrdeutige Kopfzeilen',()=>{
   expect(()=>parseCostCsv('name,amount\nFahrt,3')).toThrow('CSV-Kopfzeile');
   expect(()=>parseCostCsv('reference,name,amount,reference\nB-1,Fahrt,3,B-2')).toThrow('CSV-Kopfzeile');
 });
+
+test('Eine Referenz bleibt auch bei einem kaputten zweiten CSV-Datensatz doppelt',()=>{
+  const rows=parseCostCsv('reference;name;amount\nB-1;Erster;1\nB-1;Defektes"Feld;2');
+  expect(rows[0].problems).toContain('reference: Doppelte Belegreferenz.');
+  expect(rows[1].problems).toContain('CSV: Ungültige Anführungszeichen.');
+  expect(rows[1].problems).toContain('reference: Doppelte Belegreferenz.');
+  expect(rows.every((row)=>!row.entry)).toBe(true);
+});
