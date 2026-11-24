@@ -12,9 +12,9 @@ type Person={id:string;name:string;role:'admin'|'member'};
 const collections = ['contacts','projects','tasks','users','lines','reservations','locations','items','movements','costs','stock'] as const;
 const initialData=Object.fromEntries(collections.map((key)=>[key,[]])) as unknown as Data;
 
-type MovementFilters={action:string;projectId:string;search:string;from:string;to:string};
+type MovementFilters={action:string;projectId:string;search:string;from:string;to:string;locationId:string};
 type MovementFilterControl={filters:MovementFilters;onFilter:(filters:MovementFilters)=>void};
-const emptyMovementFilters:MovementFilters={action:'',projectId:'',search:'',from:'',to:''};
+const emptyMovementFilters:MovementFilters={action:'',projectId:'',search:'',from:'',to:'',locationId:''};
 
 export function Desk() {
   const [person,setPerson]=useState<Person|null>();
@@ -244,17 +244,18 @@ function Warehouse({data,run,filters,onFilter}:{data:Data;run:Run}&MovementFilte
 }
 
 function WarehouseMovements({data,filters,onFilter}:{data:Data}&MovementFilterControl) {
-  const {action,projectId,search,from,to}=filters;
+  const {action,projectId,search,from,to,locationId}=filters;
   const query=search.trim().toLowerCase();
   const itemsById=new Map(data.items.map(item=>[item.id,item]));
   const projectsById=new Map(data.projects.map(project=>[project.id,project]));
-  const filtered=Boolean(action || projectId || search || from || to);
+  const filtered=Boolean(action || projectId || search || from || to || locationId);
   const invalidRange=Boolean(from && to && from>to);
   const movements=invalidRange ? [] : data.movements.filter((row)=>{
     const item=itemsById.get(row.item_id);
     const matchesSearch=!query || [item?.name,item?.code,item?.inventory_number,row.delivery_reference]
       .some(value=>value?.toLowerCase().includes(query));
     const matchesFilters=matchesSearch && (!action || row.action===action)
+      && (!locationId || row.location_id===locationId)
       && (!projectId || (projectId==='unassigned'?!row.project_id:row.project_id===projectId));
     if(!matchesFilters || (!from && !to)) return matchesFilters;
     const bookedAt=new Date(row.created_at);
@@ -274,6 +275,10 @@ function WarehouseMovements({data,filters,onFilter}:{data:Data}&MovementFilterCo
       <label><span>Projekt filtern</span><select value={projectId} onChange={(event)=>onFilter({...filters,projectId:event.target.value})}>
         <option value="">Alle Projekte</option><option value="unassigned">Ohne Projektbezug</option>
         {options(data.projects).map(({value,label})=><option key={value} value={value}>{label}</option>)}
+      </select></label>
+      <label><span>Lagerort filtern</span><select value={locationId} onChange={(event)=>onFilter({...filters,locationId:event.target.value})}>
+        <option value="">Alle Lagerorte</option>
+        {options(data.locations).map(({value,label})=><option key={value} value={value}>{label}</option>)}
       </select></label>
       <label><span>Vom Datum</span><input type="date" value={from} aria-invalid={invalidRange}
         onChange={(event)=>onFilter({...filters,from:event.target.value})}/></label>

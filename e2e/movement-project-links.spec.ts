@@ -30,11 +30,13 @@ test('Bewegung öffnet das richtige Projekt und Browser-Zurück erhält die Filt
   const checkoutLocation=checkouts.getByLabel('Lagerort filtern');
   await checkoutLocation.selectOption('lager');
   const search=panel.getByRole('searchbox',{name:'Lagerbewegungen suchen'});
+  const location=panel.getByLabel('Lagerort filtern');
   const action=panel.getByLabel('Bewegungsart filtern');
   const project=panel.getByLabel('Projekt filtern');
   const from=panel.getByLabel('Vom Datum');
   const to=panel.getByLabel('Bis Datum');
   await search.fill('LS-2028');
+  await location.selectOption('lager');
   await action.selectOption('issue');
   await project.selectOption('muster-b');
   await from.fill('2028-05-18');
@@ -48,6 +50,7 @@ test('Bewegung öffnet das richtige Projekt und Browser-Zurück erhält die Filt
   await page.goBack();
   await expect(page.getByRole('heading',{name:'Projektlager',exact:true})).toBeVisible();
   await expect(search).toHaveValue('LS-2028');
+  await expect(location).toHaveValue('lager');
   await expect(action).toHaveValue('issue');
   await expect(project).toHaveValue('muster-b');
   await expect(from).toHaveValue('2028-05-18');
@@ -66,12 +69,14 @@ test('Bewegung öffnet das richtige Projekt und Browser-Zurück erhält die Filt
     await expect(projectCell.getByRole('link')).toHaveCount(0);
   }
   await expect(search).toHaveValue('');
+  await expect(location).toHaveValue('');
   await expect(action).toHaveValue('');
   await expect(project).toHaveValue('');
   await expect(from).toHaveValue('');
   await expect(to).toHaveValue('');
 
   await search.fill('LS-2028');
+  await location.selectOption('lager');
   await action.selectOption('issue');
   await project.selectOption('muster-a');
   await from.fill('2028-05-18');
@@ -83,6 +88,7 @@ test('Bewegung öffnet das richtige Projekt und Browser-Zurück erhält die Filt
   await page.getByRole('button',{name:'Anmelden',exact:true}).click();
   await expect(panel.getByText('4 Bewegungen',{exact:true})).toBeVisible();
   await expect(search).toHaveValue('');
+  await expect(location).toHaveValue('');
   await expect(action).toHaveValue('');
   await expect(project).toHaveValue('');
   await expect(from).toHaveValue('');
