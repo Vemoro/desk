@@ -109,11 +109,16 @@ function Kanban({project,data,run}:{project:Row;data:Data;run:Run}) {
 function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
   const [resourceFilter,setResourceFilter]=useState('');
   const [statusFilter,setStatusFilter]=useState('');
+  const [dayFilter,setDayFilter]=useState('');
+  const dayStart=dayFilter ? new Date(`${dayFilter}T00:00:00`) : null;
+  const dayEnd=dayStart && new Date(dayStart);
+  if(dayEnd) dayEnd.setDate(dayEnd.getDate()+1);
   const reservations=data.reservations.filter((row)=>row.project_id===project.id);
   const equipmentIds=new Set(data.items.filter(item=>item.kind==='equipment').map(item=>item.id));
   const visibleReservations=reservations.filter((row)=>
     (!resourceFilter || (row.user_id ? 'user' : 'item')===resourceFilter)
-    && (!statusFilter || row.status===statusFilter));
+    && (!statusFilter || row.status===statusFilter)
+    && (!dayStart || !dayEnd || (Date.parse(row.starts_at)<dayEnd.getTime() && Date.parse(row.ends_at)>dayStart.getTime())));
   const lines=data.lines.filter((row)=>row.project_id===project.id);
   const timeFields=[
     {name:'starts_at',label:'Von',type:'datetime-local',required:true},
@@ -129,8 +134,9 @@ function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
           <option value="">Alle</option>
           {Object.entries(reservationStages).map(([value,label])=><option key={value} value={value}>{label}</option>)}
         </select></label>
-        <button type="button" disabled={!resourceFilter&&!statusFilter}
-          onClick={()=>{setResourceFilter('');setStatusFilter('');}}>Filter zurücksetzen</button>
+        <label><span>Am Datum</span><input type="date" value={dayFilter} onChange={(event)=>setDayFilter(event.target.value)}/></label>
+        <button type="button" disabled={!resourceFilter&&!statusFilter&&!dayFilter}
+          onClick={()=>{setResourceFilter('');setStatusFilter('');setDayFilter('');}}>Filter zurücksetzen</button>
       </div>
       <div className="panel-body compact-actions">
       <Expand title="Personal vormerken"><Form caption="Person vormerken" fields={[
