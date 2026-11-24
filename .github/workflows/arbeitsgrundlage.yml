@@ -1,0 +1,39 @@
+name: Arbeitsgrundlage
+on:
+  pull_request:
+    paths:
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
+      - 'CONTRIBUTING.md'
+      - 'DESIGN.md'
+      - 'docs/**'
+      - '.agents/skills/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/pull_request_template.md'
+      - '.github/workflows/arbeitsgrundlage.yml'
+      - 'scripts/check-workflow-docs.py'
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  doku:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Whitespace prüfen
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -n "$BASE_SHA" ] && git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+            git diff --check "$BASE_SHA" HEAD
+          elif git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+            git diff --check HEAD^ HEAD
+          else
+            git diff-tree --root --check --no-commit-id -r HEAD
+          fi
+      - name: Verweise und Skills prüfen
+        run: python3 scripts/check-workflow-docs.py

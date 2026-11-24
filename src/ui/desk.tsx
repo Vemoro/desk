@@ -47,14 +47,17 @@ export function Desk() {
 
   useEffect(()=>{document.documentElement.dataset.theme=theme;localStorage.setItem('desk-theme',theme);},[theme]);
 
-  const run:Run=async(operation,feedback)=>{
+  const run:Run=async(operation,feedback,reportWriteRejection)=>{
     setNotice({message:'',error:false});
+    let written=false;
     try {
       await operation();
+      written=true;
       await load();
       if(feedback)setNotice({message:feedback,error:false});
       return true;
     } catch(error) {
+      if(reportWriteRejection && !written && error instanceof ApiError && [400,409].includes(error.status)) throw error;
       if(error instanceof ApiError && error.status===401)setPerson(null);
       setNotice({message:error instanceof Error?error.message:'Die Aktion ist fehlgeschlagen.',error:true});
       return false;
@@ -93,10 +96,10 @@ export function Desk() {
       {section!=='projects'||!project?<header className="page-title"><h1>{sections[section][0]}</h1></header>:null}
       {alert}
       {section==='dashboard' && <Dashboard data={data} select={(id)=>navigate('projects',id)} open={()=>navigate('projects')}/>}
-      {section==='projects' && (project?<Project key={project.id} project={project} data={data} run={run} flags={flags} back={()=>navigate('projects')}/>
+      {section==='projects' && (project?<Project key={project.id} project={project} data={data} run={run} flags={flags} accountId={person.id} back={()=>navigate('projects')}/>
         :<Projects data={data} run={run} select={(id)=>navigate('projects',id)}/>)}
       {section==='contacts' && <Contacts data={data} run={run} haben={flags.haben}/>}
-      {section==='warehouse' && <Warehouse data={data} run={run}/>}
+      {section==='warehouse' && <Warehouse data={data} run={run} accountId={person.id}/>}
       {section==='costs' && <Costs data={data} run={run}/>}
       {section==='settings'&&person.role==='admin' && <Settings data={data} run={run} flags={flags}/>}
     </main>
@@ -170,9 +173,19 @@ function Contacts({data,run,haben}:{data:Data;run:Run;haben:boolean}) {
   </>;
 }
 
-function Warehouse({data,run}:{data:Data;run:Run}) {
+function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
   const bookings=data.reservations.filter((row)=>row.item_id&&(row.status==='firm'||row.checked_out>0));
-  const bookingChoices=bookings.map((row)=>({value:row.id,label:`${name(data.projects,row.project_id)} · ${name(data.items,row.item_id)}`}));
+  const [projectFilter,setProjectFilter]=useState('');
+  const [locationFilter,setLocationFilter]=useState('');
+  const [bookingId,setBookingId]=useState('');
+  const openCheckouts=bookings.filter((row)=>row.checked_out>0);
+  const visibleCheckouts=openCheckouts.filter((row)=>
+    (!projectFilter || row.project_id===projectFilter) && (!locationFilter || row.location_id===locationFilter));
+  const bookingChoices=bookings.map((row)=>({
+    value:row.id,
+    label:`${name(data.projects,row.project_id)} · ${name(data.items,row.item_id)} · ${name(data.locations,row.location_id)} · ${moment(row.starts_at)} bis ${moment(row.ends_at)}`,
+  }));
+  const selectedBooking=bookingChoices.find((choice)=>choice.value===bookingId);
   return <>
     <Panel title="Bestand je Lagerort"><div className="panel-body compact-actions">
       <Expand title="Lagerort anlegen"><Form caption="Lagerort speichern" fields={[{name:'name',label:'Lagerort',required:true}]}
@@ -182,25 +195,45 @@ function Warehouse({data,run}:{data:Data;run:Run}) {
         {name:'kind',label:'Artikelart',choices:[{value:'equipment',label:'Gerät'},{value:'consumable',label:'Verbrauchsmaterial'}],required:true},
         {name:'inventory_number',label:'Inventarnummer für Einzelgerät'},
       ]} submit={(input)=>run(()=>api('items','POST',{...input,inventory_number:input.inventory_number||null}),'Artikel angelegt.')}/></Expand>
-      <Expand title="Wareneingang"><Form caption="Wareneingang buchen" fields={[
+      <Expand title="Wareneingang"><Form caption="Wareneingang buchen" retryScope={`movements:${accountId}:receive`} fields={[
         {name:'item_id',label:'Artikel',choices:options(data.items),required:true},{name:'location_id',label:'Lagerort',choices:options(data.locations),required:true},
         {name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},{name:'project_id',label:'Projektbezug',choices:options(data.projects)},
-      ]} submit={(input)=>run(()=>api('movements','POST',{action:'receive',item_id:input.item_id,location_id:input.location_id,
-        quantity:Number(input.quantity),project_id:input.project_id||undefined}),'Wareneingang erfasst.')}/></Expand>
-      <Expand title="Ausgabe, Rückgabe oder Verbrauch"><Form caption="Bewegung buchen" fields={[
+      ]} submit={(input,key)=>run(()=>api('movements','POST',{action:'receive',item_id:input.item_id,location_id:input.location_id,
+        quantity:Number(input.quantity),project_id:input.project_id||undefined},key),'Wareneingang erfasst.',true)}/></Expand>
+      <Expand title="Ausgabe, Rückgabe oder Verbrauch"><Form caption="Bewegung buchen" retryScope={`movements:${accountId}:booking`} fields={[
         {name:'action',label:'Bewegungsart',choices:[{value:'issue',label:'Ausgabe'},{value:'return',label:'Rückgabe'},{value:'consume',label:'Verbrauch'}],required:true},
-        {name:'reservation_id',label:'Projektreservierung',choices:bookingChoices,required:true},
+        {name:'reservation_id',label:'Projektreservierung',choices:bookingChoices,required:true,value:selectedBooking?.value,onChange:setBookingId,describedBy:selectedBooking?'warehouse-booking-details':undefined},
         {name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},
-      ]} submit={(input)=>run(()=>api('movements','POST',{...input,quantity:Number(input.quantity)}),'Lagerbewegung gebucht.')}/></Expand>
+      ]} submit={(input,key)=>run(()=>api('movements','POST',{...input,quantity:Number(input.quantity)},key),'Lagerbewegung gebucht.',true)}>
+        {selectedBooking&&<p id="warehouse-booking-details" className="wide booking-details">{selectedBooking.label}</p>}
+      </Form></Expand>
     </div>
     <Table headers={['Artikel','Lagerort','Physisch','Reserviert','Frei']} rows={data.stock.map((row)=>({key:`${row.item_id}/${row.location_id}`,cells:[
       name(data.items,row.item_id),name(data.locations,row.location_id),row.physical,row.reserved,<strong>{row.free}</strong>,
     ]}))}/></Panel>
-    <Panel title="Offene Ausgaben"><Table headers={['Projekt','Artikel','Lagerort','Ausgegeben']} rows={bookings.filter((row)=>row.checked_out>0).map((row)=>({
-      key:row.id,cells:[name(data.projects,row.project_id),name(data.items,row.item_id),name(data.locations,row.location_id),row.checked_out],
-    }))}/></Panel>
-    <Panel title="Lagerbewegungen"><Table headers={['Zeitpunkt','Bewegung','Artikel','Projekt','Menge','Erfasst durch']} rows={data.movements.map((row)=>({key:row.id,cells:[
-      moment(row.created_at),movementStages[row.action],name(data.items,row.item_id),name(data.projects,row.project_id),row.quantity,name(data.users,row.actor_id),
+    <Panel title="Offene Ausgaben">
+      <div className="panel-body">
+        <div className="form-grid">
+          <label><span>Projekt filtern</span><select value={projectFilter} onChange={(event)=>setProjectFilter(event.target.value)}>
+            <option value="">Alle Projekte</option>
+            {options(data.projects).map(({value,label})=><option key={value} value={value}>{label}</option>)}
+          </select></label>
+          <label><span>Lagerort filtern</span><select value={locationFilter} onChange={(event)=>setLocationFilter(event.target.value)}>
+            <option value="">Alle Lagerorte</option>
+            {options(data.locations).map(({value,label})=><option key={value} value={value}>{label}</option>)}
+          </select></label>
+        </div>
+        <div className="actions">
+          <button type="button" disabled={!projectFilter && !locationFilter}
+            onClick={()=>{setProjectFilter('');setLocationFilter('');}}>Filter zurücksetzen</button>
+        </div>
+      </div>
+      {visibleCheckouts.length ? <Table headers={['Projekt','Artikel','Lagerort','Ausgegeben']} rows={visibleCheckouts.map((row)=>({
+        key:row.id,cells:[name(data.projects,row.project_id),name(data.items,row.item_id),name(data.locations,row.location_id),row.checked_out],
+      }))}/> : <p className="empty" role="status">{openCheckouts.length?'Keine offenen Ausgaben für diese Filter.':'Es gibt keine offenen Ausgaben.'}</p>}
+    </Panel>
+    <Panel title="Lagerbewegungen"><Table headers={['Zeitpunkt','Bewegung','Artikel','Lagerort','Projekt','Menge','Erfasst durch']} rows={data.movements.map((row)=>({key:row.id,cells:[
+      moment(row.created_at),movementStages[row.action],name(data.items,row.item_id),name(data.locations,row.location_id),name(data.projects,row.project_id),row.quantity,name(data.users,row.actor_id),
     ]}))}/></Panel>
   </>;
 }
