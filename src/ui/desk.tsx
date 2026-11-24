@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { all, api, ApiError, compileCsv, date, euros, moment, money, movementStages, name, projectStages, type Row } from './client';
+import { all, api, ApiError, compileCsv, csvText, date, downloadCsv, euros, moment, money, movementStages, name, projectStages, type Row } from './client';
 import { Project, Projects, type Data } from './projects';
 import { Expand, Form, options, Panel, Pill, Table, type Run } from './widgets';
 
@@ -264,7 +264,26 @@ function WarehouseMovements({data,filters,onFilter}:{data:Data}&MovementFilterCo
     return (!from || day>=from) && (!to || day<=to);
   });
 
-  return <Panel title="Lagerbewegungen" action={<span className="subtle">{movements.length} {movements.length===1?'Bewegung':'Bewegungen'}</span>}>
+  function exportMovements() {
+    const rows=movements.map(row=>[
+      csvText(new Date(row.created_at).toISOString()),
+      csvText(movementStages[row.action] ?? ''),
+      csvText(itemsById.get(row.item_id)?.name ?? ''),
+      csvText(name(data.locations,row.location_id)),
+      csvText(projectsById.get(row.project_id)?.name ?? ''),
+      row.quantity,
+      csvText(row.delivery_reference ?? ''),
+      csvText(name(data.users,row.actor_id)),
+    ].join(';'));
+    downloadCsv('lagerbewegungen.csv',[
+      'Zeitpunkt (UTC);Bewegung;Artikel;Lagerort;Projekt;Menge;Lieferschein;Erfasst durch',...rows,
+    ]);
+  }
+
+  return <Panel title="Lagerbewegungen" action={<div className="actions">
+    <span className="subtle">{movements.length} {movements.length===1?'Bewegung':'Bewegungen'}</span>
+    <button type="button" disabled={!movements.length} onClick={exportMovements}>CSV herunterladen</button>
+  </div>}>
     <div className="panel-body form-grid">
       <label><span>Lagerbewegungen suchen</span><input type="search" value={search}
         onChange={(event)=>onFilter({...filters,search:event.target.value})}/></label>

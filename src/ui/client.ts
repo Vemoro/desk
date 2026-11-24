@@ -72,16 +72,20 @@ export function compileCsv(text:string) {
   });
 }
 
-export function downloadPositions(project:Row, rows:Row[]) {
-  const encode=(value:unknown)=>{
-    const string=String(value);
-    return '"'+(/^[=+\-@\t\r]/.test(string) ? "'"+string : string).replaceAll('"','""')+'"';
-  };
-  const csv=['Position;Menge;Einzelpreis EUR',...rows.map((row)=>[encode(row.name), row.quantity, (row.unit_cents/100).toFixed(2).replace('.',',')].join(';'))].join('\r\n');
-  const url=URL.createObjectURL(new Blob(['\uFEFF',csv],{type:'text/csv;charset=utf-8'}));
+export function csvText(value:string) {
+  return '"'+(/^[=+\-@\t\r]/.test(value) ? "'"+value : value).replaceAll('"','""')+'"';
+}
+
+export function downloadCsv(filename:string,lines:string[]) {
+  const url=URL.createObjectURL(new Blob(['\uFEFF',lines.join('\r\n')],{type:'text/csv;charset=utf-8'}));
   const anchor=document.createElement('a');
   anchor.href=url;
-  anchor.download=`angebotspositionen-${project.id.slice(0,8)}.csv`;
+  anchor.download=filename;
   anchor.click();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+export function downloadPositions(project:Row, rows:Row[]) {
+  const lines=rows.map((row)=>[csvText(String(row.name)),row.quantity,(row.unit_cents/100).toFixed(2).replace('.',',')].join(';'));
+  downloadCsv(`angebotspositionen-${project.id.slice(0,8)}.csv`,['Position;Menge;Einzelpreis EUR',...lines]);
 }
