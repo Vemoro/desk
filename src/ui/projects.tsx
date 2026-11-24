@@ -186,6 +186,16 @@ function plainText(html:string) {
 }
 
 function Communication({project,zammad,run}:{project:Row;zammad:boolean;run:Run}) {
+  return <>
+    <Panel title="Externer Vorgang"><div className="panel-body"><Form caption="Verweis speichern" fields={[
+      {name:'external_link',label:'Vorgangslink',type:'url',value:project.external_link},
+      {name:'communication_note',label:'Kommunikationsnotiz',type:'textarea',value:project.communication_note},
+    ]} submit={(input)=>run(()=>api(`projects/${project.id}`,'PATCH',input),'Verweis gespeichert.')}/></div></Panel>
+    {zammad && <ZammadConversation key={project.zammad_ticket_id ?? 'unlinked'} project={project} run={run}/>}
+  </>;
+}
+
+function ZammadConversation({project,run}:{project:Row;run:Run}) {
   const [confirmation,setConfirmation]=useState<Confirmation>();
   const zammadPanel=useRef<HTMLElement>(null);
   const [conversation,setConversation]=useState<any>(null);
@@ -193,10 +203,16 @@ function Communication({project,zammad,run}:{project:Row;zammad:boolean;run:Run}
   const [file,setFile]=useState<File>();
   const [composeVersion,setComposeVersion]=useState(0);
   const draftId=useRef<string | undefined>(undefined);
+  const active=useRef(false);
+  const requestVersion=useRef(0);
+
   async function refresh() {
-    if (!zammad || !project.zammad_ticket_id) return;
+    if (!active.current || !project.zammad_ticket_id) return;
+    const version=++requestVersion.current;
+    const isCurrent=()=>active.current && requestVersion.current===version;
     try {
       const current=await api(`projects/${project.id}/zammad`);
+      if (!isCurrent()) return;
       if (draftId.current && current.outgoing.some((entry:Row)=>entry.id===draftId.current && entry.status==='sent')) {
         draftId.current=undefined;
         setFile(undefined);
@@ -205,16 +221,21 @@ function Communication({project,zammad,run}:{project:Row;zammad:boolean;run:Run}
       setConversation(current);
       setProblem('');
     }
-    catch(error) {setProblem(error instanceof Error ? error.message : 'Verlauf nicht verfügbar.');}
+    catch(error) {
+      if (isCurrent()) setProblem(error instanceof Error ? error.message : 'Verlauf nicht verfügbar.');
+    }
   }
-  useEffect(()=>{setConversation(null);void refresh();},[project.id,project.zammad_ticket_id,zammad]);
+  useEffect(()=>{
+    active.current=true;
+    void refresh();
+    return ()=>{
+      active.current=false;
+      requestVersion.current++;
+    };
+  },[]);
   const request=(suffix:string,input:unknown)=>api(`projects/${project.id}/zammad/${suffix}`,'POST',input);
   return <>
-    <Panel title="Externer Vorgang"><div className="panel-body"><Form caption="Verweis speichern" fields={[
-      {name:'external_link',label:'Vorgangslink',type:'url',value:project.external_link},
-      {name:'communication_note',label:'Kommunikationsnotiz',type:'textarea',value:project.communication_note},
-    ]} submit={(input)=>run(()=>api(`projects/${project.id}`,'PATCH',input),'Verweis gespeichert.')}/></div></Panel>
-    {zammad && <Panel title="Zammad" focusRef={zammadPanel} action={conversation?.ticket && <a href={conversation.ticket.url} target="_blank" rel="noreferrer">Ticket {conversation.ticket.number} öffnen</a>}>
+    <Panel title="Zammad" focusRef={zammadPanel} action={conversation?.ticket && <a href={conversation.ticket.url} target="_blank" rel="noreferrer">Ticket {conversation.ticket.number} öffnen</a>}>
       <div className="panel-body">
         {problem && <p role="alert" className="inline-error">{problem}</p>}
         {!project.zammad_ticket_id ? <>
@@ -267,7 +288,7 @@ function Communication({project,zammad,run}:{project:Row;zammad:boolean;run:Run}
           }))}/>
         </>}
       </div>
-    </Panel>}
+    </Panel>
     {confirmation&&<ConfirmDialog confirmation={confirmation} run={run} dismiss={()=>setConfirmation(undefined)} fallbackFocus={zammadPanel}/>}
   </>;
 }
