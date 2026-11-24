@@ -9,7 +9,12 @@ const transitions:Record<string,string[]> = {
   inquiry:['planning','cancelled'], planning:['offered','cancelled'], offered:['planning','confirmed','cancelled'],
   confirmed:['running','cancelled'], running:['complete','cancelled'], complete:[],cancelled:[],
 };
-const dateTime = (value:string) => new Date(value).toISOString();
+function reservationInterval(from:string, to:string) {
+  const start=new Date(from);
+  const end=new Date(to);
+  if(!(end>start)) throw new Error('Das Ende muss nach dem Beginn liegen.');
+  return {starts_at:start.toISOString(),ends_at:end.toISOString()};
+}
 
 export function Projects({data,run,select}:{data:Data;run:Run;select:(id:string)=>void}) {
   const [filter,setFilter]=useState('');
@@ -117,12 +122,18 @@ function Planning({project,data,run}:{project:Row;data:Data;run:Run}) {
     <Panel title="Ressourcenplanung"><div className="panel-body compact-actions">
       <Expand title="Personal vormerken"><Form caption="Person vormerken" fields={[
         {name:'user_id',label:'Person',choices:options(data.users),required:true},...timeFields,
-      ]} submit={(v)=>run(()=>api('reservations','POST',{project_id:project.id,user_id:v.user_id,quantity:1,starts_at:dateTime(v.starts_at),ends_at:dateTime(v.ends_at)}),'Person vorgemerkt.')}/></Expand>
+      ]} submit={async(v)=>{
+        const interval=reservationInterval(v.starts_at,v.ends_at);
+        return run(()=>api('reservations','POST',{project_id:project.id,user_id:v.user_id,quantity:1,...interval}),'Person vorgemerkt.');
+      }}/></Expand>
       <Expand title="Inventar vormerken"><Form caption="Inventar vormerken" fields={[
         {name:'item_id',label:'Artikel',choices:options(data.items),required:true},
         {name:'location_id',label:'Lagerort',choices:options(data.locations),required:true},
         {name:'quantity',label:'Menge',type:'number',value:1,min:1,required:true},...timeFields,
-      ]} submit={(v)=>run(()=>api('reservations','POST',{...v,project_id:project.id,quantity:Number(v.quantity),starts_at:dateTime(v.starts_at),ends_at:dateTime(v.ends_at)}),'Inventar vorgemerkt.')}/></Expand>
+      ]} submit={async(v)=>{
+        const interval=reservationInterval(v.starts_at,v.ends_at);
+        return run(()=>api('reservations','POST',{...v,project_id:project.id,quantity:Number(v.quantity),...interval}),'Inventar vorgemerkt.');
+      }}/></Expand>
     </div><Table headers={['Ressource','Zeitraum','Menge','Status','Aktion']} rows={reservations.map((row)=>({
       key:row.id,cells:[row.user_id ? name(data.users,row.user_id) : <>{name(data.items,row.item_id)}<small>{name(data.locations,row.location_id)}</small></>,
         <>{moment(row.starts_at)}<small>bis {moment(row.ends_at)}</small></>,row.quantity,
