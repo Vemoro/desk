@@ -71,6 +71,12 @@ build_commit="$(git rev-parse --verify HEAD)" &&
 
 Für Docker Compose steht der Aufruf im [Installationsleitfaden](installation.md#eigenständiger-start-mit-docker-compose). Starte anschließend den gebauten Dienst und vergleiche die unter **Desk-Version** angezeigte Angabe mit `git rev-parse HEAD`. Die Angabe bleibt bei einem Neustart desselben Builds erhalten. Ein Build ohne Commit-Angabe zeigt **Stand unbekannt**.
 
+### Rollback einer fehlgeschlagenen Migration prüfen
+
+`bun scripts/rehearse-migration-rollback.ts` führt die Probe mit einer eigenen PostgreSQL-Instanz und einem Docker-Image aus einer temporären Kopie des ausgecheckten Commits aus. Benötigt werden Docker, Git, tar, Bun und ein freier Loopback-Port. Der Standard ist 4182. Über `DESK_ROLLBACK_TEST_PORT` lässt sich ein anderer Port wählen.
+
+Die Probe ergänzt ausschließlich in der temporären Kopie zwei SQL-Dateien. Nach einem Fehler in der zweiten Datei prüft sie beide Testtabellen, das Migrationsprotokoll, den Bereitschaftsstatus und ein bereits gespeichertes Musterprojekt. Nach der Korrektur derselben Testdatei werden die Migrationen auf derselben Testdatenbank angewendet und alle vier Ergebnisse erneut geprüft.
+
 ## Ansichten
 
 <picture>
