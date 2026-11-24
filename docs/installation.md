@@ -59,11 +59,13 @@ Führe die folgenden Befehle im Repository in einer Bash aus. Nach dem Datenbank
   export DESK_ADMIN_PASSWORD
   docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost run --rm -e DESK_ADMIN_PASSWORD desk bun scripts/admin.ts admin@example.test 'Desk Administration'
   unset DESK_ADMIN_PASSWORD
-  docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost up -d desk
+  docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost up -d --wait --wait-timeout 60 desk
 )
 ```
 
-Melde dich danach über die HTTPS-Adresse an. **Einstellungen** zeigt Haben und Zammad als nicht eingerichtet. Für einen späteren Start desselben Versionsstands genügt `docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost up -d`. Verwende dafür denselben Compose-Projektnamen und dasselbe Datenbankvolume. Das Volume enthält Konten und Projekte und muss bei Unterbrechungen erhalten bleiben. Beim Wechsel des Desk-Stands Datenbank und Konfiguration zuerst sichern, die Migration mit dem neuen Image ausführen und dann den Dienst aktualisieren.
+Der Startbefehl wartet bis zu 60 Sekunden auf die Bereitschaft von Desk. Die Prüfung im Container ruft `/api/v1/ready` auf. Sie verlangt eine erreichbare Desk-Datenbank mit den vom Build erwarteten Migrationen. Wenn der Startbefehl fehlschlägt, zeigen `docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost ps` und die Dienstlogs den Betriebszustand. [Desk-Bereitschaft](desk.md#betrieb)
+
+Melde dich danach über die HTTPS-Adresse an. **Einstellungen** zeigt Haben und Zammad als nicht eingerichtet. Für einen späteren Start desselben Versionsstands genügt derselbe letzte Startbefehl. Verwende dafür denselben Compose-Projektnamen und dasselbe Datenbankvolume. Das Volume enthält Konten und Projekte und muss bei Unterbrechungen erhalten bleiben. Beim Wechsel des Desk-Stands Datenbank und Konfiguration zuerst sichern, die Migration mit dem neuen Image ausführen und dann den Dienst aktualisieren.
 
 ## Updates und Rückkehr zum letzten funktionierenden Stand
 
