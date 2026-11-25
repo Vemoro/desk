@@ -30,7 +30,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 if [[ -z "${DESK_RUNTIME_IMAGE:-}" ]]; then
-  docker build --build-arg "DESK_BUILD_COMMIT=$commit" --tag "$image" .
+  git archive --format=tar "$commit" | docker build --build-arg "DESK_BUILD_COMMIT=$commit" --tag "$image" -
 fi
 
 echo "Runtime-Prüfung $project"
