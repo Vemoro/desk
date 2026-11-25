@@ -285,6 +285,59 @@ describe('API und Integrationen',()=>{
     expect(await child.exited).toBe(0);
   });
 
+  test('Zammad verknüpft ausschließlich das angefragte vorhandene Ticket',async()=>{
+    const contact=getId(await saveCore('contacts',{name:'Musterkontakt für Ticket-IDs'}));
+    const project=getId(await saveCore('projects',{name:'Musterprojekt mit bestehendem Ticket',contact_id:contact}));
+    const newProject=getId(await saveCore('projects',{name:'Musterprojekt mit neuem Ticket',contact_id:contact}));
+    const token=await createToken(actor,{label:'Ticket-ID prüfen',scope:'write'});
+    const matchingId=1_000_000+Math.floor(Math.random()*10_000_000)*3;
+    const wrongId=matchingId+1;
+    const newId=matchingId+2;
+    const service=Bun.serve({port:0,hostname:'127.0.0.1',fetch(request){
+      const path=new URL(request.url).pathname;
+      if(request.method==='POST' && path==='/api/v1/tickets') {
+        return Response.json({id:newId,number:'TEST-NEU',title:'Neues Ticket'},{status:201});
+      }
+      if(request.method==='GET' && path===`/api/v1/tickets/${matchingId}`) {
+        return Response.json({id:matchingId,number:'TEST-PASSEND',title:'Angefragtes Ticket'});
+      }
+      if(request.method==='GET' && path===`/api/v1/tickets/${wrongId}`) {
+        return Response.json({id:newId,number:'TEST-ABWEICHEND',title:'Abweichendes Ticket'});
+      }
+      return new Response(null,{status:404});
+    }});
+    const previousUrl=process.env.ZAMMAD_URL;
+    const previousToken=process.env.ZAMMAD_TOKEN;
+    const call=(id:string,path:string,body:object)=>handle(new Request(`http://desk.local/api/v1/projects/${id}/zammad/${path}`,{
+      method:'POST',headers:{Authorization:`Bearer ${token.token}`,'Content-Type':'application/json'},body:JSON.stringify(body),
+    }));
+    const linkedTicket=async (id:string)=>(await first<{zammad_ticket_id:number|null}>(db,
+      'SELECT zammad_ticket_id FROM projects WHERE id=$1',[id]))?.zammad_ticket_id;
+    try {
+      process.env.ZAMMAD_URL=service.url.origin;
+      process.env.ZAMMAD_TOKEN='muster-zammad-token';
+      const rejected=await call(project,'link',{id:wrongId});
+      expect(rejected.status).toBe(502);
+      expect(await rejected.json()).toEqual({error:'Zammad hat eine abweichende Ticket-ID geliefert.'});
+      expect(await linkedTicket(project)).toBeNull();
+
+      const accepted=await call(project,'link',{id:matchingId});
+      expect(accepted.status).toBe(201);
+      expect(await linkedTicket(project)).toBe(matchingId);
+      expect((await call(project,'link',{id:wrongId})).status).toBe(502);
+      expect(await linkedTicket(project)).toBe(matchingId);
+
+      const created=await call(newProject,'tickets',{title:'Musteranfrage',customer:'muster@example.test',note:'Testnotiz'});
+      expect(created.status).toBe(201);
+      expect(await linkedTicket(newProject)).toBe(newId);
+    } finally {
+      if(previousUrl===undefined)delete process.env.ZAMMAD_URL; else process.env.ZAMMAD_URL=previousUrl;
+      if(previousToken===undefined)delete process.env.ZAMMAD_TOKEN; else process.env.ZAMMAD_TOKEN=previousToken;
+      service.stop(true);
+      await db.unsafe('DELETE FROM api_tokens WHERE id=$1',[token.id]);
+    }
+  });
+
   test('Unklaren Zammad-Versand im Verlauf wiederfinden, ohne erneut zu senden',async()=>{
     const { send,reviewOutgoing }=await import('../src/server/zammad');
     const data=await fixture(saveCore,'Zammad-Verlauf');
