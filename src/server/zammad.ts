@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { db, first, rows } from './db';
+import { db, first, rows, type Query } from './db';
 import { DeskError, required } from './errors';
 import { getProject } from './core';
 import { integration, RemoteError } from './remote';
@@ -12,6 +12,11 @@ const articleSchema = z.object({ id: z.number().int().positive(), body: z.string
 type Outgoing = { id: string; ticket_id: number; status: 'pending'|'unknown'|'sent'|'failed'; attempted_at: Date; attempt_key?: string;
   recipient: string; subject: string; body: string; attachment_name: string | null; attachment_data: string | null };
 const marker = (id: string) => `Desk-Referenz: ${id}`;
+
+async function lockProjectTicket(transaction: Query, projectId: string) {
+  return required(await first<{ zammad_ticket_id: number | null }>(transaction,
+    'SELECT zammad_ticket_id FROM projects WHERE id=$1 FOR UPDATE',[projectId])).zammad_ticket_id;
+}
 
 export async function checkZammadConnection(id: number) {
   const remote = integration('ZAMMAD');
@@ -38,9 +43,8 @@ export async function checkZammadConnection(id: number) {
 export async function linkTicket(projectId: string, link: number | z.infer<typeof zammadCreateInput>) {
   const remote = integration('ZAMMAD');
   return db.begin(async (transaction) => {
-    const current = required(await first<{ zammad_ticket_id: number | null }>(transaction,
-      'SELECT zammad_ticket_id FROM projects WHERE id=$1 FOR UPDATE',[projectId]));
-    if (current.zammad_ticket_id && typeof link !== 'number') throw new DeskError(409, 'Das Projekt hat bereits ein Ticket.');
+    const current = await lockProjectTicket(transaction,projectId);
+    if (current && typeof link !== 'number') throw new DeskError(409, 'Das Projekt hat bereits ein Ticket.');
     const result = typeof link === 'number' ? await remote.request(`/tickets/${link}`) : await remote.request('/tickets','POST',{
       title: link.title, group: process.env.ZAMMAD_GROUP || 'Users', customer_id: `guess:${link.customer}`,
       article: { subject: link.title, body: link.note, type: 'note', internal: true, sender: 'Agent', content_type: 'text/plain' },
@@ -51,6 +55,18 @@ export async function linkTicket(projectId: string, link: number | z.infer<typeo
     }
     await transaction.unsafe('UPDATE projects SET zammad_ticket_id=$1 WHERE id=$2',[ticket.id,projectId]);
     return { ...ticket, url: `${remote.origin}/#ticket/zoom/${ticket.id}` };
+  });
+}
+
+export async function unlinkTicket(projectId: string, expectedId: number) {
+  return db.begin(async (transaction) => {
+    const current = await lockProjectTicket(transaction,projectId);
+    if (current !== expectedId) throw new DeskError(409, 'Die Ticketverknüpfung hat sich geändert.');
+    if (await first(transaction,'SELECT 1 FROM outgoing WHERE project_id=$1 AND ticket_id=$2 LIMIT 1',[projectId,current])) {
+      throw new DeskError(409, 'Für dieses Ticket gibt es bereits einen Desk-Sendeversuch.');
+    }
+    await transaction.unsafe('UPDATE projects SET zammad_ticket_id=NULL WHERE id=$1',[projectId]);
+    return { ok:true };
   });
 }
 
@@ -73,15 +89,18 @@ async function loadArticles(remote: ReturnType<typeof integration>, id: number) 
 }
 
 export async function send(projectId: string, message: z.infer<typeof zammadMessage>) {
-  const project = await getProject(projectId);
-  if (!project.zammad_ticket_id) throw new DeskError(409, 'Zuerst ein Zammad-Ticket verknüpfen.');
-  const remote = integration('ZAMMAD');
-  if (message.attachment && !Buffer.from(message.attachment.data,'base64').subarray(0,5).equals(Buffer.from('%PDF-'))) {
-    throw new DeskError(400, 'Der Anhang muss ein PDF sein.');
-  }
-  const saved = await first<Outgoing>(db, `INSERT INTO outgoing(id,project_id,ticket_id,subject,body,recipient,attachment_name,attachment_data,status)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,'pending') ON CONFLICT(id) DO NOTHING RETURNING *`,
-    [message.id, projectId,project.zammad_ticket_id,message.subject,message.body,message.recipient,message.attachment?.name ?? null,message.attachment?.data ?? null]);
+  const {remote,saved} = await db.begin(async (transaction) => {
+    const ticketId = await lockProjectTicket(transaction,projectId);
+    if (!ticketId) throw new DeskError(409, 'Zuerst ein Zammad-Ticket verknüpfen.');
+    const remote = integration('ZAMMAD');
+    if (message.attachment && !Buffer.from(message.attachment.data,'base64').subarray(0,5).equals(Buffer.from('%PDF-'))) {
+      throw new DeskError(400, 'Der Anhang muss ein PDF sein.');
+    }
+    const saved = await first<Outgoing>(transaction, `INSERT INTO outgoing(id,project_id,ticket_id,subject,body,recipient,attachment_name,attachment_data,status)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,'pending') ON CONFLICT(id) DO NOTHING RETURNING *`,
+      [message.id,projectId,ticketId,message.subject,message.body,message.recipient,message.attachment?.name ?? null,message.attachment?.data ?? null]);
+    return {remote,saved};
+  });
   if (!saved) return reviewOutgoing(projectId,message.id,false);
   return deliver(remote,saved);
 }

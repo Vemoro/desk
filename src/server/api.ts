@@ -6,7 +6,7 @@ import { schemas, id, projectStage, reservationInput, reservationStatus, movemen
 import { assignCost, changeStage, controlling, getCore, getProject, importCosts, listCore, listCosts, saveCore, type Collection } from './core';
 import { createMovement, createReservation, listMovements, listReservations, listStock, setReservation } from './stock';
 import { pullContacts, syncContact, syncOffer } from './haben';
-import { checkZammadConnection, conversations, linkTicket, reviewOutgoing, send } from './zammad';
+import { checkZammadConnection, conversations, linkTicket, reviewOutgoing, send, unlinkTicket } from './zammad';
 import { integrationStatus } from './remote';
 
 type Context = { actor: Actor; path: string[]; limit: number; offset: number; requestKey?:string };
@@ -76,6 +76,7 @@ action('POST','/contacts/{id}/haben','Kontakt mit Haben abgleichen',habenContact
 action('POST','/projects/{id}/haben-offer','Haben-Angebot verknüpfen oder aktualisieren',habenOfferInput.partial(),({path},input)=>syncOffer(path[1],input.id));
 get('/projects/{id}/zammad','Ticket, Verlauf und Desk-Sendeversuche',({path})=>conversations(path[1]));
 action('POST','/projects/{id}/zammad/link','Zammad-Ticket verknüpfen',zammadLinkInput,({path},input)=>linkTicket(path[1],input.id));
+action('POST','/projects/{id}/zammad/unlink','Zammad-Ticketverknüpfung lösen',zammadLinkInput,({path},input)=>unlinkTicket(path[1],input.id));
 action('POST','/projects/{id}/zammad/tickets','Zammad-Ticket anlegen',zammadCreateInput,({path},input)=>linkTicket(path[1],input));
 action('POST','/projects/{id}/zammad/messages','Zammad-Antwort senden',zammadMessage,({path},input)=>send(path[1],input));
 action('POST','/projects/{id}/zammad/outgoing/{messageId}','Sendeversuch prüfen oder ausdrücklich erneut senden',
