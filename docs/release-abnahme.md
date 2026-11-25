@@ -19,7 +19,7 @@ Die [Betriebsdoku](desk.md#betrieb) beschreibt Start, Migration und Sicherung. D
 
 Wähle den vollständigen Commit aus dem Abnahmeprotokoll. Starte mit Repository-Schreibzugriff den Actions-Workflow **Desk-Quellpaket prüfen** auf `main` und gib den Commit ein. Im privaten Repository erzeugt der Workflow ein internes Artefakt für Commits aus der Historie von `main`. Mit Repository-Lesezugriff kannst du **Desk-Quellpaket** aus diesem Lauf herunterladen. Das Archiv und `SHA256SUMS` liegen zusammen im Ordner `desk-<Version>-<Commit>`.
 
-Mit Git und Python 3.11 oder neuer kannst du das Paket lokal erzeugen. Führe diese Befehle in Bash vom Repository-Stamm aus und setze `commit` auf den geprüften vollständigen Commit.
+Mit Git und Python 3.11 oder neuer kannst du das Paket lokal erzeugen. Führe die Befehle in Bash vom Stamm eines Checkouts aus, der das Paketierungsskript und den Kandidatencommit enthält. Setze `commit` auf die vollständige ID des Kandidaten.
 
 ```sh
 commit=a2c88ce1f5261a6c800afb854a86b4dbc6483d0c
@@ -28,7 +28,7 @@ python3 scripts/package-release-source.py "$commit" "$output"
 (cd "$output"/desk-*-"$commit" && sha256sum -c SHA256SUMS)
 ```
 
-Für ein heruntergeladenes Artefakt führe `sha256sum -c SHA256SUMS` im Paketordner aus. Der Dateiname nennt die Desk-Version aus `package.json` des archivierten Stands. Trage Commit, Dateiname und SHA-256 in das Abnahmeprotokoll ein. Der Workflow erzeugt ein Prüfartefakt und hat Leserechte für Git-Inhalte. Veröffentlichung und Quellen zu mitgelieferten Binärdateien werden separat freigegeben. [Download von Actions-Artefakten](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts) · [Lizenzprüfung](https://github.com/Vemoro/desk/issues/174)
+Für ein heruntergeladenes Artefakt führe `sha256sum -c SHA256SUMS` im Paketordner aus. Der Dateiname nennt die Desk-Version aus `package.json` des archivierten Stands. Das Skript gleicht Pfade und Dateiinhalte mit Git ab. Trage Commit, Dateiname und SHA-256 des gewählten Pakets in das Abnahmeprotokoll ein. Der Workflow erzeugt ein Prüfartefakt und hat Leserechte für Git-Inhalte. Veröffentlichung und Quellen zu mitgelieferten Binärdateien werden separat freigegeben. [Download von Actions-Artefakten](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts) · [Lizenzprüfung](https://github.com/Vemoro/desk/issues/174)
 
 ## Kandidaten aus mehreren PRs zusammenstellen
 

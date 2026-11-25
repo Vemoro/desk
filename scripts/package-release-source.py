@@ -14,12 +14,46 @@ REPOSITORY = Path(__file__).resolve().parent.parent
 
 
 def git(*arguments: str) -> bytes:
-    return subprocess.check_output(("git", *arguments), cwd=REPOSITORY)
+    return subprocess.check_output(("git", "--no-replace-objects", *arguments), cwd=REPOSITORY)
+
+
+def verify(archive: Path, commit: str, prefix: str) -> None:
+    expected: dict[str, tuple[str, str]] = {}
+    for entry in git("ls-tree", "-rz", commit).rstrip(b"\0").split(b"\0"):
+        metadata, path = entry.split(b"\t", 1)
+        mode, kind, object_id = metadata.decode("ascii").split()
+        if kind != "blob":
+            raise ValueError(f"Der Git-Pfad {path!r} benötigt ein separates Quellpaket.")
+        expected[prefix + path.decode("utf-8", "surrogateescape")] = (mode, object_id)
+
+    with tarfile.open(archive, "r:gz") as contents:
+        for member in contents:
+            if member.isdir():
+                continue
+            original = expected.pop(member.name, None)
+            if original is None:
+                raise ValueError(f"Unerwarteter Pfad im Archiv: {member.name}")
+            mode, object_id = original
+            if mode == "120000" and member.issym():
+                data = member.linkname.encode("utf-8", "surrogateescape")
+            elif mode != "120000" and member.isfile():
+                with contents.extractfile(member) as stream:
+                    data = stream.read()
+            else:
+                raise ValueError(f"Falscher Dateityp im Archiv: {member.name}")
+            # Match the Git blob ID, independently of checkout line endings and archive attributes.
+            blob = hashlib.sha1(f"blob {len(data)}\0".encode("ascii"), usedforsecurity=False)
+            blob.update(data)
+            if blob.hexdigest() != object_id:
+                raise ValueError(f"Der Dateiinhalt weicht vom Git-Commit ab: {member.name}")
+    if expected:
+        raise ValueError(f"Im Archiv fehlt ein Pfad aus dem Git-Commit: {next(iter(expected))}")
 
 
 def package(commit: str, output: Path) -> tuple[Path, str]:
-    if not re.fullmatch("[0-9a-f]{40}", commit):
+    if not re.fullmatch("[0-9a-fA-F]{40}", commit):
         raise ValueError("Gib einen vollständigen Git-Commit mit 40 Hex-Zeichen an.")
+    commit = commit.lower()
     if git("cat-file", "-t", commit).strip() != b"commit":
         raise ValueError("Das angegebene Git-Objekt ist kein Commit.")
 
@@ -39,14 +73,9 @@ def package(commit: str, output: Path) -> tuple[Path, str]:
         staging = Path(temporary) / package_name
         staging.mkdir()
         archive = staging / f"{package_name}.tar.gz"
-        git("archive", "--format=tar.gz", f"--prefix={prefix}", f"--output={archive.resolve()}", commit)
-
-        expected = set(git("ls-tree", "-rz", "--name-only", commit).decode().split("\0"))
-        expected.discard("")
-        with tarfile.open(archive, "r:gz") as contents:
-            archived = [member.name for member in contents if not member.isdir()]
-        if len(archived) != len(expected) or set(archived) != {prefix + name for name in expected}:
-            raise ValueError("Die Dateiliste im Archiv weicht vom Git-Commit ab.")
+        git("-c", "core.autocrlf=false", "-c", "core.eol=lf", "-c", "tar.umask=0002", "archive", "--format=tar.gz",
+            f"--prefix={prefix}", f"--output={archive.resolve()}", commit)
+        verify(archive, commit, prefix)
 
         with archive.open("rb") as stream:
             checksum = hashlib.file_digest(stream, "sha256").hexdigest()

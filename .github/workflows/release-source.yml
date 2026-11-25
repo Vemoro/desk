@@ -15,13 +15,18 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: refs/heads/main
           fetch-depth: 0
           persist-credentials: false
       - name: Commit prüfen und Quellpaket erstellen
         env:
           CANDIDATE_SHA: ${{ inputs.commit }}
         run: |
-          if ! git merge-base --is-ancestor -- "$CANDIDATE_SHA" HEAD; then
+          if [[ "$GITHUB_REF" != refs/heads/main ]]; then
+            echo "Der Workflow wird auf main gestartet." >&2
+            exit 1
+          fi
+          if ! git --no-replace-objects merge-base --is-ancestor -- "$CANDIDATE_SHA" HEAD; then
             echo "Der Kandidat muss aus der Historie von main stammen." >&2
             exit 1
           fi
