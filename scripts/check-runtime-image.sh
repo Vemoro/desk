@@ -59,6 +59,17 @@ if [[ -z "${DESK_RUNTIME_IMAGE:-}" ]]; then
   git archive --format=tar "$commit" | docker build --build-arg "DESK_BUILD_COMMIT=$commit" --tag "$image" -
 fi
 
+echo "Desk-Lizenz im Runtime-Image"
+license_hash() {
+  sed $'s/\r$//' | openssl dgst -sha256
+}
+expected_license="$(git show "$commit:LICENSE" | license_hash)"
+image_license="$(docker run --rm --entrypoint sh "$image" -c 'cat /desk/LICENSE' | license_hash)"
+if [[ "$image_license" != "$expected_license" ]]; then
+  echo "Die Lizenz im Laufzeit-Image stimmt nicht mit dem Git-Stand überein." >&2
+  exit 1
+fi
+
 echo "Runtime-Prüfung $project"
 network="$(docker network create "$project")"
 db_volume="$(docker volume create "$project-db")"
