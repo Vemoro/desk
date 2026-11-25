@@ -55,7 +55,11 @@ Desk legt Angebote in der ersten Version über die manuelle Übergabe an Haben a
 
 `ZAMMAD_URL`, `ZAMMAD_TOKEN` und die Ticketgruppe `ZAMMAD_GROUP` setzen. Der Zammad-Zugang benötigt für die Gruppe die passenden Agentenrechte. Desk verwendet das Ticket für den Nachrichtenverlauf und die Übergabe ausgehender Antworten. Der Versand bleibt in Zammad nachvollziehbar. PDF-Anhänge sind bis 5 MB möglich. Ohne Zammad sind Kommunikationslink und Notiz im Projekt verfügbar.
 
-Unter **Kommunikation** zeigt der Ticketkopf Betreff und Ticketnummer. In **Ticketdetails** kannst du das Ticket in Zammad öffnen und die Projektzuordnung verwalten. Der Verlauf ordnet eingehende E-Mails links und ausgehende rechts an. Interne Notizen haben einen gestrichelten Rahmen und sind beschriftet. Wenn Desk die Art des Eintrags nicht erkennen kann, steht dort **Art unbekannt**.
+Unter **Kommunikation** zeigt der Ticketkopf Betreff und Ticketnummer. In **Ticketdetails** kannst du das Ticket in Zammad öffnen und die Projektzuordnung verwalten. Der Verlauf ordnet eingehende E-Mails links und ausgehende rechts an. Interne Notizen sind beschriftet und haben einen schraffierten Rand. Wenn Desk die Art des Eintrags nicht erkennen kann, steht dort **Art unbekannt**.
+
+Das Feld **Interne Notiz** ist unter einem verknüpften Ticket geöffnet. **In Notiz zitieren** fügt einen Auszug aus dem gewählten Beitrag in den Entwurf ein. **Notiz hinzufügen** speichert ihn intern in Zammad. Desk übergibt ihn als Ticketnotiz ohne E-Mail-Empfänger.
+
+Bei ein- und ausgehenden E-Mails übernimmt **Text weiterleiten** den Nachrichtentext in einen neuen E-Mail-Entwurf. Die Empfängeradresse trägst du selbst ein. Bei Bedarf fügst du dem Entwurf ein PDF hinzu.
 
 Bei einer externen eingehenden E-Mail mit gültiger Nachrichtenkennung und eindeutiger Adresse öffnet **Antworten** den Editor. Desk verwendet Reply-To, wenn das Feld einen Wert enthält. Andernfalls prüft Desk die Absenderadresse. Bei einer ungültigen oder mehrdeutigen Adresse bleibt die Nachricht lesbar. Der Editor zeigt den Empfänger und den bearbeitbaren Entwurfsbetreff. Den tatsächlichen Versandbetreff formatiert Zammad nach seiner Konfiguration. Zum eigenständigen Versand öffnest du **Antwort schreiben** und trägst den Empfänger ein.
 
@@ -63,7 +67,7 @@ Bei einem unklaren Versand wählst du unter **Kommunikation → Zammad** beim ge
 
 Solange Desk auf Klarheit über den Sendeversuch wartet, bleiben die übermittelten Angaben im geöffneten Editor gesperrt. Wenn Desk keine Bestätigung erhalten hat und keinen gespeicherten Versuch anzeigt, übergibt **Mit denselben Angaben fortfahren** den Entwurf unverändert erneut an Desk. Nach einer bestätigten Ablehnung lässt sich über **Neuen Entwurf beginnen** eine bearbeitbare Nachricht vorbereiten. Hat sich die Antwortadresse geändert, lade den Verlauf neu und bestätige die aktualisierte Adresse über **Adresse … übernehmen**. Der Entwurf bleibt dabei erhalten.
 
-Wende Migration `008_zammad_reply.sql` vor dem Start an, wie unter [Betrieb](#betrieb) beschrieben. Desk speichert damit bei neuen artikelbezogenen Sendeversuchen die Nachrichtenkennung. Bereits gespeicherte Versuche bleiben erhalten. Ältere Desk-Stände verwenden beim Versand die gespeicherte Antwortreferenz nicht. Kläre offene artikelbezogene Versuche vor einem Rückwechsel oder wiederhole sie nach der Rückkehr auf einen Stand mit diesem Versandverhalten.
+Wende die Migrationen `008_zammad_reply.sql` und `009_zammad_internal_notes.sql` vor dem Start an, wie unter [Betrieb](#betrieb) beschrieben. Desk speichert bei artikelbezogenen Sendeversuchen die Nachrichtenkennung. Interne Notizen werden ohne Empfänger gespeichert. Kläre offene artikelbezogene Sendeversuche und interne Notizen vor einem Rückwechsel auf einen älteren Desk-Stand.
 
 Nach der Einrichtung oder einem Tokenwechsel in den administrativen Einstellungen unter „Integrationen“ die interne ID eines vorhandenen Zammad-Testtickets eintragen und „Zammad-Verbindung prüfen“ wählen. Die interne ID steht im Zammad-Ticketlink und kann von der sichtbaren Ticketnummer abweichen. Desk prüft den Lesezugriff auf das Ticket und seinen Verlauf. [Zammad-Ticket-API](https://docs.zammad.org/en/latest/api/ticket/index.html#show)
 

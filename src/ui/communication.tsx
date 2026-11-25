@@ -7,8 +7,8 @@ type Article = { id:number; subject?:string|null; from?:string|null; created_at?
   reply?:{recipient:string;subject:string} };
 type Conversation = { ticket:{number:string;title?:string;url:string}; articles:Article[]; outgoing:Row[] };
 type DialogState = { kind:'link'|'create'; trigger:HTMLButtonElement };
-type ReplyTarget = {id:number; originalSubject:string; recipient:string; subject:string; trigger:HTMLButtonElement};
-type MessageDraft = {id:string;reply?:ReplyTarget;payload:Record<string,unknown>};
+type ReplyTarget = {id:number; originalSubject:string; recipient:string; subject:string; trigger:HTMLButtonElement; forwardBody?:string};
+type MessageDraft = {id:string;note:boolean;reply?:ReplyTarget;payload:Record<string,unknown>};
 const articleKinds = {
   'incoming-email':'Eingehende E-Mail',
   'outgoing-email':'Ausgehende E-Mail',
@@ -156,6 +156,9 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   const [composeVersion,setComposeVersion]=useState(0);
   const [reply,setReply]=useState<ReplyTarget>();
   const replyComposer=useRef<HTMLElement>(null);
+  const noteField=useRef<HTMLTextAreaElement>(null);
+  const [noteText,setNoteText]=useState('');
+  const [noteError,setNoteError]=useState('');
   const draft=useRef<MessageDraft|undefined>(undefined);
   const [locked,setLocked]=useState(false);
   const [canReplay,setCanReplay]=useState(false);
@@ -164,7 +167,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   const retryVersion=useRef(0);
   const retryInProgress=useRef<string|undefined>(undefined);
   useEffect(()=>{
-    if(reply) replyComposer.current?.querySelector('textarea')?.focus();
+    if(reply) replyComposer.current?.querySelector<HTMLElement>(reply.forwardBody===undefined?'textarea':'input[type=email]')?.focus();
   },[reply]);
 
   function closeReply(target:ReplyTarget) {
@@ -186,8 +189,12 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
 
   function resetDraft() {
     const previous=draft.current?.reply;
+    const note=draft.current?.note;
     clearDraft();
-    if(previous) closeReply(previous);
+    if(note) {
+      setNoteText('');
+      setNoteError('');
+    } else if(previous) closeReply(previous);
     else {
       setFreeFile(undefined);
       setComposeVersion(value=>value+1);
@@ -232,7 +239,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
     setReplayError('');
     let result;
     try {
-      result=await request('messages',current.payload);
+      result=await request(current.note?'notes':'messages',current.payload);
     } catch(error) {
       if(isCurrent() && draft.current?.id===current.id) {
         // A gateway error can arrive after Desk has already accepted the message.
@@ -248,12 +255,13 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
     if(isCurrent() && draft.current?.id===current.id) resetDraft();
   }
 
-  async function sendMessage(values:Record<string,string>,file:File|undefined,target?:ReplyTarget) {
+  async function sendMessage(values:Record<string,string>,file:File|undefined,target?:ReplyTarget,note=false) {
     return run(async isCurrent=>{
       if(draft.current) return;
       if(file && file.size>5_242_880) throw new Error('PDF-Anhänge sind bis 5 MB möglich.');
       const message:Record<string,unknown>={...values,id:crypto.randomUUID()};
-      if(target) {
+      if(note) message.ticketId=ticketId;
+      if(target && target.forwardBody===undefined) {
         message.recipient=target.recipient;
         message.replyArticleId=target.id;
       }
@@ -264,20 +272,20 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
           message.attachment={name:file.name,data:bytes.toBase64()};
         }
         if(!isCurrent()) return;
-        const current={id:String(message.id),reply:target,payload:message};
+        const current={id:String(message.id),note,reply:target,payload:message};
         draft.current=current;
         await deliver(current,isCurrent);
       } finally {
         if(isCurrent() && !draft.current) setLocked(false);
       }
-    },'Nachricht an Zammad übergeben.',{reportInlineError:true});
+    },note?'Interne Notiz gespeichert.':'Nachricht an Zammad übergeben.',{reportInlineError:true});
   }
 
   async function replayMessage() {
     const current=draft.current;
     if(!current || !canReplay) return;
     try {
-      await run(isCurrent=>deliver(current,isCurrent,true),'Nachricht an Zammad übergeben.',{reportInlineError:true});
+      await run(isCurrent=>deliver(current,isCurrent,true),current.note?'Interne Notiz gespeichert.':'Nachricht an Zammad übergeben.',{reportInlineError:true});
     } catch(error) {
       setReplayError(error instanceof Error ? error.message : 'Der Sendeversuch konnte nicht geprüft werden.');
     }
@@ -303,7 +311,8 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   const visibleArticles=term ? articles.filter(article=>
     article.subject.toLowerCase().includes(term) || article.body.toLowerCase().includes(term)) : articles;
   const updatedReply=reply && articles.find(article=>article.id===reply.id)?.reply;
-  const replyChanged=Boolean(reply && conversation && (!updatedReply || updatedReply.recipient!==reply.recipient));
+  const forwarding=reply?.forwardBody!==undefined;
+  const replyChanged=Boolean(reply && !forwarding && conversation && (!updatedReply || updatedReply.recipient!==reply.recipient));
   const ticket=conversation?.ticket;
   const ticketIdHint=useId();
   const dialogTitle=dialog?.kind==='link'?'Ticket verknüpfen':'Ticket anlegen';
@@ -353,11 +362,26 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
                 {article.from && <small className="communication-sender">{article.from}</small>}
                 <p>{article.body}</p>
                 {article.attachments?.map((attachment,index)=><small className="communication-attachment" key={index}>{attachment.filename}</small>)}
-                {article.reply && <div className="communication-article-actions">
-                  <button type="button" aria-expanded={reply?.id===article.id} disabled={locked || Boolean(reply)} onClick={event=>{
+                <div className="communication-article-actions">
+                  {article.reply && <button type="button" aria-expanded={reply?.id===article.id && !forwarding} disabled={locked || Boolean(reply)} onClick={event=>{
                     if(article.reply) setReply({...article.reply,id:article.id,originalSubject:article.subject,trigger:event.currentTarget});
-                  }}>Antworten</button>
-                </div>}
+                  }}>Antworten</button>}
+                  {(article.kind==='incoming-email' || article.kind==='outgoing-email') && <button type="button"
+                    aria-expanded={reply?.id===article.id && forwarding} disabled={locked || Boolean(reply)} onClick={event=>setReply({
+                      id:article.id,originalSubject:article.subject,recipient:'',subject:('WG: '+article.subject).slice(0,160),
+                      trigger:event.currentTarget,forwardBody:'\n\n'+article.body,
+                    })}>Text weiterleiten</button>}
+                  <button type="button" disabled={locked} onClick={()=>{
+                    const excerpt=article.body.length>800 ? article.body.slice(0,800)+' …' : article.body;
+                    const quote=[article.subject,...excerpt.split(/\r?\n/)].map(line=>'> '+line).join('\n');
+                    const next=noteText ? noteText+'\n\n'+quote : quote;
+                    if(next.length<=5000) {
+                      setNoteText(next);
+                      setNoteError('');
+                    } else setNoteError('Das Zitat passt nicht mehr in die Notiz mit höchstens 5.000 Zeichen.');
+                    noteField.current?.focus();
+                  }}>In Notiz zitieren</button>
+                </div>
               </article>
             </li>)}</ol>}
             {term && articles.length>0 && visibleArticles.length===0 && <p className="subtle" role="status">Keine Nachrichten für diese Suche.</p>}
@@ -367,12 +391,13 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
               {name:'recipient',label:'Empfänger',type:'email',required:true},{name:'subject',label:'Betreff',required:true},{name:'body',label:'Nachricht',type:'textarea',required:true},
             ]} submit={values=>sendMessage(values,freeFile)}>
               <label className="wide"><span>PDF-Anhang</span><input type="file" disabled={locked && !reply} accept="application/pdf,.pdf" onChange={event=>setFreeFile(event.target.files?.[0])}/></label>
-            </Form>{!reply && draftActions}</Expand></div>
-          {reply && <section ref={replyComposer} className="communication-reply" aria-label="E-Mail-Antwort">
-            <header><h3>Antwort auf „{reply.originalSubject}“</h3>
-              <button type="button" disabled={locked} onClick={()=>closeReply(reply)}>Antwort schließen</button>
+            </Form>{!reply && !draft.current?.note && draftActions}</Expand></div>
+          {reply && <section ref={replyComposer} className="communication-reply" aria-label={forwarding?'E-Mail-Weiterleitung':'E-Mail-Antwort'}>
+            <header><h3>{forwarding?'Weiterleitung von':'Antwort auf'} „{reply.originalSubject}“</h3>
+              <button type="button" disabled={locked} onClick={()=>closeReply(reply)}>{forwarding?'Weiterleitung schließen':'Antwort schließen'}</button>
             </header>
-            <p className="subtle">Externe E-Mail an <strong>{reply.recipient}</strong></p>
+            {forwarding ? <p className="subtle">Überprüfe den Text und gib die Empfängeradresse ein.</p>
+              : <p className="subtle">Externe E-Mail an <strong>{reply.recipient}</strong></p>}
             {replyChanged && !locked && <div className="communication-replay">
               <p role="status">{updatedReply ? 'Die Antwortadresse im Ticket hat sich geändert.' : 'Diese Nachricht kann nicht mehr direkt beantwortet werden.'}</p>
               {updatedReply && <button type="button" onClick={()=>setReply({...reply,recipient:updatedReply.recipient})}>
@@ -380,12 +405,27 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
               </button>}
             </div>}
             <Form caption="E-Mail über Zammad senden" busyCaption="E-Mail wird gesendet …" disabled={locked || replyChanged} fields={[
-              {name:'subject',label:'Betreff',value:reply.subject,required:true},{name:'body',label:'Nachricht',type:'textarea',required:true},
+              ...(forwarding ? [{name:'recipient',label:'Empfänger',type:'email',required:true}] : []),
+              {name:'subject',label:'Betreff',value:reply.subject,required:true},{name:'body',label:'Nachricht',type:'textarea',value:reply.forwardBody,required:true},
             ]} submit={values=>sendMessage(values,replyFile,reply)}>
               <label className="wide"><span>PDF-Anhang</span><input type="file" disabled={locked || replyChanged} accept="application/pdf,.pdf" onChange={event=>setReplyFile(event.target.files?.[0])}/></label>
             </Form>
-            {draftActions}
+            {!draft.current?.note && draftActions}
           </section>}
+          <form className="communication-note" onSubmit={event=>{
+            event.preventDefault();
+            setNoteError('');
+            if(!noteText.trim()) return;
+            void sendMessage({body:noteText},undefined,undefined,true).catch(error=>{
+              setNoteError(error instanceof Error ? error.message : 'Die Notiz konnte nicht gespeichert werden.');
+            });
+          }}>
+            <label><span>Interne Notiz</span><textarea ref={noteField} value={noteText} maxLength={5000} required
+              disabled={locked} placeholder="Notiz für das Team schreiben …" onChange={event=>setNoteText(event.target.value)}/></label>
+            {noteError && <p className="inline-error" role="alert">{noteError}</p>}
+            {draft.current?.note && draftActions}
+            <div className="form-action"><button type="submit" className="primary" disabled={locked || !noteText.trim()}>Notiz hinzufügen</button></div>
+          </form>
           {(conversation?.outgoing.length ?? 0) > 0 && <div className="communication-outgoing"><h3>Sendeversuche</h3><Table headers={['Sendeversuch','Status','Aktion']} rows={(conversation?.outgoing ?? []).map((entry:Row)=>({
               key:entry.id,cells:[entry.subject,({sent:'An Zammad übergeben',pending:'Ausstehend',failed:'Abgelehnt',unknown:'Ausgang unklar'} as Record<string,string>)[entry.status],
                 entry.status==='sent' ? '–' : <div className="actions">

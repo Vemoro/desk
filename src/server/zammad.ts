@@ -3,7 +3,7 @@ import { db, first, rows, type Query } from './db';
 import { DeskError, required } from './errors';
 import { getProject } from './core';
 import { integration, RemoteError } from './remote';
-import type { zammadCreateInput, zammadMessage } from './contracts';
+import type { zammadCreateInput, zammadMessage, zammadNoteInput } from './contracts';
 
 const ticketSchema = z.object({ id: z.number().int().positive(), number: z.string(), title: z.string() });
 const articleSchema = z.object({ id: z.number().int().positive(), body: z.string(), subject: z.string().nullable().optional(),
@@ -26,7 +26,7 @@ type ArticleContext = {
   reply?:{recipient:string;subject:string;reference:string};
 };
 type Outgoing = { id: string; ticket_id: number; status: 'pending'|'unknown'|'sent'|'failed'; attempted_at: Date; attempt_key?: string;
-  recipient: string; subject: string; body: string; attachment_name: string | null; attachment_data: string | null; in_reply_to: string | null };
+  recipient: string | null; subject: string; body: string; attachment_name: string | null; attachment_data: string | null; in_reply_to: string | null };
 const marker = (id: string) => `Desk-Referenz: ${id}`;
 const notStored = (status:number,message:string)=>new DeskError(status,message,'zammad_message_not_stored');
 
@@ -140,16 +140,19 @@ async function loadArticles(remote: ReturnType<typeof integration>, id: number) 
   });
 }
 
-export async function send(projectId: string, message: z.infer<typeof zammadMessage>) {
+export async function send(projectId: string, input: z.infer<typeof zammadMessage> | z.infer<typeof zammadNoteInput>) {
+  const note='ticketId' in input ? input : undefined;
+  const message='recipient' in input ? input : undefined;
   const {remote,saved} = await db.begin(async (transaction) => {
     const ticketId = await lockProjectTicket(transaction,projectId);
     if (!ticketId) throw notStored(409, 'Zuerst ein Zammad-Ticket verknüpfen.');
+    if (note && note.ticketId!==ticketId) throw notStored(409, 'Die Ticketverknüpfung hat sich geändert.');
     const remote = integration('ZAMMAD');
-    if (message.attachment && !Buffer.from(message.attachment.data,'base64').subarray(0,5).equals(Buffer.from('%PDF-'))) {
+    if (message?.attachment && !Buffer.from(message.attachment.data,'base64').subarray(0,5).equals(Buffer.from('%PDF-'))) {
       throw notStored(400, 'Der Anhang muss ein PDF sein.');
     }
     let reference: string | null = null;
-    if (message.replyArticleId !== undefined) {
+    if (message?.replyArticleId !== undefined) {
       const existing = await first(transaction,'SELECT 1 FROM outgoing WHERE id=$1 AND project_id=$2',[message.id,projectId]);
       if (existing) return {remote,saved:undefined};
       let source:unknown;
@@ -172,15 +175,18 @@ export async function send(projectId: string, message: z.infer<typeof zammadMess
     }
     const saved = await first<Outgoing>(transaction, `INSERT INTO outgoing(id,project_id,ticket_id,subject,body,recipient,attachment_name,attachment_data,in_reply_to,status)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending') ON CONFLICT(id) DO NOTHING RETURNING *`,
-      [message.id,projectId,ticketId,message.subject,message.body,message.recipient,message.attachment?.name ?? null,message.attachment?.data ?? null,reference]);
+      [input.id,projectId,ticketId,message?.subject ?? 'Interne Notiz',input.body,message?.recipient ?? null,message?.attachment?.name ?? null,message?.attachment?.data ?? null,reference]);
     return {remote,saved};
   });
-  if (!saved) return reviewOutgoing(projectId,message.id,false);
+  if (!saved) return reviewOutgoing(projectId,input.id,false,Boolean(note));
   return deliver(remote,saved);
 }
 
-export async function reviewOutgoing(projectId: string, id: string, retry: boolean) {
+export async function reviewOutgoing(projectId: string, id: string, retry: boolean, expectedNote?:boolean) {
   const current = required(await first<Outgoing>(db,'SELECT *,attempted_at::text AS attempt_key FROM outgoing WHERE id=$1 AND project_id=$2',[id,projectId]));
+  if (expectedNote!==undefined && (current.recipient===null)!==expectedNote) {
+    throw notStored(409,'Diese Vorgangs-ID gehört zu einer anderen Nachrichtenart.');
+  }
   const project = await getProject(projectId);
   if (project.zammad_ticket_id !== current.ticket_id) throw new DeskError(409, 'Der Sendeversuch gehört zu einem anderen Ticket.');
   if (current.status === 'sent') return { id, status:'sent' };
@@ -201,11 +207,13 @@ export async function reviewOutgoing(projectId: string, id: string, retry: boole
 }
 
 async function deliver(remote: ReturnType<typeof integration>, current: Outgoing) {
+  const note=current.recipient===null;
   let articleId: number;
   try {
     const result = await remote.request('/ticket_articles','POST',{
-      ticket_id:current.ticket_id, to:current.recipient, subject:current.subject,
-      body:`${current.body}\n\n${marker(current.id)}`,type:'email',sender:'Agent',internal:false,content_type:'text/plain',
+      ticket_id:current.ticket_id, subject:current.subject,
+      body:`${current.body}\n\n${marker(current.id)}`,sender:'Agent',content_type:'text/plain',
+      ...(note ? {type:'note',internal:true} : {type:'email',internal:false,to:current.recipient}),
       ...(current.in_reply_to ? { in_reply_to:current.in_reply_to } : {}),
       ...(current.attachment_name ? { attachments:[{ filename:current.attachment_name,data:current.attachment_data,'mime-type':'application/pdf' }] } : {}),
     });

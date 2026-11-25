@@ -1,0 +1,1 @@
+ALTER TABLE outgoing ALTER COLUMN recipient DROP NOT NULL;

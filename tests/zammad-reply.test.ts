@@ -92,6 +92,15 @@ test('Zammad ermittelt die Antwortadresse am ausgewählten Artikel und behält d
     const {replyArticleId,...freeMessage}=message;
     expect(await (await call('/messages',{...freeMessage,id:crypto.randomUUID()})).json()).toMatchObject({status:'sent'});
     expect(sent[2]).not.toHaveProperty('in_reply_to');
+    const note={id:crypto.randomUUID(),ticketId,body:'Interner Montagetermin'};
+    expect((await call('/notes',{...note,ticketId:otherTicket})).status).toBe(409);
+    expect((await call('/notes',{...note,recipient:'extern@example.test'})).status).toBe(400);
+    expect((await call('/notes',{...note,id:message.id})).status).toBe(409);
+    expect(await (await call('/notes',note)).json()).toMatchObject({status:'sent'});
+    expect(await (await call('/notes',note)).json()).toMatchObject({status:'sent'});
+    expect(sent).toHaveLength(4);
+    expect(sent[3]).toMatchObject({ticket_id:ticketId,type:'note',internal:true,sender:'Agent'});
+    expect(sent[3]).not.toHaveProperty('to');
   } finally {
     if(previousUrl===undefined) delete process.env.ZAMMAD_URL; else process.env.ZAMMAD_URL=previousUrl;
     if(previousToken===undefined) delete process.env.ZAMMAD_TOKEN; else process.env.ZAMMAD_TOKEN=previousToken;
