@@ -30,6 +30,7 @@ test('Desk lehnt ungültige öffentliche Adressen ohne Wiedergabe der Eingabe ab
       'https://muster:passwort@desk.example.test', 'https://@desk.example.test', 'https://desk.example.test/projekte',
       'https://desk.example.test/./', 'https://desk.example.test/?', 'https://desk.example.test/#',
       'https://desk.example.test/?token=muster', 'https://desk.example.test/#muster',
+      'https://desk.example.test\u001b', 'https://desk.example.test/\u001f',
       'https://desk.example.test\\', 'https://desk.example.test\n', 'https:///desk.example.test',
     ]){
       process.env.DESK_ORIGIN=value;
