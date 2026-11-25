@@ -50,13 +50,15 @@ openssl rand -hex 32
 
 Trage als `DESK_ORIGIN` die öffentliche HTTPS-Adresse ohne Pfad, Zugangsdaten, Query oder Fragment ein. Ein abschließender Schrägstrich ist zulässig. Für lokale Tests ist HTTP mit `localhost`, `127.0.0.1` oder `[::1]` möglich. Bei einer ungültigen Adresse bricht Desk den Dienststart mit einem Konfigurationshinweis ab. Leite im Reverse Proxy die öffentliche Adresse per HTTP an `127.0.0.1:3000` weiter oder verwende den in `DESK_PORT` gewählten Port. Der Proxy terminiert TLS und reicht den öffentlichen Host und das ursprüngliche HTTPS-Protokoll weiter. Die Adresse im Browser muss mit `DESK_ORIGIN` übereinstimmen.
 
-Führe die folgenden Befehle in Bash im Ordner mit `compose.selfhost.yaml` aus. Im Git-Checkout ermittelt der Block den Commit aus `HEAD`. Bei einem Quellpaket prüfe zuerst die mitgelieferte Prüfsumme, entpacke das Archiv und exportiere vor dem Aufruf `DESK_BUILD_COMMIT` mit der vollständigen Commit-ID aus dem Archivnamen. Desk zeigt diesen Commit unter **Mein Konto → Desk-Version** an. [Quellpaket prüfen](release-abnahme.md#quellpaket-des-kandidaten)
+Führe die folgenden Befehle in Bash im Ordner mit `compose.selfhost.yaml` aus. Im Git-Checkout ermittelt der Block den Commit aus `HEAD`, falls `DESK_BUILD_COMMIT` leer oder ungesetzt ist. Bei einem Quellpaket prüfe zuerst die mitgelieferte Prüfsumme und entpacke das Archiv. Setze dann `DESK_BUILD_COMMIT` in der markierten Zeile innerhalb des Blocks auf die vollständige Commit-ID aus dem Archivnamen. Desk zeigt diesen Commit unter **Mein Konto → Desk-Version** an. [Quellpaket prüfen](release-abnahme.md#quellpaket-des-kandidaten)
 
 Nach dem Datenbankstart wendet der erste einmalige Desk-Container die Migration an. Der zweite legt das erste Administrationskonto an. Ersetze die Beispieladresse und verwende ein eigenes starkes Passwort, das bei der Eingabe nicht angezeigt wird. Der Block bricht bei einem Fehler vor dem Dienststart ab. Die Passwortvariable des Administrationskontos endet mit der Subshell.
 
 ```bash
 (
   set -e
+  # Beim Quellpaket das Kommentarzeichen entfernen und die Commit-ID einsetzen.
+  # DESK_BUILD_COMMIT=VOLLSTAENDIGE_COMMIT_ID_AUS_DEM_ARCHIVNAMEN
   build_commit="${DESK_BUILD_COMMIT:-$(git rev-parse --verify HEAD)}"
   DESK_BUILD_COMMIT="$build_commit" docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost build desk
   docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost up -d --wait db
