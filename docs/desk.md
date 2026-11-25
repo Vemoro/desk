@@ -17,7 +17,7 @@ In der Ressourcenplanung und im Projektlager steht die Inventarnummer eines Einz
 
 Öffne im Projekt **Verlauf**. Desk zeigt Statuswechsel, feste Reservierungen, Freigaben und projektbezogene Lagerbewegungen. Die neuesten Ereignisse stehen oben. Die Ansicht nennt Zeitpunkt und ausführende Person, soweit sie gespeichert sind. Statuswechsel durch den Haben-Angebotsabgleich und automatische Freigaben beim Wechsel auf **Abgesagt** oder **Abgerechnet** sind gekennzeichnet.
 
-Ab Migration `007_project_history.sql` zeichnet Desk neue Statuswechsel und Reservierungsereignisse auf. Die erste Aufzeichnung beginnt mit der nächsten Änderung im Projekt. Vorhandene projektbezogene Lagerbewegungen erscheinen mit ihren ursprünglichen Buchungszeiten. Führe die Migration mit dem Befehl für deinen Installationsweg aus, bevor du die neue Version startest.
+Desk zeichnet Statuswechsel, Festlegungen und Freigaben ab Migration `007_project_history.sql` auf. Vorhandene projektbezogene Lagerbewegungen erscheinen mit ihren ursprünglichen Buchungszeiten. Führe die Migration mit dem Befehl für deinen Installationsweg aus, bevor du die neue Version startest.
 
 Über die API liefert `GET /api/v1/projects/{id}/history` denselben Verlauf. Mit `limit` und `offset` kannst du seitenweise lesen. Im Feld `source` kennzeichnet `haben` den manuellen Haben-Abgleich und `project` die automatische Freigabe durch Statuswechsel. `desk` steht für die übrigen Ereignisse.
 
