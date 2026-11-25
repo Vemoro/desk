@@ -10,8 +10,8 @@ type Field = {
   required?:boolean; choices?:{value:string;label:string}[]; min?:number; max?:number; autoComplete?:string; onChange?:(value:string)=>void; describedBy?:string;
 };
 
-export function options(records:Row[]) {
-  return records.map((record)=>({value:record.id,label:record.name ?? record.label ?? record.id}));
+export function options(records:Row[], label:(record:Row)=>string = record=>record.name ?? record.label ?? record.id) {
+  return records.map(record=>({value:record.id,label:label(record)}));
 }
 
 type Fields = Record<string,string>;
