@@ -8,12 +8,12 @@ import { zammadNoteInput } from './contracts';
 import { assignCost, changeStage, controlling, getCore, getProject, importCosts, listCore, listCosts, saveCore, type Collection } from './core';
 import { correctMovement, createMovement, createReservation, listMovements, listPlanningReservations, listReservations, listStock, setReservation } from './stock';
 import { pullContacts, syncContact, syncOffer } from './haben';
-import { checkZammadConnection, conversations, linkTicket, reviewOutgoing, send, unlinkTicket } from './zammad';
+import { checkZammadConnection, conversations, downloadAttachment, linkTicket, reviewOutgoing, send, unlinkTicket } from './zammad';
 import { integrationStatus } from './remote';
 import { readJson } from './request-body';
 import { listProjectHistory } from './project-history';
 
-type Context = { actor: Actor; sessionId?:string; path: string[]; limit: number; offset: number; requestKey?:string; query: Query; searchParams:URLSearchParams };
+type Context = { actor: Actor; sessionId?:string; path: string[]; limit: number; offset: number; requestKey?:string; query: Query; searchParams:URLSearchParams; signal:AbortSignal };
 type Operation = {
   method: string;
   path: string;
@@ -21,6 +21,7 @@ type Operation = {
   run: (context: Context, input: unknown) => Promise<unknown>;
   input?: z.ZodType;
   response?: z.ZodType;
+  fileResponse?: boolean;
   keyed?: boolean;
   adminSession?: boolean;
   browserSession?: boolean;
@@ -32,7 +33,7 @@ const operations: Operation[] = [];
 const requestKeyHeader='Idempotency-Key';
 const requestKeySchema=z.string().regex(/^[A-Za-z0-9._:-]{1,128}$/).optional();
 
-function get(path: string, summary: string, run: (context: Context) => Promise<unknown>, options: Pick<Operation,'adminSession'|'pageOrder'|'response'|'queryParameters'> = {}) {
+function get(path: string, summary: string, run: (context: Context) => Promise<unknown>, options: Pick<Operation,'adminSession'|'pageOrder'|'response'|'fileResponse'|'queryParameters'> = {}) {
   operations.push({ method: 'GET', path, summary, run, ...options });
 }
 
@@ -116,6 +117,12 @@ action('POST','/haben/contacts/import','Neue Haben-Kontakte importieren',z.stric
 action('POST','/contacts/{id}/haben','Kontakt mit Haben abgleichen',habenContactInput,({path},input)=>syncContact(path[1],input));
 action('POST','/projects/{id}/haben-offer','Haben-Angebot verknüpfen oder aktualisieren',habenOfferInput.partial(),({actor,path},input)=>syncOffer(path[1],input.id,actor.id));
 get('/projects/{id}/zammad','Ticket, Verlauf und Desk-Sendeversuche',({path})=>conversations(path[1]));
+const attachmentId=z.coerce.number().int().positive();
+const attachmentQuery=z.strictObject({ticket:attachmentId,article:attachmentId,attachment:attachmentId});
+get('/projects/{id}/zammad/attachment','Anhang am verknüpften Zammad-Ticket herunterladen',({path,searchParams,signal})=>{
+  const {ticket,article,attachment}=attachmentQuery.parse(Object.fromEntries(searchParams));
+  return downloadAttachment(path[1],ticket,article,attachment,signal);
+},{queryParameters:attachmentQuery.shape,fileResponse:true});
 action('POST','/projects/{id}/zammad/link','Zammad-Ticket verknüpfen',zammadLinkInput,({path},input)=>linkTicket(path[1],input.id));
 action('POST','/projects/{id}/zammad/unlink','Zammad-Ticketverknüpfung lösen',zammadLinkInput,({path},input)=>unlinkTicket(path[1],input.id));
 action('POST','/projects/{id}/zammad/tickets','Zammad-Ticket anlegen',zammadCreateInput,({path},input)=>linkTicket(path[1],input));
@@ -165,8 +172,8 @@ export async function handle(request: Request) {
       const pagination = pageSchema.parse(Object.fromEntries(url.searchParams));
       const requestKey=route.keyed ? requestKeySchema.parse(request.headers.get(requestKeyHeader) ?? undefined) : undefined;
       const input=route.input ? (body ? body() : await readJson(request)) : undefined;
-      const result = await route.run({actor,sessionId,path,...pagination,requestKey,query,searchParams:url.searchParams},input);
-      return json(result,route.method === 'POST' ? 201 : 200);
+      const result = await route.run({actor,sessionId,path,...pagination,requestKey,query,searchParams:url.searchParams,signal:request.signal},input);
+      return result instanceof Response ? result : json(result,route.method === 'POST' ? 201 : 200);
     }
     if (!route?.accountAccess) return await dispatch(db);
     // Read the body before taking the lock, but report authentication errors first.
@@ -216,8 +223,10 @@ function openApi() {
       responses:{ [op.method === 'POST' ? '201' : '200']:{
         description:'Erfolg',
         ...(op.response ? {content:{'application/json':{schema:z.toJSONSchema(op.response,{target:'draft-2020-12',io:'output'})}}} : {}),
+        ...(op.fileResponse ? {content:{'application/octet-stream':{schema:{type:'string',format:'binary'}}}} : {}),
       }, 400:{description:'Ungültige Eingabe'},
-        401:{description:'Anmeldung erforderlich'},403:{description:'Zugriff verweigert'},409:{description:'Konflikt'} },
+        401:{description:'Anmeldung erforderlich'},403:{description:'Zugriff verweigert'},
+        ...(op.fileResponse ? {404:{description:'Anhang im verknüpften Ticket nicht verfügbar'}} : {}),409:{description:'Konflikt'} },
     };
   }
   return { openapi:'3.1.0',info:{title:'Desk API',version:'1.0.0'},servers:[{url:'/api/v1'}],paths,
