@@ -47,5 +47,7 @@ jobs:
         if: failure()
         with:
           name: Browser-Fehler
-          path: test-results/
+          path: |
+            test-results/
+            !test-results/runtime-image/**
           if-no-files-found: ignore

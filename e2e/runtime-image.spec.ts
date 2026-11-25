@@ -11,7 +11,7 @@ test('Runtime-Image erlaubt Anmeldung und meldet den ausgelieferten Git-Stand',a
   await page.getByLabel('E-Mail').fill('runtime@example.test');
   await page.getByLabel('Passwort').fill(password);
   await page.getByRole('button',{name:'Anmelden',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Übersicht',exact:true})).toBeVisible();
+  await page.getByRole('heading',{name:'Übersicht',exact:true}).waitFor({state:'visible',timeout:5000});
 
   const projects=await page.request.get('/api/v1/projects');
   expect(projects.status()).toBe(200);
