@@ -13,6 +13,14 @@ Wenn Desk meldet, dass eine Änderung gespeichert wurde und die Ansicht nicht ak
 
 In der Ressourcenplanung und im Projektlager steht die Inventarnummer eines Einzelgeräts neben seinem Namen. Unter **Ausgabe, Rückgabe oder Verbrauch** zeigt Desk nach der Wahl der **Projektreservierung** die vollständige Beschreibung mit Inventarnummer im Formular. Bei Artikeln ohne Inventarnummer zeigt Desk den Artikelnamen.
 
+### Wochenplanung öffnen
+
+Unter **Wochenplanung** siehst du offene Reservierungen aus allen Projekten. Wähle ein Datum oder blättere wochenweise. Eine Woche reicht von Montag 00:00 Uhr bis zum folgenden Montag 00:00 Uhr in der angezeigten Browser-Zeitzone. Personal steht je Person, Inventar je Artikel und Lagerort mit Menge. **Vorgemerkt** und **Fest reserviert** sind direkt am Eintrag beschriftet. Eine Buchung über Mitternacht erscheint an beiden betroffenen Tagen, beim Wochenwechsel jeweils in der zugehörigen Woche. Am Tag der Herbstumstellung machen UTC-Offsets die wiederholte Stunde unterscheidbar. Offene Geräteausgaben findest du im **Projektlager**.
+
+Wähle den Projektnamen im Eintrag, um den Projektüberblick zu öffnen. Zum Bearbeiten der Reservierung wechsle dort zu **Ressourcen & Kalkulation**.
+
+Für denselben Datensatz liefert `GET /api/v1/planning/reservations` die offenen Reservierungen für ein angegebenes Zeitfenster projektübergreifend. Übergib `from` und `to` als ISO-Zeitstempel mit Zeitzone für die Jahre 0001 bis 9999 und mit bis zu sechs Nachkommastellen. UTC-Offsets von −15:59 bis +15:59 sind möglich. `to` muss nach `from` liegen. Die Antwort enthält Buchungen, die vor `to` beginnen und nach `from` enden. `limit` und `offset` ermöglichen die Seitennavigation.
+
 ### Projektverlauf ansehen
 
 Öffne im Projekt **Verlauf**. Desk zeigt Statuswechsel, feste Reservierungen, Freigaben und projektbezogene Lagerbewegungen. Die neuesten Ereignisse stehen oben. Die Ansicht nennt Zeitpunkt und ausführende Person, soweit sie gespeichert sind. Statuswechsel durch den Haben-Angebotsabgleich und automatische Freigaben beim Wechsel auf **Abgesagt** oder **Abgerechnet** sind gekennzeichnet.
@@ -133,6 +141,8 @@ Die Probe ergänzt ausschließlich in der temporären Kopie zwei SQL-Dateien. Na
 | `/contacts`, `/projects`, `/tasks`, `/locations`, `/items` | Name, ID |
 | `/lines` | Art, Name, ID |
 | `/reservations` | Startzeit, bei gleichem Start Personal vor Geräten und Material, ID |
+| `/planning/reservations` | Startzeit, ID |
+| `/projects/{id}/history` | Zeitpunkt absteigend, Ereignisart, ID |
 | `/movements` | Zeitpunkt absteigend, ID |
 | `/costs` | Nicht zugeordnete Kosten zuerst, Name, ID |
 

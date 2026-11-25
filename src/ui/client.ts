@@ -42,10 +42,11 @@ export async function api<T = any>(path:string,method='GET',input?:unknown,reque
   return result;
 }
 
-export async function all(path:string):Promise<Row[]> {
-  const result:Row[] = [];
+export async function all<T extends Row=Row>(path:string):Promise<T[]> {
+  const result:T[] = [];
+  const separator=path.includes('?')?'&':'?';
   for(let offset=0; ; offset+=200) {
-    const page=await api<Row[]>(`${path}?limit=200&offset=${offset}`);
+    const page=await api<T[]>(`${path}${separator}limit=200&offset=${offset}`);
     result.push(...page);
     if (page.length < 200) return result;
   }

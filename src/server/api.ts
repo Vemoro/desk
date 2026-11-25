@@ -3,16 +3,16 @@ import { databaseReady, db, first, rows, type Query } from './db';
 import { DeskError, required } from './errors';
 import { accountInput, authenticate, changePassword, createAccount, createToken, login, loginInput, logout, passwordChangeInput, protectOrigin, requireAdmin, tokenInput, type Actor } from './auth';
 import { accountAccessInput, changeAccountAccess, withAccountAccess } from './accounts';
-import { schemas, id, projectHistoryResponse, projectResponse, projectStage, reservationInput, reservationStatus, movementInput, movementCorrection, costBatch, costAssignment, habenOfferInput, habenContactInput, zammadLinkInput, zammadCreateInput, zammadMessage } from './contracts';
+import { schemas, id, planningRange, planningResponse, projectHistoryResponse, projectResponse, projectStage, reservationInput, reservationStatus, movementInput, movementCorrection, costBatch, costAssignment, habenOfferInput, habenContactInput, zammadLinkInput, zammadCreateInput, zammadMessage } from './contracts';
 import { assignCost, changeStage, controlling, getCore, getProject, importCosts, listCore, listCosts, saveCore, type Collection } from './core';
-import { correctMovement, createMovement, createReservation, listMovements, listReservations, listStock, setReservation } from './stock';
+import { correctMovement, createMovement, createReservation, listMovements, listPlanningReservations, listReservations, listStock, setReservation } from './stock';
 import { pullContacts, syncContact, syncOffer } from './haben';
 import { checkZammadConnection, conversations, linkTicket, reviewOutgoing, send, unlinkTicket } from './zammad';
 import { integrationStatus } from './remote';
 import { readJson } from './request-body';
 import { listProjectHistory } from './project-history';
 
-type Context = { actor: Actor; sessionId?:string; path: string[]; limit: number; offset: number; requestKey?:string; query: Query };
+type Context = { actor: Actor; sessionId?:string; path: string[]; limit: number; offset: number; requestKey?:string; query: Query; searchParams:URLSearchParams };
 type Operation = {
   method: string;
   path: string;
@@ -25,12 +25,13 @@ type Operation = {
   browserSession?: boolean;
   accountAccess?: 'shared' | 'exclusive';
   pageOrder?: string;
+  queryParameters?: Record<string,z.ZodType>;
 };
 const operations: Operation[] = [];
 const requestKeyHeader='Idempotency-Key';
 const requestKeySchema=z.string().regex(/^[A-Za-z0-9._:-]{1,128}$/).optional();
 
-function get(path: string, summary: string, run: (context: Context) => Promise<unknown>, options: Pick<Operation,'adminSession'|'pageOrder'|'response'> = {}) {
+function get(path: string, summary: string, run: (context: Context) => Promise<unknown>, options: Pick<Operation,'adminSession'|'pageOrder'|'response'|'queryParameters'> = {}) {
   operations.push({ method: 'GET', path, summary, run, ...options });
 }
 
@@ -94,6 +95,10 @@ get('/projects/{id}/offer-positions','Verkaufspositionen für das Angebot',async
 });
 get('/reservations','Reservierungen auflisten',({limit,offset})=>listReservations(limit,offset),
   {pageOrder:'Startzeit, bei gleichem Start Personal vor Geräten und Material, ID'});
+get('/planning/reservations','Offene Reservierungen im Zeitfenster lesen',({searchParams,limit,offset})=>{
+  const {from,to}=planningRange.parse(Object.fromEntries(searchParams));
+  return listPlanningReservations(from,to,limit,offset);
+},{pageOrder:'Startzeit, ID',queryParameters:planningRange.shape,response:planningResponse});
 action('POST','/reservations','Ressource vormerken',reservationInput,({actor,requestKey},input)=>
   createReservation(input,requestKey ? {actorId:actor.id,key:requestKey} : undefined),{keyed:true});
 action('PATCH','/reservations/{id}','Reservierung festlegen oder freigeben',reservationStatus,({actor,path},input)=>setReservation(path[1],input.status,actor.id));
@@ -158,7 +163,7 @@ export async function handle(request: Request) {
       const pagination = pageSchema.parse(Object.fromEntries(url.searchParams));
       const requestKey=route.keyed ? requestKeySchema.parse(request.headers.get(requestKeyHeader) ?? undefined) : undefined;
       const input=route.input ? (body ? body() : await readJson(request)) : undefined;
-      const result = await route.run({actor,sessionId,path,...pagination,requestKey,query},input);
+      const result = await route.run({actor,sessionId,path,...pagination,requestKey,query,searchParams:url.searchParams},input);
       return json(result,route.method === 'POST' ? 201 : 200);
     }
     if (!route?.accountAccess) return await dispatch(db);
@@ -198,6 +203,9 @@ function openApi() {
       ...(op.pageOrder ? {description:`Reihenfolge (${op.pageOrder}). Eine Seite mit weniger Einträgen als limit oder eine leere Seite beendet die Abfrage. Liegt der nächste offset über der Obergrenze, endet der Abruf möglicherweise vor dem Listenende. Änderungen zwischen Seiten können Einträge verschieben.`} : {}),
       parameters:[
         ...pathParameters,
+        ...Object.entries(op.queryParameters ?? {}).map(([name,schema])=>({
+          name,in:'query',required:true,schema:z.toJSONSchema(schema,{target:'draft-2020-12'}),
+        })),
         ...pageParameters,
         ...(op.keyed ? [{name:requestKeyHeader,in:'header',required:false,schema:z.toJSONSchema(requestKeySchema.unwrap()),
           description:'Für Wiederholungen derselben Eingabe beibehalten. Ein Schlüssel gilt pro Konto und Endpunkt. Desk liefert die ursprüngliche Antwort, bei geänderter Eingabe HTTP 409.'}] : []),

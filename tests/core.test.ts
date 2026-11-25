@@ -9,7 +9,7 @@ const { handle } = await import('../src/server/api');
 const { changeStage, controlling, importCosts, saveCore } = await import('../src/server/core');
 const { createReservation, setReservation, createMovement, listReservations, listStock } = await import('../src/server/stock');
 const { addMinutes, fixture } = await import('./fixture');
-const { projectHistoryResponse } = await import('../src/server/contracts');
+const { planningResponse, projectHistoryResponse } = await import('../src/server/contracts');
 let actor: NonNullable<Awaited<ReturnType<typeof createAccount>>>;
 const getId = (value:unknown)=>(value as {id:string}).id;
 
@@ -19,6 +19,52 @@ beforeAll(async () => {
 });
 
 describe('Fachlicher Projektablauf', () => {
+  test('Wochenplanung liest offene Reservierungen projektübergreifend im halboffenen Zeitfenster',async()=>{
+    const data=await fixture(saveCore,'Muster Wochenplan');
+    const other=await fixture(saveCore,'Muster Zweitauftrag');
+    await changeStage(data.project,'planning');
+    await saveCore('projects',{offer_ref:'ANG-WOCHE'},data.project);
+    await changeStage(data.project,'offered');
+    await changeStage(data.project,'confirmed');
+    const from='2041-03-24T23:00:00.000Z';
+    const to='2041-03-31T22:00:00.000Z';
+    const person=(starts_at:string,ends_at:string)=>createReservation({
+      project_id:data.project,user_id:actor.id,quantity:1,starts_at,ends_at,
+    });
+    const crossing=getId(await person('2041-03-24T22:00:00Z','2041-03-25T01:00:00Z'));
+    await setReservation(crossing,'firm');
+    const released=getId(await person('2041-03-26T07:00:00Z','2041-03-26T08:00:00Z'));
+    await setReservation(released,'released');
+    await person('2041-03-24T22:00:00Z',from);
+    await person(to,'2041-04-01T00:00:00Z');
+    const material=getId(await createReservation({
+      project_id:other.project,item_id:other.material,location_id:other.location,quantity:3,
+      starts_at:'2041-03-30T21:00:00Z',ends_at:'2041-04-01T01:00:00Z',
+    }));
+    const token=await createToken(actor,{label:'Wochenplan lesen',scope:'read'});
+    const headers={Authorization:`Bearer ${token.token}`};
+    const path='http://desk.local/api/v1/planning/reservations';
+    const params=new URLSearchParams({from,to});
+    const request=(suffix:string)=>handle(new Request(path+suffix,{headers}));
+    expect((await handle(new Request(path+'?'+params))).status).toBe(401);
+    expect((await request('')).status).toBe(400);
+    expect((await request(`?from=${to}&to=${from}`)).status).toBe(400);
+    const invalidOffset=new URLSearchParams({from:'2041-03-24T23:00:00+20:00',to});
+    expect((await request('?'+invalidOffset)).status).toBe(400);
+    const result=await request('?'+params);
+    expect(result.status).toBe(200);
+    const rows=planningResponse.parse(await result.json());
+    expect(rows).toMatchObject([
+      {id:crossing,project_id:data.project,resource_id:actor.id,resource_name:actor.name,resource_kind:'person',location_id:null,status:'firm'},
+      {id:material,project_id:other.project,resource_id:other.material,resource_kind:'item',location_id:other.location,quantity:3,status:'tentative'},
+    ]);
+    expect(await (await request(`?${params}&limit=1&offset=1`)).json()).toEqual(rows.slice(1));
+    const microseconds=new URLSearchParams({from:'2041-03-25T00:00:00.000100Z',to:'2041-03-25T00:00:00.000900Z'});
+    const precise=await request('?'+microseconds);
+    expect(precise.status).toBe(200);
+    expect(await precise.json()).toEqual(rows.slice(0,1));
+  });
+
   test('Projektverlauf zeigt erfolgreiche Ereignisse, Altbewegungen und Freigaben nur des Projekts',async()=>{
     const data=await fixture(saveCore,'Muster Projektverlauf');
     const other=await fixture(saveCore,'Muster Parallelauftrag');

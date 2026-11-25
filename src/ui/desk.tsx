@@ -3,6 +3,7 @@ import { all, api, ApiError, compileCsv, date, euros, inventoryLabel, inventoryN
 import { Project, Projects, type Data } from './projects';
 import { PasskeyLogin, PasskeySettings } from './passkeys';
 import { AccountPassword } from './account-password';
+import { WeeklyPlanning } from './weekly-planning';
 import { Expand, Form, hasPendingWrite, noWrite, options, Panel, Pill, Table, type Run } from './widgets';
 import { Icon } from './icons';
 import { Navigation, sections, type Person, type Section } from './navigation';
@@ -16,6 +17,7 @@ export function Desk() {
   const [flags,setFlags]=useState({haben:false,zammad:false});
   const [section,setSection]=useState<Section>('dashboard');
   const [projectId,setProjectId]=useState('');
+  const [planningWeek,setPlanningWeek]=useState<string>();
   const [theme,setTheme]=useState('light');
   const [notice,setNotice]=useState({message:'',error:false});
   const [refreshRequired,setRefreshRequired]=useState(false);
@@ -54,6 +56,7 @@ export function Desk() {
     displayedSavedVersion.current=savedVersion.current;
     setPerson(null);
     setData(initialData);
+    setPlanningWeek(undefined);
     setFlags({haben:false,zammad:false});
     setRefreshRequired(false);
     setRefreshing(false);
@@ -204,6 +207,13 @@ export function Desk() {
       {section==='dashboard' && <Dashboard data={data} select={(id)=>navigate('projects',id)} open={()=>navigate('projects')}/>}
       {section==='projects' && (project?<Project key={project.id} project={project} data={data} run={run} flags={flags} accountId={person.id} back={()=>navigate('projects')}/>
         :<Projects data={data} run={run} select={(id)=>navigate('projects',id)}/>)}
+      {section==='planning' && <WeeklyPlanning selectedWeek={planningWeek} onWeek={setPlanningWeek} onSessionExpired={()=>{
+        endSession();
+        setNotice({message:'Bitte erneut anmelden, um die Wochenplanung zu öffnen.',error:false});
+      }} openProject={id=>{
+        navigate('projects',id);
+        if(!data.projects.some(plan=>plan.id===id)) void run(async()=>{},undefined,{kind:'read'});
+      }}/>}
       {section==='contacts' && <Contacts data={data} run={run} haben={flags.haben}/>}
       {section==='warehouse' && <Warehouse data={data} run={run} accountId={person.id}/>}
       {section==='costs' && <Costs data={data} run={run}/>}

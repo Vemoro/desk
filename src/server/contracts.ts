@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { microsecondsWithinMillisecond } from '../time';
 
 export const id = z.uuid();
 const title = z.string().trim().min(1).max(160);
@@ -50,6 +51,27 @@ export const reservationInput = z.strictObject({
   }
 });
 export const reservationStatus = z.strictObject({ status: z.enum(['firm','released']) });
+const planningTimestamp = z.iso.datetime({offset:true})
+  .regex(/^(?!0000-)(?!.*\.\d{7})/,'Ein Zeitstempel im Jahr 0001 bis 9999 mit bis zu sechs Nachkommastellen ist erforderlich.')
+  .regex(/^(?!.*[+-](?:1[6-9]|2[0-3]):\d{2}$)/,'Der Zeitzonenoffset darf höchstens 15 Stunden und 59 Minuten betragen.')
+  .meta({format:'date-time'});
+export const planningRange = z.object({
+  from:planningTimestamp.describe('Beginn des Zeitfensters inklusive. Jahre 0001 bis 9999, bis zu sechs Nachkommastellen, UTC-Offset bis ±15:59.'),
+  to:planningTimestamp.describe('Ende des Zeitfensters exklusive und nach from. Jahre 0001 bis 9999, bis zu sechs Nachkommastellen, UTC-Offset bis ±15:59.'),
+}).refine(({from,to})=>{
+  const difference=Date.parse(to)-Date.parse(from);
+  return difference>0 || (difference===0 && microsecondsWithinMillisecond(to)>microsecondsWithinMillisecond(from));
+},{
+  path:['to'],message:'Das Ende muss nach dem Beginn liegen.',
+});
+export const planningResponse = z.array(z.strictObject({
+  id, project_id:id, project_name:z.string(), resource_id:id, resource_name:z.string(),
+  resource_kind:z.enum(['person','item']), inventory_number:z.string().nullable(),
+  location_id:id.nullable(), location_name:z.string().nullable(),
+  quantity:z.number().int().positive(), starts_at:z.iso.datetime(), ends_at:z.iso.datetime(),
+  status:z.enum(['tentative','firm']),
+}));
+export type PlanningBooking = z.infer<typeof planningResponse>[number];
 export const movementInput = z.discriminatedUnion('action', [
   z.strictObject({ action: z.literal('receive'), item_id: id, location_id: id, project_id: id.optional(), quantity }),
   z.strictObject({ action: z.enum(['issue','return','consume']), reservation_id: id, quantity }),

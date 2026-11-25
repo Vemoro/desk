@@ -56,7 +56,7 @@ test('Der ausgelieferte API-Vertrag entspricht dem Schema seiner OpenAPI-Version
 
 test('Der API-Vertrag beschreibt Seitennavigation nur für paginierte Listen',async()=>{
   const byPath=new Map(entries(await servedSpecification()));
-  const paginated=new Set(['contacts','projects','projects~1{id}~1history','tasks','lines','locations','items','reservations','movements','costs']);
+  const paginated=new Set(['contacts','projects','projects~1{id}~1history','tasks','lines','locations','items','reservations','planning~1reservations','movements','costs']);
   for(const [path,value] of byPath){
     const operation=/^\/paths\/~1([^/]+)\/(?:get|post|patch|delete)\/parameters$/.exec(path);
     if(!operation) continue;
@@ -64,7 +64,10 @@ test('Der API-Vertrag beschreibt Seitennavigation nur für paginierte Listen',as
     if(path.endsWith('/get/parameters') && paginated.delete(operation[1])){
       const operationPath=path.slice(0,-'/parameters'.length);
       expect(byPath.get(operationPath+'/description')).toMatch(/Reihenfolge.*Änderungen zwischen Seiten/);
+      const interval=operation[1]==='planning~1reservations' ? ['from','to'].map(name=>
+        expect.objectContaining({name,required:true,schema:expect.objectContaining({type:'string',format:'date-time'})})) : [];
       expect(parameters).toEqual([
+        ...interval,
         expect.objectContaining({name:'limit',schema:{type:'integer',minimum:1,maximum:200,default:100}}),
         expect.objectContaining({name:'offset',schema:{type:'integer',minimum:0,maximum:1_000_000,default:0}}),
       ]);
@@ -101,6 +104,20 @@ test('Der API-Vertrag unterscheidet Sitzungen, Token und die Administrationsroll
     }
   }
   expect(adminOperations.size).toBe(0);
+});
+
+test('OpenAPI veröffentlicht die gültigen Jahres-, Offset- und Präzisionsgrenzen der Wochenplanung',async()=>{
+  const byPath=new Map(entries(await servedSpecification()));
+  const parameters=byPath.get('/paths/~1planning~1reservations/get/parameters') as {name:string; schema:object}[];
+  const ajv=new Ajv2020({formats:{'date-time':true}});
+  for (const name of ['from','to']) {
+    const valid=ajv.compile(parameters.find(parameter=>parameter.name===name)!.schema);
+    expect(valid('0001-01-01T00:00:00Z')).toBe(true);
+    expect(valid('9999-12-31T23:59:59.123456+15:59')).toBe(true);
+    expect(valid('0000-01-01T00:00:00Z')).toBe(false);
+    expect(valid('2028-05-21T23:00:00.1234567Z')).toBe(false);
+    expect(valid('2028-05-21T23:00:00+16:00')).toBe(false);
+  }
 });
 
 test('Projektliste und Projektdetail entsprechen den ausgelieferten JSON-Schemata',async()=>{
