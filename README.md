@@ -12,7 +12,7 @@
 *Kanban im Beispielprojekt des fiktiven Muster Auftragsservice.*
 
 > [!NOTE]
-> Desk befindet sich in Entwicklung. Die Freigabe der ersten Version ist in Vorbereitung. [Roadmap](docs/roadmap.md) · [Release-Abnahme](docs/release-abnahme.md)
+> Desk befindet sich in Entwicklung. Die Freigabe der ersten Version ist in Vorbereitung. [Roadmap](docs/roadmap.md) · [Release-Abnahme](docs/release-abnahme.md) · [Release-Notizen](CHANGELOG.md)
 
 ## Wie ein Auftrag in Desk läuft
 
