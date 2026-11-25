@@ -16,6 +16,7 @@ test('Runtime-Image erlaubt Anmeldung und meldet den ausgelieferten Git-Stand',a
   const projects=await page.request.get('/api/v1/projects');
   expect(projects.status()).toBe(200);
   expect(await projects.json()).toEqual([]);
-  await page.getByText('Desk-Version',{exact:true}).click();
+  await page.getByRole('button',{name:'Mein Konto',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Desk-Version',exact:true})).toBeVisible();
   await expect(page.getByLabel('Version und Git-Commit')).toHaveValue(new RegExp(`Git-Commit ${commit}$`));
 });

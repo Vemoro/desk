@@ -7,6 +7,7 @@ project="desk-runtime-$(openssl rand -hex 8)"
 image="${DESK_RUNTIME_IMAGE:-$project}"
 port="${DESK_RUNTIME_TEST_PORT:-4180}"
 db_password="$(openssl rand -hex 24)"
+auth_secret="$(openssl rand -hex 32)"
 DESK_RUNTIME_TEST_PASSWORD="$(openssl rand -hex 24)"
 export DESK_RUNTIME_TEST_PASSWORD
 export DESK_RUNTIME_TEST_COMMIT="$commit"
@@ -53,15 +54,15 @@ docker run --rm --network "$network" -e DATABASE_URL "$image" bun scripts/migrat
 DESK_ADMIN_PASSWORD="$DESK_RUNTIME_TEST_PASSWORD" \
   docker run --rm --network "$network" -e DATABASE_URL -e DESK_ADMIN_PASSWORD \
   "$image" bun scripts/admin.ts runtime@example.test 'Muster Runtime'
-desk_container="$(docker create --name "$project-desk" --network "$network" \
-  -p "127.0.0.1:$port:3000" -e DATABASE_URL -e "DESK_ORIGIN=$DESK_E2E_URL" "$image")"
+desk_container="$(DESK_AUTH_SECRET="$auth_secret" docker create --name "$project-desk" --network "$network" \
+  -p "127.0.0.1:$port:3000" -e DATABASE_URL -e DESK_AUTH_SECRET -e "DESK_ORIGIN=$DESK_E2E_URL" "$image")"
 docker start "$desk_container" >/dev/null
 for ((attempt=0; attempt<30; attempt++)); do
-  if curl -fs --max-time 2 "$DESK_E2E_URL/api/v1/openapi.json" >/dev/null; then break; fi
+  if curl -fs --max-time 3 "$DESK_E2E_URL/api/v1/ready" >/dev/null; then break; fi
   sleep 1
 done
 if ((attempt==30)); then
-  echo "Desk wurde im Runtime-Image nicht innerhalb von 30 Versuchen erreichbar." >&2
+  echo "Desk wurde im Runtime-Image nicht innerhalb von 30 Versuchen bereit." >&2
   exit 1
 fi
 
