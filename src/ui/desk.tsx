@@ -207,7 +207,10 @@ export function Desk() {
       {section==='dashboard' && <Dashboard data={data} select={(id)=>navigate('projects',id)} open={()=>navigate('projects')}/>}
       {section==='projects' && (project?<Project key={project.id} project={project} data={data} run={run} flags={flags} accountId={person.id} back={()=>navigate('projects')}/>
         :<Projects data={data} run={run} select={(id)=>navigate('projects',id)}/>)}
-      {section==='planning' && <WeeklyPlanning selectedWeek={planningWeek} onWeek={setPlanningWeek} openProject={id=>{
+      {section==='planning' && <WeeklyPlanning selectedWeek={planningWeek} onWeek={setPlanningWeek} onSessionExpired={()=>{
+        endSession();
+        setNotice({message:'Bitte erneut anmelden, um die Wochenplanung zu öffnen.',error:false});
+      }} openProject={id=>{
         navigate('projects',id);
         if(!data.projects.some(plan=>plan.id===id)) void run(async()=>{},undefined,{kind:'read'});
       }}/>}

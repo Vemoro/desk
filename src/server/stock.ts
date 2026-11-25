@@ -238,7 +238,9 @@ export function listPlanningReservations(from:string, to:string, limit:number, o
       COALESCE(r.user_id,r.item_id) AS resource_id, COALESCE(u.name,i.name) AS resource_name,
       CASE WHEN r.user_id IS NOT NULL THEN 'person' ELSE 'item' END AS resource_kind,
       i.inventory_number,r.location_id,l.name AS location_name,
-      r.quantity,r.starts_at,r.ends_at,r.status
+      r.quantity,
+      to_char(r.starts_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS starts_at,
+      to_char(r.ends_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS ends_at,r.status
     FROM reservations r
     JOIN projects p ON p.id=r.project_id
     LEFT JOIN users u ON u.id=r.user_id

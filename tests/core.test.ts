@@ -49,6 +49,8 @@ describe('Fachlicher Projektablauf', () => {
     expect((await handle(new Request(path+'?'+params))).status).toBe(401);
     expect((await request('')).status).toBe(400);
     expect((await request(`?from=${to}&to=${from}`)).status).toBe(400);
+    const invalidOffset=new URLSearchParams({from:'2041-03-24T23:00:00+20:00',to});
+    expect((await request('?'+invalidOffset)).status).toBe(400);
     const result=await request('?'+params);
     expect(result.status).toBe(200);
     const rows=planningResponse.parse(await result.json());
@@ -57,6 +59,10 @@ describe('Fachlicher Projektablauf', () => {
       {id:material,project_id:other.project,resource_id:other.material,resource_kind:'item',location_id:other.location,quantity:3,status:'tentative'},
     ]);
     expect(await (await request(`?${params}&limit=1&offset=1`)).json()).toEqual(rows.slice(1));
+    const microseconds=new URLSearchParams({from:'2041-03-25T00:00:00.000100Z',to:'2041-03-25T00:00:00.000900Z'});
+    const precise=await request('?'+microseconds);
+    expect(precise.status).toBe(200);
+    expect(await precise.json()).toEqual(rows.slice(0,1));
   });
 
   test('Projektverlauf zeigt erfolgreiche Ereignisse, Altbewegungen und Freigaben nur des Projekts',async()=>{

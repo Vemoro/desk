@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useEffectEvent, useState } from 'react';
 import type { PlanningBooking } from '../server/contracts';
-import { all, date, reservationStages } from './client';
+import { microsecondsWithinMillisecond } from '../time';
+import { all, ApiError, date, reservationStages } from './client';
 import { Panel } from './widgets';
 
 const weekday=new Intl.DateTimeFormat('de-DE',{weekday:'short',day:'numeric',month:'numeric'});
-const clock=new Intl.DateTimeFormat('de-DE',{hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+const timeStyle={hour:'2-digit',minute:'2-digit',hourCycle:'h23'} as const;
+const clock=new Intl.DateTimeFormat('de-DE',timeStyle);
+const offsetClock=new Intl.DateTimeFormat('de-DE',{...timeStyle,timeZoneName:'shortOffset'});
 const names=new Intl.Collator('de-DE');
 
 function localDate(value:Date) {
@@ -22,7 +25,7 @@ function startOfWeek(value:Date) {
   return localDay(value,-((value.getDay()+6)%7));
 }
 
-type Day = {key:string; starts:Date; ends:Date};
+type Day = {key:string; starts:Date; ends:Date; repeatsHour:boolean};
 type Slot = {booking:PlanningBooking; period:string};
 type Resource = {label:string; person:boolean; location:string | null; days:Map<string, Slot[]>};
 
@@ -40,12 +43,14 @@ function assignDays(bookings:PlanningBooking[], days:Day[]) {
     }
     const start=Date.parse(booking.starts_at);
     const end=Date.parse(booking.ends_at);
+    const endsAfterMillisecond=microsecondsWithinMillisecond(booking.ends_at)>0;
     for(const day of days) {
       const startOfDay=day.starts.getTime();
       const endOfDay=day.ends.getTime();
-      if(start>=endOfDay || end<=startOfDay) continue;
-      const from=clock.format(Math.max(start,startOfDay));
-      const to=end>=endOfDay?'24:00':clock.format(end);
+      if(start>=endOfDay || end<startOfDay || (end===startOfDay && !endsAfterMillisecond)) continue;
+      const formatter=day.repeatsHour?offsetClock:clock;
+      const from=formatter.format(Math.max(start,startOfDay));
+      const to=end>=endOfDay?'24:00':formatter.format(end);
       const slots=resource.days.get(day.key) ?? [];
       slots.push({booking,period:`${from}–${to}`});
       resource.days.set(day.key,slots);
@@ -55,8 +60,8 @@ function assignDays(bookings:PlanningBooking[], days:Day[]) {
     || names.compare(a.label,b.label) || names.compare(a.location ?? '',b.location ?? ''));
 }
 
-export function WeeklyPlanning({selectedWeek,onWeek,openProject}:{
-  selectedWeek:string | undefined; onWeek:(week:string)=>void; openProject:(id:string)=>void;
+export function WeeklyPlanning({selectedWeek,onWeek,openProject,onSessionExpired}:{
+  selectedWeek:string | undefined; onWeek:(week:string)=>void; openProject:(id:string)=>void; onSessionExpired:()=>void;
 }) {
   const [attempt,setAttempt]=useState(0);
   const [result,setResult]=useState<{from:string; bookings:PlanningBooking[]; error:string}>();
@@ -64,18 +69,27 @@ export function WeeklyPlanning({selectedWeek,onWeek,openProject}:{
   const monday=startOfWeek(today);
   const days=Array.from({length:7},(_,index)=>{
     const starts=localDay(monday,index);
-    return {key:localDate(starts),starts,ends:localDay(monday,index+1)};
+    const ends=localDay(monday,index+1);
+    return {key:localDate(starts),starts,ends,repeatsHour:starts.getTimezoneOffset()<new Date(ends.getTime()-1).getTimezoneOffset()};
   });
   const from=monday.toISOString();
   const to=days[6].ends.toISOString();
   const current=result?.from===from ? result : undefined;
+  const expireSession=useEffectEvent(onSessionExpired);
 
   useEffect(()=>{
     let active=true;
     const params=new URLSearchParams({from,to});
     void all<PlanningBooking>(`planning/reservations?${params}`).then(
       bookings=>{if(active) setResult({from,bookings,error:''});},
-      error=>{if(active) setResult({from,bookings:[],error:error instanceof Error?error.message:'Die Wochenplanung konnte nicht geladen werden.'});},
+      error=>{
+        if(!active) return;
+        if(error instanceof ApiError && error.status===401) {
+          expireSession();
+          return;
+        }
+        setResult({from,bookings:[],error:error instanceof Error?error.message:'Die Wochenplanung konnte nicht geladen werden.'});
+      },
     );
     return ()=>{active=false;};
   },[from,to,attempt]);

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { microsecondsWithinMillisecond } from '../time';
 
 export const id = z.uuid();
 const title = z.string().trim().min(1).max(160);
@@ -50,10 +51,21 @@ export const reservationInput = z.strictObject({
   }
 });
 export const reservationStatus = z.strictObject({ status: z.enum(['firm','released']) });
+const planningTimestamp = z.iso.datetime({offset:true})
+  .refine(value=>!value.startsWith('0000-') && !/\.\d{7}/.test(value),{
+    message:'Ein Zeitstempel ab Jahr 0001 mit bis zu sechs Nachkommastellen ist erforderlich.',
+  })
+  .refine(value=>{
+    const offset=/[+-](\d{2}):\d{2}$/.exec(value);
+    return !offset || Number(offset[1])<=15;
+  },{message:'Der Zeitzonenoffset darf höchstens 15 Stunden und 59 Minuten betragen.'});
 export const planningRange = z.object({
-  from:z.iso.datetime({offset:true}).describe('Beginn des Zeitfensters inklusive.'),
-  to:z.iso.datetime({offset:true}).describe('Ende des Zeitfensters exklusive.'),
-}).refine(range=>Date.parse(range.from)<Date.parse(range.to),{
+  from:planningTimestamp.describe('Beginn des Zeitfensters inklusive, mit bis zu sechs Nachkommastellen und UTC-Offset bis ±15:59.'),
+  to:planningTimestamp.describe('Ende des Zeitfensters exklusive, mit bis zu sechs Nachkommastellen und UTC-Offset bis ±15:59.'),
+}).refine(({from,to})=>{
+  const difference=Date.parse(to)-Date.parse(from);
+  return difference>0 || (difference===0 && microsecondsWithinMillisecond(to)>microsecondsWithinMillisecond(from));
+},{
   path:['to'],message:'Das Ende muss nach dem Beginn liegen.',
 });
 export const planningResponse = z.array(z.strictObject({
