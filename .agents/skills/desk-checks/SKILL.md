@@ -77,4 +77,4 @@ Führe das Beispiel in Bash im getrennten Worktree aus. Es benötigt Docker, die
 )
 ```
 
-Der Browserlauf prüft beide Musteraufträge über die zuvor gebaute Anwendung. Für weitere UI-Prüfungen nutze dieselbe Demo-Instanz. Baue sie nach Änderungen am Anwendungscode erneut. Der [Screenshot-Skill](../desk-pr-screenshots/SKILL.md) beschreibt, wie du Basis und Änderung vergleichst.
+Der Browserlauf prüft beide Musteraufträge über die zuvor gebaute Anwendung. Füge weitere UI-Prüfungen vor der schließenden Klammer ein, damit sie dieselbe Demo-Instanz verwenden. Der [Screenshot-Skill](../desk-pr-screenshots/SKILL.md) beschreibt, wie du Basis und Änderung vergleichst.
