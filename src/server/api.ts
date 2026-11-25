@@ -1,24 +1,26 @@
 import { z } from 'zod';
-import { db, first, rows } from './db';
+import { databaseReady, db, first, rows } from './db';
 import { DeskError, required } from './errors';
-import { accountInput, authenticate, createAccount, createToken, login, loginInput, logout, protectOrigin, requireAdmin, sessionCookie, tokenInput, type Actor } from './auth';
+import { accountInput, authenticate, createAccount, createToken, login, loginInput, logout, protectOrigin, requireAdmin, tokenInput, type Actor } from './auth';
 import { schemas, id, projectStage, reservationInput, reservationStatus, movementInput, costBatch, costAssignment, habenOfferInput, habenContactInput, zammadLinkInput, zammadCreateInput, zammadMessage } from './contracts';
 import { assignCost, changeStage, controlling, getCore, getProject, importCosts, listCore, listCosts, saveCore, type Collection } from './core';
 import { createMovement, createReservation, listMovements, listReservations, listStock, setReservation } from './stock';
 import { pullContacts, syncContact, syncOffer } from './haben';
-import { conversations, linkTicket, reviewOutgoing, send } from './zammad';
+import { checkZammadConnection, conversations, linkTicket, reviewOutgoing, send, unlinkTicket } from './zammad';
 import { integrationStatus } from './remote';
 
-type Context = { actor: Actor; path: string[]; limit: number; offset: number };
-type Operation = { method: string; path: string; summary: string; run: (context: Context, input: unknown) => Promise<unknown>; input?: z.ZodType };
+type Context = { actor: Actor; path: string[]; limit: number; offset: number; requestKey?:string };
+type Operation = { method: string; path: string; summary: string; run: (context: Context, input: unknown) => Promise<unknown>; input?: z.ZodType; keyed?: boolean; sessionOnly?: boolean };
 const operations: Operation[] = [];
+const requestKeyHeader='Idempotency-Key';
+const requestKeySchema=z.string().regex(/^[A-Za-z0-9._:-]{1,128}$/).optional();
 
 function get(path: string, summary: string, run: (context: Context) => Promise<unknown>) {
   operations.push({ method: 'GET', path, summary, run });
 }
 
-function action<T>(method: 'POST'|'PATCH', path: string, summary: string, input: z.ZodType<T>, run: (context: Context, input: T) => Promise<unknown>) {
-  operations.push({ method,path,summary,input,run:(context,value)=>run(context,input.parse(value)) });
+function action<T>(method: 'POST'|'PATCH', path: string, summary: string, input: z.ZodType<T>, run: (context: Context, input: T) => Promise<unknown>, options: Pick<Operation,'keyed'|'sessionOnly'> = {}) {
+  operations.push({ method,path,summary,input,...options,run:(context,value)=>run(context,input.parse(value)) });
 }
 
 for (const name of Object.keys(schemas) as Collection[]) {
@@ -34,6 +36,11 @@ operations.push({ method:'DELETE', path:'/lines/{id}', summary:'Kalkulationsposi
 }});
 get('/me','Aktuelles Konto',async ({actor})=>actor);
 get('/integrations','Konfigurierte Integrationen',async()=>integrationStatus());
+action('POST','/integrations/zammad/check','Zammad-Verbindung mit einem bestehenden Ticket prüfen (Administratorsitzung)',
+  zammadLinkInput,({actor},input)=>{
+    requireAdmin(actor);
+    return checkZammadConnection(input.id);
+  },{sessionOnly:true});
 get('/users','Team auflisten',()=>rows(db,'SELECT id,name,role FROM users ORDER BY name,id'));
 action('POST','/users','Teamkonto anlegen',accountInput,({actor},input)=>{
   requireAdmin(actor);
@@ -55,11 +62,12 @@ get('/projects/{id}/offer-positions','Verkaufspositionen für das Angebot',async
   return rows(db,"SELECT name,quantity,unit_cents FROM lines WHERE project_id=$1 AND kind='sell' ORDER BY id",[path[1]]);
 });
 get('/reservations','Reservierungen auflisten',({limit,offset})=>listReservations(limit,offset));
-action('POST','/reservations','Ressource vormerken',reservationInput,(context,input)=>createReservation(input));
+action('POST','/reservations','Ressource vormerken',reservationInput,({actor,requestKey},input)=>
+  createReservation(input,requestKey ? {actorId:actor.id,key:requestKey} : undefined),{keyed:true});
 action('PATCH','/reservations/{id}','Reservierung festlegen oder freigeben',reservationStatus,({path},input)=>setReservation(path[1],input.status));
 get('/stock','Lagerbestand je Lagerort',()=>listStock());
 get('/movements','Lagerbewegungen',({limit,offset})=>listMovements(limit,offset));
-action('POST','/movements','Lagerbewegung erfassen',movementInput,({actor},input)=>createMovement(input,actor.id));
+action('POST','/movements','Lagerbewegung erfassen',movementInput,({actor,requestKey},input)=>createMovement(input,actor.id,requestKey),{keyed:true});
 get('/costs','Ist-Kosten und offene Zuordnungen',({limit,offset})=>listCosts(limit,offset));
 action('POST','/costs','Ist-Kosten übernehmen',costBatch,(context,input)=>importCosts(input.entries));
 action('PATCH','/costs/{id}','Ist-Kosten einem Projekt zuordnen',costAssignment,({path},input)=>assignCost(path[1],input.project_id));
@@ -68,6 +76,7 @@ action('POST','/contacts/{id}/haben','Kontakt mit Haben abgleichen',habenContact
 action('POST','/projects/{id}/haben-offer','Haben-Angebot verknüpfen oder aktualisieren',habenOfferInput.partial(),({path},input)=>syncOffer(path[1],input.id));
 get('/projects/{id}/zammad','Ticket, Verlauf und Desk-Sendeversuche',({path})=>conversations(path[1]));
 action('POST','/projects/{id}/zammad/link','Zammad-Ticket verknüpfen',zammadLinkInput,({path},input)=>linkTicket(path[1],input.id));
+action('POST','/projects/{id}/zammad/unlink','Zammad-Ticketverknüpfung lösen',zammadLinkInput,({path},input)=>unlinkTicket(path[1],input.id));
 action('POST','/projects/{id}/zammad/tickets','Zammad-Ticket anlegen',zammadCreateInput,({path},input)=>linkTicket(path[1],input));
 action('POST','/projects/{id}/zammad/messages','Zammad-Antwort senden',zammadMessage,({path},input)=>send(path[1],input));
 action('POST','/projects/{id}/zammad/outgoing/{messageId}','Sendeversuch prüfen oder ausdrücklich erneut senden',
@@ -109,20 +118,25 @@ export async function handle(request: Request) {
     const url = new URL(request.url);
     const path = url.pathname.slice('/api/v1/'.length).split('/');
     if (request.method === 'GET' && url.pathname === '/api/v1/openapi.json') return json(openApi());
-    protectOrigin(request);
-    if (request.method === 'POST' && url.pathname === '/api/v1/login') {
-      const value = await login(loginInput.parse(await readJson(request)),url.hostname);
-      return json({ ok:true },200,{ 'Set-Cookie':sessionCookie(request,value,43_200) });
+    if (request.method === 'GET' && url.pathname === '/api/v1/ready') {
+      const ready = await databaseReady();
+      return json({ready},ready?200:503);
     }
-    if (request.method === 'POST' && url.pathname === '/api/v1/logout') {
-      await logout(request);
-      return json({ok:true},200,{ 'Set-Cookie':sessionCookie(request,'',0) });
+    protectOrigin(request);
+    if (request.method === 'POST' && ['/api/v1/login','/api/v1/logout'].includes(url.pathname)) {
+      const cookies = url.pathname === '/api/v1/login'
+        ? await login(loginInput.parse(await readJson(request)),request)
+        : await logout(request);
+      const response = json({ok:true});
+      for (const cookie of cookies.getSetCookie()) response.headers.append('Set-Cookie',cookie);
+      return response;
     }
     const actor = await authenticate(request);
     const route = operations.find((operation)=>operation.method === request.method && match(operation.path,path));
     if (!route) throw new DeskError(404,'API-Endpunkt nicht gefunden.');
     const pagination = pageSchema.parse(Object.fromEntries(url.searchParams));
-    const result = await route.run({actor,path,...pagination},route.input ? await readJson(request) : undefined);
+    const requestKey=route.keyed ? requestKeySchema.parse(request.headers.get(requestKeyHeader) ?? undefined) : undefined;
+    const result = await route.run({actor,path,...pagination,requestKey},route.input ? await readJson(request) : undefined);
     return json(result,route.method === 'POST' ? 201 : 200);
   } catch (error) {
     if (error instanceof DeskError) return json({ error:error.message },error.status);
@@ -137,17 +151,27 @@ export async function handle(request: Request) {
 }
 
 function openApi() {
-  const paths: Record<string,Record<string,unknown>> = {};
+  const paths: Record<string,Record<string,unknown>> = {
+    '/ready':{get:{summary:'Bereitschaft des Dienstes',security:[],
+      responses:{200:{description:'Bereit'},503:{description:'Nicht bereit'}}}},
+  };
   for (const op of operations) {
     (paths[op.path] ??= {})[op.method.toLowerCase()] = {
       summary:op.summary,
-      security:[{token:[]}],
-      parameters:[...op.path.matchAll(/\{(\w+)\}/g)].map(([,name])=>({name,in:'path',required:true,schema:{type:'string',format:'uuid'}})),
+      security:op.sessionOnly?[{secureSession:[]},{session:[]}]:[{token:[]}],
+      parameters:[
+        ...[...op.path.matchAll(/\{(\w+)\}/g)].map(([,name])=>({name,in:'path',required:true,schema:{type:'string',format:'uuid'}})),
+        ...(op.keyed ? [{name:requestKeyHeader,in:'header',required:false,schema:z.toJSONSchema(requestKeySchema.unwrap()),
+          description:'Für Wiederholungen derselben Eingabe beibehalten. Ein Schlüssel gilt pro Konto und Endpunkt. Desk liefert die ursprüngliche Antwort, bei geänderter Eingabe HTTP 409.'}] : []),
+      ],
       ...(op.input ? { requestBody:{ required:true,content:{'application/json':{schema:z.toJSONSchema(op.input,{target:'draft-2020-12',io:'input'})}} } } : {}),
       responses:{ [op.method === 'POST' ? '201' : '200']:{description:'Erfolg'}, 400:{description:'Ungültige Eingabe'},
         401:{description:'Anmeldung erforderlich'},403:{description:'Zugriff verweigert'},409:{description:'Konflikt'} },
     };
   }
   return { openapi:'3.1.0',info:{title:'Desk API',version:'1.0.0'},servers:[{url:'/api/v1'}],paths,
-    components:{securitySchemes:{token:{type:'http',scheme:'bearer'}}} };
+    components:{securitySchemes:{token:{type:'http',scheme:'bearer'},
+      session:{type:'apiKey',in:'cookie',name:'desk-auth.session_token'},
+      secureSession:{type:'apiKey',in:'cookie',name:'__Secure-desk-auth.session_token'},
+    }} };
 }
