@@ -31,13 +31,13 @@ pg_restore --host=TESTHOST --port=5432 --username=desk --dbname=desk_restore_dem
   --single-transaction --exit-on-error --no-owner --no-privileges /geschuetzter/pfad/desk.dump
 ```
 
-Das Ziel benötigt eigene Rollen und Berechtigungen. `--no-owner` und `--no-privileges` lassen Eigentümer und Grants aus der Quelle beim Prüfrestore aus. [PostgreSQL 17 zu pg_restore](https://www.postgresql.org/docs/17/app-pgrestore.html)
+Prüfe, ob `pg_restore` erfolgreich beendet wurde, bevor du Desk mit der wiederhergestellten Datenbank startest. Das Ziel benötigt eigene Rollen und Berechtigungen. `--no-owner` und `--no-privileges` lassen Eigentümer und Grants aus der Quelle beim Prüfrestore aus. Vor einer Freigabe an Nutzende die [Vorgaben für wiederhergestellte Sitzungen](desk.md#update-auf-better-auth) ausführen. [PostgreSQL 17 zu pg_restore](https://www.postgresql.org/docs/17/app-pgrestore.html)
 
 ## Probelauf mit Muster Auftragsservice
 
 Lege in einem isolierten PostgreSQL-17-Dienst zuerst eine neue Quelle namens `desk_backup_demo` an. Setze deren lokale `DATABASE_URL`. Prüfe vor `bun run migrate` und `bun run demo`, dass Host, Port und Datenbankname in dieser Variable zur mit `psql` geprüften Testquelle passen. Führe die beiden Befehle erst danach aus. `bun run demo` benötigt dafür `DESK_DEMO_PASSWORD`. Führe Sicherung und Wiederherstellung wie oben aus. Prüfe, dass das Ziel `desk_restore_demo` ist und die Quelle `desk_backup_demo` bleibt.
 
-Starte dieselbe Anwendungsversion mit der `DATABASE_URL` des Ziels und einer eigenen lokalen `DESK_ORIGIN`. Wenn die getestete Version Better Auth nutzt, setze ein separates Test-Secret in `DESK_AUTH_SECRET`. Starte aus einem Arbeitsverzeichnis ohne produktive `.env` und ohne geerbte Haben- oder Zammad-Konfiguration. Setze `HABEN_URL`, `HABEN_TOKEN`, `ZAMMAD_URL` und `ZAMMAD_TOKEN` für den Testprozess ausdrücklich auf leer. In PowerShell 7.5 bleiben mit `$env:HABEN_URL=''` gesetzte Leerwerte erhalten.
+Verwende für die Probe einen getrennten Checkout derselben Anwendungsversion ohne produktive `.env`. Setze die `DATABASE_URL` des Ziels und ein separates Test-Secret in `DESK_AUTH_SECRET`. Setze `NITRO_HOST=127.0.0.1` und verwende einen freien `NITRO_PORT`, zum Beispiel `4184`. Setze `DESK_ORIGIN` auf die passende Adresse, im Beispiel `http://127.0.0.1:4184`. Setze `HABEN_URL`, `HABEN_TOKEN`, `ZAMMAD_URL` und `ZAMMAD_TOKEN` für den Testprozess ausdrücklich auf leer. In PowerShell 7.5 bleiben mit `$env:HABEN_URL=''` gesetzte Leerwerte erhalten. Führe `bun install --frozen-lockfile`, `bun run build` und `bun run start` aus.
 
 1. Mit dem Demo-Konto anmelden. Der authentifizierte Aufruf von `/api/v1/integrations` muss `haben: false` und `zammad: false` ergeben.
 2. Das Projekt **Veranstaltungsbetreuung im Kulturhaus** öffnen und seine externe Angebotsreferenz **ANG-K-102** im Überblick prüfen.
@@ -47,10 +47,10 @@ Halte Quelle, Ziel, verwendete Anwendungsversion, Ergebnis und Zeitpunkt fest. Z
 
 ## Upgrade und Wiederanlauf proben
 
-Sichere die Testdaten auf dem Ausgangsstand. Stelle dasselbe Vorab-Archiv in zwei neu angelegten Datenbanken wieder her. Verwende getrennte lokale Origins und setze die Integrationsvariablen wie im Probelauf oben auf leer.
+Sichere die Testdaten auf dem Ausgangsstand. Stelle dasselbe Vorab-Archiv in zwei neu angelegten Datenbanken wieder her. Verwende pro Desk-Instanz den zugehörigen Checkout, einen eigenen Loopback-Port und die passende `DESK_ORIGIN` wie im Probelauf. Setze die Integrationsvariablen in beiden Instanzen auf leer.
 
-1. Setze im Arbeitsverzeichnis der Zielversion `DATABASE_URL` auf die erste Wiederherstellung. Prüfe die Verbindung und führe `bun run migrate` aus. Prüfe die erwartete Migration mit `SELECT name FROM desk_migrations ORDER BY name;`. Starte die Zielversion mit dieser Datenbank und prüfe Anmeldung, Integrationsstatus und die Daten des Beispielauftrags.
-2. Starte die Ausgangsversion mit ihrer Laufzeitkonfiguration und der zweiten Wiederherstellung. Prüfe Anmeldung, Integrationsstatus und den Zugriff auf Projekt und Beleg. Das Vorab-Archiv dient als Ausgangspunkt für den Wiederanlauf. Die bereits migrierte Datenbank gehört zur Zielversion.
+1. Setze im Checkout der Zielversion `DATABASE_URL` auf die erste Wiederherstellung. Prüfe die Verbindung und führe `bun run migrate` aus. Vergleiche das Ergebnis von `SELECT name FROM desk_migrations ORDER BY name;` mit den erwarteten Migrationsdateien des Zielstands. Starte die Zielversion mit dieser Datenbank. Prüfe Anmeldung, Integrationsstatus und die Daten des Beispielauftrags.
+2. Starte die Ausgangsversion mit ihrer Laufzeitkonfiguration und setze `DATABASE_URL` auf die zweite, aus dem Vorab-Archiv wiederhergestellte Datenbank. Prüfe Anmeldung, Integrationsstatus, Migrationsstand und den Zugriff auf Projekt und Beleg.
 
 ### Erste Probe am 24. November 2026
 
@@ -70,12 +70,12 @@ Wiederhole die Upgrade- und Wiederanlaufprobe mit einem Stand, der Vorgangsschl�
 2. Sichere diese aktualisierte Datenbank und stelle sie in einer weiteren neuen Testdatenbank wieder her. Starte dieselbe Zielversion mit dieser Datenbank. Melde dasselbe synthetische Konto an.
 3. Sende die beiden Anfragen mit denselben Angaben und Schlüsseln erneut. Beide Antworten sollen HTTP 201 mit den ursprünglichen IDs liefern. Vergleiche die gespeicherten Bewegungen und Vormerkungen sowie die Bestandszahlen mit dem Stand nach der ersten Buchung.
 
-#### Probe am 24. November 2026
+#### Probe auf `4f77d81`
 
-Quelle war [`b7a69f4`](https://github.com/Vemoro/desk/commit/b7a69f4b644c74296bca895f1c6c4f6babff9b42), Ziel war [`4fdd336`](https://github.com/Vemoro/desk/commit/4fdd336bb167051b06b309c3156bbec7bce5aa31) mit den Änderungen aus PR #209 und #210. Alle Wiederherstellungen liefen mit PostgreSQL 17.12, getrennten lokalen Instanzen und deaktivierten Anbindungen. Die Archive wurden im Custom-Format erstellt und mit den oben dokumentierten Restore-Optionen eingespielt.
+Quelle war [`b7a69f4`](https://github.com/Vemoro/desk/commit/b7a69f4b644c74296bca895f1c6c4f6babff9b42), Ziel war [`4f77d81`](https://github.com/Vemoro/desk/commit/4f77d81b874ceeeaec9decc35a3d1438076ad6bc) mit den Vorgangsschlüsseln für Lagerbewegungen und Vormerkungen. Beide Desk-Stände liefen mit Bun 1.4.5. Alle Wiederherstellungen liefen mit PostgreSQL 17.12, getrennten lokalen Instanzen und deaktivierten Anbindungen. Die Archive wurden im Custom-Format erstellt und mit den oben dokumentierten Restore-Optionen eingespielt.
 
 | Schritt | Soll | Ist |
 | --- | --- | --- |
-| Upgrade und Wiederanlauf | Vorhandene Reservierungen, Bewegungen und Bestandszahlen bleiben erhalten. | Für „Büroinstallation Westflügel“ und „Kabelbinder, Packung“ im Hauptlager stimmten Reservierungs- und Bewegungs-IDs sowie Bestand überein. Der Ausgangsstand und sein Wiederanlauf hatten nur `001_core.sql`. Im Upgrade-Ziel war zusätzlich `003_stock_write_requests.sql` registriert. |
-| Buchung auf dem Zielstand | Ein Wareneingang über zwei Einheiten und eine Personalvormerkung ergeben je einen neuen Eintrag. | Physischer Bestand stieg von 18 auf 20. Die Bewegungsliste für den Artikel am Ort wuchs von eins auf zwei, die Vormerkungsliste des Projekts von zwei auf drei. |
-| Restore und Wiederholung | Beide gespeicherten Antworten sind nach Wiederherstellung mit denselben Schlüsseln abrufbar. | Beide Antworten lieferten HTTP 201 mit den ursprünglichen IDs. Es blieben zwei Bewegungen, drei Projektvormerkungen sowie 20 physische, sechs reservierte und 14 freie Einheiten. Beide Migrationen waren registriert. |
+| Upgrade und Wiederanlauf | Vorhandene Reservierungen, Bewegungen und Bestandszahlen bleiben erhalten. | Alle vorhandenen Bewegungs- und Vormerkungs-IDs, ihre Zuordnungen und die Bestandszahlen stimmten in beiden Wiederherstellungen überein. Die Ausgangsversion verwendete `001_core.sql`. Im Zielstand waren zusätzlich `002_better_auth.sql`, `003_stock_write_requests.sql` und `004_passkeys.sql` registriert. |
+| Buchung auf dem Zielstand | Ein Wareneingang über zwei Einheiten und eine Personalvormerkung ergeben je einen neuen Eintrag. | Der physische Bestand von „Kabelbinder, Packung“ im Hauptlager stieg auf 20 Einheiten. Der Wareneingang und die Personalvormerkung für „Büroinstallation Westflügel“ erhöhten die Gesamtzahlen auf vier Bewegungen und fünf Vormerkungen. |
+| Restore und Wiederholung | Beide gespeicherten Antworten sind nach Wiederherstellung mit denselben Schlüsseln abrufbar. | Beide Antworten lieferten HTTP 201 mit den ursprünglichen IDs. Die Anzahl blieb bei vier Bewegungen und fünf Vormerkungen. Für „Kabelbinder, Packung“ im Hauptlager blieben 20 physische, sechs reservierte und 14 freie Einheiten erhalten. Alle vier Migrationen waren registriert. |
