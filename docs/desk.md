@@ -82,6 +82,20 @@ Führe `bun scripts/rehearse-migration-rollback.ts` im Git-Checkout aus. Die Pro
 
 Die Probe ergänzt ausschließlich in der temporären Kopie zwei SQL-Dateien. Nach einem Fehler in der zweiten Datei prüft sie beide Testtabellen, das Migrationsprotokoll, den Bereitschaftsstatus und ein bereits gespeichertes Musterprojekt. Nach der Korrektur derselben Testdatei werden die Migrationen auf derselben Testdatenbank angewendet und alle vier Ergebnisse erneut geprüft. Kann die Probe ihre Testressourcen nicht vollständig entfernen, meldet sie die betroffenen Ressourcen und endet mit einem Fehlerstatus.
 
+### Seitennavigation der REST-API
+
+`limit` bestimmt die Höchstzahl der Einträge pro Seite (1 bis 200, Standard 100). `offset` überspringt Einträge am Anfang der aktuellen sortierten Liste (0 bis 1.000.000, Standard 0). Diese Parameter gelten für die folgenden GET-Listen:
+
+| Routen unter `/api/v1` | Reihenfolge |
+| --- | --- |
+| `/contacts`, `/projects`, `/tasks`, `/locations`, `/items` | Name, ID |
+| `/lines` | Art, Name, ID |
+| `/reservations` | Startzeit, bei gleichem Start Personal vor Geräten und Material, ID |
+| `/movements` | Zeitpunkt absteigend, ID |
+| `/costs` | Nicht zugeordnete Kosten zuerst, Name, ID |
+
+Für die Projektliste des fiktiven Muster Auftragsservice öffnet `GET /api/v1/projects?limit=100&offset=0` die ersten 100 Projekte. `GET /api/v1/projects?limit=100&offset=100` liest die nächste Seite, etwa ab „Musterauftrag 101“, wenn die synthetischen Projekte entsprechend benannt sind. Erhöhe den Offset nach jeder vollen Seite um das Limit. Eine kürzere oder leere Seite beendet die Abfrage. Liegt der nächste Offset über 1.000.000, endet der Abruf möglicherweise vor dem Listenende. Änderungen zwischen den Abfragen können Einträge verschieben und dadurch doppelt erscheinen oder übersprungen werden.
+
 ## Ansichten
 
 <picture>
