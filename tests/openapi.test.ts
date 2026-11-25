@@ -106,6 +106,20 @@ test('Der API-Vertrag unterscheidet Sitzungen, Token und die Administrationsroll
   expect(adminOperations.size).toBe(0);
 });
 
+test('OpenAPI veröffentlicht die gültigen Jahres-, Offset- und Präzisionsgrenzen der Wochenplanung',async()=>{
+  const byPath=new Map(entries(await servedSpecification()));
+  const parameters=byPath.get('/paths/~1planning~1reservations/get/parameters') as {name:string; schema:object}[];
+  const ajv=new Ajv2020({formats:{'date-time':true}});
+  for (const name of ['from','to']) {
+    const valid=ajv.compile(parameters.find(parameter=>parameter.name===name)!.schema);
+    expect(valid('0001-01-01T00:00:00Z')).toBe(true);
+    expect(valid('9999-12-31T23:59:59.123456+15:59')).toBe(true);
+    expect(valid('0000-01-01T00:00:00Z')).toBe(false);
+    expect(valid('2028-05-21T23:00:00.1234567Z')).toBe(false);
+    expect(valid('2028-05-21T23:00:00+16:00')).toBe(false);
+  }
+});
+
 test('Projektliste und Projektdetail entsprechen den ausgelieferten JSON-Schemata',async()=>{
   const database=process.env.DATABASE_URL;
   if(!database || !new URL(database).pathname.endsWith('_test')) throw new Error('Isolierte Testdatenbank erforderlich.');

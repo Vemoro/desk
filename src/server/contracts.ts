@@ -52,16 +52,12 @@ export const reservationInput = z.strictObject({
 });
 export const reservationStatus = z.strictObject({ status: z.enum(['firm','released']) });
 const planningTimestamp = z.iso.datetime({offset:true})
-  .refine(value=>!value.startsWith('0000-') && !/\.\d{7}/.test(value),{
-    message:'Ein Zeitstempel ab Jahr 0001 mit bis zu sechs Nachkommastellen ist erforderlich.',
-  })
-  .refine(value=>{
-    const offset=/[+-](\d{2}):\d{2}$/.exec(value);
-    return !offset || Number(offset[1])<=15;
-  },{message:'Der Zeitzonenoffset darf höchstens 15 Stunden und 59 Minuten betragen.'});
+  .regex(/^(?!0000-)(?!.*\.\d{7})/,'Ein Zeitstempel im Jahr 0001 bis 9999 mit bis zu sechs Nachkommastellen ist erforderlich.')
+  .regex(/^(?!.*[+-](?:1[6-9]|2[0-3]):\d{2}$)/,'Der Zeitzonenoffset darf höchstens 15 Stunden und 59 Minuten betragen.')
+  .meta({format:'date-time'});
 export const planningRange = z.object({
-  from:planningTimestamp.describe('Beginn des Zeitfensters inklusive, mit bis zu sechs Nachkommastellen und UTC-Offset bis ±15:59.'),
-  to:planningTimestamp.describe('Ende des Zeitfensters exklusive, mit bis zu sechs Nachkommastellen und UTC-Offset bis ±15:59.'),
+  from:planningTimestamp.describe('Beginn des Zeitfensters inklusive. Jahre 0001 bis 9999, bis zu sechs Nachkommastellen, UTC-Offset bis ±15:59.'),
+  to:planningTimestamp.describe('Ende des Zeitfensters exklusive und nach from. Jahre 0001 bis 9999, bis zu sechs Nachkommastellen, UTC-Offset bis ±15:59.'),
 }).refine(({from,to})=>{
   const difference=Date.parse(to)-Date.parse(from);
   return difference>0 || (difference===0 && microsecondsWithinMillisecond(to)>microsecondsWithinMillisecond(from));

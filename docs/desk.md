@@ -19,7 +19,7 @@ Unter **Wochenplanung** siehst du offene Reservierungen aus allen Projekten. Wä
 
 Wähle den Projektnamen im Eintrag, um den Projektüberblick zu öffnen. Zum Bearbeiten der Reservierung wechsle dort zu **Ressourcen & Kalkulation**.
 
-Für denselben Datensatz liefert `GET /api/v1/planning/reservations` die offenen Reservierungen für ein angegebenes Zeitfenster projektübergreifend. Übergib `from` und `to` als ISO-Zeitstempel mit Zeitzone ab Jahr 0001 und mit bis zu sechs Nachkommastellen. UTC-Offsets von −15:59 bis +15:59 sind möglich. Die Antwort enthält Buchungen, die vor `to` beginnen und nach `from` enden. `limit` und `offset` ermöglichen die Seitennavigation.
+Für denselben Datensatz liefert `GET /api/v1/planning/reservations` die offenen Reservierungen für ein angegebenes Zeitfenster projektübergreifend. Übergib `from` und `to` als ISO-Zeitstempel mit Zeitzone für die Jahre 0001 bis 9999 und mit bis zu sechs Nachkommastellen. UTC-Offsets von −15:59 bis +15:59 sind möglich. `to` muss nach `from` liegen. Die Antwort enthält Buchungen, die vor `to` beginnen und nach `from` enden. `limit` und `offset` ermöglichen die Seitennavigation.
 
 ### Projektverlauf ansehen
 
