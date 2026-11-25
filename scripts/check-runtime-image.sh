@@ -18,8 +18,22 @@ db_container=
 db_volume=
 desk_container=
 network=
+active_pid=
+run_step() {
+  local result=0
+  "$@" <&0 &
+  active_pid=$!
+  # Bash can execute signal traps while waiting for an asynchronous child.
+  wait "$active_pid" || result=$?
+  active_pid=
+  return "$result"
+}
 cleanup() {
+  if [[ -n "$active_pid" ]]; then kill "$active_pid" 2>/dev/null || true; fi
   if [[ -n "$desk_container" ]]; then docker rm -fv "$desk_container" >/dev/null || true; fi
+  if [[ -n "$network" ]]; then
+    docker rm -fv "$project-migrate" "$project-admin" >/dev/null 2>&1 || true
+  fi
   if [[ -n "$db_container" ]]; then docker rm -fv "$db_container" >/dev/null || true; fi
   if [[ -n "$db_volume" ]]; then docker volume rm "$db_volume" >/dev/null || true; fi
   if [[ -n "$network" ]]; then docker network rm "$network" >/dev/null || true; fi
@@ -50,9 +64,9 @@ if ((attempt==30)); then
 fi
 
 echo "Migration im Runtime-Image"
-docker run --rm --network "$network" -e DATABASE_URL "$image" bun scripts/migrate.ts
+run_step docker run --rm --name "$project-migrate" --network "$network" -e DATABASE_URL "$image" bun scripts/migrate.ts
 DESK_ADMIN_PASSWORD="$DESK_RUNTIME_TEST_PASSWORD" \
-  docker run --rm --network "$network" -e DATABASE_URL -e DESK_ADMIN_PASSWORD \
+  run_step docker run --rm --name "$project-admin" --network "$network" -e DATABASE_URL -e DESK_ADMIN_PASSWORD \
   "$image" bun scripts/admin.ts runtime@example.test 'Muster Runtime'
 desk_container="$(DESK_AUTH_SECRET="$auth_secret" docker create --name "$project-desk" --network "$network" \
   -p "127.0.0.1:$port:3000" -e DATABASE_URL -e DESK_AUTH_SECRET -e "DESK_ORIGIN=$DESK_E2E_URL" "$image")"
@@ -66,4 +80,4 @@ if ((attempt==30)); then
   exit 1
 fi
 
-bunx playwright test --project runtime-image
+run_step bunx playwright test --project runtime-image
