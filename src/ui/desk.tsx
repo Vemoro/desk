@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { all, api, ApiError, compileCsv, date, euros, inventoryLabel, inventoryName, moment, money, movementStages, name, projectStages, type Row } from './client';
 import { Project, Projects, type Data } from './projects';
 import { PasskeyLogin, PasskeySettings } from './passkeys';
+import { AccountPassword } from './account-password';
 import { Expand, Form, hasPendingWrite, noWrite, options, Panel, Pill, Table, type Run } from './widgets';
 import { Icon } from './icons';
 import { Navigation, sections, type Person, type Section } from './navigation';
@@ -206,7 +207,7 @@ export function Desk() {
       {section==='contacts' && <Contacts data={data} run={run} haben={flags.haben}/>}
       {section==='warehouse' && <Warehouse data={data} run={run} accountId={person.id}/>}
       {section==='costs' && <Costs data={data} run={run}/>}
-      {section==='account' && <><PasskeySettings/><BuildInfo/></>}
+      {section==='account' && <><AccountPassword/><PasskeySettings/><BuildInfo/></>}
       {section==='settings'&&person.role==='admin' && <Settings data={data} run={run} flags={flags} accountId={person.id}/>}
     </main>
   </div>;
@@ -370,7 +371,7 @@ function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
         <option value="">Alle Lagerorte</option>
         {options(data.locations).map(({value,label})=><option key={value} value={value}>{label}</option>)}
       </select></label>
-      <label className="stock-availability">
+      <label className="checkbox-label">
         <input type="checkbox" checked={onlyAvailable} onChange={(event)=>setOnlyAvailable(event.target.checked)}/>
         <span>Nur mit freiem Bestand</span>
       </label>

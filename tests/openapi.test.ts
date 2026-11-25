@@ -88,8 +88,12 @@ test('Der API-Vertrag unterscheidet Sitzungen, Token und die Administrationsroll
     '/paths/~1integrations~1zammad~1check/post',
   ]);
   const sessions=[{secureSession:[]},{session:[]}];
+  const passwordPath='/paths/~1me~1password/patch';
+  expect(byPath.get(passwordPath)).toMatchObject({
+    security:sessions,description:expect.stringContaining('nur das eigene Konto'),
+  });
   for(const [path,operation] of byPath){
-    if(!/^\/paths\/[^/]+\/(?:get|post|patch|delete)$/.test(path) || path==='/paths/~1ready/get') continue;
+    if(!/^\/paths\/[^/]+\/(?:get|post|patch|delete)$/.test(path) || path==='/paths/~1ready/get' || path===passwordPath) continue;
     if(adminOperations.delete(path)){
       expect(operation).toMatchObject({security:sessions,description:expect.stringContaining('Rolle Administration')});
     }else{

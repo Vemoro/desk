@@ -1,15 +1,21 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { password } from 'bun';
 import { APIError } from 'better-auth';
 import { z } from 'zod';
 import { db, first, type Query } from './db';
 import { DeskError } from './errors';
-import { loginInput, withAccountAccess, type Actor } from './accounts';
+import { accountInput, loginInput, withAccountAccess, type Actor } from './accounts';
 import { deskAuth } from './desk-auth';
 import { configuredOrigin } from './origin';
 
 export { accountInput, createAccount, loginInput, type Actor } from './accounts';
 
 export const tokenInput = z.object({ label: z.string().trim().min(1).max(100), scope: z.enum(['read', 'write']) });
+export const passwordChangeInput = z.strictObject({
+  currentPassword: loginInput.shape.password,
+  newPassword: accountInput.shape.password,
+  revokeOtherSessions: z.boolean().default(false),
+});
 const hash = (secret: string) => createHash('sha256').update(secret).digest('hex');
 const secret = () => randomBytes(32).toString('base64url');
 const attempts = new Map<string, { count: number; expires: number }>();
@@ -59,9 +65,10 @@ export async function logout(request: Request) {
   return headers;
 }
 
-export async function authenticate(request: Request, query: Query = db): Promise<Actor> {
+export async function authenticate(request: Request, query: Query) {
   const auth = request.headers.get('authorization');
   let actor: Actor | undefined;
+  let sessionId: string | undefined;
   if (auth !== null) {
     const bearer = auth.startsWith('Bearer ') ? auth.slice(7) : '';
     if (bearer && bearer.length <= 200) {
@@ -71,11 +78,35 @@ export async function authenticate(request: Request, query: Query = db): Promise
     const session = await deskAuth().api.getSession({ headers: request.headers });
     if (session) {
       actor = await first<Actor>(query,'SELECT id,email,name,role FROM users WHERE id=$1 AND NOT blocked',[session.user.id]);
+      sessionId = session.session.id;
     }
   }
   if (!actor) throw new DeskError(401, 'Anmeldung erforderlich.');
   if (actor.scope === 'read' && !['GET','HEAD'].includes(request.method)) throw new DeskError(403, 'Dieses Token erlaubt nur Lesezugriff.');
-  return actor;
+  return { actor, sessionId };
+}
+
+export async function changePassword(query: Query, userId: string, sessionId: string, input: z.infer<typeof passwordChangeInput>) {
+  const session = await first(query,`
+    SELECT id FROM auth_sessions WHERE id=$1 AND "userId"=$2 AND "expiresAt">now() FOR UPDATE
+  `,[sessionId,userId]);
+  if (!session) throw new DeskError(401, 'Anmeldung erforderlich.');
+
+  const credential = await first<{id:string; password:string | null}>(query,`
+    SELECT id,password FROM auth_accounts WHERE "userId"=$1 AND "providerId"='credential'
+  `,[userId]);
+  if (!credential?.password || !await password.verify(input.currentPassword,credential.password)) {
+    throw new DeskError(400, 'Das aktuelle Passwort stimmt nicht.');
+  }
+
+  const newHash = await password.hash(input.newPassword);
+  await query.unsafe('UPDATE auth_accounts SET password=$2,"updatedAt"=now() WHERE id=$1',[credential.id,newHash]);
+  // Keep the legacy credential current for application-only rollbacks.
+  await query.unsafe('UPDATE users SET password_hash=$2 WHERE id=$1',[userId,newHash]);
+  if (input.revokeOtherSessions) {
+    await query.unsafe('DELETE FROM auth_sessions WHERE "userId"=$1 AND id<>$2',[userId,sessionId]);
+  }
+  return {ok:true};
 }
 
 export async function createToken(actor: Actor, input: z.infer<typeof tokenInput>, query: Query = db) {

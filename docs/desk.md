@@ -73,6 +73,12 @@ COMMIT;
 
 Danach das vorherige Anwendungsimage mit derselben Datenbank starten oder den neuen Dienst erneut ausrollen. Das Team meldet sich nach jedem Versionswechsel neu an. Die alten Passwort-Hashes und die seit dem Update geschriebenen Geschäftsdaten bleiben erhalten. Ein älteres Komplettbackup stellt den Stand zum Sicherungszeitpunkt wieder her. Vor dem Freigeben einer wiederhergestellten Datenbank alle dort vorhandenen Desk-Sitzungstabellen leeren. Vor Migration 002 ist das `sessions`. Nach Migration 002 sind es `sessions` und `auth_sessions`.
 
+### Eigenes Passwort ändern
+
+Unter **Mein Konto → Passwort ändern** bestätigen Mitarbeitende und Administration ihr aktuelles Passwort und wählen ein neues mit 12 bis 200 Zeichen. Bei einer neuen Anmeldung gilt das neue Passwort. Mit **Andere Browsersitzungen beenden** meldet Desk die übrigen Browser dieses Kontos ab. Die aktuelle Sitzung bleibt aktiv. Passkeys und API-Tokens behalten ihre Gültigkeit.
+
+Desk aktualisiert bei einem Wechsel auch den Passwort-Hash für einen möglichen Anwendungs-Rollback. Eine zusätzliche Datenbankmigration ist dafür nicht erforderlich.
+
 ### Passkeys
 
 Unter **Mein Konto → Passkeys** können Mitarbeitende und Administration eigene Passkeys benennen und einrichten. Auf der Anmeldeseite startet **Mit Passkey anmelden** die Freigabe im Browser. Desk benötigt einen Passkey, den der Browser ohne Eingabe der E-Mail-Adresse finden kann und den das Gerät etwa per PIN oder Biometrie bestätigt. Das bestehende Passwort kann weiterhin verwendet werden. Beim Entfernen eines Passkeys endet seine Verwendung in Desk. Der Browser oder Passwortmanager kann den lokalen Eintrag weiterhin anzeigen.
