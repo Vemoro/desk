@@ -15,7 +15,7 @@ Beende nach der Prüfung nur die eigens gestarteten Testdienste. Notiere Befehle
 
 ## Beispiel mit PostgreSQL und Chromium
 
-Führe das Beispiel in Bash im getrennten Worktree aus. Es benötigt Docker, die Bun-Version aus `package.json` und curl. Docker vergibt einen eigenen PostgreSQL-Port auf Loopback. Der Desk-Browserport ist standardmäßig 4280 und lässt sich mit `DESK_CHECK_BROWSER_PORT` ändern.
+Führe das Beispiel in Bash im getrennten Worktree aus. Es benötigt Docker, die Bun-Version aus `package.json`, curl und die Chromium-Systembibliotheken für Playwright. Auf einem frischen Linux-System kannst du Chromium und seine Systembibliotheken mit `bun x playwright install --with-deps chromium` installieren. Docker vergibt einen eigenen PostgreSQL-Port auf Loopback. Der Desk-Browserport ist standardmäßig 4280 und lässt sich mit `DESK_CHECK_BROWSER_PORT` ändern.
 
 ```bash
 (
@@ -73,7 +73,7 @@ Führe das Beispiel in Bash im getrennten Worktree aus. Es benötigt Docker, die
     sleep 1
   done
   curl -fsS --max-time 2 "$DESK_E2E_URL/api/v1/ready"
-  bun run e2e e2e/core.spec.ts
+  bun x playwright test --project=core e2e/core.spec.ts
 )
 ```
 
