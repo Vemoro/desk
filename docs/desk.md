@@ -43,7 +43,7 @@ Unter **Bestand je Lagerort** sucht **Bestand suchen** nach Teilen des Artikelna
 
 ## Haben
 
-`HABEN_URL` und `HABEN_TOKEN` auf dem Desk-Server setzen. Angebote benötigen Leserechte für Angebote. Ein Kontaktabgleich benötigt passend zum gewählten Vorgang Lese- oder Schreibrechte für Kontakte. Gemeinsam gepflegt werden Name, E-Mail und Telefon. Der Import legt neue Kontakte an, deren Namen und E-Mail-Adresse keinem unverknüpften Desk-Kontakt entsprechen. Bestehende Verknüpfungen werden einzeln abgeglichen. Bei abweichenden Änderungen auf beiden Seiten bleibt die Wahl beim Team.
+`HABEN_URL` und `HABEN_TOKEN` auf dem Desk-Server setzen. Angebote benötigen Leserechte für Angebote. Für Kontakte stehen die benötigten Rechte, der erste Import, das Verknüpfen und die Wiederholung nach Fehlern im [Kontaktabgleich zwischen Desk und Haben](haben-kontaktabgleich.md).
 
 Desk legt Angebote in der ersten Version über die manuelle Übergabe an Haben an. Der Abgleich verwendet die unterstützte Lese-API. Bei Belegkosten unterstützt Desk die Einzelzuordnung oder einen vorbereiteten CSV-Export. Pro Zeile sind `reference`, `name` und der Nettobetrag in `amount` erforderlich. `cost_center` ist optional. Verwende eine stabile Referenz je Belegzeile. Der Import erkennt die Kombination aus Quelle und Referenz wieder und zeigt fehlende Projektzuordnungen unter Ist-Kosten.
 
