@@ -46,6 +46,9 @@ test('Zammad beantwortet die gewählte E-Mail mit nachvollziehbarem Empfänger u
   await signIn(page);
   await project(page,name);
   await page.getByRole('button',{name:'Kommunikation',exact:true}).click();
+  const ticket=page.getByRole('region',{name:'Anfrage des Musterbüros',exact:true});
+  await expect(ticket.getByText('Zammad-Ticket #1042',{exact:true})).toBeVisible();
+  await expect(page.getByRole('complementary',{name:'Vorgangsdetails'}).getByRole('link',{name:'Ticket 1042 öffnen'})).toBeVisible();
   const history=page.getByRole('region',{name:'Ticketverlauf'});
   await expect(history.getByText('Interne Notiz',{exact:true})).toBeVisible();
   await expect(history.getByText('Ausgehende E-Mail',{exact:true})).toBeVisible();

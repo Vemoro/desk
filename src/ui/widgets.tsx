@@ -156,10 +156,14 @@ export function Form({fields,caption,submit,children,className='form-grid',retry
   </form>;
 }
 
-export function Panel({title,children,action,focusRef}:{title:string;children:ReactNode;action?:ReactNode;focusRef?:RefObject<HTMLElement|null>}) {
+export function Panel({title,subtitle,children,action,focusRef}:{title:string;subtitle?:string;children:ReactNode;action?:ReactNode;focusRef?:RefObject<HTMLElement|null>}) {
   const titleId=useId();
   return <section className="panel" ref={focusRef} tabIndex={focusRef?-1:undefined} aria-labelledby={focusRef?titleId:undefined}>
-    <header className="panel-head"><h2 id={focusRef?titleId:undefined}>{title}</h2>{action}</header>{children}
+    <header className="panel-head">
+      {subtitle ? <div className="panel-heading"><p className="subtle">{subtitle}</p><h2 id={focusRef?titleId:undefined}>{title}</h2></div>
+        : <h2 id={focusRef?titleId:undefined}>{title}</h2>}
+      {action}
+    </header>{children}
   </section>;
 }
 

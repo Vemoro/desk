@@ -18,6 +18,11 @@ const articleKinds = {
   unknown:'Art unbekannt',
 };
 
+function articleInitials(from:string|undefined|null) {
+  const sender=from?.split('<')[0]?.trim();
+  return sender?.match(/[\p{L}\p{N}]+/gu)?.slice(0,2).map(word=>Array.from(word)[0]).join('').toLocaleUpperCase('de') || '•';
+}
+
 function plainText(html:string) {
   const template=document.createElement('template');
   template.innerHTML=html;
@@ -304,7 +309,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   const dialogTitle=dialog?.kind==='link'?'Ticket verknüpfen':'Ticket anlegen';
 
   return <div className="communication-layout">
-    <Panel title={ticket?.title || 'Kommunikation'} focusRef={zammadPanel}
+    <Panel title={ticket?.title || 'Kommunikation'} subtitle={ticket ? 'Zammad-Ticket #'+ticket.number : undefined} focusRef={zammadPanel}
       action={ticketId && zammad ? <button type="button" onClick={()=>void refresh()} disabled={loading}>Verlauf aktualisieren</button> : undefined}>
       <div className="panel-body communication-workspace">
         {!ticketId ? <>
@@ -337,16 +342,23 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
               </label>
               {term && visibleArticles.length>0 && <p className="subtle" role="status">{visibleArticles.length} von {articles.length} Nachrichten</p>}
             </div>}
-            {visibleArticles.length>0 && <ol className="thread">{visibleArticles.map(article=><li key={article.id} className={article.kind==='internal-note' || article.kind==='internal'?'communication-internal':undefined}>
-              <p className="communication-kind">{articleKinds[article.kind ?? 'unknown']}</p>
-              <div><strong>{article.subject}</strong><small>{[article.from,article.created_at && moment(article.created_at)].filter(Boolean).join(' · ')}</small></div>
-              <p>{article.body}</p>
-              {article.attachments?.map((attachment,index)=><small className="communication-attachment" key={index}>{attachment.filename}</small>)}
-              {article.reply && <div className="communication-article-actions">
-                <button type="button" aria-expanded={reply?.id===article.id} disabled={locked || Boolean(reply)} onClick={event=>{
-                  if(article.reply) setReply({...article.reply,id:article.id,originalSubject:article.subject,trigger:event.currentTarget});
-                }}>Antworten</button>
-              </div>}
+            {visibleArticles.length>0 && <ol className="thread">{visibleArticles.map(article=><li key={article.id} data-kind={article.kind ?? 'unknown'}>
+              <span className="communication-avatar" aria-hidden="true">{articleInitials(article.from)}</span>
+              <article className="communication-bubble">
+                <header className="communication-article-head">
+                  <span className="communication-kind">{articleKinds[article.kind ?? 'unknown']}</span>
+                  {article.created_at && <time dateTime={article.created_at}>{moment(article.created_at)}</time>}
+                </header>
+                <strong>{article.subject}</strong>
+                {article.from && <small className="communication-sender">{article.from}</small>}
+                <p>{article.body}</p>
+                {article.attachments?.map((attachment,index)=><small className="communication-attachment" key={index}>{attachment.filename}</small>)}
+                {article.reply && <div className="communication-article-actions">
+                  <button type="button" aria-expanded={reply?.id===article.id} disabled={locked || Boolean(reply)} onClick={event=>{
+                    if(article.reply) setReply({...article.reply,id:article.id,originalSubject:article.subject,trigger:event.currentTarget});
+                  }}>Antworten</button>
+                </div>}
+              </article>
             </li>)}</ol>}
             {term && articles.length>0 && visibleArticles.length===0 && <p className="subtle" role="status">Keine Nachrichten für diese Suche.</p>}
             {conversation && articles.length===0 && !loading && !problem && <p className="subtle">Dieses Ticket enthält noch keine Nachrichten.</p>}
@@ -423,8 +435,8 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
       </div>
     </Panel>
     <aside className="communication-details" aria-label="Vorgangsdetails">
-      {ticketId && <Panel title="Zammad-Ticket">
-        <div className="panel-body communication-reference">
+      {ticketId && <Panel title="Ticketdetails">
+        <div className="panel-body communication-reference communication-ticket-details">
           {ticket ? <a href={ticket.url} target="_blank" rel="noreferrer">Ticket {ticket.number} öffnen</a> : <p className="subtle">Ticket-ID {ticketId}</p>}
           {!conversation?.outgoing.length && <button type="button" disabled={zammad && !conversation && !problem}
             onClick={event=>setConfirmation({
