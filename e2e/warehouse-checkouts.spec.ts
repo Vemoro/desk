@@ -72,3 +72,38 @@ test('Offene Ausgaben nach Projekt und Lagerort zeigen auch Teilrückgaben und a
   await page.reload();
   await expect(open.getByText('Es gibt keine offenen Ausgaben.')).toBeVisible();
 });
+
+test('Lagerkorrektur zeigt Begründung und Original und ändert den physischen Bestand',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await signIn(page);
+  const origin=new URL(page.url()).origin;
+  const suffix=crypto.randomUUID().slice(0,8);
+  async function create(path:string,data:object){
+    const response=await page.request.post('/api/v1/'+path,{headers:{Origin:origin},data});
+    expect(response.status()).toBe(201);
+    return response.json();
+  }
+  const location=await create('locations',{name:'Muster Korrekturlager '+suffix});
+  const item=await create('items',{name:'Muster Klebeband '+suffix,kind:'consumable',code:'KT-'+suffix});
+  await create('movements',{action:'receive',item_id:item.id,location_id:location.id,quantity:8});
+
+  await page.goto('/#warehouse');
+  await page.reload();
+  const ledger=page.locator('.panel').filter({has:page.getByRole('heading',{name:'Lagerbewegungen',exact:true})});
+  const originals=ledger.getByRole('row').filter({has:page.getByText(item.name,{exact:true})});
+  const original=originals.filter({has:page.getByText('Wareneingang',{exact:true})});
+  await original.getByRole('button',{name:'Korrigieren',exact:true}).click();
+  await original.getByLabel('Korrekturmenge').fill('3');
+  const reason='Lieferschein bestätigt fünf Stück';
+  await original.getByLabel('Begründung').fill(reason);
+  await original.getByRole('button',{name:'Korrektur buchen',exact:true}).click();
+  const correction=originals.filter({has:page.getByText('Korrektur Wareneingang',{exact:true})});
+  await expect(correction.getByText(reason,{exact:true})).toBeVisible();
+  await expect(original.getByText('8',{exact:true})).toBeVisible();
+  await correction.getByRole('link',{name:/Original vom/}).click();
+  await expect(original.locator('span[id]')).toBeFocused();
+  const stock=page.locator('.panel').filter({has:page.getByRole('heading',{name:'Bestand je Lagerort',exact:true})});
+  const stockRow=stock.getByRole('row').filter({has:page.getByText(item.name,{exact:true})});
+  await expect(stockRow.getByRole('cell').nth(2)).toHaveText('5');
+  await expect(stockRow.getByRole('cell').nth(4)).toHaveText('5');
+});

@@ -6,7 +6,10 @@ export const projectStages: Record<string,string> = {
 };
 export const taskStages: Record<string,string> = {todo:'Offen',doing:'In Arbeit',review:'Prüfung',done:'Erledigt'};
 export const reservationStages: Record<string,string> = {tentative:'Vorgemerkt',firm:'Fest reserviert',released:'Freigegeben'};
-export const movementStages: Record<string,string> = {receive:'Wareneingang',issue:'Ausgabe',return:'Rückgabe',consume:'Verbrauch'};
+export const movementStages: Record<string,string> = {
+  receive:'Wareneingang',issue:'Ausgabe',return:'Rückgabe',consume:'Verbrauch',
+  correct_receive:'Korrektur Wareneingang',correct_consume:'Korrektur Verbrauch',
+};
 export const euros = (cents:number) => new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(cents / 100);
 export const date = (value?:string) => value ? new Intl.DateTimeFormat('de-DE',{dateStyle:'medium'}).format(new Date(value)) : '–';
 export const moment = (value?:string) => value ? new Intl.DateTimeFormat('de-DE',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value)) : '–';

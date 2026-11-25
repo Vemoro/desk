@@ -313,6 +313,7 @@ function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
   const [projectFilter,setProjectFilter]=useState('');
   const [locationFilter,setLocationFilter]=useState('');
   const [bookingId,setBookingId]=useState('');
+  const [correctionId,setCorrectionId]=useState('');
   const openCheckouts=bookings.filter((row)=>row.checked_out>0);
   const visibleCheckouts=openCheckouts.filter((row)=>
     (!projectFilter || row.project_id===projectFilter) && (!locationFilter || row.location_id===locationFilter));
@@ -321,6 +322,13 @@ function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
     label:`${name(data.projects,row.project_id)} · ${name(data.items,row.item_id)} · ${name(data.locations,row.location_id)} · ${moment(row.starts_at)} bis ${moment(row.ends_at)}`,
   }));
   const selectedBooking=bookingChoices.find((choice)=>choice.value===bookingId);
+  const movements=new Map(data.movements.map(row=>[row.id,row]));
+  const corrected=new Map<string,number>();
+  for(const row of data.movements) {
+    if(row.corrects_movement_id) {
+      corrected.set(row.corrects_movement_id,(corrected.get(row.corrects_movement_id) ?? 0)+row.quantity);
+    }
+  }
   return <>
     <Panel title="Bestand je Lagerort"><div className="panel-body compact-actions">
       <Expand title="Lagerort anlegen"><Form caption="Lagerort speichern" fields={[{name:'name',label:'Lagerort',required:true}]}
@@ -367,9 +375,39 @@ function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
         key:row.id,cells:[name(data.projects,row.project_id),name(data.items,row.item_id),name(data.locations,row.location_id),row.checked_out],
       }))}/> : <p className="empty" role="status">{openCheckouts.length?'Keine offenen Ausgaben für diese Filter.':'Es gibt keine offenen Ausgaben.'}</p>}
     </Panel>
-    <Panel title="Lagerbewegungen"><Table headers={['Zeitpunkt','Bewegung','Artikel','Lagerort','Projekt','Menge','Erfasst durch']} rows={data.movements.map((row)=>({key:row.id,cells:[
-      moment(row.created_at),movementStages[row.action],name(data.items,row.item_id),name(data.locations,row.location_id),name(data.projects,row.project_id),row.quantity,name(data.users,row.actor_id),
-    ]}))}/></Panel>
+    <Panel title="Lagerbewegungen"><Table headers={['Zeitpunkt','Bewegung','Artikel','Lagerort','Projekt','Menge','Erfasst durch','Aktion']}
+      rows={data.movements.map(row=>{
+        const remaining=row.quantity-(corrected.get(row.id) ?? 0);
+        const original=movements.get(row.corrects_movement_id);
+        const correctable=['receive','consume'].includes(row.action);
+        return {key:row.id,cells:[
+          <span id={`bewegung-${row.id}`} tabIndex={-1}>{moment(row.created_at)}</span>,
+          <div><span>{movementStages[row.action]}</span>{original && <small><a href={`#bewegung-${original.id}`}
+            onClick={event=>{
+              event.preventDefault();
+              const target=document.getElementById(`bewegung-${original.id}`);
+              target?.focus({preventScroll:true});
+              target?.scrollIntoView({block:'center'});
+            }}>Original vom {moment(original.created_at)}</a></small>}
+            {row.correction_reason && <small>{row.correction_reason}</small>}</div>,
+          name(data.items,row.item_id),name(data.locations,row.location_id),name(data.projects,row.project_id),row.quantity,name(data.users,row.actor_id),
+          correctable && (remaining > 0 ? <div>
+            <button type="button" aria-expanded={correctionId===row.id}
+              onClick={()=>setCorrectionId(current=>current===row.id?'':row.id)}>Korrigieren</button>
+            {correctionId===row.id && <div className="stock-correction-form"><Form caption="Korrektur buchen"
+              retryScope={`movements:${accountId}:correction:${row.id}`} fields={[
+                {name:'quantity',label:'Korrekturmenge',type:'number',required:true,min:1,max:remaining,value:1},
+                {name:'reason',label:'Begründung',type:'textarea',required:true},
+              ]} submit={async (input,key)=>{
+                const saved=await run(()=>api(`movements/${row.id}/corrections`,'POST',
+                  {quantity:Number(input.quantity),reason:input.reason},key),'Korrektur gebucht.',{reportWriteRejection:true});
+                if(saved) setCorrectionId(current=>current===row.id?'':current);
+                return saved;
+              }}/></div>}
+          </div>
+            : <span className="subtle">Vollständig korrigiert</span>),
+        ]};
+      })}/></Panel>
   </>;
 }
 
