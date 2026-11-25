@@ -86,4 +86,4 @@ In einer laufenden Desk-Instanz unter `/api/v1/openapi.json`. Die Betriebsdoku b
 
 ## Mitwirken
 
-Desk steht unter der AGPL-3.0-only. Mit Zugriff auf das derzeit private Repository kannst du Fehler melden, Vorschläge einbringen oder einen Beitrag vorbereiten. [Mitwirken](CONTRIBUTING.md) · [Sicherheitsmeldungen](SECURITY.md) · [Entwicklungsregeln](docs/entwicklung.md) · [Lizenz](LICENSE) · [Lizenzinventar der Auslieferung](docs/lizenzinventar.md)
+Desk steht unter der AGPL-3.0-only. Mit Zugriff auf das derzeit private Repository kannst du Fehler melden, Vorschläge einbringen oder einen Beitrag vorbereiten. [Mitwirken](CONTRIBUTING.md) · [Sicherheitsmeldungen](SECURITY.md) · [Entwicklungsregeln](docs/entwicklung.md) · [Lizenz](LICENSE) · [Lizenzinventar der Auslieferung](docs/lizenzinventar.md) · [Drittanbieterhinweise](public/third-party-notices.txt)

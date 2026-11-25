@@ -80,7 +80,7 @@ Das Verzeichnis der installierten Abhängigkeiten ist größer als die Ausliefer
 | `pvutils` | 1.2.0 | MIT | Server | `LICENSE` |
 | `react` | 19.3.1 | MIT | Browser, Server | `LICENSE` |
 | `react-dom` | 19.3.1 | MIT | Browser, Server | `LICENSE` |
-| `reflect-metadata` | 0.2.2 | Apache-2.0 | Server | `LICENSE` |
+| `reflect-metadata` | 0.2.2 | Apache-2.0 | Server | `LICENSE`, `CopyrightNotice.txt` |
 | `rou3` | 0.9.2 | MIT | Server | `LICENSE` |
 | `rou3` | 1.0.0 | MIT | Server | `LICENSE` |
 | `scheduler` | 0.28.0 | MIT | Browser | `LICENSE` |
@@ -106,4 +106,6 @@ Das Verzeichnis der installierten Abhängigkeiten ist größer als die Ausliefer
 - Das Image des geprüften Ausgangsstands enthielt keine Desk-`LICENSE` unter `/desk`. Das Dockerfile kopiert sie jetzt aus demselben Checkout ins Laufzeit-Image. Der Image-Test vergleicht den Lizenzinhalt nach Vereinheitlichung der Zeilenenden.
 - Das Image des geprüften Ausgangsstands enthielt `tslib` 1.14.1 und 2.9.1. Nitro übernahm bei beiden Versionen die JavaScript-Dateien und Paketmanifeste. Die Originalpakete enthalten außerdem `LICENSE.txt` und `CopyrightNotice.txt`.
 - Bei `pg-types` und `pgpass` steht der MIT-Text mit Urheberhinweis in der jeweiligen `README.md` des installierten Pakets. Berücksichtige diese Texte beim Zusammenstellen der Hinweise. Eine Suche im ausgelieferten PostgreSQL-Bundle fand die beiden Urheberhinweise nicht.
-- Vor einer öffentlichen Auslieferung stehen die gebündelten Drittanbieterhinweise, die Prüfung des Basisimages, der Desk-Copyright-Hinweis und die Zuordnung des entsprechenden Quellcodes zur ausgelieferten Version offen. Vergleiche die Ausgabe erneut, falls Lockfile, Build oder Basisimage wechseln. [Issue #174](https://github.com/Vemoro/desk/issues/174)
+- Die [Drittanbieterhinweise der Anwendung](../public/third-party-notices.txt) enthalten die Texte der 78 inventarisierten Paketversionen und die Hinweise zu Hookable, UFO, Vite und Rolldown. Der Text enthält auch die Copyright-Hinweise von `tslib` und `reflect-metadata` sowie die Lizenzabschnitte aus den READMEs von `pg-types` und `pgpass`. Für `hookable` stammt der Text aus dem npm-Paket, dessen Prüfsumme das verlinkte Nitro-Lockfile enthält.
+- Die laufende Desk-Instanz liefert dieselbe Datei ohne Anmeldung unter `/third-party-notices.txt` aus. Das Laufzeit-Image enthält sie unter `/desk/.output/public/third-party-notices.txt`. Der Image-Test vergleicht die HTTP-Ausgabe mit der Datei im gebauten Git-Stand.
+- Vor einer öffentlichen Auslieferung stehen die Prüfung des Basisimages, der Desk-Copyright-Hinweis und die Zuordnung des entsprechenden Quellcodes zur ausgelieferten Version offen. Vergleiche die Anwendungsausgabe und die dazugehörigen Hinweise erneut, wenn sich Abhängigkeiten oder der Build ändern. Prüfe das Basisimage separat bei dessen Wechsel. [Issue #174](https://github.com/Vemoro/desk/issues/174)
