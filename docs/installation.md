@@ -37,7 +37,7 @@ Vor einem Update die Desk-Datenbank und den Zammad-Stack getrennt sichern. Für 
 
 ### Eigenständiger Start mit Docker Compose
 
-Vorausgesetzt sind Docker Engine ab Version 28, das Compose-Plugin ab Version 2.20, eine Shell mit OpenSSL und ein Reverse Proxy auf dem Compose-Host. Das Beispiel verwendet PostgreSQL 17 und baut Desk mit der im Dockerfile festgelegten Bun-Version aus einem Git-Checkout oder einem entpackten Quellpaket. Desk verbindet sich im Compose-Netz mit PostgreSQL. PostgreSQL veröffentlicht keinen Hostport. [Docker-Portfreigaben](https://docs.docker.com/engine/network/port-publishing/) · [Compose für den Betrieb](../compose.selfhost.yaml) · [Dockerfile](../Dockerfile)
+Vorausgesetzt sind Docker Engine ab Version 28, das Compose-Plugin ab Version 2.20, eine Shell mit OpenSSL und ein Reverse Proxy auf dem Compose-Host oder im Docker-Netz. Das Beispiel verwendet PostgreSQL 17 und baut Desk mit der im Dockerfile festgelegten Bun-Version aus einem Git-Checkout oder einem entpackten Quellpaket. Desk verbindet sich im Compose-Netz mit PostgreSQL. PostgreSQL veröffentlicht keinen Hostport. [Docker-Portfreigaben](https://docs.docker.com/engine/network/port-publishing/) · [Compose für den Betrieb](../compose.selfhost.yaml) · [Dockerfile](../Dockerfile)
 
 Kopiere die [Vorlage](../.env.selfhost.example) bei der Erstinstallation nach `.env.selfhost`. `umask 077` beschränkt den Zugriff auf die neu angelegte Datei. Erzeuge mit `openssl rand -hex 32` zwei unabhängige Werte und trage sie als `DESK_DB_PASSWORD` und `DESK_AUTH_SECRET` ein. Das Hex-Format lässt sich direkt in der Datenbank-URL verwenden. Bewahre das Auth-Secret für Neustarts und Updates auf.
 
@@ -48,9 +48,17 @@ openssl rand -hex 32
 openssl rand -hex 32
 ```
 
-Trage als `DESK_ORIGIN` die öffentliche HTTPS-Adresse ohne Pfad, Zugangsdaten, Query oder Fragment ein. Ein abschließender Schrägstrich ist zulässig. Für lokale Tests ist HTTP mit `localhost`, `127.0.0.1` oder `[::1]` möglich. Bei einer ungültigen Adresse bricht Desk den Dienststart mit einem Konfigurationshinweis ab. Leite im Reverse Proxy die öffentliche Adresse per HTTP an `127.0.0.1:3000` weiter oder verwende den in `DESK_PORT` gewählten Port. Der Proxy terminiert TLS und reicht den öffentlichen Host und das ursprüngliche HTTPS-Protokoll weiter. Die Adresse im Browser muss mit `DESK_ORIGIN` übereinstimmen.
+Trage als `DESK_ORIGIN` die öffentliche HTTPS-Adresse ohne Pfad, Zugangsdaten, Query oder Fragment ein. Ein abschließender Schrägstrich ist zulässig. Für lokale Tests ist HTTP mit `localhost`, `127.0.0.1` oder `[::1]` möglich. Bei einer ungültigen Adresse bricht Desk den Dienststart mit einem Konfigurationshinweis ab. Der Proxy terminiert TLS und reicht den öffentlichen Host und das ursprüngliche HTTPS-Protokoll weiter. Die Adresse im Browser muss mit `DESK_ORIGIN` übereinstimmen.
 
-Führe die folgenden Befehle in Bash im Ordner mit `compose.selfhost.yaml` aus. Im Git-Checkout ermittelt der Block den Commit aus `HEAD`, falls `DESK_BUILD_COMMIT` leer oder ungesetzt ist. Bei einem Quellpaket prüfe zuerst die mitgelieferte Prüfsumme und entpacke das Archiv. Setze dann `DESK_BUILD_COMMIT` in der markierten Zeile innerhalb des Blocks auf die vollständige Commit-ID aus dem Archivnamen. Desk zeigt diesen Commit unter **Mein Konto → Desk-Version** an. [Quellpaket prüfen](release-abnahme.md#quellpaket-des-kandidaten)
+Führe die Befehle in Bash im Ordner mit `compose.selfhost.yaml` aus. Läuft der Proxy auf dem Host, leite die öffentliche Adresse an `http://127.0.0.1:3000` oder den in `DESK_PORT` gewählten Port weiter und verwende diese Compose-Funktion. Läuft der Proxy als Container, definiere stattdessen die [Compose-Funktion für das Docker-Netz](#vorhandenen-reverse-proxy-im-docker-netz-anschließen).
+
+```bash
+desk_compose() {
+  docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost "$@"
+}
+```
+
+Führe die Erstinstallation in derselben Bash aus. Im Git-Checkout ermittelt der Block den Commit aus `HEAD`, falls `DESK_BUILD_COMMIT` leer oder ungesetzt ist. Bei einem Quellpaket prüfe zuerst die mitgelieferte Prüfsumme und entpacke das Archiv. Setze dann `DESK_BUILD_COMMIT` in der markierten Zeile innerhalb des Blocks auf die vollständige Commit-ID aus dem Archivnamen. Desk zeigt diesen Commit unter **Mein Konto → Desk-Version** an. [Quellpaket prüfen](release-abnahme.md#quellpaket-des-kandidaten)
 
 Nach dem Datenbankstart wendet der erste einmalige Desk-Container die Migration an. Der zweite legt das erste Administrationskonto an. Ersetze die Beispieladresse und verwende ein eigenes starkes Passwort, das bei der Eingabe nicht angezeigt wird. Der Block bricht bei einem Fehler vor dem Dienststart ab. Die Passwortvariable des Administrationskontos endet mit der Subshell.
 
@@ -60,23 +68,55 @@ Nach dem Datenbankstart wendet der erste einmalige Desk-Container die Migration 
   # Beim Quellpaket das Kommentarzeichen entfernen und die Commit-ID einsetzen.
   # DESK_BUILD_COMMIT=VOLLSTAENDIGE_COMMIT_ID_AUS_DEM_ARCHIVNAMEN
   build_commit="${DESK_BUILD_COMMIT:-$(git rev-parse --verify HEAD)}"
-  DESK_BUILD_COMMIT="$build_commit" docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost build desk
-  docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost up -d --wait db
-  docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost run --rm desk bun scripts/migrate.ts
+  DESK_BUILD_COMMIT="$build_commit" desk_compose build desk
+  desk_compose up -d --wait db
+  desk_compose run --rm desk bun scripts/migrate.ts
   read -rsp 'Passwort für das Desk-Administrationskonto: ' DESK_ADMIN_PASSWORD
   printf '\n'
   export DESK_ADMIN_PASSWORD
-  docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost run --rm -e DESK_ADMIN_PASSWORD desk bun scripts/admin.ts admin@example.test 'Desk Administration'
+  desk_compose run --rm -e DESK_ADMIN_PASSWORD desk bun scripts/admin.ts admin@example.test 'Desk Administration'
   unset DESK_ADMIN_PASSWORD
-  docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost up -d --wait --wait-timeout 60 desk
+  desk_compose up -d --wait --wait-timeout 60 desk
 )
 ```
 
 Nach dem Start der Container wartet Compose bis zu 60 Sekunden auf die Bereitschaft von Desk. Wenn PostgreSQL erst starten muss, kommt dessen Startzeit hinzu. Die Prüfung im Desk-Container ruft `/api/v1/ready` auf und setzt eine erreichbare Datenbank mit allen erwarteten Migrationen voraus. [Desk-Bereitschaft](desk.md#betrieb)
 
-Bei einem Startfehler zeigt `docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost ps -a` auch beendete und noch nicht gestartete Container. Die Dienstmeldungen zeigt `docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost logs desk db`.
+Bei einem Startfehler zeigt `desk_compose ps -a` auch beendete und noch nicht gestartete Container. Die Dienstmeldungen zeigt `desk_compose logs desk db`. Definiere in einer neuen Bash die Funktion für deinen Proxy-Weg erneut.
 
 Melde dich danach über die HTTPS-Adresse an. Unter **Einstellungen → Integrationen** stehen **Haben optional** und **Zammad optional**. Für einen späteren Start desselben Versionsstands genügt der letzte Startbefehl. Verwende denselben Compose-Projektnamen, dieselbe Konfiguration und dasselbe Datenbankvolume. Das Volume enthält Konten und Projekte. Beim Wechsel des Desk-Stands Datenbank und Konfiguration sichern, den bisherigen Desk-Dienst anhalten, die Migration mit dem neuen Image ausführen und den Dienst aktualisieren. [Betrieb und Versionswechsel](desk.md#betrieb)
+
+### Vorhandenen Reverse Proxy im Docker-Netz anschließen
+
+Wenn der Reverse Proxy ebenfalls als Container läuft, kann Desk dasselbe externe Docker-Netz nutzen. Verwende dazu das [Compose-Override](../compose.selfhost.proxy.yaml) mit Docker Compose ab Version 2.24.4. Es entfernt die Host-Portfreigabe und verbindet nur den Desk-Dienst mit dem Proxy-Netz. PostgreSQL bleibt im eigenen Compose-Netz. [Benutzerdefinierte Bridge-Netze](https://docs.docker.com/engine/network/drivers/bridge/#differences-between-user-defined-bridges-and-the-default-bridge) · [Compose-Override](https://docs.docker.com/reference/compose-file/merge/#replace-value)
+
+Setze in `.env.selfhost` die öffentliche HTTPS-Adresse wie zuvor. Trage für `DESK_PROXY_NETWORK` den Namen eines benutzerdefinierten Docker-Netzes ein, mit dem der Proxy verbunden ist. Verwende beispielsweise ein mit `docker network create desk-proxy` angelegtes Bridge-Netz und binde den Proxy daran an. Die eingebaute Standard-Bridge bietet keine DNS-Auflösung für den Desk-Alias. Verwende als `DESK_PROXY_ALIAS` pro Desk-Instanz einen eigenen Namen in diesem Netz, zum Beispiel `desk-selfhost`. Der Proxy leitet an `http://desk-selfhost:3000` oder an den gewählten Alias auf Port 3000 weiter.
+
+Definiere diese Variante von `desk_compose` im Ordner mit beiden Compose-Dateien. Führe danach den gemeinsamen Installationsblock aus. Verwende die Funktion auch für spätere Starts und bei Updates. Behalte bei einem Wechsel des Proxy-Wegs den Compose-Projektnamen bei, damit Desk dasselbe Datenbankvolume verwendet.
+
+```bash
+desk_compose() {
+  docker compose --env-file .env.selfhost \
+    -f compose.selfhost.yaml -f compose.selfhost.proxy.yaml -p desk-selfhost "$@"
+}
+
+desk_compose config --quiet
+```
+
+Der Proxy terminiert TLS und reicht den öffentlichen Host und das HTTPS-Protokoll weiter. In NGINX in einem vorhandenen HTTPS-Serverblock kannst du die Weiterleitung so einrichten:
+
+```nginx
+location / {
+    client_max_body_size 8m;
+    resolver 127.0.0.11 valid=30s;
+    set $desk_upstream desk-selfhost:3000;
+    proxy_pass http://$desk_upstream;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+Der NGINX-Container nutzt Docker-DNS unter `127.0.0.11` zur Auflösung des Desk-Alias im benutzerdefinierten Netz. Die Größenbegrenzung von 8 MiB lässt die von Desk unterstützten PDF-Anhänge für Zammad einschließlich JSON-Kodierung durch. Melde dich über die öffentliche HTTPS-Adresse an und öffne die Projektliste. `desk_compose ps` darf für Desk und PostgreSQL nur Containerports anzeigen. [NGINX-Weiterleitung](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass) · [NGINX-Größenbegrenzung](https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size)
 
 ## Updates und Rückkehr zum letzten funktionierenden Stand
 
