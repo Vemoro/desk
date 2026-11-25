@@ -232,6 +232,23 @@ export function listReservations(limit: number, offset: number) {
     FROM reservations r ORDER BY starts_at,(r.user_id IS NULL),id LIMIT $1 OFFSET $2`, [limit,offset]);
 }
 
+export function listPlanningReservations(from:string, to:string, limit:number, offset:number) {
+  return rows(db,`
+    SELECT r.id,r.project_id,p.name AS project_name,
+      COALESCE(r.user_id,r.item_id) AS resource_id, COALESCE(u.name,i.name) AS resource_name,
+      CASE WHEN r.user_id IS NOT NULL THEN 'person' ELSE 'item' END AS resource_kind,
+      i.inventory_number,r.location_id,l.name AS location_name,
+      r.quantity,r.starts_at,r.ends_at,r.status
+    FROM reservations r
+    JOIN projects p ON p.id=r.project_id
+    LEFT JOIN users u ON u.id=r.user_id
+    LEFT JOIN items i ON i.id=r.item_id
+    LEFT JOIN locations l ON l.id=r.location_id
+    WHERE r.status IN ('tentative','firm') AND r.starts_at<$2::timestamptz AND r.ends_at>$1::timestamptz
+    ORDER BY r.starts_at,r.id LIMIT $3 OFFSET $4
+  `,[from,to,limit,offset]);
+}
+
 export function listMovements(limit: number, offset: number) {
   return rows(db, 'SELECT * FROM movements ORDER BY created_at DESC,id LIMIT $1 OFFSET $2', [limit,offset]);
 }

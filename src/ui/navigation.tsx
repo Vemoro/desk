@@ -4,6 +4,7 @@ import { Icon } from './icons';
 export const sections = {
   dashboard: ['Übersicht','overview'],
   projects: ['Projekte','projects'],
+  planning: ['Wochenplanung','calendar'],
   contacts: ['Kontakte','contacts'],
   warehouse: ['Projektlager','warehouse'],
   costs: ['Ist-Kosten','costs'],

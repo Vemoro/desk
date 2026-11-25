@@ -56,7 +56,7 @@ test('Der ausgelieferte API-Vertrag entspricht dem Schema seiner OpenAPI-Version
 
 test('Der API-Vertrag beschreibt Seitennavigation nur für paginierte Listen',async()=>{
   const byPath=new Map(entries(await servedSpecification()));
-  const paginated=new Set(['contacts','projects','projects~1{id}~1history','tasks','lines','locations','items','reservations','movements','costs']);
+  const paginated=new Set(['contacts','projects','projects~1{id}~1history','tasks','lines','locations','items','reservations','planning~1reservations','movements','costs']);
   for(const [path,value] of byPath){
     const operation=/^\/paths\/~1([^/]+)\/(?:get|post|patch|delete)\/parameters$/.exec(path);
     if(!operation) continue;
@@ -64,7 +64,10 @@ test('Der API-Vertrag beschreibt Seitennavigation nur für paginierte Listen',as
     if(path.endsWith('/get/parameters') && paginated.delete(operation[1])){
       const operationPath=path.slice(0,-'/parameters'.length);
       expect(byPath.get(operationPath+'/description')).toMatch(/Reihenfolge.*Änderungen zwischen Seiten/);
+      const interval=operation[1]==='planning~1reservations' ? ['from','to'].map(name=>
+        expect.objectContaining({name,required:true,schema:expect.objectContaining({type:'string',format:'date-time'})})) : [];
       expect(parameters).toEqual([
+        ...interval,
         expect.objectContaining({name:'limit',schema:{type:'integer',minimum:1,maximum:200,default:100}}),
         expect.objectContaining({name:'offset',schema:{type:'integer',minimum:0,maximum:1_000_000,default:0}}),
       ]);

@@ -13,6 +13,14 @@ Wenn Desk meldet, dass eine Änderung gespeichert wurde und die Ansicht nicht ak
 
 In der Ressourcenplanung und im Projektlager steht die Inventarnummer eines Einzelgeräts neben seinem Namen. Unter **Ausgabe, Rückgabe oder Verbrauch** zeigt Desk nach der Wahl der **Projektreservierung** die vollständige Beschreibung mit Inventarnummer im Formular. Bei Artikeln ohne Inventarnummer zeigt Desk den Artikelnamen.
 
+### Wochenplanung öffnen
+
+Unter **Wochenplanung** siehst du Reservierungen aus allen Projekten. Wähle ein Datum oder blättere wochenweise. Die Woche beginnt am Montag in der angezeigten Browser-Zeitzone. Personal steht je Person, Inventar je Artikel und Lagerort mit Menge. **Vorgemerkt** und **Fest reserviert** sind direkt am Eintrag beschriftet. Die Ansicht enthält offene Reservierungen und zeigt eine Buchung über Mitternacht an beiden betroffenen Tagen.
+
+Wähle den Projektnamen im Eintrag, um Details zu öffnen oder die Reservierung in **Ressourcen & Kalkulation** zu bearbeiten.
+
+Für denselben Datensatz liefert `GET /api/v1/planning/reservations` die offenen Reservierungen für ein angegebenes Zeitfenster projektübergreifend. Übergib `from` und `to` als ISO-Zeitstempel mit Zeitzone. Die Antwort enthält Buchungen, die vor `to` beginnen und nach `from` enden. `limit` und `offset` ermöglichen die Seitennavigation.
+
 ### Projektverlauf ansehen
 
 Öffne im Projekt **Verlauf**. Desk zeigt Statuswechsel, feste Reservierungen, Freigaben und projektbezogene Lagerbewegungen. Die neuesten Ereignisse stehen oben. Die Ansicht nennt Zeitpunkt und ausführende Person, soweit sie gespeichert sind. Statuswechsel durch den Haben-Angebotsabgleich und automatische Freigaben beim Wechsel auf **Abgesagt** oder **Abgerechnet** sind gekennzeichnet.

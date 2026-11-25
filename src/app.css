@@ -77,6 +77,18 @@ tr:last-child td { border-bottom:0; }
 .pill.accent { background:var(--tint); color:var(--accent-ink); }
 .empty { color:var(--muted); padding:22px 20px; }
 .booking-details { overflow-wrap:anywhere; }
+.week-controls { display:flex; align-items:end; flex-wrap:wrap; gap:14px; }
+.week-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); padding:8px; }
+.week-day { min-width:0; padding:6px; overflow-wrap:anywhere; }
+.week-day h3 { margin:0 0 8px; color:var(--muted); font-size:.85rem; }
+.week-day ul { display:grid; gap:6px; padding:0; margin:0; list-style:none; }
+.week-booking { display:grid; gap:5px; min-width:0; padding:8px; border:1px solid var(--border); border-radius:7px; background:var(--soft); font-size:.85rem; }
+.week-booking.week-firm { background:var(--tint); }
+.week-booking .text-button { line-height:1.35; overflow-wrap:anywhere; }
+@media(max-width:1100px) {
+  .week-grid { grid-template-columns:1fr; padding:10px 14px; }
+  .week-day-empty { display:none; }
+}
 .stock-correction-form { margin-top:12px; }
 .form-grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr)); align-items:end; }
 .checkbox-label { display:flex; align-items:center; gap:8px; min-height:42px; }

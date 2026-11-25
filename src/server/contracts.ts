@@ -50,6 +50,20 @@ export const reservationInput = z.strictObject({
   }
 });
 export const reservationStatus = z.strictObject({ status: z.enum(['firm','released']) });
+export const planningRange = z.object({
+  from:z.iso.datetime({offset:true}).describe('Beginn des Zeitfensters inklusive.'),
+  to:z.iso.datetime({offset:true}).describe('Ende des Zeitfensters exklusive.'),
+}).refine(range=>Date.parse(range.from)<Date.parse(range.to),{
+  path:['to'],message:'Das Ende muss nach dem Beginn liegen.',
+});
+export const planningResponse = z.array(z.strictObject({
+  id, project_id:id, project_name:z.string(), resource_id:id, resource_name:z.string(),
+  resource_kind:z.enum(['person','item']), inventory_number:z.string().nullable(),
+  location_id:id.nullable(), location_name:z.string().nullable(),
+  quantity:z.number().int().positive(), starts_at:z.iso.datetime(), ends_at:z.iso.datetime(),
+  status:z.enum(['tentative','firm']),
+}));
+export type PlanningBooking = z.infer<typeof planningResponse>[number];
 export const movementInput = z.discriminatedUnion('action', [
   z.strictObject({ action: z.literal('receive'), item_id: id, location_id: id, project_id: id.optional(), quantity }),
   z.strictObject({ action: z.enum(['issue','return','consume']), reservation_id: id, quantity }),
