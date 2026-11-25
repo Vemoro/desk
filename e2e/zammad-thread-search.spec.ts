@@ -111,6 +111,9 @@ test('Zammad lässt auch bei langem Ticketbetreff Platz für Verlauf und Antwort
   const ticket=await openTarget(page,true,title);
   await expect(ticket.getByRole('textbox',{name:'Interne Notiz'})).toBeInViewport({ratio:1});
   await expect(ticket.getByRole('heading',{name:title,exact:true})).toHaveAttribute('title',title);
+  await ticket.getByRole('button',{name:'Antwort schreiben',exact:true}).click();
+  const newMessage=ticket.getByRole('region',{name:'Neue E-Mail',exact:true});
+  await newMessage.getByRole('button',{name:'Über Zammad senden',exact:true}).scrollIntoViewIfNeeded();
   const reply=ticket.getByRole('button',{name:'Antworten',exact:true});
   await reply.click();
   const editor=ticket.getByRole('region',{name:'E-Mail-Antwort'});
