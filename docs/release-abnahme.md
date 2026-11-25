@@ -15,6 +15,45 @@ Halte im Prüfprotokoll den vollständigen Git-Commit, die verwendeten Bun- und 
 
 Die [Betriebsdoku](desk.md#betrieb) beschreibt Start, Migration und Sicherung. Die [Entwicklungsdoku](entwicklung.md#befehle-und-screenshot-workflow) nennt die Befehle für Build, Tests und Bilder. Die [Release-Notizen](../CHANGELOG.md) fassen die Änderungen für Nutzende zusammen.
 
+## Kandidaten aus mehreren PRs zusammenstellen
+
+Erfasse die Zusammensetzung als Teil des [Abnahmeprotokolls aus #204](https://github.com/Vemoro/desk/issues/204). Prüfe Überschneidungen zuerst mit `git merge-tree` und das gemeinsame Verhalten in einem isolierten Worktree. Die [Entwicklungsdoku für überlappende Änderungen](entwicklung.md#überlappende-änderungen) und [Issue #224](https://github.com/Vemoro/desk/issues/224) beschreiben die Zusammenführungsprüfung.
+
+| Feld | Eintrag für die Prüfung |
+| --- | --- |
+| Ausgang und Kandidat | Vollständiger Git-Commit der Ausgangsbasis und des zusammengesetzten Stands, Datum und Prüfbranch |
+| Enthaltene PRs | Je PR Nummer, Basisbranch und Basiscommit, Head-Branch und Head-Commit sowie der übernommene Commit |
+| Reihenfolge und Konflikte | Abhängigkeiten, betroffene Dateien, Auflösung und erhaltenes Verhalten dokumentieren |
+| Prüfläufe | Einzel-CI je PR verlinken. Gemeinsame Befehle, Umgebung und Ergebnis dem Kandidatencommit zuordnen. |
+| Externe Abhängigkeiten und offene Abnahme | Integrationen, benötigte Testzugänge, Fehler und ausstehende Schritte mit Bezug zu den Abnahmekriterien |
+
+### Kombinationsprobe mit drei offenen PRs
+
+Am 25. November 2026 lagen Bestätigungsdialoge, Dublettenhinweis und Projektlinks am Kontakt als drei offene, gestapelte PRs vor. Die Basis der Probe war der damalige `main`-Commit [`33bc0ebe9da47aff00b97273ceb13245ac6b4c1d`](https://github.com/Vemoro/desk/commit/33bc0ebe9da47aff00b97273ceb13245ac6b4c1d). Der gemeinsame Stand im getrennten Worktree war [`9df123964a96b8535a2f08ca7e819561cc307709`](https://github.com/Vemoro/desk/commit/9df123964a96b8535a2f08ca7e819561cc307709).
+
+| Reihenfolge | PR-Basis | Ursprünglicher Head | Commit im Probestand | Einzel-CI |
+| --- | --- | --- | --- | --- |
+| 1. [#68 Bestätigungsdialoge](https://github.com/Vemoro/desk/pull/68) | `feat/refresh-after-save` · `450538f88aae4ca3fce99b60e7b9131900b70a53` | `feat/confirmation-dialogs` · `e3e2c5f95a4c974a73dc9c710e229519014ef7d7` | [`66210ad`](https://github.com/Vemoro/desk/commit/66210ad497f82902054b060214188b4a96f0722e) | [Erfolgreich](https://github.com/Vemoro/desk/actions/runs/45304485940) |
+| 2. [#72 Kontaktdubletten](https://github.com/Vemoro/desk/pull/72) | `feat/confirmation-dialogs` · `e3e2c5f95a4c974a73dc9c710e229519014ef7d7` | `feat/contact-duplicates` · `bfbdee68bd24965c714279953b15e7cd1ba9e5bc` | [`f60a4ba`](https://github.com/Vemoro/desk/commit/f60a4ba03b9641b68d43c2d34541142c871ea6e0) | [Erfolgreich](https://github.com/Vemoro/desk/actions/runs/45305994658) |
+| 3. [#76 Projektlinks am Kontakt](https://github.com/Vemoro/desk/pull/76) | `feat/contact-duplicates` · `bfbdee68bd24965c714279953b15e7cd1ba9e5bc` | `feat/contact-projects` · `10263b0d441db26daa17d03de727ab6c76cf2523` | [`9df1239`](https://github.com/Vemoro/desk/commit/9df123964a96b8535a2f08ca7e819561cc307709) | [Erfolgreich](https://github.com/Vemoro/desk/actions/runs/45308260375) |
+
+Die Basis von #68 war bereits über PR #62 in `main`. #72 nutzt den Bestätigungsdialog aus #68. #76 baut auf der Kontaktdetailansicht aus #72 auf. Daher wurden die drei Head-Commits einzeln und in dieser Reihenfolge mit `git cherry-pick -x` übernommen. Die Vorprüfung lässt sich je Schritt mit `git merge-tree --write-tree --merge-base=<PR-Basiscommit> <bisheriger Probestand> <PR-Head>` nachvollziehen. [PR #62](https://github.com/Vemoro/desk/pull/62)
+
+- Bei **#68** kollidierten `playwright.config.ts`, `src/ui/projects.tsx` und `src/ui/widgets.tsx`. Die Testkonfiguration behielt die vorhandenen Tests. Kalkulation und die aktuelle Zammad-Ansicht erhielten die Dialoge. Die Sitzungsprüfung vor Folgeaktionen, der Projektverlauf, die Buchungslogik und das Lösen einer Zammad-Verknüpfung blieben erhalten.
+- Bei **#72** kollidierten `playwright.config.ts` und `src/ui/desk.tsx`. Der Dublettenhinweis nutzt den Dialog aus #68. Beim Speichern übernimmt die Oberfläche das Ergebnis nur in der Sitzung, aus der der Aufruf stammt. Der Haben-Abgleich nutzt weiterhin den bestehenden Ablauf.
+- Bei **#76** kollidierten `playwright.config.ts` und `src/ui/desk.tsx`. Die neuen Projektlinks kommen aus der Kontaktdetailansicht. Wochenplanung, Navigation und die Übergabe des Kontos an das Projektlager bleiben aus der aktuellen Basis erhalten.
+
+Den aufgelösten Stand kannst du aus dem Repository in einem neuen Worktree öffnen:
+
+```bash
+git fetch origin refs/heads/review/release-candidate-248
+git worktree add --detach ../desk-kandidat-248 9df123964a96b8535a2f08ca7e819561cc307709
+```
+
+Die Einzel-CI oben prüfte die ursprünglichen PR-Heads an ihren jeweiligen Basen. Die gemeinsame Prüfung lief lokal auf dem zusammengesetzten Stand mit Bun 1.4.5 und PostgreSQL 17.12. `bun run build`, `bun run check`, `bun run migrate` und `bun run test` bestanden, darunter 60 Bun-Tests. `bun run e2e` lief gegen den gebauten Dienst mit einer separaten Demo-Datenbank und bestand mit 51 Chromium-Fällen. Die Suite enthält beide Musteraufträge. Die Fälle zu Kalkulationsdialogen, Zammad-Sendeversuchen, Kontaktdubletten und Projektlinks verwenden simulierte Antworten der Desk-API. Die Haben-Integrationstests verwenden einen simulierten Dienst. `bash scripts/check-runtime-image.sh` bestätigte die Migration einer leeren Datenbank, die Anlage der Administration, Anmeldung und Anzeige des Kandidatencommits. [Anwendungs-CI der Ausgangsbasis](https://github.com/Vemoro/desk/actions/runs/45549148109)
+
+Für eine Freigabe stehen eine vollständige Wiederanlaufprobe mit gesichertem Altbestand, die vorgesehenen Doku-Bilder und die Abnahme mit autorisiertem Testzugang an Haben und Zammad aus. Der Prüfbranch `review/release-candidate-248` hält den zusammengesetzten Stand für die Reproduktion fest. Die drei ursprünglichen PRs bleiben Gegenstand ihrer eigenen Freigabe.
+
 ## Probe am Entwicklungsstand vom 25. November 2026
 
 Geprüft wurde [`3177d504134974a493e3be353208cc567b4e917c`](https://github.com/Vemoro/desk/commit/3177d504134974a493e3be353208cc567b4e917c) auf `main`. Der Lauf verwendete Bun 1.4.5 und PostgreSQL 17.12. Fachtests, Browser/Doku-Bilder und Containerproben liefen mit getrennten lokalen Datenbanken und synthetischen Daten. Die Browserfälle liefen gegen den lokal gebauten Dienst, Erstinstallation und Wiederanlauf in lokalen Laufzeitimages. [CI desselben Stands](https://github.com/Vemoro/desk/actions/runs/45506446545)
