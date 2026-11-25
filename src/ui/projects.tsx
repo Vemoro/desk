@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { api, date, downloadPositions, euros, inventoryLabel, inventoryName, moment, money, name, projectStages, reservationStages, taskStages, type Row } from './client';
-import { ConfirmDialog, Expand, Form, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
+import { ConfirmationRequests, ConfirmDialog, Expand, Form, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
 import { ProjectHistory } from './project-history';
 
 export type Data = Record<'contacts'|'projects'|'tasks'|'users'|'lines'|'reservations'|'locations'|'items'|'movements'|'costs'|'stock',Row[]>;
@@ -218,6 +218,8 @@ function Communication({project,zammad,run}:{project:Row;zammad:boolean;run:Run}
 }
 
 function ZammadCommunication({project,zammad,run}:{project:Row;zammad:boolean;run:Run}) {
+  const confirmationRequests=useContext(ConfirmationRequests);
+  const outgoingKey=`zammad-outgoing:${project.id}:`;
   const [confirmation,setConfirmation]=useState<Confirmation>();
   const zammadPanel=useRef<HTMLElement>(null);
   const [conversation,setConversation]=useState<any>(null);
@@ -239,7 +241,17 @@ function ZammadCommunication({project,zammad,run}:{project:Row;zammad:boolean;ru
     }
     catch(error) {setProblem(error instanceof Error ? error.message : 'Verlauf nicht verfügbar.');}
   }
-  useEffect(()=>{setConversation(null);void refresh();},[project.id,project.zammad_ticket_id,zammad]);
+  useEffect(()=>{
+    setConversation(null);
+    const pending=[...confirmationRequests].filter(([key])=>key.startsWith(outgoingKey)).map(([,request])=>request);
+    const initial=refresh();
+    if(!pending.length) return;
+    let visible=true;
+    void Promise.all([initial,Promise.allSettled(pending)]).then(()=>{
+      if(visible) void refresh();
+    });
+    return ()=>{visible=false;};
+  },[outgoingKey,project.zammad_ticket_id,zammad,confirmationRequests]);
   const request=(suffix:string,input:unknown)=>api(`projects/${project.id}/zammad/${suffix}`,'POST',input);
   return <><Panel title="Zammad" focusRef={zammadPanel} action={zammad && conversation?.ticket && <a href={conversation.ticket.url} target="_blank" rel="noreferrer">Ticket {conversation.ticket.number} öffnen</a>}>
       <div className="panel-body">
@@ -289,7 +301,7 @@ function ZammadCommunication({project,zammad,run}:{project:Row;zammad:boolean;ru
                 entry.status==='sent' ? '–' : <div className="actions">
                   <button onClick={()=>run(async(isCurrent)=>{await request(`outgoing/${entry.id}`,{retry:false});if(isCurrent()) await refresh();})}>Prüfen</button>
                   <button onClick={event=>setConfirmation({
-                    actionKey:`zammad-outgoing:${entry.id}`,
+                    actionKey:`${outgoingKey}${entry.id}`,
                     title:'Zammad-Sendeversuch wiederholen',
                     description:`Desk sucht im Ticketverlauf nach der Referenz des Sendeversuchs „${entry.subject}“. Fehlt ein Versandnachweis und ist eine Wiederholung zulässig, sendet Zammad die Nachricht erneut.`,
                     actionLabel:'Erneut senden',

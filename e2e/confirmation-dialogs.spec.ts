@@ -131,15 +131,18 @@ for(const scenario of [
     test(`${scenario.name} zeigt nach einem Wechsel der Projektansicht den ${outcome} der laufenden Bestätigung`,async({page})=>{
       const release=Promise.withResolvers<void>();
       let requests=0;
-      await page.route('**/api/v1/lines?*',route=>route.fulfill({json:[position]}));
+      let saved=false;
+      await page.route('**/api/v1/lines?*',route=>route.fulfill({json:saved ? [] : [position]}));
       await page.route('**/api/v1/projects/projekt/zammad',route=>route.fulfill({json:{
-        ticket:{id:42,number:'42',url:'https://zammad.example.test/#ticket/zoom/42'}, articles:[],outgoing:[attempt],
+        ticket:{id:42,number:'42',url:'https://zammad.example.test/#ticket/zoom/42'},
+        articles:[],outgoing:[{...attempt,status:saved ? 'sent' : attempt.status}],
       }}));
       await page.route(scenario.path,async route=>{
         expect(route.request().method()).toBe(scenario.method);
         requests++;
         await release.promise;
-        await route.fulfill(outcome==='Erfolg' ? {json:scenario.result} : {status:409,json:{error:scenario.error}});
+        saved=outcome==='Erfolg';
+        await route.fulfill(saved ? {json:scenario.result} : {status:409,json:{error:scenario.error}});
       });
       async function openConfirmation() {
         await project(page,projectRow.name);
@@ -160,6 +163,8 @@ for(const scenario of [
         release.resolve();
         if(outcome==='Erfolg') {
           await expect(reopened).toBeHidden();
+          await expect(page.getByRole('button',{name:scenario.action,exact:true})).toHaveCount(0);
+          if(scenario.name==='Zammad') await expect(page.getByText('An Zammad übergeben',{exact:true})).toBeVisible();
         } else {
           await expect(reopened.getByRole('alert')).toHaveText(scenario.error);
           await expect(reopened.getByRole('button',{name:scenario.action,exact:true})).toBeDisabled();
