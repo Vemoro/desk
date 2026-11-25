@@ -422,6 +422,7 @@ function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
   const [stockLocation,setStockLocation]=useState('');
   const [onlyAvailable,setOnlyAvailable]=useState(false);
   const itemsById=new Map(data.items.map((item)=>[item.id,item]));
+  const projectsById=new Map(data.projects.map((project)=>[project.id,project]));
   const stockTerm=stockQuery.trim().toLowerCase();
   const stockFilterActive=Boolean(stockTerm || stockLocation || onlyAvailable);
   const visibleStock=data.stock.filter((row)=>{
@@ -501,9 +502,13 @@ function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
             onClick={()=>{setProjectFilter('');setLocationFilter('');}}>Filter zurücksetzen</button>
         </div>
       </div>
-      {visibleCheckouts.length ? <Table headers={['Projekt','Artikel','Lagerort','Ausgegeben']} rows={visibleCheckouts.map((row)=>({
-        key:row.id,cells:[name(data.projects,row.project_id),inventoryName(data.items,row.item_id),name(data.locations,row.location_id),row.checked_out],
-      }))}/> : <p className="empty" role="status">{openCheckouts.length?'Keine offenen Ausgaben für diese Filter.':'Es gibt keine offenen Ausgaben.'}</p>}
+      {visibleCheckouts.length ? <Table headers={['Projekt','Artikel','Lagerort','Ausgegeben']} rows={visibleCheckouts.map((row)=>{
+        const project=projectsById.get(row.project_id);
+        return {key:row.id,cells:[
+          project ? <a href={`#projects/${project.id}`}>{project.name}</a> : 'Projekt nicht verfügbar',
+          inventoryName(data.items,row.item_id),name(data.locations,row.location_id),row.checked_out,
+        ]};
+      })}/> : <p className="empty" role="status">{openCheckouts.length?'Keine offenen Ausgaben für diese Filter.':'Es gibt keine offenen Ausgaben.'}</p>}
     </Panel>
     <Panel title="Lagerbewegungen"><Table headers={['Zeitpunkt','Bewegung','Artikel','Lagerort','Projekt','Menge','Erfasst durch','Aktion']}
       rows={data.movements.map(row=>{
