@@ -27,7 +27,7 @@ async function openMovement(page:Page,action:'consume'|'return',bookingId:string
   await page.reload();
   await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Projektlager'}).click();
   await page.getByText('Ausgabe, Rückgabe oder Verbrauch',{exact:true}).click();
-  await page.getByLabel('Bewegungsart').selectOption(action);
+  await page.getByRole('combobox',{name:'Bewegungsart',exact:true}).selectOption(action);
   await page.getByLabel('Projektreservierung').selectOption(bookingId);
 }
 

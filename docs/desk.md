@@ -37,7 +37,9 @@ Desk zeichnet Statuswechsel, Festlegungen und Freigaben ab Migration `007_projec
 
 ### Lagerbuchung korrigieren
 
-Öffne **Projektlager → Lagerbewegungen** und wähle beim ursprünglichen Wareneingang oder Verbrauch **Korrigieren**. Gib Menge und Begründung ein und wähle **Korrektur buchen**. Desk zeigt den ursprünglichen Eintrag sowie die neue Bewegung mit Begründung und Link zum Original. Teilkorrekturen können zusammen höchstens die ursprüngliche Menge erreichen. Für eine Ausgabe verwendest du die Rückgabe.
+Öffne **Projektlager → Lagerbewegungen** und wähle beim ursprünglichen Wareneingang oder Verbrauch **Korrigieren**. Gib Menge und Begründung ein und wähle **Korrektur buchen**. Die neue Bewegung enthält die Begründung und einen Link zum sichtbaren Original. Ist dessen Zeile ausgeblendet, zeigt Desk das Datum der Originalbuchung. Teilkorrekturen können zusammen höchstens die ursprüngliche Menge erreichen. Für eine Ausgabe verwendest du die Rückgabe.
+
+In **Lagerbewegungen** kannst du Bewegungsart und Projekt gemeinsam filtern. Wähle **Ohne Projektbezug**, um Buchungen ohne Projektzuordnung zu sehen. Desk zeigt die Trefferzahl. **Filter zurücksetzen** zeigt wieder alle Bewegungen an. Auch ausgeblendete Korrekturen zählen zur bereits korrigierten Menge. Wenn du die Zeile eines geöffneten Korrekturformulars kurz ausblendest, bleiben deine Eingaben erhalten.
 
 Eine Verbrauchskorrektur schreibt die Menge dem Lagerort gut. Bei fester Reservierung steht die korrigierte Menge wieder für diese Reservierung bereit. Bei einer Korrektur des Wareneingangs prüft Desk den physischen Bestand. Für Geräte zählt die höchste gleichzeitige Restmenge aus laufenden und zukünftigen festen Reservierungen. Für Verbrauchsmaterial zählt der offene Bedarf aller festen Reservierungen. Ein vollständig zurückgenommener Wareneingang eines Einzelgeräts lässt sich anschließend neu buchen.
 

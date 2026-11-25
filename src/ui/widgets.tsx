@@ -171,10 +171,10 @@ export function Expand({title,children}:{title:string;children:ReactNode}) {
   return <details className="expand"><summary>{title}</summary><div className="expand-body">{children}</div></details>;
 }
 
-export function Table({headers,rows}:{headers:string[];rows:{key:string;cells:ReactNode[]}[]}) {
+export function Table({headers,rows,hidden}:{headers:string[];rows:{key:string;cells:ReactNode[];hidden?:boolean}[];hidden?:boolean}) {
   if (!rows.length) return <p className="empty">Noch keine Einträge.</p>;
-  return <div className="table-wrap"><table><thead><tr>{headers.map((header)=><th key={header}>{header}</th>)}</tr></thead>
-    <tbody>{rows.map((row)=><tr key={row.key}>{row.cells.map((cell,index)=><td key={index} data-label={headers[index]}><div>{cell}</div></td>)}</tr>)}</tbody>
+  return <div className="table-wrap" hidden={hidden}><table><thead><tr>{headers.map((header)=><th key={header}>{header}</th>)}</tr></thead>
+    <tbody>{rows.map((row)=><tr key={row.key} hidden={row.hidden}>{row.cells.map((cell,index)=><td key={index} data-label={headers[index]}><div>{cell}</div></td>)}</tr>)}</tbody>
   </table></div>;
 }
 

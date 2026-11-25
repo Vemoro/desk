@@ -44,7 +44,7 @@ for(const viewport of [{width:1440,height:950},{width:375,height:812}]){
       const option=choice.locator(`option[value="${entry.booking.id}"]`);
       await expect(option).toHaveText(new RegExp(`${project.name} · ${item.name} · ${entry.location.name} · .* bis .*`));
     }
-    await page.getByRole('combobox',{name:'Bewegungsart'}).selectOption('issue');
+    await page.getByRole('combobox',{name:'Bewegungsart',exact:true}).selectOption('issue');
     await choice.selectOption(west.booking.id);
     await expect(choice).toHaveAccessibleDescription(new RegExp(`${west.location.name} · .* bis .*`));
     const booked=page.waitForResponse(response=>response.request().method()==='POST' && new URL(response.url()).pathname==='/api/v1/movements');
