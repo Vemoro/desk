@@ -1,9 +1,10 @@
 import { useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { api, ApiError, moment, type Row } from './client';
+import { api, ApiError, downloadBlob, moment, type Row } from './client';
+import { Icon } from './icons';
 import { ConfirmationRequests, ConfirmDialog, Expand, Form, Panel, Table, type Confirmation, type Run } from './widgets';
 
 type Article = { id:number; subject?:string|null; from?:string|null; created_at?:string; content_type?:string;
-  body:string; attachments?:{filename:string}[]; kind?:keyof typeof articleKinds;
+  body:string; attachments?:{filename:string;id?:number}[]; kind?:keyof typeof articleKinds;
   reply?:{recipient:string;subject:string} };
 type Conversation = { ticket:{number:string;title?:string;url:string}; articles:Article[]; outgoing:Row[] };
 type DialogState = { kind:'link'|'create'; trigger:HTMLButtonElement };
@@ -23,6 +24,50 @@ function plainText(html:string) {
   template.innerHTML=html;
   for (const element of template.content.querySelectorAll('script,style,template')) element.remove();
   return template.content.textContent;
+}
+
+function ArticleAttachment({filename,url}:{filename:string;url:string}) {
+  const request=useRef<AbortController|undefined>(undefined);
+  const [loading,setLoading]=useState(false);
+  const [problem,setProblem]=useState('');
+  useEffect(()=>()=>request.current?.abort(),[]);
+
+  async function download() {
+    if(request.current) return;
+    const controller=new AbortController();
+    request.current=controller;
+    setLoading(true);
+    setProblem('');
+    try {
+      const response=await fetch(url,{signal:controller.signal,redirect:'error'});
+      if(!response.ok) {
+        const result=await response.json().catch(()=>null);
+        throw new Error(typeof result?.error==='string' ? result.error : 'Der Anhang konnte nicht geladen werden.');
+      }
+      if(response.headers.get('Content-Type')!=='application/octet-stream') {
+        throw new Error('Desk hat keine Datei erhalten.');
+      }
+      const blob=await response.blob();
+      if(!controller.signal.aborted) downloadBlob(filename,blob);
+    } catch(error) {
+      if(!controller.signal.aborted) {
+        setProblem(error instanceof TypeError ? 'Der Anhang konnte nicht geladen werden.' :
+          error instanceof Error ? error.message : 'Der Anhang konnte nicht geladen werden.');
+      }
+    } finally {
+      request.current=undefined;
+      if(!controller.signal.aborted) setLoading(false);
+    }
+  }
+
+  return <div className="communication-download">
+    <button type="button" className="communication-attachment" aria-label={`${filename} herunterladen`} aria-disabled={loading}
+      onClick={()=>void download()}>
+      <Icon name="download"/><span>{filename}</span>
+    </button>
+    {loading && <p role="status" className="subtle">Anhang wird geladen …</p>}
+    {problem && <p role="alert" className="inline-error">{problem}</p>}
+  </div>;
 }
 
 function CommunicationDialog({title,trigger,dismiss,children}:{
@@ -341,7 +386,12 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
               <p className="communication-kind">{articleKinds[article.kind ?? 'unknown']}</p>
               <div><strong>{article.subject}</strong><small>{[article.from,article.created_at && moment(article.created_at)].filter(Boolean).join(' · ')}</small></div>
               <p>{article.body}</p>
-              {article.attachments?.map((attachment,index)=><small className="communication-attachment" key={index}>{attachment.filename}</small>)}
+              {article.attachments?.length ? <div className="communication-attachments">
+                {article.attachments.map((attachment,index)=>ticketId && attachment.id ?
+                  <ArticleAttachment key={attachment.id} filename={attachment.filename}
+                    url={`/api/v1/projects/${project.id}/zammad/attachment?ticket=${ticketId}&article=${article.id}&attachment=${attachment.id}`}/> :
+                  <small className="communication-attachment" key={`name:${index}`}>{attachment.filename}</small>)}
+              </div> : null}
               {article.reply && <div className="communication-article-actions">
                 <button type="button" aria-expanded={reply?.id===article.id} disabled={locked || Boolean(reply)} onClick={event=>{
                   if(article.reply) setReply({...article.reply,id:article.id,originalSubject:article.subject,trigger:event.currentTarget});

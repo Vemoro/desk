@@ -6,9 +6,11 @@ import { integration, RemoteError } from './remote';
 import type { zammadCreateInput, zammadMessage } from './contracts';
 
 const ticketSchema = z.object({ id: z.number().int().positive(), number: z.string(), title: z.string() });
+const attachmentSchema = z.object({ filename:z.string(), id:z.unknown().optional() });
+const zammadId = z.number().int().positive();
 const articleSchema = z.object({ id: z.number().int().positive(), body: z.string(), subject: z.string().nullable().optional(),
   from: z.string().nullable().optional(), created_at: z.string().optional(), content_type: z.string().optional(),
-  attachments: z.array(z.object({ filename:z.string() })).optional() });
+  attachments: z.array(attachmentSchema).optional() });
 const articleMetadata = z.object({
   ticket_id:z.number().int().positive(),
   type:z.string(),
@@ -29,6 +31,11 @@ type Outgoing = { id: string; ticket_id: number; status: 'pending'|'unknown'|'se
   recipient: string; subject: string; body: string; attachment_name: string | null; attachment_data: string | null; in_reply_to: string | null };
 const marker = (id: string) => `Desk-Referenz: ${id}`;
 const notStored = (status:number,message:string)=>new DeskError(status,message,'zammad_message_not_stored');
+const attachmentMissing = ()=>new DeskError(404,'Der Anhang gehört nicht zum aktuellen Ticket oder ist nicht mehr verfügbar.');
+
+function attachmentName(name:string) {
+  return name.toWellFormed().replace(/[\p{Cc}/\\]/gu,'_').trim().replace(/^\.+$/,'') || 'Anhang';
+}
 
 function articleContext(source:unknown, article:z.infer<typeof articleSchema>, ticketId:number):ArticleContext {
   const metadata = articleMetadata.safeParse(source);
@@ -134,10 +141,45 @@ async function loadArticles(remote: ReturnType<typeof integration>, id: number) 
   if (!Array.isArray(source) || !articles.success) throw new RemoteError('Zammad hat keinen gültigen Nachrichtenverlauf geliefert.');
   return articles.data.map((article,index)=>{
     const context = articleContext(source[index],article,id);
-    return { ...article, kind:context.kind, ...(context.reply ? {
+    const attachments=article.attachments?.map(item=>{
+      const identifier=zammadId.safeParse(item.id);
+      return {filename:attachmentName(item.filename),...(identifier.success ? {id:identifier.data} : {})};
+    });
+    return { ...article, attachments, kind:context.kind, ...(context.reply ? {
       reply:{recipient:context.reply.recipient,subject:context.reply.subject},
     } : {}) };
   });
+}
+
+export async function downloadAttachment(projectId:string,ticketId:number,articleId:number,attachmentId:number) {
+  const project=await getProject(projectId);
+  if(project.zammad_ticket_id!==ticketId) throw attachmentMissing();
+  const remote=integration('ZAMMAD');
+  try {
+    const article=articleSchema.extend({ticket_id:zammadId}).safeParse(await remote.request(`/ticket_articles/${articleId}`));
+    if(!article.success || article.data.id!==articleId || article.data.ticket_id!==ticketId) throw attachmentMissing();
+    const file=article.data.attachments?.find(item=>item.id===attachmentId);
+    if(!file) throw attachmentMissing();
+    const upstream=await remote.download(`/ticket_attachment/${ticketId}/${articleId}/${attachmentId}`);
+    try {
+      if((await getProject(projectId)).zammad_ticket_id!==ticketId) throw attachmentMissing();
+      if(upstream.status!==200 || !upstream.body) throw new RemoteError('Zammad hat keine vollständige Datei geliefert.');
+      const filename=encodeURIComponent(attachmentName(file.filename)).replace(/['()*]/g,character=>
+        `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
+      return new Response(upstream.body,{headers:{
+        'Content-Type':'application/octet-stream',
+        'Content-Disposition':`attachment; filename="Anhang"; filename*=UTF-8''${filename}`,
+        'Cache-Control':'no-store',
+        'X-Content-Type-Options':'nosniff',
+      }});
+    } catch(error) {
+      await upstream.body?.cancel();
+      throw error;
+    }
+  } catch(error) {
+    if(error instanceof RemoteError && (error.upstream===403 || error.upstream===404)) throw attachmentMissing();
+    throw error;
+  }
 }
 
 export async function send(projectId: string, message: z.infer<typeof zammadMessage>) {

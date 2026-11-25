@@ -96,10 +96,14 @@ export function downloadPositions(project:Row, rows:Row[]) {
     return '"'+(/^[=+\-@\t\r]/.test(string) ? "'"+string : string).replaceAll('"','""')+'"';
   };
   const csv=['Position;Menge;Einzelpreis EUR',...rows.map((row)=>[encode(row.name), row.quantity, (row.unit_cents/100).toFixed(2).replace('.',',')].join(';'))].join('\r\n');
-  const url=URL.createObjectURL(new Blob(['\uFEFF',csv],{type:'text/csv;charset=utf-8'}));
+  downloadBlob(`angebotspositionen-${project.id.slice(0,8)}.csv`,new Blob(['\uFEFF',csv],{type:'text/csv;charset=utf-8'}));
+}
+
+export function downloadBlob(filename:string,blob:Blob) {
+  const url=URL.createObjectURL(blob);
   const anchor=document.createElement('a');
   anchor.href=url;
-  anchor.download=`angebotspositionen-${project.id.slice(0,8)}.csv`;
+  anchor.download=filename;
   anchor.click();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
