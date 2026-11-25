@@ -21,7 +21,7 @@ Desk ist eine selbst gehostete Projektverwaltung für kleine Teams. Die erste Ve
 
 ### Installation und Aktualisierung
 
-- Für eine Erstinstallation eine leere PostgreSQL-17-Datenbank migrieren und das erste Administrationskonto anlegen. Eine bestehende Zammad-Instanz lässt sich optional anbinden. Der gemeinsame Aufbau mit einer neuen Zammad-Instanz steht noch zur Abnahme aus. Der Desk-Lizenztext liegt auch im Laufzeit-Image. [Installation](docs/installation.md) · [Lizenzinventar](docs/lizenzinventar.md)
+- Für eine Erstinstallation eine leere PostgreSQL-17-Datenbank migrieren und das erste Administrationskonto anlegen. Zammad lässt sich optional anbinden. Die Installationsdoku beschreibt den mit Desk geprüften Aufbau einer neuen Zammad-Instanz und ihre getrennte Sicherung. Der Desk-Lizenztext liegt auch im Laufzeit-Image. [Installation](docs/installation.md) · [Lizenzinventar](docs/lizenzinventar.md)
 - Bei einer vorhandenen Desk-Entwicklungsinstanz den Dienst vor dem Wechsel anhalten, PostgreSQL und die Laufzeitkonfiguration sichern und die Wiederherstellung getrennt prüfen. Die neue Version erst nach erfolgreicher Migration starten. [Sicherung und Wiederanlauf](docs/sicherung.md#upgrade-und-wiederanlauf-proben)
 - `DESK_AUTH_SECRET` dauerhaft setzen und für `DESK_ORIGIN` die tatsächliche Browseradresse verwenden. Das Team meldet sich nach dem Wechsel auf Better Auth neu an. Wurde Better Auth bereits migriert, die Sitzungen beider Versionen vor dem Wechsel gemäß Betriebsanleitung widerrufen. Passkeys gelten für den Host der Anmeldeadresse. [Update auf Better Auth](docs/desk.md#update-auf-better-auth)
 
