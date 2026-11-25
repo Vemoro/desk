@@ -177,7 +177,7 @@ export function Pill({label,tone='neutral'}:{label:string;tone?:string}) {
   return <span className={`pill ${tone}`}>{label}</span>;
 }
 
-export const ConfirmationRequests = createContext(new Set<string>());
+export const ConfirmationRequests = createContext(new Map<string,Promise<boolean>>());
 const alreadyRunning = 'Diese Aktion läuft bereits.';
 
 export type Confirmation = {
@@ -203,8 +203,10 @@ export function ConfirmDialog({confirmation,run,dismiss,fallbackFocus}:{
   const confirmRef=useRef<HTMLButtonElement>(null);
   const submitting=useRef(false);
   const requests=useContext(ConfirmationRequests);
-  const [pending,setPending]=useState(false);
-  const [problem,setProblem]=useState(()=>requests.has(confirmation.actionKey)?alreadyRunning:'');
+  const [request,setRequest]=useState(()=>requests.get(confirmation.actionKey));
+  const [problem,setProblem]=useState('');
+  const pending=Boolean(request) && submitting.current;
+  const message=problem || (request && !pending ? alreadyRunning : '');
 
   useEffect(()=>{
     const dialog=dialogRef.current;
@@ -221,27 +223,40 @@ export function ConfirmDialog({confirmation,run,dismiss,fallbackFocus}:{
     target?.focus();
   }
 
-  async function confirm() {
-    if(submitting.current || problem) return;
-    if(requests.has(confirmation.actionKey)) {
-      setProblem(alreadyRunning);
+  const finish=useEffectEvent((completed:boolean,problem='')=>{
+    submitting.current=false;
+    setRequest(undefined);
+    if(completed) close(true);
+    else setProblem(problem);
+  });
+
+  useEffect(()=>{
+    if(!request) return;
+    let observing=true;
+    void request.then(
+      completed=>{if(observing) finish(completed);},
+      (error:unknown)=>{
+        if(observing) finish(false,error instanceof Error ? error.message : 'Die Aktion konnte nicht abgeschlossen werden.');
+      },
+    );
+    return ()=>{observing=false;};
+  },[request]);
+
+  function confirm() {
+    if(request || problem) return;
+    const key=confirmation.actionKey;
+    const inFlight=requests.get(key);
+    if(inFlight) {
+      setRequest(inFlight);
       return;
     }
-    requests.add(confirmation.actionKey);
     submitting.current=true;
-    setPending(true);
+    const result=run(confirmation.submit,confirmation.feedback,{reportInlineError:true});
+    requests.set(key,result);
+    const clear=()=>{requests.delete(key);};
+    void result.then(clear,clear);
+    setRequest(result);
     cancelRef.current?.focus();
-    try {
-      const completed=await run(confirmation.submit,confirmation.feedback,{reportInlineError:true});
-      submitting.current=false;
-      if(completed) close(true);
-    } catch(error) {
-      setProblem(error instanceof Error ? error.message : 'Die Aktion konnte nicht abgeschlossen werden.');
-    } finally {
-      requests.delete(confirmation.actionKey);
-      submitting.current=false;
-      setPending(false);
-    }
   }
 
   return <dialog ref={dialogRef} className="confirm-dialog" aria-labelledby={titleId} aria-describedby={descriptionId}
@@ -250,18 +265,18 @@ export function ConfirmDialog({confirmation,run,dismiss,fallbackFocus}:{
       if(event.key!=='Tab') return;
       const first=cancelRef.current;
       const last=confirmRef.current;
-      if(pending || problem || (event.shiftKey && document.activeElement===first) || (!event.shiftKey && document.activeElement===last)) {
+      if(request || problem || (event.shiftKey && document.activeElement===first) || (!event.shiftKey && document.activeElement===last)) {
         event.preventDefault();
-        if(event.shiftKey && !pending && !problem) last?.focus();
+        if(event.shiftKey && !request && !problem) last?.focus();
         else first?.focus();
       }
     }}>
     <h2 id={titleId}>{confirmation.title}</h2>
     <p id={descriptionId}>{confirmation.description}</p>
-    {problem && <p className="inline-error" role="alert">{problem}</p>}
+    {message && <p className="inline-error" role="alert">{message}</p>}
     <div className="actions">
-      <button type="button" ref={cancelRef} aria-disabled={pending || undefined} onClick={()=>close()}>{problem?'Schließen':'Abbrechen'}</button>
-      <button type="button" ref={confirmRef} className="primary" onClick={()=>void confirm()} disabled={pending || Boolean(problem)}>
+      <button type="button" ref={cancelRef} aria-disabled={pending || undefined} onClick={()=>close()}>{message?'Schließen':'Abbrechen'}</button>
+      <button type="button" ref={confirmRef} className="primary" onClick={confirm} disabled={Boolean(request || problem)}>
         {pending?'Wird ausgeführt …':confirmation.actionLabel}
       </button>
     </div>

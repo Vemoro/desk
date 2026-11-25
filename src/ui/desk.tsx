@@ -28,7 +28,7 @@ export function Desk() {
   const sessionVersion=useRef(0);
   const signInPending=useRef(false);
   const logoutPending=useRef(false);
-  const confirmationRequests=useRef(new Set<string>());
+  const confirmationRequests=useRef(new Map<string,Promise<boolean>>());
   const project=data.projects.find((row)=>row.id===projectId);
 
   async function load(session:number) {
@@ -54,7 +54,7 @@ export function Desk() {
 
   function endSession() {
     sessionVersion.current++;
-    confirmationRequests.current=new Set();
+    confirmationRequests.current=new Map();
     displayedSavedVersion.current=savedVersion.current;
     setPerson(null);
     setData(initialData);
