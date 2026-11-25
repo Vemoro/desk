@@ -46,6 +46,9 @@ export async function linkTicket(projectId: string, link: number | z.infer<typeo
       article: { subject: link.title, body: link.note, type: 'note', internal: true, sender: 'Agent', content_type: 'text/plain' },
     });
     const ticket = ticketSchema.parse(result);
+    if (typeof link === 'number' && ticket.id !== link) {
+      throw new RemoteError('Zammad hat eine abweichende Ticket-ID geliefert.');
+    }
     await transaction.unsafe('UPDATE projects SET zammad_ticket_id=$1 WHERE id=$2',[ticket.id,projectId]);
     return { ...ticket, url: `${remote.origin}/#ticket/zoom/${ticket.id}` };
   });
