@@ -79,6 +79,67 @@ describe('Fachlicher Projektablauf', () => {
     await expect(setReservation(overlapping,'firm')).rejects.toThrow('bereits fest');
     expect(await setReservation(beside,'firm')).toMatchObject({status:'firm'});
   });
+
+  test('Haben und Zammad melden eine fehlerhafte Basisadresse vor dem ersten Netzwerkaufruf',async()=>{
+    const origin=process.env.DESK_ORIGIN ?? 'http://127.0.0.1';
+    const login=await handle(new Request(origin+'/api/v1/login',{method:'POST',
+      headers:{Origin:origin,'Content-Type':'application/json'},
+      body:JSON.stringify({email:actor.email,password:'muster-test-passwort'})}));
+    expect(login.status).toBe(200);
+    const cookie=login.headers.get('Set-Cookie')!.split(';')[0];
+    const post=(path:string,body:unknown)=>handle(new Request(origin+'/api/v1'+path,{
+      method:'POST',headers:{Origin:origin,'Content-Type':'application/json',Cookie:cookie},body:JSON.stringify(body),
+    }));
+    const cases=[
+      {service:'HABEN',path:'/haben/contacts/import',body:{},token:'muster-haben-token',
+        authorization:'Bearer muster-haben-token',paths:['/api/v1/kontakte']},
+      {service:'ZAMMAD',path:'/integrations/zammad/check',body:{id:42},token:'muster-zammad-token',
+        authorization:'Token token=muster-zammad-token',paths:['/api/v1/tickets/42','/api/v1/ticket_articles/by_ticket/42']},
+    ] as const;
+    for(const entry of cases){
+      const urlKey=entry.service+'_URL';
+      const tokenKey=entry.service+'_TOKEN';
+      const previousUrl=process.env[urlKey];
+      const previousToken=process.env[tokenKey];
+      const originalFetch=globalThis.fetch;
+      let fetches=0;
+      const calls:string[]=[];
+      const local=Bun.serve({hostname:'127.0.0.1',port:0,fetch(request){
+        const path=new URL(request.url).pathname;
+        calls.push(path);
+        if(request.method!=='GET' || request.headers.get('Authorization')!==entry.authorization) {
+          return new Response(null,{status:401});
+        }
+        if(path==='/api/v1/kontakte') return Response.json({data:[],total:0});
+        if(path==='/api/v1/tickets/42') return Response.json({id:42,number:'42',title:'Testticket'});
+        if(path==='/api/v1/ticket_articles/by_ticket/42') return Response.json([]);
+        return new Response(null,{status:404});
+      }});
+      try {
+        process.env[tokenKey]=entry.token;
+        globalThis.fetch=Object.assign(async ()=>{
+          fetches++;
+          throw new Error('Unerwarteter Netzwerkaufruf');
+        },originalFetch);
+        for(const base of ['https://[muster','http://muster.example.test','https://user:pass@muster.example.test','https://muster.example.test/api']){
+          process.env[urlKey]=base;
+          const response=await post(entry.path,entry.body);
+          expect(response.status).toBe(503);
+          expect(await response.json()).toEqual({error:entry.service+'_URL muss eine HTTPS-Basisadresse sein.'});
+        }
+        expect(fetches).toBe(0);
+        globalThis.fetch=originalFetch;
+        process.env[urlKey]=local.url.origin;
+        expect((await post(entry.path,entry.body)).status).toBe(201);
+        expect(calls).toEqual([...entry.paths]);
+      } finally {
+        globalThis.fetch=originalFetch;
+        local.stop(true);
+        if(previousUrl===undefined) delete process.env[urlKey]; else process.env[urlKey]=previousUrl;
+        if(previousToken===undefined) delete process.env[tokenKey]; else process.env[tokenKey]=previousToken;
+      }
+    }
+  });
 });
 
 describe('API und Integrationen',()=>{
