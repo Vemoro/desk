@@ -3,9 +3,9 @@ import { databaseReady, db, first, rows, type Query } from './db';
 import { DeskError, required } from './errors';
 import { accountInput, authenticate, createAccount, createToken, login, loginInput, logout, protectOrigin, requireAdmin, tokenInput, type Actor } from './auth';
 import { accountAccessInput, changeAccountAccess, withAccountAccess } from './accounts';
-import { schemas, id, projectResponse, projectStage, reservationInput, reservationStatus, movementInput, costBatch, costAssignment, habenOfferInput, habenContactInput, zammadLinkInput, zammadCreateInput, zammadMessage } from './contracts';
+import { schemas, id, projectResponse, projectStage, reservationInput, reservationStatus, movementInput, movementCorrection, costBatch, costAssignment, habenOfferInput, habenContactInput, zammadLinkInput, zammadCreateInput, zammadMessage } from './contracts';
 import { assignCost, changeStage, controlling, getCore, getProject, importCosts, listCore, listCosts, saveCore, type Collection } from './core';
-import { createMovement, createReservation, listMovements, listReservations, listStock, setReservation } from './stock';
+import { correctMovement, createMovement, createReservation, listMovements, listReservations, listStock, setReservation } from './stock';
 import { pullContacts, syncContact, syncOffer } from './haben';
 import { checkZammadConnection, conversations, linkTicket, reviewOutgoing, send, unlinkTicket } from './zammad';
 import { integrationStatus } from './remote';
@@ -89,6 +89,8 @@ action('PATCH','/reservations/{id}','Reservierung festlegen oder freigeben',rese
 get('/stock','Lagerbestand je Lagerort',()=>listStock());
 get('/movements','Lagerbewegungen',({limit,offset})=>listMovements(limit,offset),{pageOrder:'Zeitpunkt absteigend, ID'});
 action('POST','/movements','Lagerbewegung erfassen',movementInput,({actor,requestKey},input)=>createMovement(input,actor.id,requestKey),{keyed:true});
+action('POST','/movements/{id}/corrections','Wareneingang oder Verbrauch korrigieren',movementCorrection,({path,actor,requestKey},input)=>
+  correctMovement(path[1],input,actor.id,requestKey),{keyed:true});
 get('/costs','Ist-Kosten und offene Zuordnungen',({limit,offset})=>listCosts(limit,offset),
   {pageOrder:'Nicht zugeordnete Kosten zuerst, Name, ID'});
 action('POST','/costs','Ist-Kosten übernehmen',costBatch,(context,input)=>importCosts(input.entries));

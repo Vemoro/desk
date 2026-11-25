@@ -54,6 +54,7 @@ export const movementInput = z.discriminatedUnion('action', [
   z.strictObject({ action: z.literal('receive'), item_id: id, location_id: id, project_id: id.optional(), quantity }),
   z.strictObject({ action: z.enum(['issue','return','consume']), reservation_id: id, quantity }),
 ]);
+export const movementCorrection = z.strictObject({ quantity, reason: memo.min(1) });
 export const costInput = z.strictObject({
   project_id: id.nullable().optional(), source: title, reference: title,
   cost_center: short.optional(), name: title, cents,

@@ -3,7 +3,7 @@ import { db, first, rows, type Query } from './db';
 import { DeskError, required } from './errors';
 import { requireAvailableAssignee } from './accounts';
 import { getProject, lockPlanning } from './core';
-import type { movementInput, reservationInput } from './contracts';
+import type { movementInput, movementCorrection, reservationInput } from './contracts';
 
 type Reservation = {
   id: string; project_id: string; user_id: string | null; item_id: string | null; location_id: string | null;
@@ -21,18 +21,43 @@ const item = async (query: Query, id: string) =>
 const reservation = async (query: Query, id: string) =>
   required(await first<Reservation>(query, 'SELECT * FROM reservations WHERE id=$1', [id]), 'Reservierung fehlt.');
 
+const physicalDelta = "CASE WHEN action IN ('receive','return','correct_consume') THEN quantity ELSE -quantity END";
+const consumedDelta = "CASE WHEN action='consume' THEN quantity WHEN action='correct_consume' THEN -quantity ELSE 0 END";
 const activeHolds = `
   SELECT r.id,r.item_id,r.location_id,r.starts_at,r.ends_at,
     greatest(0, r.quantity - COALESCE((SELECT sum(CASE
-        WHEN m.action IN ('issue','consume') THEN m.quantity ELSE 0 END)
+        WHEN m.action='issue' THEN m.quantity ELSE ${consumedDelta} END)
       FROM movements m WHERE m.reservation_id=r.id),0))::integer AS hold
   FROM reservations r WHERE r.status='firm'
 `;
 
 async function physical(query: Query, itemId: string, locationId: string) {
-  const stock = await first<{ count: number }>(query, `SELECT COALESCE(sum(CASE WHEN action IN ('receive','return')
-    THEN quantity ELSE -quantity END),0)::integer AS count FROM movements WHERE item_id=$1 AND location_id=$2`, [itemId, locationId]);
+  const stock = await first<{ count: number }>(query, `SELECT COALESCE(sum(${physicalDelta}),0)::integer AS count
+    FROM movements WHERE item_id=$1 AND location_id=$2`, [itemId, locationId]);
   return stock?.count ?? 0;
+}
+
+async function reservedCapacity(query: Query, material: Item, locationId: string, reservationId: string | null = null) {
+  // PostgreSQL timestamps preserve the full precision of the half-open time windows.
+  const count = await first<{count:number}>(query,`
+    WITH holds AS (${activeHolds}), reference AS (
+      SELECT starts_at,ends_at FROM reservations WHERE id=$3
+    ), relevant AS (
+      SELECT greatest(h.starts_at,r.starts_at) AS starts_at,least(h.ends_at,r.ends_at) AS ends_at,h.hold
+      FROM holds h LEFT JOIN reference r ON true
+      WHERE h.item_id=$1 AND h.location_id=$2 AND h.id IS DISTINCT FROM $3
+        AND ($4::boolean OR (h.ends_at>COALESCE(r.starts_at,statement_timestamp())
+          AND (r.ends_at IS NULL OR h.starts_at<r.ends_at)))
+    ), changes AS (
+      SELECT starts_at AS instant,hold AS delta FROM relevant
+      UNION ALL SELECT ends_at,-hold FROM relevant
+    ), capacity AS (
+      SELECT sum(sum(delta)) OVER (ORDER BY instant) AS used FROM changes GROUP BY instant
+    )
+    SELECT COALESCE(CASE WHEN $4 THEN (SELECT sum(hold) FROM relevant)
+      ELSE (SELECT max(used) FROM capacity) END,0)::integer AS count`,
+    [material.id,locationId,reservationId,material.kind==='consumable']);
+  return count?.count ?? 0;
 }
 
 async function reserveCapacity(query: Query, request: Reservation) {
@@ -45,25 +70,10 @@ async function reserveCapacity(query: Query, request: Reservation) {
   }
   const material = await item(query, request.item_id!);
   const count = await physical(query, material.id, request.location_id!);
-  const holds = await rows<{ starts_at: Date; ends_at: Date; hold: number }>(query, `WITH holds AS (${activeHolds})
-    SELECT starts_at,ends_at,hold FROM holds WHERE item_id=$1 AND location_id=$2 AND id<>$3
-    AND ($6::boolean OR (starts_at<$5 AND ends_at>$4))`,
-    [material.id, request.location_id, request.id, request.starts_at, request.ends_at, material.kind === 'consumable']);
-  let reserved = 0;
-  if (material.kind === 'consumable') {
-    reserved = holds.reduce((total, hold) => total + hold.hold, 0);
-  } else {
-    const points = holds.flatMap((hold) => [
-      [Math.max(+hold.starts_at, +request.starts_at), hold.hold],
-      [Math.min(+hold.ends_at, +request.ends_at), -hold.hold],
-    ]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-    let current = 0;
-    for (const [, delta] of points) {
-      current += delta;
-      reserved = Math.max(reserved, current);
-    }
+  const reserved = await reservedCapacity(query,material,request.location_id!,request.id);
+  if (count - reserved < request.quantity) {
+    throw new DeskError(409, 'Für diese Reservierung reicht der freie Bestand nicht.');
   }
-  if (count - reserved < request.quantity) throw new DeskError(409, 'Für diese Reservierung reicht der freie Bestand nicht.');
 }
 
 export async function createReservation(input: z.infer<typeof reservationInput>, request?:WriteRequest) {
@@ -133,8 +143,10 @@ export async function createMovement(input: z.infer<typeof movementInput>, actor
     if (input.action === 'receive') {
       const material = await item(transaction, input.item_id);
       if (material.inventory_number) {
-        const existed = await first(transaction, "SELECT id FROM movements WHERE item_id=$1 AND action='receive' LIMIT 1", [input.item_id]);
-        if (input.quantity !== 1 || existed) throw new DeskError(409, 'Ein Einzelgerät kann genau einmal als Wareneingang erfasst werden.');
+        const received = await first<{ count:number }>(transaction,`SELECT COALESCE(sum(CASE
+          WHEN action='receive' THEN quantity ELSE -quantity END),0)::integer AS count
+          FROM movements WHERE item_id=$1 AND action IN ('receive','correct_receive')`,[input.item_id]);
+        if (input.quantity !== 1 || received?.count) throw new DeskError(409, 'Für dieses Einzelgerät besteht bereits ein wirksamer Wareneingang.');
       }
       return insertMovement(transaction, input.item_id, input.location_id, input.project_id ?? null, null, actor, input.action, input.quantity);
     }
@@ -144,7 +156,7 @@ export async function createMovement(input: z.infer<typeof movementInput>, actor
     const counts = await first<{ issued: number; returned: number; consumed: number }>(transaction, `
       SELECT COALESCE(sum(quantity) FILTER (WHERE action='issue'),0)::integer AS issued,
              COALESCE(sum(quantity) FILTER (WHERE action='return'),0)::integer AS returned,
-             COALESCE(sum(quantity) FILTER (WHERE action='consume'),0)::integer AS consumed
+             COALESCE(sum(${consumedDelta}),0)::integer AS consumed
       FROM movements WHERE reservation_id=$1`, [current.id]);
     const issued = (counts?.issued ?? 0) - (counts?.returned ?? 0);
     if (input.action === 'return') {
@@ -163,6 +175,35 @@ export async function createMovement(input: z.infer<typeof movementInput>, actor
   });
 }
 
+export async function correctMovement(id: string, input: z.infer<typeof movementCorrection>, actor: string, requestKey?: string) {
+  const normalized = { originalId:id.toLowerCase(), ...input };
+  return planningWrite('movement-corrections',requestKey ? {actorId:actor,key:requestKey} : undefined,normalized,async transaction=>{
+    const original = required(await first<Movement>(transaction,'SELECT * FROM movements WHERE id=$1',[id]),
+      'Ursprüngliche Lagerbewegung fehlt.');
+    if (original.action !== 'receive' && original.action !== 'consume') {
+      throw new DeskError(409, 'Nur Wareneingang und Verbrauch können korrigiert werden.');
+    }
+    const prior = await first<{count:number}>(transaction,`SELECT COALESCE(sum(quantity),0)::integer AS count
+      FROM movements WHERE corrects_movement_id=$1`,[original.id]);
+    if (input.quantity > original.quantity - (prior?.count ?? 0)) {
+      throw new DeskError(409, 'Die Menge übersteigt den noch korrigierbaren Teil der Buchung.');
+    }
+    if (original.action === 'receive') {
+      const material = await item(transaction,original.item_id);
+      const remaining = await physical(transaction,original.item_id,original.location_id) - input.quantity;
+      if (remaining < 0) throw new DeskError(409, 'Der physische Bestand reicht für diese Korrektur nicht.');
+      if (remaining < await reservedCapacity(transaction,material,original.location_id)) {
+        throw new DeskError(409, 'Die Korrektur würde eine feste Reservierung ungedeckt lassen.');
+      }
+    }
+    const action = original.action === 'receive' ? 'correct_receive' : 'correct_consume';
+    return first<Movement>(transaction,`INSERT INTO movements
+      (item_id,location_id,project_id,reservation_id,actor_id,action,quantity,corrects_movement_id,correction_reason)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [original.item_id,original.location_id,original.project_id,original.reservation_id,actor,action,input.quantity,original.id,input.reason]);
+  });
+}
+
 function insertMovement(query: Query, material: string, location: string, project: string | null, booking: string | null, actor: string, action: string, quantity: number) {
   return first<Movement>(query, `INSERT INTO movements(item_id,location_id,project_id,reservation_id,actor_id,action,quantity)
     VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [material,location,project,booking,actor,action,quantity]);
@@ -170,7 +211,7 @@ function insertMovement(query: Query, material: string, location: string, projec
 
 export async function listStock() {
   return rows<Stock>(db, `WITH physical AS (
-    SELECT item_id,location_id,sum(CASE WHEN action IN ('receive','return') THEN quantity ELSE -quantity END)::integer AS physical
+    SELECT item_id,location_id,sum(${physicalDelta})::integer AS physical
     FROM movements GROUP BY item_id,location_id
   ), holds AS (${activeHolds}), reserved AS (
     SELECT h.item_id,h.location_id,sum(h.hold)::integer AS reserved FROM holds h JOIN items i ON i.id=h.item_id
