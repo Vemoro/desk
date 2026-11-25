@@ -240,9 +240,10 @@ tr:last-child td { border-bottom:0; }
 .communication-dialog .form-grid { grid-template-columns:1fr; }
 .communication-dialog .form-action { justify-self:end; }
 @media(min-width:1001px) and (min-height:720px) {
-  .main:has(.communication-ticket) { gap:12px; padding-block:18px 16px; }
+  .main:has(.communication-ticket) { height:100dvh; gap:12px; padding-block:18px 16px; }
+  .main:has(.communication-ticket) > :not(.communication-ticket) { flex:none; }
   .main:has(.communication-ticket) .project-head h1 { font-size:1.5rem; }
-  .communication-ticket { height:max(480px,calc(100dvh - 192px)); }
+  .communication-ticket { flex:1 1 auto; min-height:420px; }
   .communication-ticket > .panel { display:grid; grid-template-rows:auto minmax(0,1fr); min-height:0; }
   .communication-ticket > .panel > .panel-head {
     grid-template-columns:minmax(144px,1fr) minmax(0,3fr) minmax(144px,1fr);
@@ -252,6 +253,9 @@ tr:last-child td { border-bottom:0; }
   .communication-ticket > .panel > .panel-head > :is(.panel-heading,h2) { grid-column:2; grid-row:1; justify-self:center; }
   .communication-ticket > .panel > .panel-head > button { grid-column:3; font-size:.85rem; }
   .communication-ticket .panel-heading { gap:4px; padding:0; }
+  .communication-ticket .panel-heading h2 {
+    display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; min-width:0; overflow:hidden;
+  }
   .communication-ticket .panel-heading:has(.communication-requester) {
     width:fit-content; max-width:100%; grid-template-columns:auto minmax(0,1fr);
     gap:2px 9px; justify-items:start; text-align:left;
@@ -262,7 +266,7 @@ tr:last-child td { border-bottom:0; }
   .communication-ticket .communication-workspace { grid-template-rows:minmax(0,1fr) auto; gap:0; padding:0; }
   .communication-scroll { overflow:auto; padding:12px 16px; scrollbar-gutter:stable; }
   .communication-ticket .communication-details { overflow:auto; }
-  .communication-ticket .communication-search { position:sticky; top:-12px; z-index:1; background:var(--canvas); padding:6px 0; margin:0 0 10px; }
+  .communication-ticket .communication-search { padding:6px 0; margin:0 0 10px; }
   .communication-ticket .communication-search label {
     display:grid; grid-template-columns:max-content minmax(0,250px); align-items:center;
     gap:6px 12px; flex:0 1 470px;
@@ -279,6 +283,9 @@ tr:last-child td { border-bottom:0; }
 }
 @media(max-width:1000px) {
   .communication-layout { grid-template-columns:1fr; }
+}
+@media(width < 1001px), (height < 720px) {
+  .communication-ticket { grid-template-columns:1fr; }
   .communication-ticket .communication-details { border-inline-start:0; border-top:1px solid var(--border); }
 }
 @media(max-width:600px) {
