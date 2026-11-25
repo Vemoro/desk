@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { signIn } from './session';
 
 test('Offene Ausgaben nach Projekt und Lagerort zeigen auch Teilrückgaben und abgesagte Projekte',async({page})=>{
@@ -71,4 +71,69 @@ test('Offene Ausgaben nach Projekt und Lagerort zeigen auch Teilrückgaben und a
   await page.route('**/api/v1/reservations?*',route=>route.fulfill({json:[]}));
   await page.reload();
   await expect(open.getByText('Es gibt keine offenen Ausgaben.')).toBeVisible();
+});
+
+async function warehouseReceipt(page:Page,quantity:number){
+  await signIn(page);
+  const origin=new URL(page.url()).origin;
+  const suffix=crypto.randomUUID().slice(0,8);
+  async function create(path:string,data:object){
+    const response=await page.request.post('/api/v1/'+path,{headers:{Origin:origin},data});
+    expect(response.status()).toBe(201);
+    return response.json();
+  }
+  const location=await create('locations',{name:'Muster Korrekturlager '+suffix});
+  const item=await create('items',{name:'Muster Klebeband '+suffix,kind:'consumable',code:'KT-'+suffix});
+  const receipt=await create('movements',{action:'receive',item_id:item.id,location_id:location.id,quantity});
+
+  await page.goto('/#warehouse');
+  await page.reload();
+  const ledger=page.locator('.panel').filter({has:page.getByRole('heading',{name:'Lagerbewegungen',exact:true})});
+  const movements=ledger.getByRole('row').filter({has:page.getByText(item.name,{exact:true})});
+  const original=movements.filter({has:page.getByText('Wareneingang',{exact:true})});
+  const corrections=movements.filter({has:page.getByText('Korrektur Wareneingang',{exact:true})});
+  return {receipt,item,original,corrections};
+}
+
+test('Lagerkorrektur zeigt Begründung und Original und ändert den physischen Bestand',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  const {item,original,corrections}=await warehouseReceipt(page,8);
+  await original.getByRole('button',{name:'Korrigieren',exact:true}).click();
+  await original.getByLabel('Korrekturmenge').fill('3');
+  const reason='Lieferschein bestätigt fünf Stück';
+  await original.getByLabel('Begründung').fill(reason);
+  await original.getByRole('button',{name:'Korrektur buchen',exact:true}).click();
+  await expect(corrections.getByText(reason,{exact:true})).toBeVisible();
+  await expect(original.getByText('8',{exact:true})).toBeVisible();
+  await corrections.getByRole('link',{name:/Original vom/}).click();
+  await expect(original.locator('span[id]')).toBeFocused();
+  const stock=page.locator('.panel').filter({has:page.getByRole('heading',{name:'Bestand je Lagerort',exact:true})});
+  const stockRow=stock.getByRole('row').filter({has:page.getByText(item.name,{exact:true})});
+  await expect(stockRow.getByRole('cell').nth(2)).toHaveText('5');
+  await expect(stockRow.getByRole('cell').nth(4)).toHaveText('5');
+});
+
+test('Eine unklare Vollkorrektur lässt sich nach Neuladen mit demselben Schlüssel prüfen',async({page})=>{
+  const {receipt,original,corrections}=await warehouseReceipt(page,1);
+  const calls:{key:string;id:string}[]=[];
+  await page.route(`**/api/v1/movements/${receipt.id}/corrections`,async route=>{
+    const response=await route.fetch();
+    expect(response.status()).toBe(201);
+    const correction=await response.json() as {id:string};
+    calls.push({key:route.request().headers()['idempotency-key'],id:correction.id});
+    if(calls.length===1) await route.abort('failed');
+    else await route.fulfill({response});
+  });
+  await original.getByRole('button',{name:'Korrigieren',exact:true}).click();
+  await original.getByLabel('Begründung').fill('Der Zugang gehört zu einem anderen Artikel');
+  await original.getByRole('button',{name:'Korrektur buchen',exact:true}).click();
+  await expect(original.getByRole('button',{name:'Letzten Vorgang erneut senden'})).toBeVisible();
+  await page.reload();
+  await original.getByRole('button',{name:'Korrektur prüfen',exact:true}).click();
+  await original.getByRole('button',{name:'Letzten Vorgang erneut senden'}).click();
+  await expect(original.getByText('Vollständig korrigiert',{exact:true})).toBeVisible();
+  await expect(corrections).toHaveCount(1);
+  expect(calls).toHaveLength(2);
+  expect(calls[0].key).toBeTruthy();
+  expect(calls[1]).toEqual(calls[0]);
 });
