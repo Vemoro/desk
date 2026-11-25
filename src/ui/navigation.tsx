@@ -75,7 +75,7 @@ export function Navigation({person, section, themeButton, onNavigate, onLogout}:
 
   return <aside className="sidebar" data-menu-open={open || undefined}>
     <div className="sidebar-bar">
-      <div className="brand"><span className="mark">D</span><strong>Desk</strong></div>
+      <div className="brand"><img className="mark" src="/desk-bildmarke.svg" alt=""/><strong>Desk</strong></div>
       <button className="sidebar-toggle" type="button" ref={toggle} onClick={()=>setOpen(!open)}
         aria-expanded={open} aria-controls="desk-navigation">
         <Icon name={open?'close':'menu'}/> Menü
