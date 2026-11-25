@@ -103,5 +103,13 @@ if ((attempt==30)); then
   exit 1
 fi
 
+echo "Drittanbieterhinweise vom Runtime-Image abrufen"
+expected_notices="$(git show "$commit:public/third-party-notices.txt" | license_hash)"
+served_notices="$(curl -fsS --max-time 5 "$DESK_E2E_URL/third-party-notices.txt" | license_hash)"
+if [[ "$served_notices" != "$expected_notices" ]]; then
+  echo "Die Drittanbieterhinweise stimmen nicht mit dem Git-Stand überein." >&2
+  exit 1
+fi
+
 # The automatic failure snapshot can include the filled login password.
 PLAYWRIGHT_NO_COPY_PROMPT=1 run_step bunx playwright test --project runtime-image
