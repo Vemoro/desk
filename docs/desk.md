@@ -21,7 +21,9 @@ Eine Verbrauchskorrektur schreibt die Menge dem Lagerort gut. Bei fester Reservi
 
 War die Antwort auf eine bereits gespeicherte Vollkorrektur unklar, öffne an der Originalbuchung **Korrektur prüfen** und wähle **Letzten Vorgang erneut senden**. Desk zeigt das Ergebnis der ursprünglichen Buchung.
 
-Unter **Bestand je Lagerort** sucht **Bestand suchen** nach Teilen des Artikelnamens, der Artikelnummer oder der Inventarnummer. Groß- und Kleinschreibung spielen dabei keine Rolle. **Lagerort filtern** lässt sich mit der Suche kombinieren. **Filter zurücksetzen** zeigt wieder alle Bestandszeilen. Der Abschnitt **Offene Ausgaben** hat eigene Filter.
+### Bestand filtern
+
+Unter **Bestand je Lagerort** sucht **Bestand suchen** nach Teilen des Artikelnamens, der Artikelnummer oder der Inventarnummer. Groß- und Kleinschreibung spielen dabei keine Rolle. **Lagerort filtern** lässt sich mit der Suche kombinieren. Bei leerem Suchergebnis zeigt Desk „Kein Bestand für diese Filter.“ **Filter zurücksetzen** zeigt wieder alle Bestandszeilen. Der Abschnitt **Offene Ausgaben** hat eigene Filter.
 
 ## Haben
 
