@@ -3,9 +3,11 @@ on:
   pull_request:
     paths:
       - 'AGENTS.md'
+      - 'CHANGELOG.md'
       - 'CLAUDE.md'
       - 'CONTRIBUTING.md'
       - 'DESIGN.md'
+      - 'README.md'
       - 'docs/**'
       - '.agents/skills/**'
       - '.github/ISSUE_TEMPLATE/**'

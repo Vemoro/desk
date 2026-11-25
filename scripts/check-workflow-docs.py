@@ -37,9 +37,11 @@ def check():
         ROOT / name
         for name in (
             "AGENTS.md",
+            "CHANGELOG.md",
             "CLAUDE.md",
             "CONTRIBUTING.md",
             "DESIGN.md",
+            "README.md",
             "docs/entwicklung.md",
             "docs/roadmap.md",
             "docs/haben-uebernahme.md",
