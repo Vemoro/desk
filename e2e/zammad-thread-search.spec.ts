@@ -3,11 +3,12 @@ import { project, signIn } from './session';
 
 const projectName='Musterinstallation';
 const apiPath='/api/v1/projects/muster/zammad';
-async function openTarget(page:Page){
+async function openTarget(page:Page,withAttempts=false,ticketTitle='Anfrage vom Musterbüro'){
   const data={id:'muster',name:projectName,stage:'planning',zammad_ticket_id:42 as number|null};
   const common={from:'Mira Muster',created_at:'2028-05-17T09:00:00Z',content_type:'text/plain'};
   const articles=[
-    {...common,id:1,subject:'Montage bestätigt',body:'Der Termin steht.'},
+    {...common,id:1,subject:'Montage bestätigt',body:'Der Termin steht.',
+      kind:'incoming-email',reply:{recipient:'muster@example.test',subject:'Montage bestätigt'}},
     {...common,id:2,subject:'Rückfrage zum Material',body:'<p title="Geheimattribut">Der Termin bleibt. <b>Montagekoffer</b> mitbringen.</p>',content_type:'text/html'},
     {...common,id:3,subject:'Anfahrt',body:'Bitte am Haupteingang melden.'},
   ];
@@ -24,14 +25,14 @@ async function openTarget(page:Page){
     return route.fulfill({status:201,json:{id:43}});
   });
   await page.route('**'+apiPath,route=>route.fulfill({json:{
-    ticket:{id:data.zammad_ticket_id,number:String(data.zammad_ticket_id),title:'Anfrage vom Musterbüro',url:'https://zammad.example.test/'},
+    ticket:{id:data.zammad_ticket_id,number:String(data.zammad_ticket_id),title:ticketTitle,url:'https://zammad.example.test/'},
     articles:data.zammad_ticket_id===42?articles:[{...common,id:4,subject:'Neues Ticket',body:'Rückmeldung für den Folgeauftrag.'}],
-    outgoing:[],
+    outgoing:withAttempts ? [{id:'muster-sendeversuch',subject:'Anfrage bestätigen',status:'sent'}] : [],
   }}));
   await signIn(page);
   await project(page,projectName);
   await page.getByRole('button',{name:'Kommunikation',exact:true}).click();
-  const panel=page.getByRole('region',{name:'Anfrage vom Musterbüro',exact:true});
+  const panel=page.getByRole('region',{name:ticketTitle,exact:true});
   await expect(panel.getByText('Montage bestätigt',{exact:true})).toBeVisible();
   return panel;
 }
@@ -73,4 +74,47 @@ test('Zammad filtert lokal den sichtbaren Ticketverlauf und lässt den Entwurf s
   await linkDialog.getByRole('button',{name:'Ticket verknüpfen',exact:true}).click();
   await expect(subjects).toHaveText(['Neues Ticket']);
   await expect(search).toHaveValue('');
+});
+
+test('Zammad scrollt am Desktop den Verlauf und hält den Notizeditor sichtbar',async({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  const ticket=await openTarget(page,true);
+  const activity=page.getByRole('region',{name:'Ticketaktivität'});
+  const note=page.getByRole('textbox',{name:'Interne Notiz'});
+  const details=page.getByRole('complementary',{name:'Vorgangsdetails'});
+  const subject=ticket.getByRole('heading',{name:'Anfrage vom Musterbüro'});
+  const attempts=activity.getByRole('heading',{name:'Sendeversuche'});
+  await expect(note).toBeInViewport({ratio:1});
+  await expect(subject).toBeInViewport();
+  await expect(details.getByRole('heading',{name:'Ticketdetails'})).toBeInViewport();
+  const before=await note.boundingBox();
+  await activity.focus();
+  await activity.press('End');
+  await expect.poll(()=>activity.evaluate(element=>element.scrollTop)).toBeGreaterThan(0);
+  expect(await note.boundingBox()).toEqual(before);
+  await expect(subject).toBeInViewport();
+  await expect(attempts).toBeInViewport();
+  await expect(details.getByRole('heading',{name:'Ticketdetails'})).toBeInViewport();
+
+  for(const viewport of [{width:1210,height:690},{width:390,height:844}]){
+    await page.setViewportSize(viewport);
+    await expect.poll(()=>activity.evaluate(element=>getComputedStyle(element).overflowY)).toBe('visible');
+    await expect(note).toBeVisible();
+    expect((await note.boundingBox())!.y).toBeGreaterThan((await attempts.boundingBox())!.y);
+    expect((await details.boundingBox())!.y).toBeGreaterThan((await note.boundingBox())!.y);
+  }
+});
+
+test('Zammad lässt auch bei langem Ticketbetreff Platz für Verlauf und Antworten',async({page})=>{
+  await page.setViewportSize({width:1001,height:720});
+  const title='Büroinstallation mit mehreren Gebäudeabschnitten und abgestimmtem Zeitfenster '.repeat(4).trim();
+  const ticket=await openTarget(page,true,title);
+  await expect(ticket.getByRole('textbox',{name:'Interne Notiz'})).toBeInViewport({ratio:1});
+  await expect(ticket.getByRole('heading',{name:title,exact:true})).toHaveAttribute('title',title);
+  const reply=ticket.getByRole('button',{name:'Antworten',exact:true});
+  await reply.click();
+  const editor=ticket.getByRole('region',{name:'E-Mail-Antwort'});
+  await expect(editor.getByRole('textbox',{name:'Nachricht'})).toBeFocused();
+  await editor.getByRole('button',{name:'Antwort schließen'}).click();
+  await expect(reply).toBeFocused();
 });

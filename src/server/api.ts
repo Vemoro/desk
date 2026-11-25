@@ -4,6 +4,7 @@ import { DeskError, required } from './errors';
 import { accountInput, authenticate, changePassword, createAccount, createToken, login, loginInput, logout, passwordChangeInput, protectOrigin, requireAdmin, tokenInput, type Actor } from './auth';
 import { accountAccessInput, changeAccountAccess, withAccountAccess } from './accounts';
 import { schemas, id, planningRange, planningResponse, projectHistoryResponse, projectResponse, projectStage, reservationInput, reservationStatus, movementInput, movementCorrection, costBatch, costAssignment, habenOfferInput, habenContactInput, zammadLinkInput, zammadCreateInput, zammadMessage } from './contracts';
+import { zammadNoteInput } from './contracts';
 import { assignCost, changeStage, controlling, getCore, getProject, importCosts, listCore, listCosts, saveCore, type Collection } from './core';
 import { correctMovement, createMovement, createReservation, listMovements, listPlanningReservations, listReservations, listStock, setReservation } from './stock';
 import { pullContacts, syncContact, syncOffer } from './haben';
@@ -119,6 +120,7 @@ action('POST','/projects/{id}/zammad/link','Zammad-Ticket verknüpfen',zammadLin
 action('POST','/projects/{id}/zammad/unlink','Zammad-Ticketverknüpfung lösen',zammadLinkInput,({path},input)=>unlinkTicket(path[1],input.id));
 action('POST','/projects/{id}/zammad/tickets','Zammad-Ticket anlegen',zammadCreateInput,({path},input)=>linkTicket(path[1],input));
 action('POST','/projects/{id}/zammad/messages','Zammad-Antwort senden',zammadMessage,({path},input)=>send(path[1],input));
+action('POST','/projects/{id}/zammad/notes','Interne Zammad-Notiz anlegen',zammadNoteInput,({path},input)=>send(path[1],input));
 action('POST','/projects/{id}/zammad/outgoing/{messageId}','Sendeversuch prüfen oder ausdrücklich erneut senden',
   z.strictObject({ retry:z.boolean() }),({path},input)=>reviewOutgoing(path[1],path[4],input.retry));
 

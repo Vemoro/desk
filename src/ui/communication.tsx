@@ -7,8 +7,8 @@ type Article = { id:number; subject?:string|null; from?:string|null; created_at?
   reply?:{recipient:string;subject:string} };
 type Conversation = { ticket:{number:string;title?:string;url:string}; articles:Article[]; outgoing:Row[] };
 type DialogState = { kind:'link'|'create'; trigger:HTMLButtonElement };
-type ReplyTarget = {id:number; originalSubject:string; recipient:string; subject:string; trigger:HTMLButtonElement};
-type MessageDraft = {id:string;reply?:ReplyTarget;payload:Record<string,unknown>};
+type ReplyTarget = {id:number; originalSubject:string; recipient:string; subject:string; trigger:HTMLButtonElement; forwardBody?:string};
+type MessageDraft = {id:string;note:boolean;reply?:ReplyTarget;payload:Record<string,unknown>};
 const articleKinds = {
   'incoming-email':'Eingehende E-Mail',
   'outgoing-email':'Ausgehende E-Mail',
@@ -17,6 +17,11 @@ const articleKinds = {
   other:'Ticketeintrag',
   unknown:'Art unbekannt',
 };
+
+function articleInitials(from:string|undefined|null) {
+  const sender=from?.split('<')[0]?.trim();
+  return sender?.match(/[\p{L}\p{N}]+/gu)?.slice(0,2).map(word=>Array.from(word)[0]).join('').toLocaleUpperCase('de') || '•';
+}
 
 function plainText(html:string) {
   const template=document.createElement('template');
@@ -151,6 +156,10 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   const [composeVersion,setComposeVersion]=useState(0);
   const [reply,setReply]=useState<ReplyTarget>();
   const replyComposer=useRef<HTMLElement>(null);
+  const noteField=useRef<HTMLTextAreaElement>(null);
+  const focusNoteAfterSave=useRef(false);
+  const [noteText,setNoteText]=useState('');
+  const [noteError,setNoteError]=useState('');
   const draft=useRef<MessageDraft|undefined>(undefined);
   const [locked,setLocked]=useState(false);
   const [canReplay,setCanReplay]=useState(false);
@@ -159,8 +168,14 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   const retryVersion=useRef(0);
   const retryInProgress=useRef<string|undefined>(undefined);
   useEffect(()=>{
-    if(reply) replyComposer.current?.querySelector('textarea')?.focus();
+    if(reply) replyComposer.current?.querySelector<HTMLElement>(reply.forwardBody===undefined?'textarea':'input[type=email]')?.focus();
   },[reply]);
+  useEffect(()=>{
+    if(!locked && focusNoteAfterSave.current) {
+      focusNoteAfterSave.current=false;
+      noteField.current?.focus({preventScroll:true});
+    }
+  },[locked,noteText]);
 
   function closeReply(target:ReplyTarget) {
     setReply(undefined);
@@ -181,8 +196,13 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
 
   function resetDraft() {
     const previous=draft.current?.reply;
+    const note=draft.current?.note;
     clearDraft();
-    if(previous) closeReply(previous);
+    if(note) {
+      focusNoteAfterSave.current=true;
+      setNoteText('');
+      setNoteError('');
+    } else if(previous) closeReply(previous);
     else {
       setFreeFile(undefined);
       setComposeVersion(value=>value+1);
@@ -227,7 +247,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
     setReplayError('');
     let result;
     try {
-      result=await request('messages',current.payload);
+      result=await request(current.note?'notes':'messages',current.payload);
     } catch(error) {
       if(isCurrent() && draft.current?.id===current.id) {
         // A gateway error can arrive after Desk has already accepted the message.
@@ -243,12 +263,13 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
     if(isCurrent() && draft.current?.id===current.id) resetDraft();
   }
 
-  async function sendMessage(values:Record<string,string>,file:File|undefined,target?:ReplyTarget) {
+  async function sendMessage(values:Record<string,string>,file:File|undefined,target?:ReplyTarget,note=false) {
     return run(async isCurrent=>{
       if(draft.current) return;
       if(file && file.size>5_242_880) throw new Error('PDF-Anhänge sind bis 5 MB möglich.');
       const message:Record<string,unknown>={...values,id:crypto.randomUUID()};
-      if(target) {
+      if(note) message.ticketId=ticketId;
+      if(target && target.forwardBody===undefined) {
         message.recipient=target.recipient;
         message.replyArticleId=target.id;
       }
@@ -259,20 +280,20 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
           message.attachment={name:file.name,data:bytes.toBase64()};
         }
         if(!isCurrent()) return;
-        const current={id:String(message.id),reply:target,payload:message};
+        const current={id:String(message.id),note,reply:target,payload:message};
         draft.current=current;
         await deliver(current,isCurrent);
       } finally {
         if(isCurrent() && !draft.current) setLocked(false);
       }
-    },'Nachricht an Zammad übergeben.',{reportInlineError:true});
+    },note?'Interne Notiz gespeichert.':'Nachricht an Zammad übergeben.',{reportInlineError:true});
   }
 
   async function replayMessage() {
     const current=draft.current;
     if(!current || !canReplay) return;
     try {
-      await run(isCurrent=>deliver(current,isCurrent,true),'Nachricht an Zammad übergeben.',{reportInlineError:true});
+      await run(isCurrent=>deliver(current,isCurrent,true),current.note?'Interne Notiz gespeichert.':'Nachricht an Zammad übergeben.',{reportInlineError:true});
     } catch(error) {
       setReplayError(error instanceof Error ? error.message : 'Der Sendeversuch konnte nicht geprüft werden.');
     }
@@ -298,13 +319,16 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   const visibleArticles=term ? articles.filter(article=>
     article.subject.toLowerCase().includes(term) || article.body.toLowerCase().includes(term)) : articles;
   const updatedReply=reply && articles.find(article=>article.id===reply.id)?.reply;
-  const replyChanged=Boolean(reply && conversation && (!updatedReply || updatedReply.recipient!==reply.recipient));
+  const forwarding=reply?.forwardBody!==undefined;
+  const replyChanged=Boolean(reply && !forwarding && conversation && (!updatedReply || updatedReply.recipient!==reply.recipient));
   const ticket=conversation?.ticket;
+  const requester=articles.find(article=>article.kind==='incoming-email' && article.from)?.from;
   const ticketIdHint=useId();
   const dialogTitle=dialog?.kind==='link'?'Ticket verknüpfen':'Ticket anlegen';
 
-  return <div className="communication-layout">
-    <Panel title={ticket?.title || 'Kommunikation'} focusRef={zammadPanel}
+  return <div className={ticketId && zammad ? 'communication-layout communication-ticket' : 'communication-layout'}>
+    <Panel title={ticket?.title || 'Kommunikation'} subtitle={ticket ? 'Zammad-Ticket #'+ticket.number : undefined} focusRef={zammadPanel}
+      headingIcon={requester ? <span className="communication-avatar communication-requester" aria-hidden="true">{articleInitials(requester)}</span> : undefined}
       action={ticketId && zammad ? <button type="button" onClick={()=>void refresh()} disabled={loading}>Verlauf aktualisieren</button> : undefined}>
       <div className="panel-body communication-workspace">
         {!ticketId ? <>
@@ -328,103 +352,145 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
             ]} submit={v=>save(()=>run(()=>request('tickets',v),'Ticket angelegt.',{reportInlineError:true}))}/>
           }</CommunicationDialog>}
         </> : !zammad ? <p className="subtle">Zammad ist nicht eingerichtet. Der Ticketverlauf kann gerade nicht geladen werden.</p> : <>
-          {loading && <p role="status" className="subtle">Ticketverlauf wird geladen …</p>}
-          <section className="communication-history" aria-label="Ticketverlauf" aria-busy={loading}>
-            {problem && <p role="alert" className="inline-error">{problem}</p>}
-            {(articles.length>0 || search) && <div className="communication-search">
-              <label className="filter"><span>Ticketverlauf durchsuchen</span>
-                <input type="search" value={search} onChange={event=>setSearch(event.target.value)}/>
-              </label>
-              {term && visibleArticles.length>0 && <p className="subtle" role="status">{visibleArticles.length} von {articles.length} Nachrichten</p>}
-            </div>}
-            {visibleArticles.length>0 && <ol className="thread">{visibleArticles.map(article=><li key={article.id} className={article.kind==='internal-note' || article.kind==='internal'?'communication-internal':undefined}>
-              <p className="communication-kind">{articleKinds[article.kind ?? 'unknown']}</p>
-              <div><strong>{article.subject}</strong><small>{[article.from,article.created_at && moment(article.created_at)].filter(Boolean).join(' · ')}</small></div>
-              <p>{article.body}</p>
-              {article.attachments?.map((attachment,index)=><small className="communication-attachment" key={index}>{attachment.filename}</small>)}
-              {article.reply && <div className="communication-article-actions">
-                <button type="button" aria-expanded={reply?.id===article.id} disabled={locked || Boolean(reply)} onClick={event=>{
-                  if(article.reply) setReply({...article.reply,id:article.id,originalSubject:article.subject,trigger:event.currentTarget});
-                }}>Antworten</button>
+          <div className="communication-scroll" role="region" aria-label="Ticketaktivität" tabIndex={0}>
+            {loading && <p role="status" className="subtle">Ticketverlauf wird geladen …</p>}
+            <section className="communication-history" aria-label="Ticketverlauf" aria-busy={loading}>
+              {problem && <p role="alert" className="inline-error">{problem}</p>}
+              {(articles.length>0 || search) && <div className="communication-search">
+                <label className="filter"><span>Ticketverlauf durchsuchen</span>
+                  <input type="search" value={search} onChange={event=>setSearch(event.target.value)}/>
+                </label>
+                {term && visibleArticles.length>0 && <p className="subtle" role="status">{visibleArticles.length} von {articles.length} Nachrichten</p>}
               </div>}
-            </li>)}</ol>}
-            {term && articles.length>0 && visibleArticles.length===0 && <p className="subtle" role="status">Keine Nachrichten für diese Suche.</p>}
-            {conversation && articles.length===0 && !loading && !problem && <p className="subtle">Dieses Ticket enthält noch keine Nachrichten.</p>}
-          </section>
-          <div className="communication-compose" hidden={Boolean(reply)}><Expand title="Antwort schreiben"><Form key={composeVersion} disabled={locked && !reply} caption="Über Zammad senden" fields={[
-              {name:'recipient',label:'Empfänger',type:'email',required:true},{name:'subject',label:'Betreff',required:true},{name:'body',label:'Nachricht',type:'textarea',required:true},
-            ]} submit={values=>sendMessage(values,freeFile)}>
-              <label className="wide"><span>PDF-Anhang</span><input type="file" disabled={locked && !reply} accept="application/pdf,.pdf" onChange={event=>setFreeFile(event.target.files?.[0])}/></label>
-            </Form>{!reply && draftActions}</Expand></div>
-          {reply && <section ref={replyComposer} className="communication-reply" aria-label="E-Mail-Antwort">
-            <header><h3>Antwort auf „{reply.originalSubject}“</h3>
-              <button type="button" disabled={locked} onClick={()=>closeReply(reply)}>Antwort schließen</button>
-            </header>
-            <p className="subtle">Externe E-Mail an <strong>{reply.recipient}</strong></p>
-            {replyChanged && !locked && <div className="communication-replay">
-              <p role="status">{updatedReply ? 'Die Antwortadresse im Ticket hat sich geändert.' : 'Diese Nachricht kann nicht mehr direkt beantwortet werden.'}</p>
-              {updatedReply && <button type="button" onClick={()=>setReply({...reply,recipient:updatedReply.recipient})}>
-                Adresse {updatedReply.recipient} übernehmen
-              </button>}
-            </div>}
-            <Form caption="E-Mail über Zammad senden" busyCaption="E-Mail wird gesendet …" disabled={locked || replyChanged} fields={[
-              {name:'subject',label:'Betreff',value:reply.subject,required:true},{name:'body',label:'Nachricht',type:'textarea',required:true},
-            ]} submit={values=>sendMessage(values,replyFile,reply)}>
-              <label className="wide"><span>PDF-Anhang</span><input type="file" disabled={locked || replyChanged} accept="application/pdf,.pdf" onChange={event=>setReplyFile(event.target.files?.[0])}/></label>
-            </Form>
-            {draftActions}
-          </section>}
-          {(conversation?.outgoing.length ?? 0) > 0 && <div className="communication-outgoing"><h3>Sendeversuche</h3><Table headers={['Sendeversuch','Status','Aktion']} rows={(conversation?.outgoing ?? []).map((entry:Row)=>({
-              key:entry.id,cells:[entry.subject,({sent:'An Zammad übergeben',pending:'Ausstehend',failed:'Abgelehnt',unknown:'Ausgang unklar'} as Record<string,string>)[entry.status],
-                entry.status==='sent' ? '–' : <div className="actions">
-                  <button onClick={()=>run(async(isCurrent)=>{
-                    const version=retryVersion.current;
-                    const result=await request(`outgoing/${entry.id}`,{retry:false});
-                    if(!isCurrent()) return;
-                    if(result.status==='failed' && retryVersion.current===version && retryInProgress.current!==entry.id) {
-                      setUnresolvedRetry(current=>current===entry.id ? undefined : current);
-                    }
-                    await refresh();
-                  })}>Prüfen</button>
-                  <button onClick={event=>setConfirmation({
-                    actionKey:`${outgoingKey}${entry.id}`,
-                    title:'Zammad-Sendeversuch wiederholen',
-                    description:`Desk sucht im Ticketverlauf nach der Referenz des Sendeversuchs „${entry.subject}“. Fehlt ein Versandnachweis und ist eine Wiederholung zulässig, sendet Zammad die Nachricht erneut.`,
-                    actionLabel:'Erneut senden',
-                    trigger:event.currentTarget,
-                    submit:async isCurrent=>{
-                      const protectsDraft=draft.current?.id===entry.id;
-                      if(protectsDraft) {
-                        retryVersion.current++;
-                        retryInProgress.current=entry.id;
-                        setUnresolvedRetry(entry.id);
+              {visibleArticles.length>0 && <ol className="thread">{visibleArticles.map(article=><li key={article.id} data-kind={article.kind ?? 'unknown'}>
+                <span className="communication-avatar" aria-hidden="true">{articleInitials(article.from)}</span>
+                <article className="communication-message">
+                  <div className="communication-bubble">
+                    <span className="communication-kind">{articleKinds[article.kind ?? 'unknown']}</span>
+                    <strong>{article.subject}</strong>
+                    {article.from && <small className="communication-sender">{article.from}</small>}
+                    <p>{article.body}</p>
+                    {article.attachments?.map((attachment,index)=><small className="communication-attachment" key={index}>{attachment.filename}</small>)}
+                  </div>
+                  <footer className="communication-article-actions">
+                    {article.reply && <button type="button" aria-expanded={reply?.id===article.id && !forwarding} disabled={locked || Boolean(reply)} onClick={event=>{
+                      if(article.reply) setReply({...article.reply,id:article.id,originalSubject:article.subject,trigger:event.currentTarget});
+                    }}>Antworten</button>}
+                    {(article.kind==='incoming-email' || article.kind==='outgoing-email') && <button type="button"
+                      aria-expanded={reply?.id===article.id && forwarding} disabled={locked || Boolean(reply)} onClick={event=>setReply({
+                        id:article.id,originalSubject:article.subject,recipient:'',subject:('WG: '+article.subject).slice(0,160),
+                        trigger:event.currentTarget,forwardBody:'\n\n'+article.body,
+                      })}>Text weiterleiten</button>}
+                    <button type="button" disabled={locked} onClick={()=>{
+                      const excerpt=article.body.length>800 ? article.body.slice(0,800)+' …' : article.body;
+                      const quote=[article.subject,...excerpt.split(/\r?\n/)].map(line=>'> '+line).join('\n');
+                      const next=noteText ? noteText+'\n\n'+quote : quote;
+                      if(next.length<=5000) {
+                        setNoteText(next);
+                        setNoteError('');
+                      } else setNoteError('Das Zitat passt nicht mehr in die Notiz mit höchstens 5.000 Zeichen.');
+                      noteField.current?.focus();
+                    }}>In Notiz zitieren</button>
+                  </footer>
+                  {article.created_at && <time dateTime={article.created_at}>{moment(article.created_at)}</time>}
+                </article>
+              </li>)}</ol>}
+              {term && articles.length>0 && visibleArticles.length===0 && <p className="subtle" role="status">Keine Nachrichten für diese Suche.</p>}
+              {conversation && articles.length===0 && !loading && !problem && <p className="subtle">Dieses Ticket enthält noch keine Nachrichten.</p>}
+            </section>
+            {(conversation?.outgoing.length ?? 0) > 0 && <div className="communication-outgoing"><h3>Sendeversuche</h3><Table headers={['Sendeversuch','Status','Aktion']} rows={(conversation?.outgoing ?? []).map((entry:Row)=>({
+                key:entry.id,cells:[entry.subject,({sent:'An Zammad übergeben',pending:'Ausstehend',failed:'Abgelehnt',unknown:'Ausgang unklar'} as Record<string,string>)[entry.status],
+                  entry.status==='sent' ? '–' : <div className="actions">
+                    <button onClick={()=>run(async(isCurrent)=>{
+                      const version=retryVersion.current;
+                      const result=await request(`outgoing/${entry.id}`,{retry:false});
+                      if(!isCurrent()) return;
+                      if(result.status==='failed' && retryVersion.current===version && retryInProgress.current!==entry.id) {
+                        setUnresolvedRetry(current=>current===entry.id ? undefined : current);
                       }
-                      try {
-                        const result=await request(`outgoing/${entry.id}`,{retry:true});
-                        if(!isCurrent()) return;
-                        await refresh();
-                        if(result.status==='failed') {
-                          if(protectsDraft) setUnresolvedRetry(undefined);
-                          throw new Error('Zammad hat den Sendeversuch abgelehnt.');
-                        }
-                        if(result.status!=='sent') throw new Error('Der Ausgang des Sendeversuchs ist weiterhin unklar.');
-                      } finally {
+                      await refresh();
+                    })}>Prüfen</button>
+                    <button onClick={event=>setConfirmation({
+                      actionKey:`${outgoingKey}${entry.id}`,
+                      title:'Zammad-Sendeversuch wiederholen',
+                      description:`Desk sucht im Ticketverlauf nach der Referenz des Sendeversuchs „${entry.subject}“. Fehlt ein Versandnachweis und ist eine Wiederholung zulässig, sendet Zammad die Nachricht erneut.`,
+                      actionLabel:'Erneut senden',
+                      trigger:event.currentTarget,
+                      submit:async isCurrent=>{
+                        const protectsDraft=draft.current?.id===entry.id;
                         if(protectsDraft) {
-                          retryInProgress.current=undefined;
                           retryVersion.current++;
+                          retryInProgress.current=entry.id;
+                          setUnresolvedRetry(entry.id);
                         }
-                      }
-                    },
-                    feedback:'Sendeversuch bestätigt.',
-                  })}>Erneut senden</button>
-                </div>],
-            }))}/></div>}
+                        try {
+                          const result=await request(`outgoing/${entry.id}`,{retry:true});
+                          if(!isCurrent()) return;
+                          await refresh();
+                          if(result.status==='failed') {
+                            if(protectsDraft) setUnresolvedRetry(undefined);
+                            throw new Error('Zammad hat den Sendeversuch abgelehnt.');
+                          }
+                          if(result.status!=='sent') throw new Error('Der Ausgang des Sendeversuchs ist weiterhin unklar.');
+                        } finally {
+                          if(protectsDraft) {
+                            retryInProgress.current=undefined;
+                            retryVersion.current++;
+                          }
+                        }
+                      },
+                      feedback:'Sendeversuch bestätigt.',
+                    })}>Erneut senden</button>
+                  </div>],
+              }))}/></div>}
+          </div>
+          <div className="communication-editors">
+            <div className="communication-compose" hidden={Boolean(reply)}><Expand title="Antwort schreiben"><Form key={composeVersion} disabled={locked && !reply} caption="Über Zammad senden" fields={[
+                {name:'recipient',label:'Empfänger',type:'email',required:true},{name:'subject',label:'Betreff',required:true},{name:'body',label:'Nachricht',type:'textarea',required:true},
+              ]} submit={values=>sendMessage(values,freeFile)}>
+                <label className="wide"><span>PDF-Anhang</span><input type="file" disabled={locked && !reply} accept="application/pdf,.pdf" onChange={event=>setFreeFile(event.target.files?.[0])}/></label>
+              </Form>{!reply && !draft.current?.note && draftActions}</Expand></div>
+            {reply && <section ref={replyComposer} className="communication-reply" aria-label={forwarding?'E-Mail-Weiterleitung':'E-Mail-Antwort'}>
+              <header><h3>{forwarding?'Weiterleitung von':'Antwort auf'} „{reply.originalSubject}“</h3>
+                <button type="button" disabled={locked} onClick={()=>closeReply(reply)}>{forwarding?'Weiterleitung schließen':'Antwort schließen'}</button>
+              </header>
+              {forwarding ? <p className="subtle">Überprüfe den Text und gib die Empfängeradresse ein.</p>
+                : <p className="subtle">Externe E-Mail an <strong>{reply.recipient}</strong></p>}
+              {replyChanged && !locked && <div className="communication-replay">
+                <p role="status">{updatedReply ? 'Die Antwortadresse im Ticket hat sich geändert.' : 'Diese Nachricht kann nicht mehr direkt beantwortet werden.'}</p>
+                {updatedReply && <button type="button" onClick={()=>setReply({...reply,recipient:updatedReply.recipient})}>
+                  Adresse {updatedReply.recipient} übernehmen
+                </button>}
+              </div>}
+              <Form caption="E-Mail über Zammad senden" busyCaption="E-Mail wird gesendet …" disabled={locked || replyChanged} fields={[
+                ...(forwarding ? [{name:'recipient',label:'Empfänger',type:'email',required:true}] : []),
+                {name:'subject',label:'Betreff',value:reply.subject,required:true},{name:'body',label:'Nachricht',type:'textarea',value:reply.forwardBody,required:true},
+              ]} submit={values=>sendMessage(values,replyFile,reply)}>
+                <label className="wide"><span>PDF-Anhang</span><input type="file" disabled={locked || replyChanged} accept="application/pdf,.pdf" onChange={event=>setReplyFile(event.target.files?.[0])}/></label>
+              </Form>
+              {!draft.current?.note && draftActions}
+            </section>}
+            <form className="communication-note" onSubmit={event=>{
+              event.preventDefault();
+              setNoteError('');
+              if(!noteText.trim()) return;
+              void sendMessage({body:noteText},undefined,undefined,true).catch(error=>{
+                setNoteError(error instanceof Error ? error.message : 'Die Notiz konnte nicht gespeichert werden.');
+              });
+            }}>
+              <label><span>Interne Notiz</span><textarea ref={noteField} value={noteText} maxLength={5000} required
+                disabled={locked} placeholder="Notiz für das Team schreiben …" onChange={event=>setNoteText(event.target.value)}/></label>
+              {noteError && <p className="inline-error" role="alert">{noteError}</p>}
+              {draft.current?.note && draftActions}
+              <div className="form-action"><button type="submit" className="primary" disabled={locked || !noteText.trim()}>Notiz hinzufügen</button></div>
+            </form>
+          </div>
         </>}
       </div>
     </Panel>
     <aside className="communication-details" aria-label="Vorgangsdetails">
-      {ticketId && <Panel title="Zammad-Ticket">
-        <div className="panel-body communication-reference">
+      {ticketId && <Panel title="Ticketdetails">
+        <div className="panel-body communication-reference communication-ticket-details">
           {ticket ? <a href={ticket.url} target="_blank" rel="noreferrer">Ticket {ticket.number} öffnen</a> : <p className="subtle">Ticket-ID {ticketId}</p>}
           {!conversation?.outgoing.length && <button type="button" disabled={zammad && !conversation && !problem}
             onClick={event=>setConfirmation({

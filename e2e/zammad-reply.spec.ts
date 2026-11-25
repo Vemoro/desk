@@ -1,6 +1,55 @@
 import { expect, test } from '@playwright/test';
 import { project, signIn } from './session';
 
+test('Interne Notiz bleibt geöffnet und kann einen Beitrag zitieren',async({page})=>{
+  const path='**/api/v1/projects/notiz/zammad';
+  const articles=[{id:1,kind:'incoming-email',subject:'Anfrage',body:'Termin am Freitag.'}];
+  await page.route('**/api/v1/projects?*',route=>route.fulfill({json:[{id:'notiz',name:'Büroinstallation',stage:'planning',zammad_ticket_id:42}]}));
+  await page.route('**/api/v1/integrations',route=>route.fulfill({json:{zammad:true,haben:false}}));
+  const outgoing:object[]=[];
+  let forwarded=false;
+  await page.route(path,route=>route.fulfill({json:{
+    ticket:{number:'42',title:'Büroinstallation',url:'https://zammad.example.test/'},articles,outgoing,
+  }}));
+  await page.route(path+'/notes',route=>{
+    const {id,ticketId,body}=route.request().postDataJSON();
+    expect(route.request().postDataJSON()).toEqual({id,ticketId:42,body:'Abstimmen\n\n> Anfrage\n> Termin am Freitag.'});
+    expect(ticketId).toBe(42);
+    articles.push({id:2,kind:'internal-note',subject:'Neue interne Notiz',body});
+    outgoing.push({id,status:'sent',subject:'Interne Notiz'});
+    return route.fulfill({status:201,json:{id,status:'sent'}});
+  });
+  await page.route(path+'/messages',route=>{
+    const payload=route.request().postDataJSON();
+    expect(payload).toEqual({id:payload.id,recipient:'montage@example.test',subject:'WG: Anfrage',body:'Termin am Freitag.'});
+    forwarded=true;
+    outgoing.push({id:payload.id,status:'sent',subject:payload.subject});
+    return route.fulfill({status:201,json:{id:payload.id,status:'sent'}});
+  });
+  await signIn(page);
+  await project(page,'Büroinstallation');
+  await page.getByRole('button',{name:'Kommunikation',exact:true}).click();
+  const note=page.getByRole('textbox',{name:'Interne Notiz'});
+  await expect(note).toBeVisible();
+  await note.fill('Abstimmen');
+  await page.getByRole('button',{name:'In Notiz zitieren'}).click();
+  await expect(note).toBeFocused();
+  await page.getByRole('button',{name:'Text weiterleiten'}).click();
+  const forwarding=page.getByRole('region',{name:'E-Mail-Weiterleitung'});
+  await expect(forwarding.getByRole('textbox',{name:'Empfänger'})).toBeEmpty();
+  await expect(forwarding.getByRole('textbox',{name:'Nachricht'})).toHaveValue('\n\nTermin am Freitag.');
+  await forwarding.getByRole('textbox',{name:'Empfänger'}).fill('montage@example.test');
+  await forwarding.getByRole('textbox',{name:'Nachricht'}).fill('Termin am Freitag.');
+  await forwarding.getByRole('button',{name:'E-Mail über Zammad senden'}).click();
+  await expect(forwarding).toBeHidden();
+  expect(forwarded).toBe(true);
+  await page.getByRole('button',{name:'Notiz hinzufügen'}).click();
+  await expect(page.getByText('Neue interne Notiz',{exact:true})).toBeVisible();
+  await expect(note).toBeVisible();
+  await expect(note).toBeEmpty();
+  await expect(note).toBeFocused();
+});
+
 test('Zammad beantwortet die gewählte E-Mail mit nachvollziehbarem Empfänger und erhält den Entwurf bei einem Fehler',async({page})=>{
   const name='Büroinstallation';
   const path='**/api/v1/projects/reply-test/zammad';
@@ -46,6 +95,9 @@ test('Zammad beantwortet die gewählte E-Mail mit nachvollziehbarem Empfänger u
   await signIn(page);
   await project(page,name);
   await page.getByRole('button',{name:'Kommunikation',exact:true}).click();
+  const ticket=page.getByRole('region',{name:'Anfrage des Musterbüros',exact:true});
+  await expect(ticket.getByText('Zammad-Ticket #1042',{exact:true})).toBeVisible();
+  await expect(page.getByRole('complementary',{name:'Vorgangsdetails'}).getByRole('link',{name:'Ticket 1042 öffnen'})).toBeVisible();
   const history=page.getByRole('region',{name:'Ticketverlauf'});
   await expect(history.getByText('Interne Notiz',{exact:true})).toBeVisible();
   await expect(history.getByText('Ausgehende E-Mail',{exact:true})).toBeVisible();
