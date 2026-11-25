@@ -56,7 +56,9 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 if [[ -z "${DESK_RUNTIME_IMAGE:-}" ]]; then
-  git archive --format=tar "$commit" | docker build --build-arg "DESK_BUILD_COMMIT=$commit" --tag "$image" -
+  export DESK_RUNTIME_TEST_SOURCE_URL="https://code.example.test/desk/$commit.tar.gz"
+  git archive --format=tar "$commit" | docker build --build-arg "DESK_BUILD_COMMIT=$commit" \
+    --build-arg "DESK_SOURCE_URL=$DESK_RUNTIME_TEST_SOURCE_URL" --tag "$image" -
 fi
 
 echo "Desk-Lizenz im Runtime-Image"
