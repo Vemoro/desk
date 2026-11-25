@@ -40,16 +40,16 @@ test('Zammad-Zuordnung verlangt Bestätigung und erlaubt erneutes Verknüpfen',a
   await page.getByRole('button',{name:'Kommunikation',exact:true}).click();
   const unlink=page.getByRole('button',{name:'Ticketverknüpfung lösen'});
   await expect(page.getByRole('link',{name:'Ticket TEST-42 öffnen'})).toBeVisible();
-  page.once('dialog',async dialog=>{
-    expect(dialog.message()).toContain('42');
-    await dialog.dismiss();
-  });
   await unlink.click();
+  const confirmation=page.getByRole('dialog',{name:'Ticketverknüpfung lösen'});
+  await expect(confirmation).toContainText('TEST-42');
+  await confirmation.getByRole('button',{name:'Abbrechen'}).click();
+  await expect(unlink).toBeFocused();
   expect(submitted).toEqual([]);
   await expect(page.getByRole('link',{name:'Ticket TEST-42 öffnen'})).toBeVisible();
 
-  page.once('dialog',dialog=>dialog.accept());
   await unlink.click();
+  await confirmation.getByRole('button',{name:'Verknüpfung lösen',exact:true}).click();
   await expect(page.getByRole('status')).toHaveText('Ticketverknüpfung gelöst.');
   expect(submitted).toEqual([{id:42}]);
   await expect(page.getByRole('link',{name:'Ticket TEST-42 öffnen'})).toHaveCount(0);

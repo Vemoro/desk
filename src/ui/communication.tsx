@@ -1,4 +1,4 @@
-import { useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useContext, useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { api, moment, type Row } from './client';
 import { ConfirmationRequests, ConfirmDialog, Expand, Form, Panel, Table, type Confirmation, type Run } from './widgets';
 
@@ -81,6 +81,13 @@ function ExternalReference({project,run}:{project:Row;run:Run}) {
 }
 
 export function Communication({project,zammad,run}:{project:Row;zammad:boolean;run:Run}) {
+  const workspace=useRef<HTMLElement>(null);
+  const ticket=project.zammad_ticket_id ?? null;
+  const previousTicket=useRef(ticket);
+  useEffect(()=>{
+    if(previousTicket.current!==ticket) workspace.current?.focus({preventScroll:true});
+    previousTicket.current=ticket;
+  },[ticket]);
   const reference=<ExternalReference key={project.id} project={project} run={run}/>;
   if (!zammad && !project.zammad_ticket_id) {
     return <div className="communication-layout">
@@ -89,16 +96,17 @@ export function Communication({project,zammad,run}:{project:Row;zammad:boolean;r
     </div>;
   }
   return <ZammadCommunication key={project.id+':'+(project.zammad_ticket_id ?? '')}
-    project={project} zammad={zammad} run={run} reference={reference}/>;
+    project={project} zammad={zammad} run={run} reference={reference} zammadPanel={workspace}/>;
 }
 
-function ZammadCommunication({project,zammad,run,reference}:{project:Row;zammad:boolean;run:Run;reference:ReactNode}) {
+function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
+  project:Row; zammad:boolean; run:Run; reference:ReactNode; zammadPanel:RefObject<HTMLElement|null>;
+}) {
   const confirmationRequests=useContext(ConfirmationRequests);
   const outgoingKey='zammad-outgoing:'+project.id+':';
   const ticketId=project.zammad_ticket_id ? Number(project.zammad_ticket_id) : null;
   const [dialog,setDialog]=useState<DialogState>();
   const [confirmation,setConfirmation]=useState<Confirmation>();
-  const zammadPanel=useRef<HTMLElement>(null);
   const [conversation,setConversation]=useState<Conversation|null>(null);
   const [problem,setProblem]=useState('');
   const [loading,setLoading]=useState(Boolean(zammad && ticketId));
@@ -224,11 +232,16 @@ function ZammadCommunication({project,zammad,run,reference}:{project:Row;zammad:
       {ticketId && <Panel title="Zammad-Ticket">
         <div className="panel-body communication-reference">
           {ticket ? <a href={ticket.url} target="_blank" rel="noreferrer">Ticket {ticket.number} öffnen</a> : <p className="subtle">Ticket-ID {ticketId}</p>}
-          {!conversation?.outgoing.length && <button type="button" disabled={zammad && !conversation && !problem} onClick={()=>{
-            if(window.confirm('Verknüpfung mit Zammad-Ticket '+ticketId+' lösen?')) {
-              void run(()=>request('unlink',{id:ticketId}),'Ticketverknüpfung gelöst.');
-            }
-          }}>Ticketverknüpfung lösen</button>}
+          {!conversation?.outgoing.length && <button type="button" disabled={zammad && !conversation && !problem}
+            onClick={event=>setConfirmation({
+              actionKey:'zammad-unlink:'+project.id+':'+ticketId,
+              title:'Ticketverknüpfung lösen',
+              description:'Die Zuordnung zu Zammad-Ticket '+(ticket?.number ?? ticketId)+' wird aus dem Projekt entfernt. Das Ticket bleibt in Zammad erhalten.',
+              actionLabel:'Verknüpfung lösen',
+              trigger:event.currentTarget,
+              submit:()=>request('unlink',{id:ticketId}),
+              feedback:'Ticketverknüpfung gelöst.',
+            })}>Ticketverknüpfung lösen</button>}
         </div>
       </Panel>}
       {reference}
