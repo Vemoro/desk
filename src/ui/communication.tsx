@@ -238,11 +238,12 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
       focusNoteAfterSave.current=false;
       noteField.current?.focus({preventScroll:true});
     }
-  },[locked,noteText,composing]);
+  },[locked,noteText]);
 
   function closeReply(target:ReplyTarget) {
     setReply(undefined);
     setReplyFile(undefined);
+    setComposing(false);
     requestAnimationFrame(()=>{
       if(target.trigger.isConnected && !target.trigger.disabled) target.trigger.focus();
       else zammadPanel.current?.focus({preventScroll:true});
@@ -466,7 +467,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
                       } else setNoteError('Das Zitat passt nicht mehr in die Notiz mit höchstens 5.000 Zeichen.');
                       if(composing) {
                         setComposing(false);
-                        focusNoteAfterSave.current=true;
+                        requestAnimationFrame(()=>noteField.current?.focus());
                       } else noteField.current?.focus();
                     }}>In Notiz zitieren</button>
                   </footer>
@@ -521,7 +522,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
                   </div>],
               }))}/></div>}
           </div>
-          <div className="communication-editors" aria-label="Beitrag verfassen">
+          <section className="communication-editors" aria-label="Beitrag verfassen">
             <section className="communication-reply" aria-label="Neue E-Mail" ref={freeComposer} hidden={!composing || Boolean(reply)}>
               <header><h3>Neue E-Mail</h3>
                 <button type="button" disabled={locked} onClick={()=>{
@@ -571,7 +572,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
                 <button type="submit" className="primary" disabled={locked || !noteText.trim()}>Notiz hinzufügen</button>
               </div>
             </form>
-          </div>
+          </section>
         </>}
       </div>
     </Panel>

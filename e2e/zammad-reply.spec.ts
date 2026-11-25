@@ -32,8 +32,15 @@ test('Interne Notiz bleibt geöffnet und kann einen Beitrag zitieren',async({pag
   const note=page.getByRole('textbox',{name:'Interne Notiz'});
   await expect(note).toBeVisible();
   await note.fill('Abstimmen');
+  await page.setViewportSize({width:390,height:844});
+  const compose=page.getByRole('button',{name:'Antwort schreiben',exact:true});
+  const freeMessage=page.getByRole('region',{name:'Neue E-Mail'}).getByRole('textbox',{name:'Nachricht'});
+  await compose.click();
+  await freeMessage.fill('Separater E-Mail-Entwurf');
   await page.getByRole('button',{name:'In Notiz zitieren'}).click();
   await expect(note).toBeFocused();
+  await expect(note).toBeInViewport({ratio:1});
+  await expect(freeMessage).toBeHidden();
   await page.getByRole('button',{name:'Text weiterleiten'}).click();
   const forwarding=page.getByRole('region',{name:'E-Mail-Weiterleitung'});
   await expect(note).toBeHidden();
@@ -49,6 +56,8 @@ test('Interne Notiz bleibt geöffnet und kann einen Beitrag zitieren',async({pag
   await expect(note).toBeVisible();
   await expect(note).toBeEmpty();
   await expect(note).toBeFocused();
+  await compose.click();
+  await expect(freeMessage).toHaveValue('Separater E-Mail-Entwurf');
 });
 
 test('Zammad beantwortet die gewählte E-Mail mit nachvollziehbarem Empfänger und erhält den Entwurf bei einem Fehler',async({page})=>{
@@ -121,9 +130,11 @@ test('Zammad beantwortet die gewählte E-Mail mit nachvollziehbarem Empfänger u
   const editor=page.getByRole('region',{name:'E-Mail-Antwort'});
   await expect(editor.getByLabel('Nachricht',{exact:true})).toBeFocused();
   await expect(newMessage).toBeHidden();
+  await expect(note).toBeHidden();
   await expect(editor.getByText('antwort@example.test',{exact:true})).toBeVisible();
   await editor.getByRole('button',{name:'Antwort schließen'}).click();
   await expect(reply).toBeFocused();
+  await expect(note).toHaveValue('Interner Entwurf');
   await reply.click();
   await expect(editor.getByLabel('Betreff')).toHaveValue('Erste Anfrage');
   await editor.getByLabel('Nachricht',{exact:true}).fill('Bitte am Haupteingang melden.');
@@ -163,7 +174,9 @@ test('Zammad beantwortet die gewählte E-Mail mit nachvollziehbarem Empfänger u
   await editor.getByRole('button',{name:'E-Mail über Zammad senden'}).click();
   await expect(editor).toBeHidden();
   await expect(page.getByRole('region',{name:'Anfrage des Musterbüros'})).toBeFocused();
-  await expect(page.getByLabel('Nachricht',{exact:true})).toHaveValue('Separater Entwurf');
+  await expect(note).toHaveValue('Interner Entwurf');
+  await compose.click();
+  await expect(newMessage.getByRole('textbox',{name:'Nachricht'})).toHaveValue('Separater Entwurf');
   await newMessage.getByRole('button',{name:'Zur internen Notiz'}).click();
   await expect(note).toHaveValue('Interner Entwurf');
   expect(outbound).toHaveLength(4);
