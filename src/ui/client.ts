@@ -16,9 +16,12 @@ export class ApiError extends Error {
   constructor(public status:number,message:string) { super(message); }
 }
 
-export async function api<T = any>(path:string,method='GET',input?:unknown):Promise<T> {
+export async function api<T = any>(path:string,method='GET',input?:unknown,requestKey?:string):Promise<T> {
+  const headers=new Headers();
+  if(input!==undefined) headers.set('Content-Type','application/json');
+  if(requestKey!==undefined) headers.set('Idempotency-Key',requestKey);
   const response = await fetch(`/api/v1/${path}`,{
-    method, headers:input === undefined ? undefined : {'Content-Type':'application/json'},
+    method, headers,
     body:input === undefined ? undefined : JSON.stringify(input),
   });
   const result = await response.json();
