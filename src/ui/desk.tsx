@@ -416,6 +416,7 @@ function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
   const bookings=data.reservations.filter((row)=>row.item_id&&(row.status==='firm'||row.checked_out>0));
   const [projectFilter,setProjectFilter]=useState('');
   const [locationFilter,setLocationFilter]=useState('');
+  const [checkoutItem,setCheckoutItem]=useState('');
   const [bookingId,setBookingId]=useState('');
   const [correctionId,setCorrectionId]=useState('');
   const [stockQuery,setStockQuery]=useState('');
@@ -434,7 +435,9 @@ function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
   });
   const openCheckouts=bookings.filter((row)=>row.checked_out>0);
   const visibleCheckouts=openCheckouts.filter((row)=>
-    (!projectFilter || row.project_id===projectFilter) && (!locationFilter || row.location_id===locationFilter));
+    (!projectFilter || row.project_id===projectFilter)
+    && (!locationFilter || row.location_id===locationFilter)
+    && (!checkoutItem || row.item_id===checkoutItem));
   const bookingChoices=bookings.map((row)=>({
     value:row.id,
     label:`${name(data.projects,row.project_id)} · ${inventoryName(data.items,row.item_id)} · ${name(data.locations,row.location_id)} · ${moment(row.starts_at)} bis ${moment(row.ends_at)}`,
@@ -496,10 +499,16 @@ function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
             <option value="">Alle Lagerorte</option>
             {options(data.locations).map(({value,label})=><option key={value} value={value}>{label}</option>)}
           </select></label>
+          <label><span>Artikel filtern</span><select value={checkoutItem} onChange={(event)=>setCheckoutItem(event.target.value)}>
+            <option value="">Alle Artikel</option>
+            {data.items.map((item)=><option key={item.id} value={item.id}>
+              {inventoryLabel(item)}{item.code ? ` · ${item.code}` : ''}
+            </option>)}
+          </select></label>
         </div>
         <div className="actions">
-          <button type="button" disabled={!projectFilter && !locationFilter}
-            onClick={()=>{setProjectFilter('');setLocationFilter('');}}>Filter zurücksetzen</button>
+          <button type="button" disabled={!projectFilter && !locationFilter && !checkoutItem}
+            onClick={()=>{setProjectFilter('');setLocationFilter('');setCheckoutItem('');}}>Filter zurücksetzen</button>
         </div>
       </div>
       {visibleCheckouts.length ? <Table headers={['Projekt','Artikel','Lagerort','Ausgegeben']} rows={visibleCheckouts.map((row)=>{

@@ -95,6 +95,92 @@ async function warehouseReceipt(page:Page,quantity:number){
   return {receipt,item,original,corrections};
 }
 
+test('Offene Ausgaben nach Artikel filtern, ohne Bestand und Lagerbewegungen mitzufiltern',async({page})=>{
+  const checkout={project_id:'office',location_id:'ost',status:'firm',checked_out:1};
+  const movement={action:'issue',created_at:'2028-05-17T09:00:00Z',actor_id:'mira',quantity:1};
+  const fixtures={
+    projects:[
+      {id:'office',name:'Musterinstallation',stage:'running'},
+      {id:'events',name:'Musterbetreuung',stage:'running'},
+    ],
+    items:[
+      {id:'kit-a',name:'Montagekoffer',code:'MK-01',kind:'equipment'},
+      {id:'kit-b',name:'Montagekoffer',code:'MK-02',inventory_number:'INV-02',kind:'equipment'},
+      {id:'other',name:'Messgerät',kind:'equipment'},
+    ],
+    locations:[{id:'ost',name:'Musterlager Ost'},{id:'west',name:'Musterlager West'}],
+    reservations:[
+      {...checkout,id:'r1',item_id:'kit-a'},
+      {...checkout,id:'r2',item_id:'kit-b',project_id:'events',location_id:'west'},
+      {...checkout,id:'r3',item_id:'kit-a',project_id:'events',location_id:'west'},
+      {...checkout,id:'r4',item_id:'historical',checked_out:3},
+      {...checkout,id:'r5',item_id:null,checked_out:7},
+    ],
+    stock:[
+      {item_id:'kit-a',location_id:'ost',physical:5,reserved:1,free:4},
+      {item_id:'kit-b',location_id:'west',physical:5,reserved:2,free:3},
+    ],
+    movements:[
+      {...movement,id:'m1',item_id:'kit-a',project_id:'office',location_id:'ost'},
+      {...movement,id:'m2',item_id:'kit-b',project_id:'events',location_id:'west'},
+    ],
+  };
+  for(const [resource,json] of Object.entries(fixtures)){
+    const url='**/api/v1/'+resource+(resource==='stock'?'':'?*');
+    await page.route(url,route=>route.fulfill({json}));
+  }
+  await signIn(page);
+  await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Projektlager',exact:true}).click();
+  const panel=(name:string)=>page.locator('.panel').filter({has:page.getByRole('heading',{name,exact:true})});
+  const target=panel('Offene Ausgaben');
+  const articles=target.getByLabel('Artikel filtern');
+  const project=target.getByLabel('Projekt filtern');
+  const location=target.getByLabel('Lagerort filtern');
+  const rows=target.locator('tbody tr');
+  const stock=panel('Bestand je Lagerort');
+  const stockRows=stock.locator('tbody tr');
+  const moveRows=panel('Lagerbewegungen').locator('tbody tr');
+  const reset=target.getByRole('button',{name:'Filter zurücksetzen'});
+  await expect(rows).toHaveCount(4);
+  await expect(rows.filter({has:page.getByRole('cell',{name:'3',exact:true})}).getByRole('cell').nth(1)).toHaveText('–');
+  await expect(rows.getByRole('cell',{name:'7',exact:true})).toHaveCount(0);
+  await expect(articles.locator('option')).toHaveText(['Alle Artikel','Montagekoffer · MK-01','Montagekoffer (INV-02) · MK-02','Messgerät']);
+  await stock.getByLabel('Bestand suchen').fill('MK-01');
+  await expect(stockRows).toHaveCount(1);
+  await expect(stockRows).toContainText('Musterlager Ost');
+  await expect(rows).toHaveCount(4);
+  await expect(reset).toBeDisabled();
+
+  await articles.selectOption('kit-a');
+  await expect(rows).toHaveCount(2);
+  await articles.selectOption('kit-b');
+  await expect(rows).toHaveCount(1);
+  await expect(rows).toContainText('Musterbetreuung');
+  await project.selectOption('office');
+  await expect(target.getByText('Keine offenen Ausgaben für diese Filter.')).toBeVisible();
+  await project.selectOption('events');
+  await location.selectOption('ost');
+  await expect(target.getByText('Keine offenen Ausgaben für diese Filter.')).toBeVisible();
+  await location.selectOption('west');
+  await expect(rows).toHaveCount(1);
+  await reset.click();
+  await expect(articles).toHaveValue('');
+  await expect(project).toHaveValue('');
+  await expect(location).toHaveValue('');
+  await expect(rows).toHaveCount(4);
+  await expect(reset).toBeDisabled();
+  await expect(stock.getByLabel('Bestand suchen')).toHaveValue('MK-01');
+  await expect(stockRows).toHaveCount(1);
+
+  await articles.selectOption('kit-b');
+  await expect(stockRows).toContainText('Musterlager Ost');
+  await expect(moveRows).toHaveCount(2);
+  await expect(moveRows.first()).toContainText('Musterinstallation');
+  await target.getByRole('link',{name:'Musterbetreuung',exact:true}).click();
+  await expect(page).toHaveURL(/#projects\/events$/);
+  await expect(page.getByRole('heading',{name:'Musterbetreuung',exact:true})).toBeVisible();
+});
+
 test('Offene Ausgaben öffnen das Projekt der gewählten Lagerzeile',async({page})=>{
   const projectName='Montage im Musterbüro';
   const projects=[
