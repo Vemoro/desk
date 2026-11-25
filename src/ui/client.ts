@@ -38,9 +38,20 @@ export async function api<T = any>(path:string,method='GET',input?:unknown,reque
     method, headers,
     body:input === undefined ? undefined : JSON.stringify(input),
   });
-  const result = await response.json();
-  if (!response.ok) throw new ApiError(response.status,result.error ?? 'Die Aktion konnte nicht abgeschlossen werden.',result.code);
-  return result;
+  let result:unknown;
+  try {
+    result=await response.json();
+  } catch {
+    if(response.ok) throw new Error('Desk hat keine gültige JSON-Antwort erhalten.');
+  }
+  if(!response.ok) {
+    const problem=result && typeof result==='object' ? result as Record<string,unknown> : undefined;
+    const message=problem?.error;
+    const code=typeof problem?.code==='string' ? problem.code : undefined;
+    throw new ApiError(response.status,typeof message==='string' && message.trim()
+      ? message : `Die Aktion konnte nicht abgeschlossen werden (HTTP ${response.status}).`,code);
+  }
+  return result as T;
 }
 
 export async function all<T extends Row=Row>(path:string):Promise<T[]> {
