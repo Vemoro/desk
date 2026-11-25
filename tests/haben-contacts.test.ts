@@ -85,6 +85,76 @@ test('Eine falsche Kontakt-ID in einer Haben-Änderungsantwort überschreibt die
   });
 });
 
+test('Beim Verknüpfen kann nur der Inhaber der Haben-ID den Kontakt ändern',async()=>{
+  const winner=await newContact('Muster Erste Zuordnung');
+  const duplicate=await newContact('Muster Zweite Zuordnung');
+  const remoteId=crypto.randomUUID();
+  const started=Promise.withResolvers<void>();
+  const proceed=Promise.withResolvers<void>();
+  let patches=0;
+  await withHaben(async request=>{
+    if (request.method==='GET') {
+      started.resolve();
+      await proceed.promise;
+      return Response.json({id:remoteId,name:'Muster Haben',email:'',telefon:'',archived:false});
+    }
+    patches++;
+    return Response.json({id:remoteId,archived:false,...await request.json() as object});
+  },async()=>{
+    const primary=syncContact(winner.id,{link_id:remoteId,prefer:'desk'});
+    try {
+      await started.promise;
+      const probe=await first<{acquired:boolean}>(db,
+        'SELECT pg_try_advisory_xact_lock(hashtextextended($1::uuid::text,61277)) AS acquired',[remoteId]);
+      expect(probe?.acquired).toBe(false);
+      const competing=syncContact(duplicate.id,{link_id:remoteId,prefer:'desk'}).catch(error=>error);
+      proceed.resolve();
+      expect(await competing).toMatchObject({status:409});
+      expect(await primary).toMatchObject({action:'pushed'});
+      expect(patches).toBe(1);
+      expect(await contactState(winner.id)).toMatchObject({haben_id:remoteId});
+      expect(await contactState(duplicate.id)).toMatchObject({haben_id:null});
+    } finally {
+      proceed.resolve();
+      await primary;
+    }
+  });
+});
+
+test('Eine unvollständige Haben-Antwort leert gespeicherte Kontaktfelder nicht',async()=>{
+  const local=await newContact('Muster Vollständig');
+  const remoteId=crypto.randomUUID();
+  const remote={id:remoteId,name:local.name,email:local.email,telefon:'123',archived:false};
+  let complete=true;
+  await withHaben(()=>Response.json(complete?remote:{id:remote.id,name:remote.name}),async()=>{
+    expect(await syncContact(local.id,{link_id:remoteId,prefer:'haben'})).toMatchObject({action:'pulled'});
+    complete=false;
+    await expect(syncContact(local.id,{})).rejects.toMatchObject({status:502});
+    expect(await first(db,'SELECT email,phone FROM contacts WHERE id=$1',[local.id])).toEqual({email:local.email,phone:'123'});
+  });
+});
+
+test('Eine verlorene Antwort bei der Erstverknüpfung führt beim erneuten Abgleich zu keiner Anlage',async()=>{
+  const local=await newContact('Muster Erster Abgleich');
+  const remoteId=crypto.randomUUID();
+  let remote={id:remoteId,name:'Muster Haben',email:'',telefon:'',archived:false};
+  const calls:string[]=[];
+  await withHaben(async request=>{
+    calls.push(request.method);
+    if (request.method==='PATCH') {
+      remote={...remote,...await request.json() as Partial<typeof remote>};
+      return new Response(null,{status:502});
+    }
+    return Response.json(remote);
+  },async()=>{
+    expect(await syncContact(local.id,{link_id:remoteId})).toMatchObject({action:'conflict'});
+    await expect(syncContact(local.id,{link_id:remoteId,prefer:'desk'})).rejects.toMatchObject({status:502});
+    expect(await contactState(local.id)).toMatchObject({haben_id:remoteId});
+    expect(await syncContact(local.id,{})).toMatchObject({action:'linked'});
+    expect(calls.filter(method=>method!=='GET')).toEqual(['PATCH']);
+  });
+});
+
 test('Sammelimport überspringt archivierte und inkompatible Haben-Kontakte sowie mögliche Dubletten',async()=>{
   const local=await newContact('Muster Vorhanden');
   const rows=[
@@ -92,7 +162,7 @@ test('Sammelimport überspringt archivierte und inkompatible Haben-Kontakte sowi
     {id:crypto.randomUUID(),name:'Muster Archiv',email:'',archived:true},
     {id:crypto.randomUUID(),name:'Muster Mehrere Empfänger',email:'eins@example.test,zwei@example.test',archived:false},
     {id:crypto.randomUUID(),name:'Muster Import',email:'',archived:false},
-  ];
+  ].map(row=>({...row,telefon:''}));
   await withHaben(request=>Response.json(new URL(request.url).pathname.endsWith(rows[2].id) ?
     rows[2] : {data:rows,total:rows.length}),async()=>{
     expect(await pullContacts()).toEqual({imported:1});

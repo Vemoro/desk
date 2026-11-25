@@ -12,12 +12,15 @@ const offerSchema = z.object({
   invoiceNumber: z.string().nullable().optional(), invoiceId: z.uuid().nullable().optional(),
 });
 const contactSchema = z.object({
-  id: z.uuid(), name: z.string(), email: z.string().nullable().optional(), telefon: z.string().nullable().optional(),
-  archived: z.boolean().optional(),
+  id:z.uuid(), name:z.string(), email:z.string(), telefon:z.string(), archived:z.boolean(),
 });
 type RemoteContact = z.infer<typeof contactSchema>;
 type Fields = { name: string; email: string; phone: string };
 type Local = Fields & { id: string; haben_id: string | null; haben_baseline: Fields | null; haben_export_pending: boolean };
+type ContactSyncResult =
+  | { action:'exported' | 'linked' | 'pulled' | 'pushed' }
+  | { action:'error'; message:string }
+  | { action:'conflict'; haben_id:string; desk:Fields; haben:Fields };
 const sharedFields = schemas.contacts.pick({name:true,email:true,phone:true});
 const incompatibleContact = 'Name, E-Mail oder Telefon entsprechen nicht den Desk-Kontaktfeldern. Prüfe auch, ob mehrere E-Mail-Adressen eingetragen sind.';
 const exportClaimed = Symbol('exportClaimed');
@@ -54,7 +57,7 @@ export async function syncOffer(projectId: string, offerId?: string, actorId?: s
   });
 }
 
-const fields = (value: RemoteContact): Fields => ({ name: value.name, email: value.email ?? '', phone: value.telefon ?? '' });
+const fields = (value: RemoteContact): Fields => ({ name: value.name, email: value.email, phone: value.telefon });
 const deskFields = ({name,email,phone}:Fields):Fields => ({name,email,phone});
 const same = (left: Fields, right: Fields | null) => Boolean(right && left.name === right.name && left.email === right.email && left.phone === right.phone);
 const readContact = (result: unknown, expectedId?: string) => {
@@ -72,14 +75,25 @@ async function lockContact(query:Query, id:string) {
   return required(await first<Local>(query, 'SELECT * FROM contacts WHERE id=$1 FOR UPDATE', [id]));
 }
 
-async function storeContact(query:Query, id:string, remoteId:string, value:Fields, action:'exported' | 'linked' | 'pulled' | 'pushed') {
+function lockHabenContact(query:Query, remoteId:string) {
+  return query.unsafe('SELECT pg_advisory_xact_lock(hashtextextended($1::uuid::text,61277))',[remoteId]);
+}
+
+async function requireAvailableHabenContact(query:Query, remoteId:string, localId:string) {
+  await lockHabenContact(query,remoteId);
+  const duplicate = await first(query,'SELECT id FROM contacts WHERE haben_id=$1 AND id<>$2',[remoteId,localId]);
+  if (duplicate) throw new DeskError(409, 'Dieser Haben-Kontakt gehört schon zu einem anderen Desk-Kontakt.');
+}
+
+async function storeContact(query:Query, id:string, remoteId:string, value:Fields,
+  action:'exported' | 'linked' | 'pulled' | 'pushed'):Promise<ContactSyncResult> {
   await query.unsafe(`UPDATE contacts SET haben_id=$2,haben_baseline=($3::text)::jsonb,haben_export_pending=false,
     name=$4,email=$5,phone=$6 WHERE id=$1`, [id,remoteId,JSON.stringify(value),value.name,value.email,value.phone]);
   return { action };
 }
 
-async function finishContactExport(haben:ReturnType<typeof integration>, id:string) {
-  return db.begin(async transaction=>{
+async function finishContactExport(haben:ReturnType<typeof integration>, id:string):Promise<ContactSyncResult> {
+  return db.begin(async (transaction):Promise<ContactSyncResult>=>{
     const local = await lockContact(transaction,id);
     // An explicit recovery may have linked the contact since the export was claimed.
     if (local.haben_id) return { action:'linked' };
@@ -93,6 +107,7 @@ async function finishContactExport(haben:ReturnType<typeof integration>, id:stri
       const remote = readContact(await haben.request('/kontakte','POST',{
         name:data.name,email:data.email,telefon:data.phone,
       }));
+      await requireAvailableHabenContact(transaction,remote.id,id);
       return storeContact(transaction,id,remote.id,fields(remote),'exported');
     } catch (error) {
       if (error instanceof RemoteError && error.upstream && rejectedCreateStatuses.has(error.upstream)) {
@@ -105,10 +120,10 @@ async function finishContactExport(haben:ReturnType<typeof integration>, id:stri
   });
 }
 
-export async function syncContact(id: string, input: z.infer<typeof habenContactInput>) {
+export async function syncContact(id: string, input: z.infer<typeof habenContactInput>):Promise<ContactSyncResult> {
   const haben = integration('HABEN');
   const linkId = input.link_id?.toLowerCase();
-  const prepared = await db.begin(async (transaction) => {
+  const prepared = await db.begin(async (transaction):Promise<ContactSyncResult | typeof exportClaimed | { linkForWrite:string }> => {
     const local = await lockContact(transaction,id);
     const data = deskFields(local);
     if (linkId && local.haben_id && linkId !== local.haben_id) throw new DeskError(409, 'Dieser Kontakt ist bereits verknüpft.');
@@ -122,8 +137,7 @@ export async function syncContact(id: string, input: z.infer<typeof habenContact
       await transaction.unsafe('UPDATE contacts SET haben_export_pending=true WHERE id=$1', [id]);
       return exportClaimed;
     }
-    const duplicate = await first(transaction,'SELECT id FROM contacts WHERE haben_id=$1 AND id<>$2',[linked,id]);
-    if (duplicate) throw new DeskError(409, 'Dieser Haben-Kontakt gehört schon zu einem anderen Desk-Kontakt.');
+    await requireAvailableHabenContact(transaction,linked,id);
     const remote = readContact(await haben.request(`/kontakte/${linked}`),linked);
     const remoteFields = fields(remote);
     if (same(local, remoteFields)) return storeContact(transaction,id,linked,remoteFields,'linked');
@@ -132,6 +146,11 @@ export async function syncContact(id: string, input: z.infer<typeof habenContact
     }
     if (input.prefer === 'desk' || (!input.prefer && same(remoteFields,local.haben_baseline))) {
       if (!sharedFields.safeParse(data).success) throw new DeskError(409,incompatibleContact);
+      if (!local.haben_id) {
+        // A failed initial PATCH must leave a known target for the next read.
+        await transaction.unsafe('UPDATE contacts SET haben_id=$2,haben_export_pending=false WHERE id=$1',[id,linked]);
+        return { linkForWrite:linked };
+      }
       const saved = readContact(await haben.request(`/kontakte/${linked}`,'PATCH',{
         name:data.name,email:data.email,telefon:data.phone,
       }),linked);
@@ -139,7 +158,9 @@ export async function syncContact(id: string, input: z.infer<typeof habenContact
     }
     return { action: 'conflict', haben_id: linked, desk:data, haben:remoteFields };
   });
-  return prepared === exportClaimed ? finishContactExport(haben,id) : prepared;
+  if (prepared === exportClaimed) return finishContactExport(haben,id);
+  if ('linkForWrite' in prepared) return syncContact(id,{link_id:prepared.linkForWrite,prefer:'desk'});
+  return prepared;
 }
 
 export async function pullContacts() {
@@ -153,11 +174,14 @@ export async function pullContacts() {
       if (remote.archived) continue;
       const value = fields(remote);
       if (!sharedFields.safeParse(value).success) continue;
-      const saved = await first(db, `INSERT INTO contacts(name,email,phone,haben_id,haben_baseline)
-        SELECT $1::text,$2::text,$3::text,$4::uuid,($5::text)::jsonb
-        WHERE NOT EXISTS (SELECT 1 FROM contacts WHERE haben_id IS NULL
-          AND (lower(name)=lower($1) OR ($2<>'' AND lower(email)=lower($2))))
-        ON CONFLICT (haben_id) DO NOTHING RETURNING id`, [value.name,value.email,value.phone,remote.id,JSON.stringify(value)]);
+      const saved = await db.begin(async transaction=>{
+        await lockHabenContact(transaction,remote.id);
+        return first(transaction, `INSERT INTO contacts(name,email,phone,haben_id,haben_baseline)
+          SELECT $1::text,$2::text,$3::text,$4::uuid,($5::text)::jsonb
+          WHERE NOT EXISTS (SELECT 1 FROM contacts WHERE haben_id IS NULL
+            AND (lower(name)=lower($1) OR ($2<>'' AND lower(email)=lower($2))))
+          ON CONFLICT (haben_id) DO NOTHING RETURNING id`, [value.name,value.email,value.phone,remote.id,JSON.stringify(value)]);
+      });
       if (saved) imported++;
     }
     if (offset + result.data.data.length >= result.data.total || !result.data.data.length) return { imported };
