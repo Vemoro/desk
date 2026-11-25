@@ -61,6 +61,8 @@ Nach der Einrichtung oder einem Tokenwechsel in den administrativen Einstellunge
 
 Unter **Kommunikation → Zammad** kannst du die Ticketverknüpfung vor dem ersten in Desk gespeicherten Sendeversuch für dieses Ticket lösen. Wähle **Ticketverknüpfung lösen** und bestätige die angezeigte Ticket-ID. Ticket und Verlauf bleiben in Zammad erhalten. Desk behält den Vorgangslink und die Kommunikationsnotiz des Projekts. Danach kannst du wieder ein Ticket verknüpfen.
 
+Bei einem verknüpften Ticket filtert **Ticketverlauf durchsuchen** die bereits geladenen Nachrichten nach Betreff und Text. Die Trefferzahl bezieht sich auf den angezeigten Verlauf. Ein vorhandener Antwortentwurf bleibt beim Suchen erhalten.
+
 ## Betrieb
 
 - Je nach Ticketbetrieb stehen drei Installationswege zur Auswahl. [Installationsplan mit und ohne Zammad](installation.md)
