@@ -98,7 +98,8 @@ export async function changePassword(query: Query, userId: string, sessionId: st
   if (!credential?.password || !await password.verify(input.currentPassword,credential.password)) {
     throw new DeskError(400, 'Das aktuelle Passwort stimmt nicht.');
   }
-  if (input.currentPassword === input.newPassword) {
+  // Compare the UTF-8 bytes that Bun hashes.
+  if (Buffer.from(input.currentPassword).equals(Buffer.from(input.newPassword))) {
     throw new DeskError(400, 'Wähle ein anderes neues Passwort.');
   }
 

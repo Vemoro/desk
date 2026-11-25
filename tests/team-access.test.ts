@@ -90,6 +90,25 @@ test('Zwei gleichzeitige Passwortwechsel können dasselbe aktuelle Passwort nur 
   }
 });
 
+test('Ein anders dargestelltes Passwort mit denselben UTF-8-Bytes gilt als bisheriges Passwort', async () => {
+  const email = `${crypto.randomUUID()}@example.test`;
+  const currentPassword = password + '\uFFFD';
+  const person = required(await createAccount({email,name:'Musterperson',role:'member',password:currentPassword}));
+  const signIn = () => write('/login','POST',{email,password:currentPassword},{});
+  try {
+    const current = sessionCookie(await signIn());
+    const other = sessionCookie(await signIn());
+    const result = await write('/me/password','PATCH',{
+      currentPassword,newPassword:password + '\uD800',revokeOtherSessions:true,
+    },current);
+    expect(result.status).toBe(400);
+    expect(await status(other)).toBe(200);
+    expect((await signIn()).status).toBe(200);
+  } finally {
+    await removePeople(person.id);
+  }
+});
+
 test('Kontosperre widerruft Sitzungen und API-Tokens auch über eine spätere Freigabe hinaus', async () => {
   const administrator = await createPerson();
   const target = await createPerson();
