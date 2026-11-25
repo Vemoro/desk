@@ -92,4 +92,5 @@ if ((attempt==30)); then
   exit 1
 fi
 
-run_step bunx playwright test --project runtime-image
+# The automatic failure snapshot can include the filled login password.
+PLAYWRIGHT_NO_COPY_PROMPT=1 run_step bunx playwright test --project runtime-image
