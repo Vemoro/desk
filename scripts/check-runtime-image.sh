@@ -29,15 +29,27 @@ run_step() {
   return "$result"
 }
 cleanup() {
+  local status=$? cleanup_failed=0 temporary
   if [[ -n "$active_pid" ]]; then kill "$active_pid" 2>/dev/null || true; fi
-  if [[ -n "$desk_container" ]]; then docker rm -fv "$desk_container" >/dev/null || true; fi
+  if [[ -n "$desk_container" ]]; then docker rm -fv "$desk_container" >/dev/null || cleanup_failed=1; fi
   if [[ -n "$network" ]]; then
-    docker rm -fv "$project-migrate" "$project-admin" >/dev/null 2>&1 || true
+    for temporary in "$project-migrate" "$project-admin"; do
+      if docker container inspect "$temporary" >/dev/null 2>&1; then
+        docker rm -fv "$temporary" >/dev/null || cleanup_failed=1
+      fi
+    done
   fi
-  if [[ -n "$db_container" ]]; then docker rm -fv "$db_container" >/dev/null || true; fi
-  if [[ -n "$db_volume" ]]; then docker volume rm "$db_volume" >/dev/null || true; fi
-  if [[ -n "$network" ]]; then docker network rm "$network" >/dev/null || true; fi
-  if [[ -z "${DESK_RUNTIME_IMAGE:-}" ]]; then docker image rm "$image" >/dev/null 2>&1 || true; fi
+  if [[ -n "$db_container" ]]; then docker rm -fv "$db_container" >/dev/null || cleanup_failed=1; fi
+  if [[ -n "$db_volume" ]]; then docker volume rm "$db_volume" >/dev/null || cleanup_failed=1; fi
+  if [[ -n "$network" ]]; then docker network rm "$network" >/dev/null || cleanup_failed=1; fi
+  if [[ -z "${DESK_RUNTIME_IMAGE:-}" ]] && docker image inspect "$image" >/dev/null 2>&1; then
+    docker image rm "$image" >/dev/null || cleanup_failed=1
+  fi
+  if ((cleanup_failed)); then
+    echo "Runtime-Testressourcen für $project konnten nicht vollständig entfernt werden." >&2
+    if ((status==0)); then status=1; fi
+  fi
+  exit "$status"
 }
 trap cleanup EXIT
 trap 'exit 130' INT
