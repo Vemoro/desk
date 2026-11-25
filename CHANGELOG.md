@@ -1,23 +1,30 @@
 # Release-Notizen
 
-Jeder veröffentlichte Eintrag nennt Version und Datum. Er fasst Änderungen für Nutzende, Schritte für die Aktualisierung und bekannte Einschränkungen zusammen. Zugehörige Änderungen sind direkt verlinkt.
+Jeder veröffentlichte Eintrag nennt Version und Datum. Er fasst Änderungen für Nutzende, Schritte für die Aktualisierung und bekannte Einschränkungen zusammen.
 
-## Unveröffentlicht
+## 0.1.0.0 – unveröffentlicht
 
-Der Entwurf für die erste Freigabe enthält die Änderungen bis zum geprüften Entwicklungsstand [`939c5b2`](https://github.com/Vemoro/desk/commit/939c5b20cc698750141f495b80463ab3dd4977d8). Die Freigabe steht aus. [Prüfplan für einen Release-Kandidaten](docs/release-abnahme.md)
+Desk ist eine selbst gehostete Projektverwaltung für kleine Teams. Die erste Version deckt den Ablauf von der Kundenanfrage bis zur dokumentierten Rechnungsreferenz ab. Dieser Entwurf bezieht sich auf den geprüften Anwendungskandidaten [`b1538c0`](https://github.com/Vemoro/desk/commit/b1538c093f2ce6d30d23d638346397a71edd308b). [Abnahmeprotokoll](https://github.com/Vemoro/desk/issues/204)
 
-### Änderungen für Nutzende
+### Projekte, Planung und Lager
 
-- Desk verwaltet Kontakte und Projekte von der Anfrage bis zur Rechnungsreferenz. Teams bearbeiten Aufgaben im Kanban, planen Personal und Material, buchen Lagerbewegungen je Lagerort und vergleichen geplante mit belegbezogenen Ist-Kosten. [Projektablauf und Betriebsdoku](docs/desk.md) · [PR #7](https://github.com/Vemoro/desk/pull/7)
-- Die Navigation öffnet sich auf dem Smartphone über **Menü**. Unter **Mein Konto** können Nutzende Passkeys verwalten und die Desk-Version für einen Fehlerbericht kopieren. Enthält der Build eine Commit-Angabe, lässt sie sich zusammen mit der Version kopieren. [Handymenü](https://github.com/Vemoro/desk/pull/18) · [Passkeys](https://github.com/Vemoro/desk/pull/32) · [Versionsanzeige](https://github.com/Vemoro/desk/pull/227)
-- Die Administration kann den Lesezugriff auf ein Zammad-Testticket und dessen Verlauf in den Einstellungen prüfen. Bei ungültigen Basisadressen nennt Desk die betroffene Anbindung. [Zammad-Lesetest](https://github.com/Vemoro/desk/pull/193) · [Konfigurationsfehler](https://github.com/Vemoro/desk/pull/219)
+- Kontakte, Projekte und Aufgaben im Kanban verwalten, Einkauf und Verkauf kalkulieren und Belege den Ist-Kosten zuordnen. Die Kontaktdetailansicht verlinkt zugehörige Projekte. Beim Anlegen von Kontakten weist Desk auf mögliche Dubletten hin. [Projektablauf](docs/desk.md#ein-auftrag) · [Kontakte und Projekte](https://github.com/Vemoro/desk/pull/76) · [Dublettenhinweis](https://github.com/Vemoro/desk/pull/72)
+- Personal und Material in der Wochenplanung einsehen und vormerken. Das Projektlager zeigt je Lagerort, was physisch vorhanden, reserviert und frei ist. Geräte lassen sich anhand ihrer Inventarnummer unterscheiden. Wareneingang und Verbrauch können mit einer begründeten Gegenbuchung korrigiert werden. [Wochenplanung](https://github.com/Vemoro/desk/pull/261) · [Inventarnummern](https://github.com/Vemoro/desk/pull/258) · [Lagerkorrekturen](https://github.com/Vemoro/desk/pull/257)
+- Der Projektverlauf hält Statuswechsel, Änderungen an Reservierungen und Lagerbewegungen fest. Auf Smartphones öffnet sich die Navigation über **Menü**. [Projektverlauf](https://github.com/Vemoro/desk/pull/260) · [Handymenü](https://github.com/Vemoro/desk/pull/18)
 
-### Aktualisierung und Betrieb
+### Konten, API und Anbindungen
 
-- Sichere PostgreSQL und die Laufzeitkonfiguration. Prüfe die Wiederherstellung getrennt. Halte den bisherigen Dienst vor dem Versionswechsel an. Wende die Migrationen mit dem neuen Auslieferungsstand an, bevor der aktualisierte Dienst für Nutzende startet. [Sicherung und Wiederanlauf](docs/sicherung.md)
-- Nach bereits angewendeter Migration `002_better_auth.sql` widerrufe beim Versionswechsel die Sitzungen beider Versionen nach der Betriebsanleitung. Das Team meldet sich neu an. Beim ersten Wechsel auf Better Auth ist ebenfalls eine neue Anmeldung erforderlich. Setze `DESK_AUTH_SECRET` dauerhaft und verwende für `DESK_ORIGIN` die tatsächliche Browseradresse. Passkeys gelten für den Host dieser Adresse. [Update auf Better Auth](docs/desk.md#update-auf-better-auth) · [Passkeys](docs/desk.md#passkeys)
+- Unter **Mein Konto** können Nutzende das Passwort ändern, Passkeys verwalten und die installierte Desk-Version für einen Fehlerbericht kopieren. Ist im Build ein Git-Commit hinterlegt, wird er mit kopiert. Die Administration kann Teamkonten sperren und wieder freigeben. [Passkeys](docs/desk.md#passkeys) · [Passwort ändern](https://github.com/Vemoro/desk/pull/259) · [Kontozugriff](https://github.com/Vemoro/desk/pull/256) · [Versionsanzeige](https://github.com/Vemoro/desk/pull/227)
+- Der laufende Dienst stellt seine OpenAPI-Beschreibung unter `/api/v1/openapi.json` bereit. Die Administration kann Desk-API-Tokens ausstellen und widerrufen. [Seitennavigation der REST-API](docs/desk.md#seitennavigation-der-rest-api)
+- Haben und Zammad sind optional. Desk kann vorhandene Haben-Angebote verknüpfen, ihren Status lesen und Kontakte mit Haben abgleichen. Über Zammad lassen sich Tickets anlegen oder verknüpfen, der Verlauf lesen und Antworten mit PDF-Anhang zur Zustellung übergeben. Ohne Anbindungen lassen sich externe Vorgänge als Referenzen, Links und Notizen am Projekt erfassen. [Haben](docs/desk.md#haben) · [Zammad](docs/desk.md#zammad) · [Installationswege mit und ohne Zammad](docs/installation.md)
 
-### Bekannte Einschränkungen
+### Installation und Aktualisierung
 
-- Angebote und Rechnungen entstehen in Haben oder einem anderen Abrechnungssystem. Desk kann Angebotspositionen als CSV übergeben und vorhandene Angebote verknüpfen. Ist-Kosten lassen sich per Belegreferenz zuordnen oder als CSV übernehmen. [Angebotsentwürfe in Haben](https://github.com/Vemoro/desk/issues/5) · [Projektbezogene Ist-Kosten in Haben](https://github.com/Vemoro/desk/issues/6)
-- Die Abnahme am vorgesehenen Haben und Zammad wird im Release-Prüfprotokoll nachgehalten. [Abnahme des Release-Kandidaten](https://github.com/Vemoro/desk/issues/204)
+- Für eine Erstinstallation den gewünschten Docker-Installationsweg wählen, eine leere PostgreSQL-17-Datenbank migrieren und das erste Administrationskonto anlegen. Der Desk-Lizenztext liegt auch im Laufzeit-Image. [Installation](docs/installation.md) · [Lizenzinventar](docs/lizenzinventar.md)
+- Bei einer vorhandenen Desk-Entwicklungsinstanz den Dienst vor dem Wechsel anhalten, PostgreSQL und die Laufzeitkonfiguration sichern und die Wiederherstellung getrennt prüfen. Die neue Version erst nach erfolgreicher Migration starten. [Sicherung und Wiederanlauf](docs/sicherung.md#upgrade-und-wiederanlauf-proben)
+- `DESK_AUTH_SECRET` dauerhaft setzen und für `DESK_ORIGIN` die tatsächliche Browseradresse verwenden. Das Team meldet sich nach dem Wechsel auf Better Auth neu an. Wurde Better Auth bereits migriert, die Sitzungen beider Versionen vor dem Wechsel gemäß Betriebsanleitung widerrufen. Passkeys gelten für den Host der Anmeldeadresse. [Update auf Better Auth](docs/desk.md#update-auf-better-auth)
+
+### Bekannte Einschränkungen und offene Abnahme
+
+- Angebote und Rechnungen entstehen in Haben oder im eingesetzten Abrechnungssystem. Desk übergibt Angebotspositionen als CSV. Ist-Kosten lassen sich per Belegreferenz zuordnen oder aus einer CSV übernehmen. Angebotsentwürfe und der Abruf projektbezogener Ist-Kosten in Haben sind offene Schnittstellenaufgaben. [Angebotsentwürfe](https://github.com/Vemoro/desk/issues/5) · [Projektbezogene Ist-Kosten](https://github.com/Vemoro/desk/issues/6)
+- Zammad-Ticketanlage, Verknüpfung und Verlauf sind auf der vorgesehenen Testinstanz geprüft. Die bestätigte Zustellung einer Antwort mit PDF an ein separates Testpostfach sowie die Abnahme des Kontaktabgleichs und Angebotsstatus an der vorgesehenen Haben-Instanz stehen noch aus. [Abnahme des Release-Kandidaten](https://github.com/Vemoro/desk/issues/204)
