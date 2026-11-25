@@ -61,7 +61,7 @@ fi
 
 echo "Desk-Lizenz im Runtime-Image"
 license_hash() {
-  sed 's/\r$//' | sha256sum | cut -d ' ' -f 1
+  sed $'s/\r$//' | openssl dgst -sha256
 }
 expected_license="$(git show "$commit:LICENSE" | license_hash)"
 image_license="$(docker run --rm --entrypoint sh "$image" -c 'cat /desk/LICENSE' | license_hash)"
