@@ -290,6 +290,11 @@ function Contacts({data,run,haben,openProject}:{data:Data;run:Run;haben:boolean;
   const duplicateWarning=useRef<HTMLElement>(null);
   const [focusContact,setFocusContact]=useState('');
   const contact=data.contacts.find((row)=>row.id===selected);
+  const query=search.toLowerCase();
+  const phoneDigits=/^[\d\s+()-]+$/.test(search) ? search.replace(/\D/g,'') : '';
+  const visibleContacts=data.contacts.filter((row)=>
+    `${row.name} ${row.email}`.toLowerCase().includes(query)
+    || (phoneDigits!=='' && (row.phone ?? '').replace(/\D/g,'').includes(phoneDigits)));
   const projects=contact ? data.projects.filter((project)=>project.contact_id===contact.id) : [];
   useEffect(()=>{
     if(focusContact && contact?.id===focusContact){
@@ -368,7 +373,7 @@ function Contacts({data,run,haben,openProject}:{data:Data;run:Run;haben:boolean;
             })}>Trotzdem anlegen</button>
           </section>}
         </Expand></div>
-      <Table headers={['Name','E-Mail','Telefon']} rows={data.contacts.filter((row)=>`${row.name} ${row.email}`.toLowerCase().includes(search.toLowerCase()))
+      <Table headers={['Name','E-Mail','Telefon']} rows={visibleContacts
         .map((row)=>({key:row.id,cells:[<button type="button" className="text-button" onClick={()=>openContact(row.id)}>{row.name}</button>,row.email||'–',row.phone||'–']}))}/>
     </Panel>
     {contact&&<Panel title={contact.name} focusRef={contactDetail}><div className="panel-body">
