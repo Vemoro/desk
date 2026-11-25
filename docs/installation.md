@@ -88,9 +88,9 @@ Melde dich danach über die HTTPS-Adresse an. Unter **Einstellungen → Integrat
 
 ### Vorhandenen Reverse Proxy im Docker-Netz anschließen
 
-Wenn der Reverse Proxy ebenfalls als Container läuft, kann Desk dasselbe externe Docker-Netz nutzen. Verwende dazu das [Compose-Override](../compose.selfhost.proxy.yaml) mit Docker Compose ab Version 2.24.4. Es entfernt die Host-Portfreigabe und verbindet nur den Desk-Dienst mit dem Proxy-Netz. PostgreSQL bleibt im eigenen Compose-Netz. [Compose-Netze](https://docs.docker.com/compose/how-tos/networking/) · [Compose-Override](https://docs.docker.com/reference/compose-file/merge/#replace-value)
+Wenn der Reverse Proxy ebenfalls als Container läuft, kann Desk dasselbe externe Docker-Netz nutzen. Verwende dazu das [Compose-Override](../compose.selfhost.proxy.yaml) mit Docker Compose ab Version 2.24.4. Es entfernt die Host-Portfreigabe und verbindet nur den Desk-Dienst mit dem Proxy-Netz. PostgreSQL bleibt im eigenen Compose-Netz. [Benutzerdefinierte Bridge-Netze](https://docs.docker.com/engine/network/drivers/bridge/#differences-between-user-defined-bridges-and-the-default-bridge) · [Compose-Override](https://docs.docker.com/reference/compose-file/merge/#replace-value)
 
-Setze in `.env.selfhost` die öffentliche HTTPS-Adresse wie zuvor. Trage für `DESK_PROXY_NETWORK` den Namen des vorhandenen Docker-Netzes des Proxys ein. Verwende als `DESK_PROXY_ALIAS` pro Desk-Instanz einen eigenen Namen in diesem Netz, zum Beispiel `desk-selfhost`. Der Proxy leitet an `http://desk-selfhost:3000` oder an den gewählten Alias auf Port 3000 weiter.
+Setze in `.env.selfhost` die öffentliche HTTPS-Adresse wie zuvor. Trage für `DESK_PROXY_NETWORK` den Namen eines benutzerdefinierten Docker-Netzes ein, mit dem der Proxy verbunden ist. Verwende beispielsweise ein mit `docker network create desk-proxy` angelegtes Bridge-Netz und binde den Proxy daran an. Die eingebaute Standard-Bridge bietet keine DNS-Auflösung für den Desk-Alias. Verwende als `DESK_PROXY_ALIAS` pro Desk-Instanz einen eigenen Namen in diesem Netz, zum Beispiel `desk-selfhost`. Der Proxy leitet an `http://desk-selfhost:3000` oder an den gewählten Alias auf Port 3000 weiter.
 
 Definiere diese Variante von `desk_compose` im Ordner mit beiden Compose-Dateien. Führe danach den gemeinsamen Installationsblock aus. Verwende die Funktion auch für spätere Starts und bei Updates. Behalte bei einem Wechsel des Proxy-Wegs den Compose-Projektnamen bei, damit Desk dasselbe Datenbankvolume verwendet.
 
@@ -116,7 +116,7 @@ location / {
 }
 ```
 
-Der NGINX-Container nutzt Docker-DNS zur Auflösung des Desk-Alias. Die Größenbegrenzung von 8 MiB lässt die von Desk unterstützten PDF-Anhänge für Zammad einschließlich JSON-Kodierung durch. Melde dich über die öffentliche HTTPS-Adresse an und öffne die Projektliste. `desk_compose ps` darf für Desk und PostgreSQL nur Containerports anzeigen. [NGINX-Weiterleitung](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass) · [NGINX-Größenbegrenzung](https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size)
+Der NGINX-Container nutzt Docker-DNS unter `127.0.0.11` zur Auflösung des Desk-Alias im benutzerdefinierten Netz. Die Größenbegrenzung von 8 MiB lässt die von Desk unterstützten PDF-Anhänge für Zammad einschließlich JSON-Kodierung durch. Melde dich über die öffentliche HTTPS-Adresse an und öffne die Projektliste. `desk_compose ps` darf für Desk und PostgreSQL nur Containerports anzeigen. [NGINX-Weiterleitung](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass) · [NGINX-Größenbegrenzung](https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size)
 
 ## Updates und Rückkehr zum letzten funktionierenden Stand
 
