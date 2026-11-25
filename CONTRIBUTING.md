@@ -6,7 +6,7 @@ Du kannst Abläufe mit Beispieldaten testen, Fehler melden, die Doku verbessern 
 
 Prüfe die [vorhandenen Issues](https://github.com/Vemoro/desk/issues) und bei vorhandenem Board-Zugriff die [Desk Roadmap](https://github.com/orgs/Vemoro/projects/2). Ergänze eine neue Beobachtung im bestehenden Issue, wenn sie dieselbe Aufgabe betrifft. Über die [Issue-Auswahl](https://github.com/Vemoro/desk/issues/new/choose) findest du Formulare für Fehler und Verbesserungsvorschläge.
 
-Bei einem Fehler helfen der geprüfte Stand, reproduzierbare Schritte sowie erwartetes und beobachtetes Verhalten. Bei einem Vorschlag beschreibe, wer die Änderung braucht, welchen Ablauf sie verbessert und woran sich das Ergebnis prüfen lässt. Beispiele und Screenshots verwenden synthetische oder anonymisierte Angaben. Melde vertrauliche Informationen über einen vom Maintainer bestätigten privaten Weg.
+Bei einem Fehler helfen der geprüfte Stand, reproduzierbare Schritte sowie erwartetes und beobachtetes Verhalten. Bei einem Vorschlag beschreibe, wer die Änderung braucht, welchen Ablauf sie verbessert und woran sich das Ergebnis prüfen lässt. Beispiele und Screenshots verwenden synthetische oder anonymisierte Angaben. Für Sicherheitsprobleme und andere vertrauliche Informationen gilt der private Kontaktweg. [Sicherheitsmeldungen](SECURITY.md)
 
 ### Beispiel für einen Fehlerbericht
 
