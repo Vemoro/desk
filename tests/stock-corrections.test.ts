@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { handle } from '../src/server/api';
 import { createAccount, createToken } from '../src/server/auth';
-import { saveCore } from '../src/server/core';
+import { lockPlanning, saveCore } from '../src/server/core';
 import { db, first } from '../src/server/db';
 import { required } from '../src/server/errors';
 
@@ -132,6 +132,47 @@ test('Ein korrigierter Wareneingang deckt weiterhin alle festen Reservierungen i
     expect((await correct(receipt.id,2,'Vier Geräte geprüft')).status).toBe(201);
     expect(await balance()).toMatchObject({physical:4});
   } finally {
+    await cleanup();
+  }
+});
+
+test('Die Korrektur schützt feste Reservierungen, die sich im Mikrosekundenbereich überschneiden',async()=>{
+  const {receive,correct,cleanup,reserve,balance}=await warehouseExample('equipment');
+  try {
+    const receipt=await (await receive(4)).json();
+    await reserve(2,'2032-06-02T08:00:00Z','2032-06-02T10:00:00.000600Z');
+    await reserve(2,'2032-06-02T10:00:00.000300Z','2032-06-02T12:00:00Z');
+    expect((await correct(receipt.id,1,'Beide Buchungen kurz gleichzeitig')).status).toBe(409);
+    expect(await balance()).toMatchObject({physical:4});
+  } finally {
+    await cleanup();
+  }
+});
+
+test('Das Ende einer Gerätebuchung wird nach dem Warten auf die Planungssperre geprüft',async()=>{
+  const {receive,correct,cleanup,reserve,balance}=await warehouseExample('equipment');
+  let pending:Promise<Response> | undefined;
+  try {
+    const receipt=await (await receive(1)).json();
+    const booking=await reserve(1,new Date(Date.now()-3_600_000).toISOString(),new Date(Date.now()+3_600_000).toISOString());
+    await db.begin(async transaction=>{
+      await lockPlanning(transaction);
+      pending=correct(receipt.id,1,'Buchung ist inzwischen vorbei');
+      for(let attempt=0;attempt<100;attempt++) {
+        if(await first(transaction,`SELECT 1 FROM pg_locks
+          WHERE locktype='advisory' AND database=(SELECT oid FROM pg_database WHERE datname=current_database())
+            AND classid=0 AND objid=61274 AND objsubid=1 AND NOT granted`)) {
+          await transaction.unsafe('UPDATE reservations SET ends_at=clock_timestamp() WHERE id=$1',[booking]);
+          return;
+        }
+        await Bun.sleep(15);
+      }
+      throw new Error('Die Korrektur hat nicht auf die Planungssperre gewartet.');
+    });
+    expect((await pending)?.status).toBe(201);
+    expect(await balance()).toMatchObject({physical:0});
+  } finally {
+    await pending?.catch(()=>{});
     await cleanup();
   }
 });

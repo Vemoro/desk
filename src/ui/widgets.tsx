@@ -32,6 +32,10 @@ function storedAttempt(storageKey:string): Attempt | undefined {
   } catch {}
 }
 
+export function hasPendingWrite(scope:string) {
+  return Boolean(storedAttempt(`desk-pending-write:${scope}`));
+}
+
 export function Form({fields,caption,submit,children,className='form-grid',retryScope,prepare,busyCaption='Wird gespeichert …'}:{
   fields:Field[]; caption:string; submit:(values:Fields,requestKey?:string)=>Promise<unknown>;
   children?:ReactNode; className?:string; retryScope?:string; prepare?:(values:Fields)=>Fields; busyCaption?:string;

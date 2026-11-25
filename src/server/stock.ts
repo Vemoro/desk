@@ -15,7 +15,6 @@ type Movement = {
   actor_id: string; action: string; quantity: number; created_at: Date | string;
 };
 type Stock = { item_id: string; location_id: string; physical: number; reserved: number; free: number };
-type Hold = { starts_at: Date; ends_at: Date; hold: number };
 type WriteRequest = { actorId:string; key:string };
 const item = async (query: Query, id: string) =>
   required(await first<Item>(query, 'SELECT id,kind,inventory_number FROM items WHERE id=$1', [id]), 'Artikel fehlt.');
@@ -38,17 +37,27 @@ async function physical(query: Query, itemId: string, locationId: string) {
   return stock?.count ?? 0;
 }
 
-function reservedCapacity(holds: Hold[], kind: Item['kind']) {
-  if (kind === 'consumable') return holds.reduce((total, hold) => total + hold.hold, 0);
-  const points = holds.flatMap(hold=>[[+hold.starts_at, hold.hold], [+hold.ends_at, -hold.hold]])
-    .sort((a,b)=>a[0]-b[0] || a[1]-b[1]);
-  let current = 0;
-  let peak = 0;
-  for (const [, delta] of points) {
-    current += delta;
-    peak = Math.max(peak, current);
-  }
-  return peak;
+async function reservedCapacity(query: Query, material: Item, locationId: string, reservationId: string | null = null) {
+  // PostgreSQL timestamps preserve the full precision of the half-open time windows.
+  const count = await first<{count:number}>(query,`
+    WITH holds AS (${activeHolds}), reference AS (
+      SELECT starts_at,ends_at FROM reservations WHERE id=$3
+    ), relevant AS (
+      SELECT greatest(h.starts_at,r.starts_at) AS starts_at,least(h.ends_at,r.ends_at) AS ends_at,h.hold
+      FROM holds h LEFT JOIN reference r ON true
+      WHERE h.item_id=$1 AND h.location_id=$2 AND h.id IS DISTINCT FROM $3
+        AND ($4::boolean OR (h.ends_at>COALESCE(r.starts_at,statement_timestamp())
+          AND (r.ends_at IS NULL OR h.starts_at<r.ends_at)))
+    ), changes AS (
+      SELECT starts_at AS instant,hold AS delta FROM relevant
+      UNION ALL SELECT ends_at,-hold FROM relevant
+    ), capacity AS (
+      SELECT sum(sum(delta)) OVER (ORDER BY instant) AS used FROM changes GROUP BY instant
+    )
+    SELECT COALESCE(CASE WHEN $4 THEN (SELECT sum(hold) FROM relevant)
+      ELSE (SELECT max(used) FROM capacity) END,0)::integer AS count`,
+    [material.id,locationId,reservationId,material.kind==='consumable']);
+  return count?.count ?? 0;
 }
 
 async function reserveCapacity(query: Query, request: Reservation) {
@@ -61,12 +70,8 @@ async function reserveCapacity(query: Query, request: Reservation) {
   }
   const material = await item(query, request.item_id!);
   const count = await physical(query, material.id, request.location_id!);
-  const holds = await rows<Hold>(query, `WITH holds AS (${activeHolds})
-    SELECT greatest(starts_at,$4) AS starts_at,least(ends_at,$5) AS ends_at,hold
-    FROM holds WHERE item_id=$1 AND location_id=$2 AND id<>$3
-    AND ($6::boolean OR (starts_at<$5 AND ends_at>$4))`,
-    [material.id, request.location_id, request.id, request.starts_at, request.ends_at, material.kind === 'consumable']);
-  if (count - reservedCapacity(holds,material.kind) < request.quantity) {
+  const reserved = await reservedCapacity(query,material,request.location_id!,request.id);
+  if (count - reserved < request.quantity) {
     throw new DeskError(409, 'Für diese Reservierung reicht der freie Bestand nicht.');
   }
 }
@@ -187,10 +192,7 @@ export async function correctMovement(id: string, input: z.infer<typeof movement
       const material = await item(transaction,original.item_id);
       const remaining = await physical(transaction,original.item_id,original.location_id) - input.quantity;
       if (remaining < 0) throw new DeskError(409, 'Der physische Bestand reicht für diese Korrektur nicht.');
-      const holds = await rows<Hold>(transaction,`WITH holds AS (${activeHolds})
-        SELECT starts_at,ends_at,hold FROM holds WHERE item_id=$1 AND location_id=$2
-          AND ($3::boolean OR ends_at>now())`,[original.item_id,original.location_id,material.kind==='consumable']);
-      if (remaining < reservedCapacity(holds,material.kind)) {
+      if (remaining < await reservedCapacity(transaction,material,original.location_id)) {
         throw new DeskError(409, 'Die Korrektur würde eine feste Reservierung ungedeckt lassen.');
       }
     }

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { all, api, ApiError, compileCsv, date, euros, moment, money, movementStages, name, projectStages, type Row } from './client';
 import { Project, Projects, type Data } from './projects';
 import { PasskeyLogin, PasskeySettings } from './passkeys';
-import { Expand, Form, noWrite, options, Panel, Pill, Table, type Run } from './widgets';
+import { Expand, Form, hasPendingWrite, noWrite, options, Panel, Pill, Table, type Run } from './widgets';
 import { Icon } from './icons';
 import { Navigation, sections, type Person, type Section } from './navigation';
 
@@ -380,6 +380,7 @@ function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
         const remaining=row.quantity-(corrected.get(row.id) ?? 0);
         const original=movements.get(row.corrects_movement_id);
         const correctable=['receive','consume'].includes(row.action);
+        const correctionScope=`movements:${accountId}:correction:${row.id}`;
         return {key:row.id,cells:[
           <span id={`bewegung-${row.id}`} tabIndex={-1}>{moment(row.created_at)}</span>,
           <div><span>{movementStages[row.action]}</span>{original && <small><a href={`#bewegung-${original.id}`}
@@ -391,11 +392,11 @@ function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
             }}>Original vom {moment(original.created_at)}</a></small>}
             {row.correction_reason && <small>{row.correction_reason}</small>}</div>,
           name(data.items,row.item_id),name(data.locations,row.location_id),name(data.projects,row.project_id),row.quantity,name(data.users,row.actor_id),
-          correctable && (remaining > 0 ? <div>
+          correctable && (remaining > 0 || hasPendingWrite(correctionScope) ? <div>
             <button type="button" aria-expanded={correctionId===row.id}
-              onClick={()=>setCorrectionId(current=>current===row.id?'':row.id)}>Korrigieren</button>
+              onClick={()=>setCorrectionId(current=>current===row.id?'':row.id)}>{remaining>0?'Korrigieren':'Korrektur prüfen'}</button>
             {correctionId===row.id && <div className="stock-correction-form"><Form caption="Korrektur buchen"
-              retryScope={`movements:${accountId}:correction:${row.id}`} fields={[
+              retryScope={correctionScope} fields={[
                 {name:'quantity',label:'Korrekturmenge',type:'number',required:true,min:1,max:remaining,value:1},
                 {name:'reason',label:'Begründung',type:'textarea',required:true},
               ]} submit={async (input,key)=>{
