@@ -8,9 +8,9 @@ Desk ist eine selbst gehostete Projektverwaltung für kleine Teams. Die erste Ve
 
 ### Projekte, Planung und Lager
 
-- Kontakte, Projekte und Aufgaben im Kanban verwalten, Einkauf und Verkauf kalkulieren und Belege den Ist-Kosten zuordnen. Die Kontaktdetailansicht verlinkt zugehörige Projekte. Beim Anlegen von Kontakten weist Desk auf mögliche Dubletten hin. [Projektablauf](docs/desk.md#ein-auftrag) · [Kontakte und Projekte](https://github.com/Vemoro/desk/pull/76) · [Dublettenhinweis](https://github.com/Vemoro/desk/pull/72)
-- Personal und Material in der Wochenplanung einsehen und vormerken. Das Projektlager zeigt je Lagerort, was physisch vorhanden, reserviert und frei ist. Geräte lassen sich anhand ihrer Inventarnummer unterscheiden. Wareneingang und Verbrauch können mit einer begründeten Gegenbuchung korrigiert werden. [Wochenplanung](https://github.com/Vemoro/desk/pull/261) · [Inventarnummern](https://github.com/Vemoro/desk/pull/258) · [Lagerkorrekturen](https://github.com/Vemoro/desk/pull/257)
-- Der Projektverlauf hält Statuswechsel, Änderungen an Reservierungen und Lagerbewegungen fest. Auf Smartphones öffnet sich die Navigation über **Menü**. [Projektverlauf](https://github.com/Vemoro/desk/pull/260) · [Handymenü](https://github.com/Vemoro/desk/pull/18)
+- Kontakte, Projekte und Aufgaben im Kanban verwalten, Einkauf und Verkauf kalkulieren und belegbezogene Ist-Kosten Projekten zuordnen. Die Kontaktdetailansicht verlinkt zugehörige Projekte. Beim Anlegen von Kontakten weist Desk auf mögliche Dubletten hin. [Projektablauf](docs/desk.md#ein-auftrag) · [Kontakte und Projekte](https://github.com/Vemoro/desk/pull/76) · [Dublettenhinweis](https://github.com/Vemoro/desk/pull/72)
+- Personal und Material im Projekt vormerken und die Belegung in der Wochenplanung einsehen. Das Projektlager zeigt je Lagerort, was physisch vorhanden, reserviert und frei ist. Geräte lassen sich anhand ihrer Inventarnummer unterscheiden. Wareneingang und Verbrauch können mit einer begründeten Gegenbuchung korrigiert werden. [Wochenplanung](https://github.com/Vemoro/desk/pull/261) · [Inventarnummern](https://github.com/Vemoro/desk/pull/258) · [Lagerkorrekturen](https://github.com/Vemoro/desk/pull/257)
+- Der Projektverlauf hält Statuswechsel, Festlegungen und Freigaben von Reservierungen sowie Lagerbewegungen fest. Auf Smartphones öffnet sich die Navigation über **Menü**. [Projektverlauf](https://github.com/Vemoro/desk/pull/260) · [Handymenü](https://github.com/Vemoro/desk/pull/18)
 
 ### Konten, API und Anbindungen
 
