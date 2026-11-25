@@ -97,6 +97,7 @@ export const habenContactInput = z.strictObject({ link_id: id.optional(), prefer
 export const ticketId = z.number().int().positive().max(2_147_483_647);
 export const zammadLinkInput = z.strictObject({ id: ticketId });
 export const zammadCreateInput = z.strictObject({ title, customer: z.email().max(254), note: memo.min(1) });
+export const zammadNoteInput = z.strictObject({ id, ticketId, body: memo.min(1) });
 export const zammadMessage = z.strictObject({
   id, recipient: z.email().max(254), subject: title, body: memo.min(1),
   replyArticleId: z.number().int().positive().max(2_147_483_647).optional(),
