@@ -121,7 +121,7 @@ Bei einem Rückweg auf einen Desk-Stand vor der Kontensperre bleibt der gespeich
 
 ### Desk-Stand für Fehlerberichte
 
-Unter **Mein Konto → Desk-Version** lässt sich die Programmversion mit dem Git-Commit kopieren. Am Smartphone öffnest du **Mein Konto** über das Menü. Die Programmversion stammt aus `package.json`. Stelle den vollständigen Commit beim Bau des ausgecheckten Stands bereit.
+Unter **Mein Konto → Desk-Version** lässt sich die Programmversion mit dem Git-Commit kopieren. Am Smartphone öffnest du **Mein Konto** über das Menü. Die angezeigte Desk-Programmversion stammt aus `deskVersion` in `package.json`. Das Feld `version` gibt die dreiteilige Version des internen Pakets an. Stelle den vollständigen Commit beim Bau des ausgecheckten Stands bereit.
 
 ```sh
 build_commit="$(git rev-parse --verify HEAD)" &&
