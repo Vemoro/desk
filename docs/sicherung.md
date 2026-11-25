@@ -61,3 +61,21 @@ Die Quelle war Desk-Kern [`b7a69f4`](https://github.com/Vemoro/desk/commit/b7a69
 | Zielversion | `001_core.sql` und `002_delivery_reference.sql` waren registriert. Die Anmeldung war erfolgreich und die Integrationsabfrage meldete Haben und Zammad als deaktiviert. |
 | Projekt und Lager | Die authentifizierte REST-API lieferte „Büroinstallation Westflügel“ mit dem Kontakt „Kontor West“, fünf Aufgaben und dem zugeordneten Beleg `E-K-103` über 62,90 €. Der vorhandene Wareneingang „Mobiles Technikset“ mit Menge 1 hatte `delivery_reference: null`. |
 | Wiederanlauf | In der zweiten Wiederherstellung war nur `001_core.sql` registriert. Die Ausgangsversion erlaubte die Anmeldung und lieferte Projekt und Beleg mit derselben Zuordnung. Beide Integrationen waren deaktiviert. |
+
+### Vorgangsschlüssel nach einer Wiederherstellung prüfen
+
+Wiederhole die Upgrade- und Wiederanlaufprobe mit einem Stand, der Vorgangsschlüssel für Lagerbewegungen und Vormerkungen unterstützt. Vergleiche nach der Migration die vorhandenen Reservierungen und Bewegungen sowie physischen, reservierten und freien Bestand am selben Musterartikel und Lagerort.
+
+1. Sende im aktualisierten Teststand als Demo-Konto je einen Wareneingang an `POST /api/v1/movements` und eine Vormerkung an `POST /api/v1/reservations`. Verwende pro Vorgang einen eigenen `Idempotency-Key` und halte Eingabe, ursprüngliche Antwort-ID und Bestandszahlen fest.
+2. Sichere diese aktualisierte Datenbank und stelle sie in einer weiteren neuen Testdatenbank wieder her. Starte dieselbe Zielversion mit dieser Datenbank. Melde dasselbe synthetische Konto an.
+3. Sende die beiden Anfragen mit denselben Angaben und Schlüsseln erneut. Beide Antworten sollen HTTP 201 mit den ursprünglichen IDs liefern. Vergleiche die gespeicherten Bewegungen und Vormerkungen sowie die Bestandszahlen mit dem Stand nach der ersten Buchung.
+
+#### Probe auf `4f77d81`
+
+Quelle war [`b7a69f4`](https://github.com/Vemoro/desk/commit/b7a69f4b644c74296bca895f1c6c4f6babff9b42), Ziel war [`4f77d81`](https://github.com/Vemoro/desk/commit/4f77d81b874ceeeaec9decc35a3d1438076ad6bc) mit den Vorgangsschlüsseln für Lagerbewegungen und Vormerkungen. Beide Desk-Stände liefen mit Bun 1.4.5. Alle Wiederherstellungen liefen mit PostgreSQL 17.12, getrennten lokalen Instanzen und deaktivierten Anbindungen. Die Archive wurden im Custom-Format erstellt und mit den oben dokumentierten Restore-Optionen eingespielt.
+
+| Schritt | Soll | Ist |
+| --- | --- | --- |
+| Upgrade und Wiederanlauf | Vorhandene Reservierungen, Bewegungen und Bestandszahlen bleiben erhalten. | Alle vorhandenen Bewegungs- und Vormerkungs-IDs, ihre Zuordnungen und die Bestandszahlen stimmten in beiden Wiederherstellungen überein. Die Ausgangsversion verwendete `001_core.sql`. Im Zielstand waren zusätzlich `002_better_auth.sql`, `003_stock_write_requests.sql` und `004_passkeys.sql` registriert. |
+| Buchung auf dem Zielstand | Ein Wareneingang über zwei Einheiten und eine Personalvormerkung ergeben je einen neuen Eintrag. | Der physische Bestand von „Kabelbinder, Packung“ im Hauptlager stieg auf 20 Einheiten. Der Wareneingang und die Personalvormerkung für „Büroinstallation Westflügel“ erhöhten die Gesamtzahlen auf vier Bewegungen und fünf Vormerkungen. |
+| Restore und Wiederholung | Beide gespeicherten Antworten sind nach Wiederherstellung mit denselben Schlüsseln abrufbar. | Beide Antworten lieferten HTTP 201 mit den ursprünglichen IDs. Die Anzahl blieb bei vier Bewegungen und fünf Vormerkungen. Für „Kabelbinder, Packung“ im Hauptlager blieben 20 physische, sechs reservierte und 14 freie Einheiten erhalten. Alle vier Migrationen waren registriert. |
