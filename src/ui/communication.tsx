@@ -31,18 +31,22 @@ function plainText(html:string) {
   return template.content.textContent;
 }
 
-function ArticleAttachment({filename,url}:{filename:string;url:string}) {
-  const request=useRef<AbortController|undefined>(undefined);
-  const [loading,setLoading]=useState(false);
-  const [problem,setProblem]=useState('');
-  useEffect(()=>()=>request.current?.abort(),[]);
+type DownloadStatus = {loading:boolean;problem?:string};
 
-  async function download() {
-    if(request.current) return;
+function useAttachmentDownloads() {
+  const requests=useRef(new Map<string,AbortController>());
+  const [status,setStatus]=useState<Record<string,DownloadStatus>>({});
+  useEffect(()=>{
+    const pending=requests.current;
+    return ()=>{for(const controller of pending.values()) controller.abort();};
+  },[]);
+
+  async function download(filename:string,url:string) {
+    if(requests.current.has(url)) return;
     const controller=new AbortController();
-    request.current=controller;
-    setLoading(true);
-    setProblem('');
+    requests.current.set(url,controller);
+    setStatus(current=>({...current,[url]:{loading:true}}));
+    let problem:string|undefined;
     try {
       const response=await fetch(url,{signal:controller.signal,redirect:'error'});
       if(!response.ok) {
@@ -55,23 +59,28 @@ function ArticleAttachment({filename,url}:{filename:string;url:string}) {
       const blob=await response.blob();
       if(!controller.signal.aborted) downloadBlob(filename,blob);
     } catch(error) {
-      if(!controller.signal.aborted) {
-        setProblem(error instanceof TypeError ? 'Der Anhang konnte nicht geladen werden.' :
-          error instanceof Error ? error.message : 'Der Anhang konnte nicht geladen werden.');
-      }
+      problem=error instanceof Error && !(error instanceof TypeError) ? error.message : 'Der Anhang konnte nicht geladen werden.';
     } finally {
-      request.current=undefined;
-      if(!controller.signal.aborted) setLoading(false);
+      requests.current.delete(url);
+      if(!controller.signal.aborted) setStatus(current=>{
+        const next={...current};
+        if(problem) next[url]={loading:false,problem};
+        else delete next[url];
+        return next;
+      });
     }
   }
+  return {status,download};
+}
 
+function ArticleAttachment({filename,status,download}:{filename:string;status?:DownloadStatus;download:()=>void}) {
   return <div className="communication-download">
-    <button type="button" className="communication-attachment" aria-label={`${filename} herunterladen`} aria-disabled={loading}
-      onClick={()=>void download()}>
+    <button type="button" className="communication-attachment" aria-label={`${filename} herunterladen`} aria-disabled={status?.loading}
+      onClick={download}>
       <Icon name="download"/><span>{filename}</span>
     </button>
-    {loading && <p role="status" className="subtle">Anhang wird geladen …</p>}
-    {problem && <p role="alert" className="inline-error">{problem}</p>}
+    {status?.loading && <p role="status" className="subtle">Anhang wird geladen …</p>}
+    {status?.problem && <p role="alert" className="inline-error">{status.problem}</p>}
   </div>;
 }
 
@@ -186,6 +195,7 @@ export function Communication({project,zammad,run}:{project:Row;zammad:boolean;r
 function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   project:Row; zammad:boolean; run:Run; reference:ReactNode; zammadPanel:RefObject<HTMLElement|null>;
 }) {
+  const attachmentDownloads=useAttachmentDownloads();
   const confirmationRequests=useContext(ConfirmationRequests);
   const outgoingKey='zammad-outgoing:'+project.id+':';
   const ticketId=project.zammad_ticket_id ? Number(project.zammad_ticket_id) : null;
@@ -415,10 +425,12 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
                   {article.from && <small className="communication-sender">{article.from}</small>}
                   <p>{article.body}</p>
                   {article.attachments?.length ? <div className="communication-attachments">
-                    {article.attachments.map((attachment,index)=>ticketId && attachment.id ?
-                      <ArticleAttachment key={attachment.id} filename={attachment.filename}
-                        url={`/api/v1/projects/${project.id}/zammad/attachment?ticket=${ticketId}&article=${article.id}&attachment=${attachment.id}`}/> :
-                      <small className="communication-attachment" key={`name:${index}`}>{attachment.filename}</small>)}
+                    {article.attachments.map((attachment,index)=>{
+                      if(!ticketId || !attachment.id) return <small className="communication-attachment" key={`name:${index}`}>{attachment.filename}</small>;
+                      const url=`/api/v1/projects/${project.id}/zammad/attachment?ticket=${ticketId}&article=${article.id}&attachment=${attachment.id}`;
+                      return <ArticleAttachment key={attachment.id} filename={attachment.filename} status={attachmentDownloads.status[url]}
+                        download={()=>void attachmentDownloads.download(attachment.filename,url)}/>;
+                    })}
                   </div> : null}
                 </div>
                 <footer className="communication-article-actions">

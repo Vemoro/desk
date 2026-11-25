@@ -58,3 +58,40 @@ test('Ticketanhänge bleiben bei Wartezeit und Fehler am Artikel bedienbar',asyn
   expect(page.url()).toBe(current);
   expect(requests).toEqual(['101','102']);
 });
+
+test('Filtern und Notizzitat brechen einen gestarteten Download nicht ab',async({page})=>{
+  const name='Büroinstallation Westflügel';
+  const apiPath='**/api/v1/projects/muster285/zammad';
+  const body=Buffer.from('%PDF-1.4\nSynthetische Materialliste\n%%EOF');
+  const unblock=Promise.withResolvers<void>();
+  await page.route('**/api/v1/projects?*',route=>route.fulfill({json:[{id:'muster285',name,stage:'planning',zammad_ticket_id:42}]}));
+  await page.route('**/api/v1/integrations',route=>route.fulfill({json:{zammad:true,haben:false}}));
+  await page.route(apiPath,route=>route.fulfill({json:{
+    ticket:{id:42,number:'1042',title:'Material zum Westflügel',url:'https://zammad.example.test/'},outgoing:[],
+    articles:[{id:12,subject:'Büroanfrage',body:'Anbei der Plan.',attachments:[{filename:'Materialliste.pdf',id:101}]},
+      {id:13,subject:'Termin',body:'Bitte Montag.',kind:'internal-note'}],
+  }}));
+  await page.route(apiPath+'/attachment?*',async route=>{
+    await unblock.promise;
+    await route.fulfill({body,contentType:'application/octet-stream'});
+  });
+  await signIn(page);
+  await project(page,name);
+  await page.getByRole('button',{name:'Kommunikation',exact:true}).click();
+  const history=page.getByRole('region',{name:'Ticketverlauf'});
+  const attachment=history.getByRole('button',{name:'Materialliste.pdf herunterladen'});
+  try{
+    await attachment.click();
+    await expect(attachment).toBeDisabled();
+    await history.getByRole('searchbox',{name:'Ticketverlauf durchsuchen'}).fill('Termin');
+    await expect(attachment).toHaveCount(0);
+    await history.getByRole('button',{name:'In Notiz zitieren'}).click();
+    const download=page.waitForEvent('download',{timeout:3000});
+    unblock.resolve();
+    const completed=await download;
+    expect(completed.suggestedFilename()).toBe('Materialliste.pdf');
+    expect(await readFile((await completed.path())!)).toEqual(body);
+  }finally{
+    unblock.resolve();
+  }
+});
