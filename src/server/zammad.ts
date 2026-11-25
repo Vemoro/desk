@@ -18,10 +18,9 @@ const articleMetadata = z.object({
   message_id:z.string().nullable().optional(),
 });
 const emailAddress = z.email().max(254);
-const messageId = z.string().max(998).regex(/^<[!-~]+@[!-~]+>$/).refine(value=>{
-  const reference = value.slice(1,-1);
-  return !/[<>]/.test(reference) && reference.indexOf('@') === reference.lastIndexOf('@');
-});
+const atom = "[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+";
+const dotAtom = `${atom}(?:\\.${atom})*`;
+const messageId = z.string().max(998).regex(new RegExp(`^<${dotAtom}@(?:${dotAtom}|\\[[!-Z^-~]*\\])>$`));
 type ArticleContext = {
   kind:'unknown'|'internal-note'|'internal'|'other'|'incoming-email'|'outgoing-email';
   reply?:{recipient:string;subject:string;reference:string};
@@ -59,6 +58,12 @@ async function lockProjectTicket(transaction: Query, projectId: string) {
     'SELECT zammad_ticket_id FROM projects WHERE id=$1 FOR UPDATE',[projectId])).zammad_ticket_id;
 }
 
+async function requireUnusedTicket(transaction:Query,projectId:string,ticketId:number) {
+  if (await first(transaction,'SELECT 1 FROM outgoing WHERE project_id=$1 AND ticket_id=$2 LIMIT 1',[projectId,ticketId])) {
+    throw new DeskError(409, 'Für dieses Ticket gibt es bereits einen Desk-Sendeversuch.');
+  }
+}
+
 export async function checkZammadConnection(id: number) {
   const remote = integration('ZAMMAD');
   try {
@@ -86,6 +91,7 @@ export async function linkTicket(projectId: string, link: number | z.infer<typeo
   return db.begin(async (transaction) => {
     const current = await lockProjectTicket(transaction,projectId);
     if (current && typeof link !== 'number') throw new DeskError(409, 'Das Projekt hat bereits ein Ticket.');
+    if (current && current !== link) await requireUnusedTicket(transaction,projectId,current);
     const result = typeof link === 'number' ? await remote.request(`/tickets/${link}`) : await remote.request('/tickets','POST',{
       title: link.title, group: process.env.ZAMMAD_GROUP || 'Users', customer_id: `guess:${link.customer}`,
       article: { subject: link.title, body: link.note, type: 'note', internal: true, sender: 'Agent', content_type: 'text/plain' },
@@ -103,9 +109,7 @@ export async function unlinkTicket(projectId: string, expectedId: number) {
   return db.begin(async (transaction) => {
     const current = await lockProjectTicket(transaction,projectId);
     if (current !== expectedId) throw new DeskError(409, 'Die Ticketverknüpfung hat sich geändert.');
-    if (await first(transaction,'SELECT 1 FROM outgoing WHERE project_id=$1 AND ticket_id=$2 LIMIT 1',[projectId,current])) {
-      throw new DeskError(409, 'Für dieses Ticket gibt es bereits einen Desk-Sendeversuch.');
-    }
+    await requireUnusedTicket(transaction,projectId,current);
     await transaction.unsafe('UPDATE projects SET zammad_ticket_id=NULL WHERE id=$1',[projectId]);
     return { ok:true };
   });
