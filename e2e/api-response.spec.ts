@@ -12,6 +12,8 @@ const cases = [
     text:'Die Aktion konnte nicht abgeschlossen werden (HTTP 409).'},
   {label:'nicht-textförmiges error',status:409,contentType:'application/json',body:'{"error":12}',
     text:'Die Aktion konnte nicht abgeschlossen werden (HTTP 409).'},
+  {label:'leerer Fehlertext',status:409,contentType:'application/json',body:'{"error":"   "}',
+    text:'Die Aktion konnte nicht abgeschlossen werden (HTTP 409).'},
   {label:'HTML 2xx',status:200,contentType:'text/html',body:'<p>Keine JSON-Antwort</p>',
     text:'Desk hat keine gültige JSON-Antwort erhalten.'},
   {label:'leere 2xx',status:204,contentType:'text/plain',body:'',
