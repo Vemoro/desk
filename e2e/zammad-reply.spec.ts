@@ -47,6 +47,7 @@ test('Interne Notiz bleibt geöffnet und kann einen Beitrag zitieren',async({pag
   await expect(page.getByText('Neue interne Notiz',{exact:true})).toBeVisible();
   await expect(note).toBeVisible();
   await expect(note).toBeEmpty();
+  await expect(note).toBeFocused();
 });
 
 test('Zammad beantwortet die gewählte E-Mail mit nachvollziehbarem Empfänger und erhält den Entwurf bei einem Fehler',async({page})=>{

@@ -157,6 +157,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   const [reply,setReply]=useState<ReplyTarget>();
   const replyComposer=useRef<HTMLElement>(null);
   const noteField=useRef<HTMLTextAreaElement>(null);
+  const focusNoteAfterSave=useRef(false);
   const [noteText,setNoteText]=useState('');
   const [noteError,setNoteError]=useState('');
   const draft=useRef<MessageDraft|undefined>(undefined);
@@ -169,6 +170,12 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   useEffect(()=>{
     if(reply) replyComposer.current?.querySelector<HTMLElement>(reply.forwardBody===undefined?'textarea':'input[type=email]')?.focus();
   },[reply]);
+  useEffect(()=>{
+    if(!locked && focusNoteAfterSave.current) {
+      focusNoteAfterSave.current=false;
+      noteField.current?.focus({preventScroll:true});
+    }
+  },[locked,noteText]);
 
   function closeReply(target:ReplyTarget) {
     setReply(undefined);
@@ -192,6 +199,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
     const note=draft.current?.note;
     clearDraft();
     if(note) {
+      focusNoteAfterSave.current=true;
       setNoteText('');
       setNoteError('');
     } else if(previous) closeReply(previous);
