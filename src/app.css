@@ -192,6 +192,9 @@ tr:last-child td { border-bottom:0; }
 .panel-heading p { margin-bottom:4px; font-variant-numeric:tabular-nums; }
 .panel-heading h2 { font-size:1.35rem; }
 .communication-workspace { gap:22px; }
+.communication-scroll { min-width:0; }
+.communication-scroll:focus-visible { outline-offset:-2px; }
+.communication-scroll > [role=status] { margin-bottom:8px; }
 .communication-search { display:flex; flex-wrap:wrap; align-items:end; gap:8px 12px; padding-bottom:12px; margin-bottom:18px; }
 .communication-search label { flex:0 1 280px; }
 .communication-search p { margin-bottom:8px; }
@@ -236,13 +239,59 @@ tr:last-child td { border-bottom:0; }
 .communication-compose .expand:not([open]) summary { color:#fff; min-height:40px; }
 .communication-compose .expand:not([open]) summary:hover { background:#1d4586; border-radius:7px; }
 .communication-outgoing h3 { font-size:.92rem; margin:0 0 8px; }
+.communication-outgoing { margin-top:18px; }
 .communication-dialog { width:min(560px,calc(100% - 32px)); }
 .communication-dialog-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
 .communication-dialog-hint { margin-bottom:16px; }
 .communication-dialog .form-grid { grid-template-columns:1fr; }
 .communication-dialog .form-action { justify-self:end; }
+@media(min-width:1001px) and (min-height:720px) {
+  .main:has(.communication-ticket) { height:100dvh; gap:12px; padding-block:18px 16px; }
+  .main:has(.communication-ticket) > :not(.communication-ticket) { flex:none; }
+  .main:has(.communication-ticket) .project-head h1 { font-size:1.5rem; }
+  .communication-ticket { flex:1 1 auto; min-height:420px; }
+  .communication-ticket > .panel { display:grid; grid-template-rows:auto minmax(0,1fr); min-height:0; }
+  .communication-ticket > .panel > .panel-head {
+    grid-template-columns:minmax(144px,1fr) minmax(0,3fr) minmax(144px,1fr);
+    padding:10px 16px;
+    border-bottom:1px solid var(--border);
+  }
+  .communication-ticket > .panel > .panel-head > :is(.panel-heading,h2) { grid-column:2; grid-row:1; justify-self:center; }
+  .communication-ticket > .panel > .panel-head > button { grid-column:3; font-size:.85rem; }
+  .communication-ticket .panel-heading { gap:4px; padding:0; }
+  .communication-ticket .panel-heading h2 {
+    display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; min-width:0; overflow:hidden;
+  }
+  .communication-ticket .panel-heading:has(.communication-requester) {
+    width:fit-content; max-width:100%; grid-template-columns:auto minmax(0,1fr);
+    gap:2px 9px; justify-items:start; text-align:left;
+  }
+  .communication-ticket .communication-requester {
+    grid-row:1 / span 2; align-self:center; width:34px; height:34px; font-size:.78rem;
+  }
+  .communication-ticket .communication-workspace { grid-template-rows:minmax(0,1fr) auto; gap:0; padding:0; }
+  .communication-scroll { overflow:auto; padding:12px 16px; scrollbar-gutter:stable; }
+  .communication-ticket .communication-details { overflow:auto; }
+  .communication-ticket .communication-search { padding:6px 0; margin:0 0 10px; }
+  .communication-ticket .communication-search label {
+    display:grid; grid-template-columns:max-content minmax(0,250px); align-items:center;
+    gap:6px 12px; flex:0 1 470px;
+  }
+  .communication-search input { min-height:36px; }
+  .communication-ticket .communication-editors { overflow:auto; max-height:min(280px,42dvh); padding:8px 16px 10px; background:var(--paper); }
+  .communication-ticket .communication-compose .expand:not([open]) { background:var(--paper); border-color:var(--border); }
+  .communication-ticket .communication-compose .expand:not([open]) summary { color:var(--accent-ink); min-height:36px; }
+  .communication-ticket .communication-compose .expand:not([open]) summary:hover { background:var(--soft); }
+  .communication-ticket .communication-note { grid-template-columns:minmax(0,1fr) auto; gap:6px 9px; padding:7px 9px; }
+  .communication-ticket .communication-note .form-action { grid-column:2; grid-row:1; align-self:end; }
+  .communication-ticket .communication-note > :not(label,.form-action) { grid-column:1 / -1; }
+  .communication-ticket .communication-note textarea { min-height:60px; }
+}
 @media(max-width:1000px) {
   .communication-layout { grid-template-columns:1fr; }
+}
+@media(width < 1001px), (height < 720px) {
+  .communication-ticket { grid-template-columns:1fr; }
   .communication-ticket .communication-details { border-inline-start:0; border-top:1px solid var(--border); }
 }
 @media(max-width:600px) {

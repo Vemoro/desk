@@ -57,6 +57,8 @@ Desk legt Angebote in der ersten Version über die manuelle Übergabe an Haben a
 
 Unter **Kommunikation** steht der Ticketkopf mit Betreff und Nummer mittig über dem Verlauf. In **Ticketdetails** kannst du das Ticket in Zammad öffnen und die Projektzuordnung verwalten. Der Verlauf zeigt eingehende E-Mails rechts und ausgehende links. Die Aktionen stehen unter dem jeweiligen Beitrag. Interne Notizen sind beschriftet und haben einen schraffierten Rand. Wenn Desk die Art des Eintrags nicht erkennen kann, steht dort **Art unbekannt**.
 
+In ausreichend breiten und hohen Fenstern scrollen Verlauf und Sendeversuche unter **Ticketaktivität** unabhängig vom Notizeditor und der Detailspalte. Du kannst den Bereich per Tab fokussieren und mit der Tastatur scrollen. In schmalen oder niedrigen Fenstern scrollt die ganze Seite. Notizeditor und Details stehen dann unter der Ticketaktivität.
+
 Wähle im Verlauf den Dateinamen mit Download-Symbol, um den Anhang zu speichern. Desk lädt die Datei mit der bestehenden Zammad-Verbindung. Lade- und Fehlermeldungen stehen am Anhang. Liefert Zammad für einen Anhang keine gültige Anhang-ID, zeigt Desk den Dateinamen ohne Downloadaktion.
 
 Das Feld **Interne Notiz** ist unter einem verknüpften Ticket geöffnet. **In Notiz zitieren** fügt einen Auszug aus dem gewählten Beitrag in den Entwurf ein. **Notiz hinzufügen** speichert ihn intern in Zammad. Dafür braucht Desk ein Zammad-Agenten-Token mit Zugriff auf die Ticketgruppe. Desk prüft den Agentenzugriff, bevor es den Notiztext übergibt. [Zammad-Berechtigung für Ticket-Erwähnungen](https://docs.zammad.org/en/latest/api/ticket/mentions.html#list)
