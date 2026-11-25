@@ -136,7 +136,7 @@ export function Form({fields,caption,submit,children,className='form-grid',retry
         {field.choices.map((choice)=><option value={choice.value} key={choice.value}>{choice.label}</option>)}</select>
       : field.type==='textarea' ? <textarea name={field.name} defaultValue={field.value} disabled={fieldsLocked} required={field.required} placeholder={field.placeholder}/>
       : <input name={field.name} type={field.type ?? 'text'} defaultValue={field.value} disabled={fieldsLocked} required={field.required}
-          placeholder={field.placeholder} min={field.min} max={field.max} autoComplete={field.autoComplete}/>}
+          placeholder={field.placeholder} min={field.min} max={field.max} autoComplete={field.autoComplete} aria-describedby={field.describedBy}/>}
     </label>)}
     {children}
     {error && <p role="alert" className="inline-error wide">{error}</p>}

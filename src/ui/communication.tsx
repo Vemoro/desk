@@ -172,6 +172,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
 
   const request=(suffix:string,input:unknown)=>api('projects/'+project.id+'/zammad/'+suffix,'POST',input);
   const ticket=conversation?.ticket;
+  const ticketIdHint=useId();
   const dialogTitle=dialog?.kind==='link'?'Ticket verknüpfen':'Ticket anlegen';
 
   return <div className="communication-layout">
@@ -188,9 +189,9 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
           </div>
           {dialog && <CommunicationDialog title={dialogTitle} trigger={dialog.trigger} dismiss={()=>setDialog(undefined)}>{save=>
             dialog.kind==='link' ? <>
-              <p className="subtle communication-dialog-hint">Die Ticket-ID steht am Ende der Ticketadresse in Zammad.</p>
+              <p id={ticketIdHint} className="subtle communication-dialog-hint">Die Ticket-ID steht am Ende der Ticketadresse in Zammad.</p>
               <Form caption="Ticket verknüpfen" fields={[
-                {name:'id',label:'Ticket-ID',type:'number',min:1,required:true},
+                {name:'id',label:'Ticket-ID',type:'number',min:1,required:true,describedBy:ticketIdHint},
               ]} submit={v=>save(()=>run(()=>request('link',{id:Number(v.id)}),'Ticket verknüpft.',{reportInlineError:true}))}/>
             </>
             : <Form caption="Ticket anlegen" fields={[
