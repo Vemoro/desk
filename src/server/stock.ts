@@ -3,6 +3,7 @@ import { db, first, rows, type Query } from './db';
 import { DeskError, required } from './errors';
 import { requireAvailableAssignee } from './accounts';
 import { getProject, lockPlanning } from './core';
+import { recordReservation } from './project-history';
 import type { movementInput, movementCorrection, reservationInput } from './contracts';
 
 type Reservation = {
@@ -98,7 +99,7 @@ export async function createReservation(input: z.infer<typeof reservationInput>,
   });
 }
 
-export async function setReservation(id: string, status: 'firm' | 'released') {
+export async function setReservation(id: string, status: 'firm' | 'released', actorId?: string) {
   return db.begin(async (transaction) => {
     await lockPlanning(transaction);
     const current = await reservation(transaction, id);
@@ -109,7 +110,9 @@ export async function setReservation(id: string, status: 'firm' | 'released') {
       if (!['confirmed','running'].includes(project.stage)) throw new DeskError(409, 'Zuerst den Auftrag bestätigen.');
       await reserveCapacity(transaction, current);
     }
-    return first(transaction, 'UPDATE reservations SET status=$2 WHERE id=$1 RETURNING *', [id,status]);
+    const updated = await first(transaction, 'UPDATE reservations SET status=$2 WHERE id=$1 RETURNING *', [id,status]);
+    await recordReservation(transaction,current.project_id,id,actorId,status);
+    return updated;
   });
 }
 

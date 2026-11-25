@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { db, first } from './db';
 import { DeskError, required } from './errors';
-import { getProject } from './core';
+import { getProject, lockPlanning, type Project } from './core';
+import { recordStage } from './project-history';
 import { integration, RemoteError } from './remote';
 import { habenOfferStatus, type habenContactInput } from './contracts';
 
@@ -18,7 +19,7 @@ type RemoteContact = z.infer<typeof contactSchema>;
 type Fields = { name: string; email: string; phone: string };
 type Local = Fields & { id: string; haben_id: string | null; haben_baseline: Fields | null; haben_export_pending: boolean };
 
-export async function syncOffer(projectId: string, offerId?: string) {
+export async function syncOffer(projectId: string, offerId?: string, actorId?: string) {
   const existing = await getProject(projectId);
   const id = offerId ?? existing.haben_offer_id;
   if (!id) throw new DeskError(400, 'Zuerst eine Haben-Angebots-ID angeben.');
@@ -27,13 +28,26 @@ export async function syncOffer(projectId: string, offerId?: string) {
   if (!response.success || response.data.id !== id) throw new RemoteError('Haben hat kein gültiges Angebot geliefert.');
   const offer = response.data;
   const invoiceLink = offer.invoiceId ? `${haben.origin}/rechnungen/${offer.invoiceId}` : null;
-  return first(db, `UPDATE projects SET haben_offer_id=$2,haben_offer=($3::text)::jsonb,offer_ref=$4,
-    invoice_ref=COALESCE($5,invoice_ref), stage=CASE
-      WHEN stage='offered' AND $6 IN ('angenommen','abgerechnet') THEN 'confirmed'
-      WHEN stage='planning' AND $6<>'entwurf' THEN CASE WHEN $6 IN ('angenommen','abgerechnet') THEN 'confirmed' ELSE 'offered' END
-      ELSE stage END WHERE id=$1 RETURNING *`, [projectId,id,JSON.stringify({
-        status: offer.listStatus, url: `${haben.origin}/angebote/${id}`, invoiceLink, fetchedAt: new Date().toISOString(),
-      }),offer.number || id,offer.invoiceNumber || null,offer.listStatus]);
+  return db.begin(async transaction=>{
+    await lockPlanning(transaction);
+    const current = await getProject(projectId,transaction);
+    // Compare the saved offer snapshots after the remote read, for refreshes and relinking alike.
+    if (current.haben_offer_id !== existing.haben_offer_id ||
+      JSON.stringify(current.haben_offer) !== JSON.stringify(existing.haben_offer)) {
+      throw new DeskError(409,'Das Haben-Angebot wurde inzwischen abgeglichen. Bitte Projekt neu laden.');
+    }
+    const updated = required(await first<Project>(transaction,`
+      UPDATE projects SET haben_offer_id=$2,haben_offer=($3::text)::jsonb,offer_ref=$4,
+        invoice_ref=COALESCE($5,invoice_ref), stage=CASE
+        WHEN stage='offered' AND $6 IN ('angenommen','abgerechnet') THEN 'confirmed'
+        WHEN stage='planning' AND $6<>'entwurf' THEN CASE WHEN $6 IN ('angenommen','abgerechnet') THEN 'confirmed' ELSE 'offered' END
+        ELSE stage END WHERE id=$1 RETURNING *
+    `,[projectId,id,JSON.stringify({
+      status: offer.listStatus, url: `${haben.origin}/angebote/${id}`, invoiceLink, fetchedAt: new Date().toISOString(),
+    }),offer.number || id,offer.invoiceNumber || null,offer.listStatus]));
+    if (updated.stage !== current.stage) await recordStage(transaction,projectId,actorId,current.stage,updated.stage,'haben');
+    return updated;
+  });
 }
 
 const fields = (value: RemoteContact): Fields => ({ name: value.name, email: value.email ?? '', phone: value.telefon ?? '' });

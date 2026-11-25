@@ -3,13 +3,14 @@ import { databaseReady, db, first, rows, type Query } from './db';
 import { DeskError, required } from './errors';
 import { accountInput, authenticate, changePassword, createAccount, createToken, login, loginInput, logout, passwordChangeInput, protectOrigin, requireAdmin, tokenInput, type Actor } from './auth';
 import { accountAccessInput, changeAccountAccess, withAccountAccess } from './accounts';
-import { schemas, id, projectResponse, projectStage, reservationInput, reservationStatus, movementInput, movementCorrection, costBatch, costAssignment, habenOfferInput, habenContactInput, zammadLinkInput, zammadCreateInput, zammadMessage } from './contracts';
+import { schemas, id, projectHistoryResponse, projectResponse, projectStage, reservationInput, reservationStatus, movementInput, movementCorrection, costBatch, costAssignment, habenOfferInput, habenContactInput, zammadLinkInput, zammadCreateInput, zammadMessage } from './contracts';
 import { assignCost, changeStage, controlling, getCore, getProject, importCosts, listCore, listCosts, saveCore, type Collection } from './core';
 import { correctMovement, createMovement, createReservation, listMovements, listReservations, listStock, setReservation } from './stock';
 import { pullContacts, syncContact, syncOffer } from './haben';
 import { checkZammadConnection, conversations, linkTicket, reviewOutgoing, send, unlinkTicket } from './zammad';
 import { integrationStatus } from './remote';
 import { readJson } from './request-body';
+import { listProjectHistory } from './project-history';
 
 type Context = { actor: Actor; sessionId?:string; path: string[]; limit: number; offset: number; requestKey?:string; query: Query };
 type Operation = {
@@ -81,7 +82,11 @@ operations.push({ method:'DELETE', path:'/tokens/{id}', summary:'API-Token wider
   requireAdmin(actor);
   return required(await first(db,'DELETE FROM api_tokens WHERE id=$1 RETURNING id',[path[1]]));
 }});
-action('PATCH','/projects/{id}/stage','Projektstatus ändern',projectStage,({path},input)=>changeStage(path[1],input.stage));
+action('PATCH','/projects/{id}/stage','Projektstatus ändern',projectStage,({actor,path},input)=>changeStage(path[1],input.stage,actor.id));
+get('/projects/{id}/history','Projektverlauf abrufen',async ({path,limit,offset})=>{
+  await getProject(path[1]);
+  return listProjectHistory(path[1],limit,offset);
+},{pageOrder:'Zeitpunkt absteigend, Ereignisart, ID',response:projectHistoryResponse});
 get('/projects/{id}/controlling','Plan- und Ist-Kosten',({path})=>controlling(path[1]));
 get('/projects/{id}/offer-positions','Verkaufspositionen für das Angebot',async ({path})=>{
   await getProject(path[1]);
@@ -91,7 +96,7 @@ get('/reservations','Reservierungen auflisten',({limit,offset})=>listReservation
   {pageOrder:'Startzeit, bei gleichem Start Personal vor Geräten und Material, ID'});
 action('POST','/reservations','Ressource vormerken',reservationInput,({actor,requestKey},input)=>
   createReservation(input,requestKey ? {actorId:actor.id,key:requestKey} : undefined),{keyed:true});
-action('PATCH','/reservations/{id}','Reservierung festlegen oder freigeben',reservationStatus,({path},input)=>setReservation(path[1],input.status));
+action('PATCH','/reservations/{id}','Reservierung festlegen oder freigeben',reservationStatus,({actor,path},input)=>setReservation(path[1],input.status,actor.id));
 get('/stock','Lagerbestand je Lagerort',()=>listStock());
 get('/movements','Lagerbewegungen',({limit,offset})=>listMovements(limit,offset),{pageOrder:'Zeitpunkt absteigend, ID'});
 action('POST','/movements','Lagerbewegung erfassen',movementInput,({actor,requestKey},input)=>createMovement(input,actor.id,requestKey),{keyed:true});
@@ -103,7 +108,7 @@ action('POST','/costs','Ist-Kosten übernehmen',costBatch,(context,input)=>impor
 action('PATCH','/costs/{id}','Ist-Kosten einem Projekt zuordnen',costAssignment,({path},input)=>assignCost(path[1],input.project_id));
 action('POST','/haben/contacts/import','Neue Haben-Kontakte importieren',z.strictObject({}),()=>pullContacts());
 action('POST','/contacts/{id}/haben','Kontakt mit Haben abgleichen',habenContactInput,({path},input)=>syncContact(path[1],input));
-action('POST','/projects/{id}/haben-offer','Haben-Angebot verknüpfen oder aktualisieren',habenOfferInput.partial(),({path},input)=>syncOffer(path[1],input.id));
+action('POST','/projects/{id}/haben-offer','Haben-Angebot verknüpfen oder aktualisieren',habenOfferInput.partial(),({actor,path},input)=>syncOffer(path[1],input.id,actor.id));
 get('/projects/{id}/zammad','Ticket, Verlauf und Desk-Sendeversuche',({path})=>conversations(path[1]));
 action('POST','/projects/{id}/zammad/link','Zammad-Ticket verknüpfen',zammadLinkInput,({path},input)=>linkTicket(path[1],input.id));
 action('POST','/projects/{id}/zammad/unlink','Zammad-Ticketverknüpfung lösen',zammadLinkInput,({path},input)=>unlinkTicket(path[1],input.id));

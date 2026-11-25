@@ -13,6 +13,14 @@ Wenn Desk meldet, dass eine Änderung gespeichert wurde und die Ansicht nicht ak
 
 In der Ressourcenplanung und im Projektlager steht die Inventarnummer eines Einzelgeräts neben seinem Namen. Unter **Ausgabe, Rückgabe oder Verbrauch** zeigt Desk nach der Wahl der **Projektreservierung** die vollständige Beschreibung mit Inventarnummer im Formular. Bei Artikeln ohne Inventarnummer zeigt Desk den Artikelnamen.
 
+### Projektverlauf ansehen
+
+Öffne im Projekt **Verlauf**. Desk zeigt Statuswechsel, feste Reservierungen, Freigaben und projektbezogene Lagerbewegungen. Die neuesten Ereignisse stehen oben. Die Ansicht nennt Zeitpunkt und ausführende Person, soweit sie gespeichert sind. Statuswechsel durch den Haben-Angebotsabgleich und automatische Freigaben beim Wechsel auf **Abgesagt** oder **Abgerechnet** sind gekennzeichnet.
+
+Desk zeichnet Statuswechsel, Festlegungen und Freigaben ab Migration `007_project_history.sql` auf. Vorhandene projektbezogene Lagerbewegungen erscheinen mit ihren ursprünglichen Buchungszeiten. Führe die Migration mit dem Befehl für deinen Installationsweg aus, bevor du die neue Version startest.
+
+Über die API liefert `GET /api/v1/projects/{id}/history` denselben Verlauf. Mit `limit` und `offset` kannst du seitenweise lesen. Im Feld `source` kennzeichnet `haben` den manuellen Haben-Abgleich und `project` die automatische Freigabe durch Statuswechsel. `desk` steht für die übrigen Ereignisse.
+
 ### Lagerbuchung korrigieren
 
 Öffne **Projektlager → Lagerbewegungen** und wähle beim ursprünglichen Wareneingang oder Verbrauch **Korrigieren**. Gib Menge und Begründung ein und wähle **Korrektur buchen**. Desk zeigt den ursprünglichen Eintrag sowie die neue Bewegung mit Begründung und Link zum Original. Teilkorrekturen können zusammen höchstens die ursprüngliche Menge erreichen. Für eine Ausgabe verwendest du die Rückgabe.
