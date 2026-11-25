@@ -4,7 +4,7 @@ import { Project, Projects, type Data } from './projects';
 import { PasskeyLogin, PasskeySettings } from './passkeys';
 import { AccountPassword } from './account-password';
 import { WeeklyPlanning } from './weekly-planning';
-import { Expand, Form, hasPendingWrite, noWrite, options, Panel, Pill, Table, type Run } from './widgets';
+import { ConfirmationRequests, Expand, Form, hasPendingWrite, noWrite, options, Panel, Pill, Table, type Run } from './widgets';
 import { Icon } from './icons';
 import { Navigation, sections, type Person, type Section } from './navigation';
 
@@ -28,6 +28,7 @@ export function Desk() {
   const sessionVersion=useRef(0);
   const signInPending=useRef(false);
   const logoutPending=useRef(false);
+  const confirmationRequests=useRef(new Set<string>());
   const project=data.projects.find((row)=>row.id===projectId);
 
   async function load(session:number) {
@@ -53,6 +54,7 @@ export function Desk() {
 
   function endSession() {
     sessionVersion.current++;
+    confirmationRequests.current=new Set();
     displayedSavedVersion.current=savedVersion.current;
     setPerson(null);
     setData(initialData);
@@ -178,7 +180,7 @@ export function Desk() {
       <PasskeyLogin onSignIn={signIn}/>
     </div></main>;
 
-  return <div className="frame">
+  return <ConfirmationRequests value={confirmationRequests.current}><div className="frame">
     <a href="#desk-main" className="skip">Zum Inhalt</a>
     <Navigation person={person} section={section} themeButton={themeButton} onNavigate={navigate} onLogout={async()=>{
       if(logoutPending.current) return;
@@ -220,7 +222,7 @@ export function Desk() {
       {section==='account' && <><AccountPassword/><PasskeySettings/><BuildInfo/></>}
       {section==='settings'&&person.role==='admin' && <Settings data={data} run={run} flags={flags} accountId={person.id}/>}
     </main>
-  </div>;
+  </div></ConfirmationRequests>;
 }
 
 function BuildInfo() {

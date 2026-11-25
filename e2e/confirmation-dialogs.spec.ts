@@ -97,7 +97,7 @@ for(const status of ['sent','failed','unknown','http'] as const){
     }
     await trigger.click();
     const modal=dialog(page);
-    await expect(modal).toHaveAccessibleDescription(/Angebot für die Musterinstallation/);
+    await expect(modal).toHaveAccessibleDescription(/Referenz des Sendeversuchs.*Angebot für die Musterinstallation/);
     await modal.getByRole('button',{name:'Erneut senden',exact:true}).click();
     if(status==='sent'){
       await expect(modal).toBeHidden();
@@ -120,5 +120,46 @@ for(const status of ['sent','failed','unknown','http'] as const){
       await expect(modal).toBeHidden();
     }
     expect(requests).toBe(1);
+  });
+}
+
+for(const scenario of [
+  {name:'Kalkulation',tab:'Ressourcen & Kalkulation',action:'Position entfernen',path:'**/api/v1/lines/position',method:'DELETE',result:{id:position.id}},
+  {name:'Zammad',tab:'Kommunikation',action:'Erneut senden',path:'**/api/v1/projects/projekt/zammad/outgoing/versuch',method:'POST',result:{id:attempt.id,status:'sent'}},
+] as const) {
+  test(`${scenario.name} bleibt bei einem Wechsel der Projektansicht gesperrt, bis die Bestätigung abgeschlossen ist`,async({page})=>{
+    const release=Promise.withResolvers<void>();
+    let requests=0;
+    await page.route('**/api/v1/lines?*',route=>route.fulfill({json:[position]}));
+    await page.route('**/api/v1/projects/projekt/zammad',route=>route.fulfill({json:{
+      ticket:{id:42,number:'42',url:'https://zammad.example.test/#ticket/zoom/42'}, articles:[],outgoing:[attempt],
+    }}));
+    await page.route(scenario.path,async route=>{
+      expect(route.request().method()).toBe(scenario.method);
+      requests++;
+      await release.promise;
+      await route.fulfill({json:scenario.result});
+    });
+    async function openConfirmation() {
+      await project(page,projectRow.name);
+      await page.getByRole('button',{name:scenario.tab,exact:true}).click();
+      if(scenario.name==='Kalkulation') await page.getByText('Position bearbeiten',{exact:true}).click();
+      await page.getByRole('button',{name:scenario.action,exact:true}).click();
+    }
+    try {
+      await signIn(page);
+      await openConfirmation();
+      await dialog(page).getByRole('button',{name:scenario.action,exact:true}).click();
+      await expect.poll(()=>requests).toBe(1);
+      await page.goBack();
+      await openConfirmation();
+      const reopened=dialog(page);
+      await expect(reopened.getByRole('alert')).toHaveText('Diese Aktion läuft bereits.');
+      await expect(reopened.getByRole('button',{name:scenario.action,exact:true})).toBeDisabled();
+      await reopened.getByRole('button',{name:'Schließen',exact:true}).click();
+      expect(requests).toBe(1);
+    } finally {
+      release.resolve();
+    }
   });
 }

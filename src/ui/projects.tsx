@@ -167,6 +167,7 @@ function Planning({project,data,run,accountId}:{project:Row;data:Data;run:Run;ac
           {name:'unit',label:'Einzelpreis netto in Euro',value:(row.unit_cents/100).toFixed(2).replace('.',','),required:true},
         ]} submit={(v)=>run(()=>api(`lines/${row.id}`,'PATCH',{kind:v.kind,name:v.name,quantity:Number(v.quantity),unit_cents:money(v.unit)}),'Position aktualisiert.')}/>
           <button onClick={event=>setConfirmation({
+            actionKey:`lines:${row.id}`,
             title:'Kalkulationsposition entfernen',
             description:`„${row.name}“ wird aus der Kalkulation dieses Projekts entfernt.`,
             actionLabel:'Position entfernen',
@@ -288,8 +289,9 @@ function ZammadCommunication({project,zammad,run}:{project:Row;zammad:boolean;ru
                 entry.status==='sent' ? '–' : <div className="actions">
                   <button onClick={()=>run(async(isCurrent)=>{await request(`outgoing/${entry.id}`,{retry:false});if(isCurrent()) await refresh();})}>Prüfen</button>
                   <button onClick={event=>setConfirmation({
+                    actionKey:`zammad-outgoing:${entry.id}`,
                     title:'Zammad-Sendeversuch wiederholen',
-                    description:`Desk prüft den Ticketverlauf auf „${entry.subject}“. Fehlt die Nachricht, sendet Zammad sie erneut.`,
+                    description:`Desk sucht im Ticketverlauf nach der Referenz des Sendeversuchs „${entry.subject}“. Fehlt ein Versandnachweis und ist eine Wiederholung zulässig, sendet Zammad die Nachricht erneut.`,
                     actionLabel:'Erneut senden',
                     trigger:event.currentTarget,
                     submit:async isCurrent=>{

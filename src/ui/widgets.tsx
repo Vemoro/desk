@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useId, useRef, useState, type FormEvent, type ReactNode, type RefObject } from 'react';
+import { createContext, useContext, useEffect, useEffectEvent, useId, useRef, useState, type FormEvent, type ReactNode, type RefObject } from 'react';
 import { ApiError, type Row } from './client';
 
 export const noWrite = Symbol('noWrite');
@@ -177,7 +177,11 @@ export function Pill({label,tone='neutral'}:{label:string;tone?:string}) {
   return <span className={`pill ${tone}`}>{label}</span>;
 }
 
+export const ConfirmationRequests = createContext(new Set<string>());
+const alreadyRunning = 'Diese Aktion läuft bereits.';
+
 export type Confirmation = {
+  actionKey:string;
   title:string;
   description:string;
   actionLabel:string;
@@ -198,8 +202,9 @@ export function ConfirmDialog({confirmation,run,dismiss,fallbackFocus}:{
   const cancelRef=useRef<HTMLButtonElement>(null);
   const confirmRef=useRef<HTMLButtonElement>(null);
   const submitting=useRef(false);
+  const requests=useContext(ConfirmationRequests);
   const [pending,setPending]=useState(false);
-  const [problem,setProblem]=useState('');
+  const [problem,setProblem]=useState(()=>requests.has(confirmation.actionKey)?alreadyRunning:'');
 
   useEffect(()=>{
     const dialog=dialogRef.current;
@@ -218,6 +223,11 @@ export function ConfirmDialog({confirmation,run,dismiss,fallbackFocus}:{
 
   async function confirm() {
     if(submitting.current || problem) return;
+    if(requests.has(confirmation.actionKey)) {
+      setProblem(alreadyRunning);
+      return;
+    }
+    requests.add(confirmation.actionKey);
     submitting.current=true;
     setPending(true);
     cancelRef.current?.focus();
@@ -228,6 +238,7 @@ export function ConfirmDialog({confirmation,run,dismiss,fallbackFocus}:{
     } catch(error) {
       setProblem(error instanceof Error ? error.message : 'Die Aktion konnte nicht abgeschlossen werden.');
     } finally {
+      requests.delete(confirmation.actionKey);
       submitting.current=false;
       setPending(false);
     }
