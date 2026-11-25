@@ -4,7 +4,7 @@ Jeder veröffentlichte Eintrag nennt Version und Datum. Er fasst Änderungen fü
 
 ## 0.1.0.0 – unveröffentlicht
 
-Desk ist eine selbst gehostete Projektverwaltung für kleine Teams. Die erste Version deckt den Ablauf von der Kundenanfrage bis zur dokumentierten Rechnungsreferenz ab. Dieser Entwurf bezieht sich auf den geprüften Anwendungskandidaten [`b1538c0`](https://github.com/Vemoro/desk/commit/b1538c093f2ce6d30d23d638346397a71edd308b). [Abnahmeprotokoll](https://github.com/Vemoro/desk/issues/204)
+Desk ist eine selbst gehostete Projektverwaltung für kleine Teams. Die erste Version deckt den Ablauf von der Kundenanfrage bis zur dokumentierten Rechnungsreferenz ab. Dieser Entwurf bezieht sich auf den Anwendungskandidaten [`f7de6a0`](https://github.com/Vemoro/desk/commit/f7de6a0e3bec3d25e3bc0b1bb7f49071110f355b). [Abnahmeprotokoll](https://github.com/Vemoro/desk/issues/204)
 
 ### Projekte, Planung und Lager
 
@@ -16,7 +16,8 @@ Desk ist eine selbst gehostete Projektverwaltung für kleine Teams. Die erste Ve
 
 - Unter **Mein Konto** können Nutzende das Passwort ändern, Passkeys verwalten und die installierte Desk-Version für einen Fehlerbericht kopieren. Ist im Build ein Git-Commit hinterlegt, wird er mit kopiert. Die Administration kann Teamkonten sperren und wieder freigeben. [Passkeys](docs/desk.md#passkeys) · [Passwort ändern](https://github.com/Vemoro/desk/pull/259) · [Kontozugriff](https://github.com/Vemoro/desk/pull/256) · [Versionsanzeige](https://github.com/Vemoro/desk/pull/227)
 - Der laufende Dienst stellt seine OpenAPI-Beschreibung unter `/api/v1/openapi.json` bereit. Die Administration kann Desk-API-Tokens ausstellen und widerrufen. [Seitennavigation der REST-API](docs/desk.md#seitennavigation-der-rest-api)
-- Haben und Zammad sind optional. Desk kann vorhandene Haben-Angebote verknüpfen, ihren Status lesen und Kontakte mit Haben abgleichen. Über Zammad lassen sich Tickets anlegen oder verknüpfen, der Verlauf lesen und Antworten mit PDF-Anhang zur Zustellung übergeben. Ohne Anbindungen lassen sich externe Vorgänge als Referenzen, Links und Notizen am Projekt erfassen. [Haben](docs/desk.md#haben) · [Zammad](docs/desk.md#zammad) · [Installationswege mit und ohne Zammad](docs/installation.md)
+- Haben und Zammad sind optional. Desk kann vorhandene Haben-Angebote verknüpfen, ihren Status lesen und Kontakte mit Haben abgleichen. Ohne Anbindungen lassen sich externe Vorgänge als Referenzen, Links und Notizen am Projekt erfassen. [Haben](docs/desk.md#haben) · [Zammad](docs/desk.md#zammad) · [Installationswege mit und ohne Zammad](docs/installation.md)
+- **Projektkommunikation** zeigt den Zammad-Verlauf und das Antwortfeld im Projekt. Tickets lassen sich über einen Dialog anlegen oder verknüpfen. Die Suche filtert Betreff und Nachrichtentext der geladenen Nachrichten. Antworten können einen PDF-Anhang enthalten. [Kommunikationsansicht](https://github.com/Vemoro/desk/pull/274) · [Verlaufssuche](https://github.com/Vemoro/desk/pull/275)
 
 ### Installation und Aktualisierung
 
@@ -27,4 +28,4 @@ Desk ist eine selbst gehostete Projektverwaltung für kleine Teams. Die erste Ve
 ### Bekannte Einschränkungen und offene Abnahme
 
 - Angebote und Rechnungen entstehen in Haben oder im eingesetzten Abrechnungssystem. Desk übergibt Angebotspositionen als CSV. Ist-Kosten lassen sich per Belegreferenz zuordnen oder aus einer CSV übernehmen. Angebotsentwürfe und der Abruf projektbezogener Ist-Kosten in Haben sind offene Schnittstellenaufgaben. [Angebotsentwürfe](https://github.com/Vemoro/desk/issues/5) · [Projektbezogene Ist-Kosten](https://github.com/Vemoro/desk/issues/6)
-- Zammad-Ticketanlage, Verknüpfung und Verlauf sind auf der vorgesehenen Testinstanz geprüft. Die bestätigte Zustellung einer Antwort mit PDF an ein separates Testpostfach sowie die Abnahme des Kontaktabgleichs und Angebotsstatus an der vorgesehenen Haben-Instanz stehen noch aus. [Abnahme des Release-Kandidaten](https://github.com/Vemoro/desk/issues/204)
+- Zammad-Ticketanlage, Verknüpfung und Verlauf sind auf der vorgesehenen Testinstanz geprüft. Die Zustellung einer Antwort mit PDF wurde über einen isolierten SMTP-Testkanal nachgewiesen. Der Empfang an einem separaten Postfach über den eingerichteten Mailkanal und die Abnahme von Kontaktabgleich und Angebotsstatus an der vorgesehenen Haben-Instanz stehen aus. [Abnahme des Release-Kandidaten](https://github.com/Vemoro/desk/issues/204)
