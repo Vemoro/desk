@@ -2,7 +2,7 @@
 
 ## Desk als Web-App installieren
 
-Öffne die HTTPS-Adresse deiner Desk-Instanz. Wähle in Chrome oder Edge unter Windows die Installationsaktion in der Adressleiste oder im Browsermenü. In Chrome unter Android findest du sie im Browsermenü. Öffne unter iOS das Teilen-Menü in Safari, wähle **Zu Home-Bildschirm hinzufügen** und aktiviere **Als Web-App öffnen**.
+Öffne die HTTPS-Adresse deiner Desk-Instanz. Wähle in Chrome oder Edge unter Windows die Installationsaktion in der Adressleiste oder im Browsermenü. In Chrome unter Android findest du sie im Browsermenü. Öffne unter iOS das Teilen-Menü in Safari, wähle **Zu Home-Bildschirm hinzufügen**, aktiviere **Als Web-App öffnen** und tippe auf **Hinzufügen**.
 
 Starte Desk danach über das blaue Desk-Symbol im Startmenü oder auf dem Home-Bildschirm und melde dich wie gewohnt an. Die installierte App benötigt eine Verbindung zu deiner Desk-Instanz.
 
