@@ -12,5 +12,6 @@ export default defineConfig({
   projects:[
     {name:'core',testMatch:['core.spec.ts','movement-retry.spec.ts','reservation-retry.spec.ts','warehouse-checkouts.spec.ts','movement-location.spec.ts','booking-labels.spec.ts','warehouse-location-acceptance.spec.ts','navigation.spec.ts','refresh-after-save.spec.ts','load-order.spec.ts','passkeys.spec.ts'],use:{...devices['Desktop Chrome']}},
     {name:'screenshots',testMatch:'screenshots.spec.ts',use:{...devices['Desktop Chrome']}},
+    {name:'runtime-image',testMatch:'runtime-image.spec.ts',outputDir:'test-results/runtime-image',use:{...devices['Desktop Chrome'],trace:'off'}},
   ],
 });
