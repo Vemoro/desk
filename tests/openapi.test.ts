@@ -60,7 +60,7 @@ test('Der API-Vertrag beschreibt Seitennavigation nur für paginierte Listen',as
   for(const [path,value] of byPath){
     const operation=/^\/paths\/~1([^/]+)\/(?:get|post|patch|delete)\/parameters$/.exec(path);
     if(!operation) continue;
-    const parameters=(value as {in:string}[]).filter(parameter=>parameter.in==='query');
+    const parameters=(value as {in:string;name:string}[]).filter(parameter=>parameter.in==='query');
     if(path.endsWith('/get/parameters') && paginated.delete(operation[1])){
       const operationPath=path.slice(0,-'/parameters'.length);
       expect(byPath.get(operationPath+'/description')).toMatch(/Reihenfolge.*Änderungen zwischen Seiten/);
@@ -72,10 +72,20 @@ test('Der API-Vertrag beschreibt Seitennavigation nur für paginierte Listen',as
         expect.objectContaining({name:'offset',schema:{type:'integer',minimum:0,maximum:1_000_000,default:0}}),
       ]);
     }else{
-      expect(parameters).toEqual([]);
+      expect(parameters.filter(parameter=>parameter.name==='limit' || parameter.name==='offset')).toEqual([]);
     }
   }
   expect(paginated.size).toBe(0);
+});
+
+test('OpenAPI beschreibt den Anhangsdownload mit drei numerischen Kennungen und Binärantwort',async()=>{
+  const byPath=new Map(entries(await servedSpecification()));
+  const operation='/paths/~1projects~1{id}~1zammad~1attachment/get';
+  const parameters=(byPath.get(operation+'/parameters') as {in:string}[]).filter(parameter=>parameter.in==='query');
+  expect(parameters).toEqual(['ticket','article','attachment'].map(name=>expect.objectContaining({
+    name,required:true,schema:expect.objectContaining({type:'integer',exclusiveMinimum:0}),
+  })));
+  expect(byPath.get(operation+'/responses/200/content/application~1octet-stream/schema')).toEqual({type:'string',format:'binary'});
 });
 
 test('Der API-Vertrag unterscheidet Sitzungen, Token und die Administrationsrolle',async()=>{

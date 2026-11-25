@@ -228,6 +228,12 @@ tr:last-child td { border-bottom:0; }
 .communication-reply .form-grid { grid-template-columns:1fr; }
 .communication-reply .form-action { justify-self:end; }
 .communication-attachment { display:inline-block; padding:4px 8px; border-radius:4px; background:var(--soft); margin:8px 8px 0 0; overflow-wrap:anywhere; }
+.communication-attachments { display:flex; flex-wrap:wrap; align-items:start; gap:8px; margin-top:8px; }
+.communication-attachments .communication-attachment { margin:0; max-width:100%; }
+.communication-download { min-width:0; }
+.communication-download button { display:inline-flex; align-items:center; gap:8px; min-height:44px; text-align:start; white-space:normal; }
+.communication-download .icon { flex:none; }
+.communication-download button[aria-disabled="true"] { opacity:.65; cursor:wait; }
 .communication-empty { display:grid; gap:16px; padding-block:8px; }
 .communication-compose .expand:not([open]) { width:fit-content; border-color:var(--accent); background:var(--accent); }
 .communication-compose .expand:not([open]) summary { color:#fff; min-height:40px; }

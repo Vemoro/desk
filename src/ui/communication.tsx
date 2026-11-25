@@ -1,9 +1,10 @@
 import { useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { api, ApiError, moment, type Row } from './client';
+import { api, ApiError, downloadBlob, moment, type Row } from './client';
+import { Icon } from './icons';
 import { ConfirmationRequests, ConfirmDialog, Expand, Form, Panel, Table, type Confirmation, type Run } from './widgets';
 
 type Article = { id:number; subject?:string|null; from?:string|null; created_at?:string; content_type?:string;
-  body:string; attachments?:{filename:string}[]; kind?:keyof typeof articleKinds;
+  body:string; attachments?:{filename:string;id?:number}[]; kind?:keyof typeof articleKinds;
   reply?:{recipient:string;subject:string} };
 type Conversation = { ticket:{number:string;title?:string;url:string}; articles:Article[]; outgoing:Row[] };
 type DialogState = { kind:'link'|'create'; trigger:HTMLButtonElement };
@@ -28,6 +29,59 @@ function plainText(html:string) {
   template.innerHTML=html;
   for (const element of template.content.querySelectorAll('script,style,template')) element.remove();
   return template.content.textContent;
+}
+
+type DownloadStatus = {loading:boolean;problem?:string};
+
+function useAttachmentDownloads() {
+  const requests=useRef(new Map<string,AbortController>());
+  const [status,setStatus]=useState<Record<string,DownloadStatus>>({});
+  useEffect(()=>{
+    const pending=requests.current;
+    return ()=>{for(const controller of pending.values()) controller.abort();};
+  },[]);
+
+  async function download(filename:string,url:string) {
+    if(requests.current.has(url)) return;
+    const controller=new AbortController();
+    requests.current.set(url,controller);
+    setStatus(current=>({...current,[url]:{loading:true}}));
+    let problem:string|undefined;
+    try {
+      const response=await fetch(url,{signal:controller.signal,redirect:'error'});
+      if(!response.ok) {
+        const result=await response.json().catch(()=>null);
+        throw new Error(typeof result?.error==='string' ? result.error : 'Der Anhang konnte nicht geladen werden.');
+      }
+      if(response.headers.get('Content-Type')!=='application/octet-stream') {
+        throw new Error('Desk hat keine Datei erhalten.');
+      }
+      const blob=await response.blob();
+      if(!controller.signal.aborted) downloadBlob(filename,blob);
+    } catch(error) {
+      problem=error instanceof Error && !(error instanceof TypeError) ? error.message : 'Der Anhang konnte nicht geladen werden.';
+    } finally {
+      requests.current.delete(url);
+      if(!controller.signal.aborted) setStatus(current=>{
+        const next={...current};
+        if(problem) next[url]={loading:false,problem};
+        else delete next[url];
+        return next;
+      });
+    }
+  }
+  return {status,download};
+}
+
+function ArticleAttachment({filename,status,download}:{filename:string;status?:DownloadStatus;download:()=>void}) {
+  return <div className="communication-download">
+    <button type="button" className="communication-attachment" aria-label={`${filename} herunterladen`} aria-disabled={status?.loading}
+      onClick={download}>
+      <Icon name="download"/><span>{filename}</span>
+    </button>
+    {status?.loading && <p role="status" className="subtle">Anhang wird geladen …</p>}
+    {status?.problem && <p role="alert" className="inline-error">{status.problem}</p>}
+  </div>;
 }
 
 function CommunicationDialog({title,trigger,dismiss,children}:{
@@ -141,6 +195,7 @@ export function Communication({project,zammad,run}:{project:Row;zammad:boolean;r
 function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   project:Row; zammad:boolean; run:Run; reference:ReactNode; zammadPanel:RefObject<HTMLElement|null>;
 }) {
+  const attachmentDownloads=useAttachmentDownloads();
   const confirmationRequests=useContext(ConfirmationRequests);
   const outgoingKey='zammad-outgoing:'+project.id+':';
   const ticketId=project.zammad_ticket_id ? Number(project.zammad_ticket_id) : null;
@@ -370,7 +425,14 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
                     <strong>{article.subject}</strong>
                     {article.from && <small className="communication-sender">{article.from}</small>}
                     <p>{article.body}</p>
-                    {article.attachments?.map((attachment,index)=><small className="communication-attachment" key={index}>{attachment.filename}</small>)}
+                    {article.attachments?.length ? <div className="communication-attachments">
+                      {article.attachments.map((attachment,index)=>{
+                        if(!ticketId || !attachment.id) return <small className="communication-attachment" key={`name:${index}`}>{attachment.filename}</small>;
+                        const url=`/api/v1/projects/${project.id}/zammad/attachment?ticket=${ticketId}&article=${article.id}&attachment=${attachment.id}`;
+                        return <ArticleAttachment key={attachment.id} filename={attachment.filename} status={attachmentDownloads.status[url]}
+                          download={()=>void attachmentDownloads.download(attachment.filename,url)}/>;
+                      })}
+                    </div> : null}
                   </div>
                   <footer className="communication-article-actions">
                     {article.reply && <button type="button" aria-expanded={reply?.id===article.id && !forwarding} disabled={locked || Boolean(reply)} onClick={event=>{
