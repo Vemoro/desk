@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { all, api, ApiError, compileCsv, date, euros, inventoryLabel, inventoryName, moment, money, movementStages, name, projectStages, type Row } from './client';
+import { all, api, ApiError, calendarDate, compileCsv, euros, inventoryLabel, inventoryName, moment, money, movementStages, name, projectStages, type Row } from './client';
 import { Project, Projects, type Data } from './projects';
 import { PasskeyLogin, PasskeySettings } from './passkeys';
 import { AccountPassword } from './account-password';
@@ -216,7 +216,7 @@ export function Desk() {
         navigate('projects',id);
         if(!data.projects.some(plan=>plan.id===id)) void run(async()=>{},undefined,{kind:'read'});
       }}/>}
-      {section==='contacts' && <Contacts data={data} run={run} haben={flags.haben}/>}
+      {section==='contacts' && <Contacts data={data} run={run} haben={flags.haben} openProject={id=>navigate('projects',id)}/>}
       {section==='warehouse' && <Warehouse data={data} run={run} accountId={person.id}/>}
       {section==='costs' && <Costs data={data} run={run}/>}
       {section==='account' && <><AccountPassword/><PasskeySettings/><BuildInfo/></>}
@@ -262,16 +262,16 @@ function Dashboard({data,select,open}:{data:Data;select:(id:string)=>void;open:(
     <div className="metrics">{metrics.map(([label,value])=><div className="metric" key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>
     <Panel title="Aktive Projekte" action={<button className="primary" onClick={open}>Alle Projekte</button>}>
       <Table headers={['Projekt','Kontakt','Status','Termin']} rows={active.map((row)=>({key:row.id,cells:[
-        <button className="text-button" onClick={()=>select(row.id)}>{row.name}</button>,name(data.contacts,row.contact_id),<Pill label={projectStages[row.stage]} tone="accent"/>,date(row.due),
+        <button className="text-button" onClick={()=>select(row.id)}>{row.name}</button>,name(data.contacts,row.contact_id),<Pill label={projectStages[row.stage]} tone="accent"/>,calendarDate(row.due),
       ]}))}/>
     </Panel>
     <Panel title="Fällige Aufgaben"><Table headers={['Aufgabe','Projekt','Verantwortlich','Termin']} rows={data.tasks.filter((task)=>task.status!=='done'&&task.due)
       .sort((a,b)=>String(a.due).localeCompare(String(b.due))).slice(0,10)
-      .map((task)=>({key:task.id,cells:[task.name,<button className="text-button" onClick={()=>select(task.project_id)}>{name(data.projects,task.project_id)}</button>,name(data.users,task.assignee_id),date(task.due)]}))}/></Panel>
+      .map((task)=>({key:task.id,cells:[task.name,<button className="text-button" onClick={()=>select(task.project_id)}>{name(data.projects,task.project_id)}</button>,name(data.users,task.assignee_id),calendarDate(task.due)]}))}/></Panel>
   </>;
 }
 
-function Contacts({data,run,haben}:{data:Data;run:Run;haben:boolean}) {
+function Contacts({data,run,haben,openProject}:{data:Data;run:Run;haben:boolean;openProject:(id:string)=>void}) {
   const [search,setSearch]=useState('');
   const [selected,setSelected]=useState('');
   const [comparison,setComparison]=useState<any>();
@@ -282,6 +282,7 @@ function Contacts({data,run,haben}:{data:Data;run:Run;haben:boolean}) {
   const duplicateWarning=useRef<HTMLElement>(null);
   const [focusContact,setFocusContact]=useState('');
   const contact=data.contacts.find((row)=>row.id===selected);
+  const projects=contact ? data.projects.filter((project)=>project.contact_id===contact.id) : [];
   useEffect(()=>{
     if(focusContact && contact?.id===focusContact){
       contactDetail.current?.focus();
@@ -289,6 +290,13 @@ function Contacts({data,run,haben}:{data:Data;run:Run;haben:boolean}) {
     }
   },[focusContact,contact?.id]);
   useEffect(()=>{if(duplicates) duplicateWarning.current?.focus();},[duplicates]);
+
+  function openContact(id:string) {
+    setSelected(id);
+    setComparison(undefined);
+    setFocusContact(id);
+  }
+
   function fields(record?:Row) {
     return [{name:'name',label:'Name',value:record?.name,required:true},{name:'email',label:'E-Mail',value:record?.email},
       {name:'phone',label:'Telefon',value:record?.phone,type:'tel'},{name:'notes',label:'Notiz',value:record?.notes,type:'textarea'}];
@@ -337,7 +345,7 @@ function Contacts({data,run,haben}:{data:Data;run:Run;haben:boolean}) {
             <h3>Mögliche Dubletten</h3>
             <p>Desk hat Kontakte mit gleichem Namen oder gleicher E-Mail-Adresse gefunden.</p>
             <ul>{duplicates.contacts.map((row)=><li key={row.id}>
-              <button type="button" className="text-button" onClick={()=>{setSelected(row.id);setComparison(undefined);setFocusContact(row.id);}}>
+              <button type="button" className="text-button" onClick={()=>openContact(row.id)}>
                 {row.email?`${row.name} · ${row.email}`:row.name}
               </button>
             </li>)}</ul>
@@ -353,7 +361,7 @@ function Contacts({data,run,haben}:{data:Data;run:Run;haben:boolean}) {
           </section>}
         </Expand></div>
       <Table headers={['Name','E-Mail','Telefon']} rows={data.contacts.filter((row)=>`${row.name} ${row.email}`.toLowerCase().includes(search.toLowerCase()))
-        .map((row)=>({key:row.id,cells:[<button className="text-button" onClick={()=>{setSelected(row.id);setComparison(undefined);}}>{row.name}</button>,row.email||'–',row.phone||'–']}))}/>
+        .map((row)=>({key:row.id,cells:[<button type="button" className="text-button" onClick={()=>openContact(row.id)}>{row.name}</button>,row.email||'–',row.phone||'–']}))}/>
     </Panel>
     {contact&&<Panel title={contact.name} focusRef={contactDetail}><div className="panel-body">
       <Form key={contact.id} caption="Änderungen speichern" fields={fields(contact)} submit={(input)=>run(()=>api(`contacts/${contact.id}`,'PATCH',input),'Kontakt gespeichert.')}/>
@@ -371,7 +379,19 @@ function Contacts({data,run,haben}:{data:Data;run:Run;haben:boolean}) {
         </div>}
         {comparison&&comparison.action!=='conflict'&&<p role="status">Abgleich abgeschlossen.</p>}
       </Expand>}
-    </div></Panel>}
+    </div>
+      <section className="contact-projects" aria-labelledby="contact-projects-title">
+        <div className="panel-body">
+          <h3 id="contact-projects-title">Zugehörige Projekte</h3>
+          {!projects.length&&<p className="subtle">Diesem Kontakt sind noch keine Projekte zugeordnet.</p>}
+        </div>
+        {projects.length>0&&<Table headers={['Projekt','Status','Termin']} rows={projects.map((project)=>({key:project.id,cells:[
+          <button type="button" className="text-button" onClick={()=>openProject(project.id)}>{project.name}</button>,
+          <Pill label={projectStages[project.stage]} tone={project.stage==='confirmed'?'accent':'neutral'}/>,
+          calendarDate(project.due),
+        ]}))}/>}
+      </section>
+    </Panel>}
     {confirmation&&<ConfirmDialog confirmation={confirmation} run={run} dismiss={(confirmed)=>{
       setConfirmation(undefined);
       if(confirmed) setDuplicates(undefined);

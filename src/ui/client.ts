@@ -12,6 +12,7 @@ export const movementStages: Record<string,string> = {
 };
 export const euros = (cents:number) => new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(cents / 100);
 export const date = (value?:string) => value ? new Intl.DateTimeFormat('de-DE',{dateStyle:'medium'}).format(new Date(value)) : '–';
+export const calendarDate = (value?:string|null) => value ? new Intl.DateTimeFormat('de-DE',{dateStyle:'medium',timeZone:'UTC'}).format(new Date(value)) : '–';
 export const moment = (value?:string) => value ? new Intl.DateTimeFormat('de-DE',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value)) : '–';
 export const name = (collection:Row[], id?:string) => collection.find((row)=>row.id===id)?.name ?? '–';
 
