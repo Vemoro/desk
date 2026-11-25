@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type Route } from '@playwright/test';
 import { holdRoute, project, settleResponse, signIn } from './session';
 
 const projectName='Musterinstallation';
@@ -79,16 +79,15 @@ function thread(subject:string) {
 for(const staleStatus of [200,503]){
   test(`Verspäteter Ticketabruf (${staleStatus}) überschreibt weder aktuellen Stand noch Entwurf`,async({page})=>{
     const older=holdRoute();
-    let calls=0;
+    let phase:'initial'|'older'|'newer'|'recovered'='initial';
     const oldTitle='Alter Verlauf';
     const oldError='Alter Abruffehler';
     const currentTitle='Aktueller Verlauf';
     const currentError='Aktueller Abruffehler';
     await page.route(path,route=>{
-      calls++;
-      if(calls===2) return older.resolve(route);
-      if(calls===3 && staleStatus===200) return route.fulfill({status:503,json:{error:currentError}});
-      return route.fulfill({json:thread(calls===1?'Ausgangsverlauf':currentTitle)});
+      if(phase==='older') return older.resolve(route);
+      if(phase==='newer' && staleStatus===200) return route.fulfill({status:503,json:{error:currentError}});
+      return route.fulfill({json:thread(phase==='initial'?'Ausgangsverlauf':currentTitle)});
     });
     await page.route(path+'/notes',route=>route.fulfill({status:201,json:{status:'sent'}}));
     await openTarget(page);
@@ -96,9 +95,11 @@ for(const staleStatus of [200,503]){
     const refresh=page.getByRole('button',{name:'Verlauf aktualisieren',exact:true});
     const note=page.getByRole('textbox',{name:'Interne Notiz',exact:true});
     await expect(history.getByText('Ausgangsverlauf',{exact:true})).toBeVisible();
+    phase='older';
     await refresh.click();
     const oldRequest=await older.request;
     try {
+      phase='newer';
       await note.fill('Neue interne Notiz');
       await page.getByRole('button',{name:'Notiz hinzufügen',exact:true}).click();
       const current=staleStatus===200
@@ -113,6 +114,7 @@ for(const staleStatus of [200,503]){
       await expect(history.getByText(oldError,{exact:true})).toHaveCount(0);
       await expect(note).toHaveValue('Entwurf nach dem aktuellen Abruf');
 
+      phase='recovered';
       await refresh.click();
       await expect(history.getByText(currentTitle,{exact:true})).toBeVisible();
       await expect(history.getByRole('alert')).toHaveCount(0);
@@ -124,29 +126,36 @@ for(const staleStatus of [200,503]){
 
 test('Ticketabruf aus verlassener Kommunikation verändert die erneut geöffnete Ansicht nicht',async({page})=>{
   const older=holdRoute();
-  let calls=0;
+  let initialView=true;
+  const heldRequests:Route[]=[];
   await page.route(path,route=>{
-    if(++calls===1) return older.resolve(route);
+    if(initialView) {
+      heldRequests.push(route);
+      return older.resolve(route);
+    }
     return route.fulfill({json:thread('Verlauf nach Wiederöffnen')});
   });
   await openTarget(page);
-  const oldRequest=await older.request;
+  await older.request;
   const history=page.getByRole('region',{name:'Ticketverlauf',exact:true});
   try {
     await expect(history).toHaveAttribute('aria-busy','true');
     await page.getByRole('button',{name:'Überblick',exact:true}).click();
     await expect(history).toHaveCount(0);
+    initialView=false;
     await page.getByRole('button',{name:'Kommunikation',exact:true}).click();
     const current=history.getByText('Verlauf nach Wiederöffnen',{exact:true});
     await expect(current).toBeVisible();
     const note=page.getByRole('textbox',{name:'Interne Notiz',exact:true});
     await note.fill('Entwurf nach Wiederöffnen');
-    await settleResponse(page,oldRequest,thread('Verlauf aus verlassener Ansicht'));
+    for(const request of heldRequests) {
+      await settleResponse(page,request,thread('Verlauf aus verlassener Ansicht'));
+    }
     await expect(current).toBeVisible();
     await expect(history.getByText('Verlauf aus verlassener Ansicht',{exact:true})).toHaveCount(0);
     await expect(note).toHaveValue('Entwurf nach Wiederöffnen');
   } finally {
-    await oldRequest.abort().catch(()=>{});
+    await Promise.all(heldRequests.map(request=>request.abort().catch(()=>{})));
   }
 });
 
@@ -154,7 +163,7 @@ test('Nur ein aktueller Versandnachweis darf die unbestätigte interne Notiz zur
   const older=holdRoute();
   const noteText='Interne Notiz mit unklarem Ergebnis';
   let attemptId='';
-  let calls=0;
+  let phase:'initial'|'older'|'newer'|'confirmed'='initial';
   await page.route(path+'/notes',route=>{
     attemptId=route.request().postDataJSON().id;
     return route.fulfill({status:201,json:{id:attemptId,status:'unknown'}});
@@ -163,17 +172,18 @@ test('Nur ein aktueller Versandnachweis darf die unbestätigte interne Notiz zur
     {id:attemptId,subject:noteText,status},
   ]});
   await page.route(path,route=>{
-    calls++;
-    if(calls===2) return older.resolve(route);
-    return route.fulfill({json:calls===1 ? thread('Synthetischer Verlauf') : attempt(calls===3?'unknown':'sent')});
+    if(phase==='older') return older.resolve(route);
+    return route.fulfill({json:phase==='initial' ? thread('Synthetischer Verlauf') : attempt(phase==='newer'?'unknown':'sent')});
   });
   await openTarget(page);
   const refresh=page.getByRole('button',{name:'Verlauf aktualisieren',exact:true});
   const note=page.getByRole('textbox',{name:'Interne Notiz',exact:true});
   await expect(page.getByText('Synthetischer Verlauf',{exact:true})).toBeVisible();
+  phase='older';
   await refresh.click();
   const oldRequest=await older.request;
   try {
+    phase='newer';
     await note.fill(noteText);
     await page.getByRole('button',{name:'Notiz hinzufügen',exact:true}).click();
     const unclear=page.getByRole('row',{name:/Ausgang unklar/});
@@ -185,6 +195,7 @@ test('Nur ein aktueller Versandnachweis darf die unbestätigte interne Notiz zur
     await expect(note).toHaveValue(noteText);
     await expect(note).toBeDisabled();
 
+    phase='confirmed';
     await refresh.click();
     await expect(page.getByRole('row',{name:/An Zammad übergeben/})).toBeVisible();
     await expect(note).toBeEnabled();
