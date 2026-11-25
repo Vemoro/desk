@@ -23,7 +23,7 @@ War die Antwort auf eine bereits gespeicherte Vollkorrektur unklar, öffne an de
 
 ### Bestand filtern
 
-Unter **Bestand je Lagerort** sucht **Bestand suchen** nach Teilen des Artikelnamens, der Artikelnummer oder der Inventarnummer. Groß- und Kleinschreibung spielen dabei keine Rolle. **Lagerort filtern** und **Nur mit freiem Bestand** lassen sich mit der Suche kombinieren. Ist **Nur mit freiem Bestand** aktiviert, zeigt Desk Zeilen mit einer freien Menge größer als null. Bei leerem Ergebnis erscheint „Kein Bestand für diese Filter.“ **Filter zurücksetzen** leert Suche und Lagerortwahl und deaktiviert die Option. Der Abschnitt **Offene Ausgaben** hat eigene Filter.
+Unter **Bestand je Lagerort** sucht **Bestand suchen** nach Teilen des Artikelnamens, der Artikelnummer oder der Inventarnummer. Groß- und Kleinschreibung spielen dabei keine Rolle. Eine Bestandszeile muss alle aktiven Filter erfüllen. **Nur mit freiem Bestand** zeigt Zeilen mit einem Wert größer als null in der Spalte **Frei**. Ergibt die Filterung keine Treffer, erscheint „Kein Bestand für diese Filter.“ **Filter zurücksetzen** leert Suche und Lagerortwahl und deaktiviert die Option. **Offene Ausgaben** und **Lagerbewegungen** bleiben separat sichtbar.
 
 ## Haben
 
