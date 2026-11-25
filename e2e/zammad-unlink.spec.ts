@@ -7,6 +7,7 @@ test('Zammad-Zuordnung verlangt Bestätigung und erlaubt erneutes Verknüpfen',a
   const url='https://example.test/vorgang';
   let linked:number|null=42;
   const submitted:unknown[]=[];
+  let shouldRejectLink=true;
   await page.route('**/api/v1/integrations',route=>route.fulfill({json:{haben:false,zammad:true}}));
   await page.route(/\/api\/v1\/projects\?/,async route=>{
     const response=await route.fetch();
@@ -26,6 +27,10 @@ test('Zammad-Zuordnung verlangt Bestätigung und erlaubt erneutes Verknüpfen',a
   });
   await page.route('**/api/v1/projects/*/zammad/link',route=>{
     const {id}=route.request().postDataJSON();
+    if(shouldRejectLink) {
+      shouldRejectLink=false;
+      return route.fulfill({status:502,json:{error:'Ticket vorübergehend nicht verfügbar.'}});
+    }
     linked=id;
     return route.fulfill({status:201,json:{id}});
   });
@@ -63,5 +68,9 @@ test('Zammad-Zuordnung verlangt Bestätigung und erlaubt erneutes Verknüpfen',a
   await linkButton.click();
   await page.getByLabel('Ticket-ID').fill('43');
   await dialog.getByRole('button',{name:'Ticket verknüpfen',exact:true}).click();
+  await expect(dialog.getByRole('alert')).toHaveText('Ticket vorübergehend nicht verfügbar.');
+  await expect(dialog.getByLabel('Ticket-ID')).toHaveValue('43');
+  await dialog.getByRole('button',{name:'Ticket verknüpfen',exact:true}).click();
+  await expect(dialog).toHaveCount(0);
   await expect(page.getByRole('link',{name:'Ticket TEST-43 öffnen'})).toBeVisible();
 });
