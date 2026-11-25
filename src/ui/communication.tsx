@@ -1,4 +1,4 @@
-import { useContext, useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { api, moment, type Row } from './client';
 import { ConfirmationRequests, ConfirmDialog, Expand, Form, Panel, Table, type Confirmation, type Run } from './widgets';
 
@@ -132,6 +132,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   const [confirmation,setConfirmation]=useState<Confirmation>();
   const [conversation,setConversation]=useState<Conversation|null>(null);
   const [problem,setProblem]=useState('');
+  const [search,setSearch]=useState('');
   const [loading,setLoading]=useState(Boolean(zammad && ticketId));
   const refreshVersion=useRef(0);
   const [file,setFile]=useState<File>();
@@ -175,6 +176,14 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   },[outgoingKey,ticketId,zammad,confirmationRequests]);
 
   const request=(suffix:string,input:unknown)=>api('projects/'+project.id+'/zammad/'+suffix,'POST',input);
+  const articles=useMemo(()=>(conversation?.articles ?? []).map(article=>({
+    ...article,
+    subject:article.subject || 'Nachricht',
+    body:article.content_type==='text/html' ? plainText(article.body) : article.body,
+  })),[conversation]);
+  const term=search.trim().toLowerCase();
+  const visibleArticles=term ? articles.filter(article=>
+    article.subject.toLowerCase().includes(term) || article.body.toLowerCase().includes(term)) : articles;
   const ticket=conversation?.ticket;
   const ticketIdHint=useId();
   const dialogTitle=dialog?.kind==='link'?'Ticket verknüpfen':'Ticket anlegen';
@@ -207,11 +216,19 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
           {loading && <p role="status" className="subtle">Ticketverlauf wird geladen …</p>}
           <section className="communication-history" aria-label="Ticketverlauf" aria-busy={loading}>
             {problem && <p role="alert" className="inline-error">{problem}</p>}
-            {conversation?.articles.length ? <ol className="thread">{conversation.articles.map(article=><li key={article.id}>
-              <div><strong>{article.subject || 'Nachricht'}</strong><small>{[article.from,article.created_at && moment(article.created_at)].filter(Boolean).join(' · ')}</small></div>
-              <p>{article.content_type==='text/html' ? plainText(article.body) : article.body}</p>
+            {(articles.length>0 || search) && <div className="communication-search">
+              <label className="filter"><span>Ticketverlauf durchsuchen</span>
+                <input type="search" value={search} onChange={event=>setSearch(event.target.value)}/>
+              </label>
+              {term && visibleArticles.length>0 && <p className="subtle" role="status">{visibleArticles.length} von {articles.length} Nachrichten</p>}
+            </div>}
+            {visibleArticles.length>0 && <ol className="thread">{visibleArticles.map(article=><li key={article.id}>
+              <div><strong>{article.subject}</strong><small>{[article.from,article.created_at && moment(article.created_at)].filter(Boolean).join(' · ')}</small></div>
+              <p>{article.body}</p>
               {article.attachments?.map((attachment,index)=><small className="communication-attachment" key={index}>{attachment.filename}</small>)}
-            </li>)}</ol> : conversation && !loading && !problem && <p className="subtle">Dieses Ticket enthält noch keine Nachrichten.</p>}
+            </li>)}</ol>}
+            {term && articles.length>0 && visibleArticles.length===0 && <p className="subtle" role="status">Keine Nachrichten für diese Suche.</p>}
+            {conversation && articles.length===0 && !loading && !problem && <p className="subtle">Dieses Ticket enthält noch keine Nachrichten.</p>}
           </section>
           <div className="communication-compose"><Expand title="Antwort schreiben"><Form key={composeVersion} caption="Über Zammad senden" fields={[
               {name:'recipient',label:'Empfänger',type:'email',required:true},{name:'subject',label:'Betreff',required:true},{name:'body',label:'Nachricht',type:'textarea',required:true},
