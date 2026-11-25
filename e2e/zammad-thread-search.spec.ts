@@ -3,7 +3,7 @@ import { project, signIn } from './session';
 
 const projectName='Musterinstallation';
 const apiPath='/api/v1/projects/muster/zammad';
-async function openTarget(page:Page){
+async function openTarget(page:Page,withAttempts=false){
   const data={id:'muster',name:projectName,stage:'planning',zammad_ticket_id:42 as number|null};
   const common={from:'Mira Muster',created_at:'2028-05-17T09:00:00Z',content_type:'text/plain'};
   const articles=[
@@ -26,7 +26,7 @@ async function openTarget(page:Page){
   await page.route('**'+apiPath,route=>route.fulfill({json:{
     ticket:{id:data.zammad_ticket_id,number:String(data.zammad_ticket_id),title:'Anfrage vom Musterbüro',url:'https://zammad.example.test/'},
     articles:data.zammad_ticket_id===42?articles:[{...common,id:4,subject:'Neues Ticket',body:'Rückmeldung für den Folgeauftrag.'}],
-    outgoing:[],
+    outgoing:withAttempts ? [{id:'muster-sendeversuch',subject:'Anfrage bestätigen',status:'sent'}] : [],
   }}));
   await signIn(page);
   await project(page,projectName);
@@ -73,4 +73,33 @@ test('Zammad filtert lokal den sichtbaren Ticketverlauf und lässt den Entwurf s
   await linkDialog.getByRole('button',{name:'Ticket verknüpfen',exact:true}).click();
   await expect(subjects).toHaveText(['Neues Ticket']);
   await expect(search).toHaveValue('');
+});
+
+test('Zammad scrollt am Desktop den Verlauf und hält den Notizeditor sichtbar',async({page})=>{
+  await page.setViewportSize({width:1440,height:900});
+  const ticket=await openTarget(page,true);
+  const activity=page.getByRole('region',{name:'Ticketaktivität'});
+  const note=page.getByRole('textbox',{name:'Interne Notiz'});
+  const details=page.getByRole('complementary',{name:'Vorgangsdetails'});
+  const subject=ticket.getByRole('heading',{name:'Anfrage vom Musterbüro'});
+  const attempts=activity.getByRole('heading',{name:'Sendeversuche'});
+  await expect(note).toBeInViewport({ratio:1});
+  await expect(subject).toBeInViewport();
+  await expect(details.getByRole('heading',{name:'Ticketdetails'})).toBeInViewport();
+  const before=await note.boundingBox();
+  await activity.focus();
+  await activity.press('End');
+  await expect.poll(()=>activity.evaluate(element=>element.scrollTop)).toBeGreaterThan(0);
+  expect(await note.boundingBox()).toEqual(before);
+  await expect(subject).toBeInViewport();
+  await expect(attempts).toBeInViewport();
+  await expect(details.getByRole('heading',{name:'Ticketdetails'})).toBeInViewport();
+
+  await page.setViewportSize({width:1210,height:690});
+  await expect.poll(()=>activity.evaluate(element=>getComputedStyle(element).overflowY)).toBe('visible');
+  await page.setViewportSize({width:390,height:844});
+  await expect.poll(()=>activity.evaluate(element=>getComputedStyle(element).overflowY)).toBe('visible');
+  await expect(note).toBeVisible();
+  expect((await note.boundingBox())!.y).toBeGreaterThan((await attempts.boundingBox())!.y);
+  expect((await details.boundingBox())!.y).toBeGreaterThan((await note.boundingBox())!.y);
 });
