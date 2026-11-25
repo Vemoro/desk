@@ -58,6 +58,11 @@ function CommunicationDialog({title,trigger,dismiss,children}:{
       const first=fields[0];
       const last=fields[fields.length-1];
       const current=document.activeElement;
+      if(!Array.from(fields).some(field=>field===current)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first)?.focus();
+        return;
+      }
       if(event.shiftKey && current===first) {
         event.preventDefault();
         last?.focus();
