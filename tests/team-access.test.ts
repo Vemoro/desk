@@ -47,6 +47,7 @@ test('Passwortwechsel betrifft nur das eigene Konto und nimmt keine API-Tokens a
   const member = await createPerson('member');
   try {
     const adminSession = sessionCookie(await login(administrator.email));
+    const otherAdminSession = sessionCookie(await login(administrator.email));
     const memberSession = sessionCookie(await login(member.email));
     const token = await createToken(administrator,{label:'Schreibtest',scope:'write'});
     const bearer = {Authorization:`Bearer ${token.token}`};
@@ -56,7 +57,12 @@ test('Passwortwechsel betrifft nur das eigene Konto und nimmt keine API-Tokens a
     expect((await write('/me/password','PATCH',change,{...adminSession,Origin:'https://elsewhere.example.test'})).status).toBe(403);
     expect((await write('/me/password','PATCH',{...change,newPassword:'zu-kurz'},adminSession)).status).toBe(400);
     expect((await write('/me/password','PATCH',{...change,userId:member.id},adminSession)).status).toBe(400);
+    const repeated = await write('/me/password','PATCH',{...change,newPassword:password},adminSession);
+    expect(repeated.status).toBe(400);
+    expect(await repeated.json()).toEqual({error:'Wähle ein anderes neues Passwort.'});
+    expect(await status(otherAdminSession)).toBe(200);
     expect((await write('/me/password','PATCH',change,adminSession)).status).toBe(200);
+    expect(await status(otherAdminSession)).toBe(401);
     expect((await login(member.email)).status).toBe(200);
     expect(await status(memberSession)).toBe(200);
     expect(await status(bearer)).toBe(200);

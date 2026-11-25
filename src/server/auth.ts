@@ -98,6 +98,9 @@ export async function changePassword(query: Query, userId: string, sessionId: st
   if (!credential?.password || !await password.verify(input.currentPassword,credential.password)) {
     throw new DeskError(400, 'Das aktuelle Passwort stimmt nicht.');
   }
+  if (input.currentPassword === input.newPassword) {
+    throw new DeskError(400, 'Wähle ein anderes neues Passwort.');
+  }
 
   const newHash = await password.hash(input.newPassword);
   await query.unsafe('UPDATE auth_accounts SET password=$2,"updatedAt"=now() WHERE id=$1',[credential.id,newHash]);
