@@ -11,7 +11,7 @@
 
 Unter **Kontakte → Kontakt anlegen** prüft Desk beim Speichern, ob der Name oder die ausgefüllte E-Mail-Adresse mit einem vorhandenen Kontakt übereinstimmt. Äußere Leerzeichen und Groß- oder Kleinschreibung spielen beim Vergleich keine Rolle. Öffne einen Treffer aus der Liste oder wähle **Trotzdem anlegen** und bestätige den zusätzlichen Kontakt. **Abbrechen** erhält die Eingabe und die Trefferliste.
 
-Unter **Kontakte suchen** findest du Namen, E-Mail-Adressen und Rufnummern. Für die Rufnummernsuche kannst du einen Teil der Nummer eingeben. Desk vergleicht die Ziffern unabhängig von Leerzeichen, Pluszeichen, Klammern und Bindestrichen.
+Unter **Kontakte suchen** findest du Namen, E-Mail-Adressen und Rufnummern. Für die Rufnummernsuche kannst du einen Teil der Nummer eingeben. Desk vergleicht die Ziffern unabhängig von Leerzeichen, Pluszeichen, Klammern und Bindestrichen. Leerzeichen vor und nach dem Suchbegriff kannst du beim Einfügen stehen lassen.
 
 Wähle unter **Kontakte** den Namen eines Kontakts. Unter **Zugehörige Projekte** stehen seine Projekte mit Status und Termin. Wähle den Projektnamen, um das Projekt zu öffnen. Gleichnamige Kontakte zeigen jeweils ihre eigenen Projekte.
 
