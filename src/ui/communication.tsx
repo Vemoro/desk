@@ -51,7 +51,21 @@ function CommunicationDialog({title,trigger,dismiss,children}:{
   }
 
   return <dialog ref={dialog} className="confirm-dialog communication-dialog" aria-labelledby={titleId}
-    onCancel={event=>{event.preventDefault();if(!busy.current) close();}}>
+    onCancel={event=>{event.preventDefault();if(!busy.current) close();}}
+    onKeyDown={event=>{
+      if(event.key!=='Tab') return;
+      const fields=event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea:not(:disabled)');
+      const first=fields[0];
+      const last=fields[fields.length-1];
+      const current=document.activeElement;
+      if(event.shiftKey && current===first) {
+        event.preventDefault();
+        last?.focus();
+      } else if(!event.shiftKey && current===last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    }}>
     <header className="communication-dialog-head">
       <h2 id={titleId}>{title}</h2>
       <button type="button" disabled={saving} onClick={close}>Schließen</button>

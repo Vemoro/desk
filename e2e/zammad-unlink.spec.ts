@@ -62,6 +62,10 @@ test('Zammad-Zuordnung verlangt Bestätigung und erlaubt erneutes Verknüpfen',a
   await linkButton.click();
   const dialog=page.getByRole('dialog',{name:'Ticket verknüpfen'});
   await expect(dialog.getByLabel('Ticket-ID')).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(dialog.getByRole('button',{name:'Ticket verknüpfen',exact:true})).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(dialog.getByRole('button',{name:'Schließen',exact:true})).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
   await expect(linkButton).toBeFocused();
