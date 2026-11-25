@@ -1,11 +1,21 @@
 import { useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { api, moment, type Row } from './client';
+import { api, ApiError, moment, type Row } from './client';
 import { ConfirmationRequests, ConfirmDialog, Expand, Form, Panel, Table, type Confirmation, type Run } from './widgets';
 
 type Article = { id:number; subject?:string|null; from?:string|null; created_at?:string; content_type?:string;
-  body:string; attachments?:{filename:string}[] };
+  body:string; attachments?:{filename:string}[]; kind?:keyof typeof articleKinds;
+  reply?:{recipient:string;subject:string} };
 type Conversation = { ticket:{number:string;title?:string;url:string}; articles:Article[]; outgoing:Row[] };
 type DialogState = { kind:'link'|'create'; trigger:HTMLButtonElement };
+type ReplyTarget = {id:number; originalSubject:string; recipient:string; subject:string; trigger:HTMLButtonElement};
+const articleKinds = {
+  'incoming-email':'Eingehende E-Mail',
+  'outgoing-email':'Ausgehende E-Mail',
+  'internal-note':'Interne Notiz',
+  internal:'Interner Eintrag',
+  other:'Ticketeintrag',
+  unknown:'Art unbekannt',
+};
 
 function plainText(html:string) {
   const template=document.createElement('template');
@@ -135,9 +145,37 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   const [search,setSearch]=useState('');
   const [loading,setLoading]=useState(Boolean(zammad && ticketId));
   const refreshVersion=useRef(0);
-  const [file,setFile]=useState<File>();
+  const [freeFile,setFreeFile]=useState<File>();
+  const [replyFile,setReplyFile]=useState<File>();
   const [composeVersion,setComposeVersion]=useState(0);
-  const draftId=useRef<string | undefined>(undefined);
+  const [reply,setReply]=useState<ReplyTarget>();
+  const replyComposer=useRef<HTMLElement>(null);
+  const draft=useRef<{id:string;reply?:ReplyTarget}|undefined>(undefined);
+  const [locked,setLocked]=useState(false);
+  useEffect(()=>{
+    if(reply) replyComposer.current?.querySelector('textarea')?.focus();
+  },[reply]);
+
+  function closeReply(target:ReplyTarget) {
+    setReply(undefined);
+    setReplyFile(undefined);
+    if(target.trigger.isConnected) {
+      requestAnimationFrame(()=>{ if(target.trigger.isConnected) target.trigger.focus(); });
+    } else {
+      zammadPanel.current?.focus({preventScroll:true});
+    }
+  }
+
+  function resetDraft() {
+    const previous=draft.current?.reply;
+    draft.current=undefined;
+    setLocked(false);
+    if(previous) closeReply(previous);
+    else {
+      setFreeFile(undefined);
+      setComposeVersion(value=>value+1);
+    }
+  }
 
   async function refresh() {
     if (!zammad || !ticketId) return;
@@ -147,11 +185,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
     try {
       const current=await api<Conversation>('projects/'+project.id+'/zammad');
       if(version!==refreshVersion.current) return;
-      if (draftId.current && current.outgoing.some(entry=>entry.id===draftId.current && entry.status==='sent')) {
-        draftId.current=undefined;
-        setFile(undefined);
-        setComposeVersion(value=>value+1);
-      }
+      if (draft.current && current.outgoing.some(entry=>entry.id===draft.current?.id && entry.status==='sent')) resetDraft();
       setConversation(current);
     }
     catch(error) {
@@ -176,6 +210,38 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   },[outgoingKey,ticketId,zammad,confirmationRequests]);
 
   const request=(suffix:string,input:unknown)=>api('projects/'+project.id+'/zammad/'+suffix,'POST',input);
+  async function sendMessage(values:Record<string,string>,file:File|undefined,target?:ReplyTarget) {
+    return run(async isCurrent=>{
+      if(file && file.size>5_242_880) throw new Error('PDF-Anhänge sind bis 5 MB möglich.');
+      const message:{[key:string]:unknown}={...values};
+      if(target) {
+        message.recipient=target.recipient;
+        message.replyArticleId=target.id;
+      }
+      setLocked(true);
+      try {
+        if(file) {
+          const bytes=new Uint8Array(await file.arrayBuffer());
+          message.attachment={name:file.name,data:bytes.toBase64()};
+        }
+        if(!isCurrent()) return;
+        const current=draft.current ??= {id:crypto.randomUUID(),reply:target};
+        message.id=current.id;
+        const result=await request('messages',message);
+        if(!isCurrent()) return;
+        await refresh();
+        if(result.status!=='sent') throw new Error('Sendezustand prüfen. Der Versuch steht im Projektverlauf.');
+        if(isCurrent() && draft.current?.id===current.id) resetDraft();
+      } catch(error) {
+        if(isCurrent() && error instanceof ApiError && [400,409].includes(error.status) && draft.current?.id===message.id) {
+          draft.current=undefined;
+        }
+        throw error;
+      } finally {
+        if(isCurrent() && !draft.current) setLocked(false);
+      }
+    },'Nachricht an Zammad übergeben.',{reportInlineError:true});
+  }
   const articles=useMemo(()=>(conversation?.articles ?? []).map(article=>({
     ...article,
     subject:article.subject || 'Nachricht',
@@ -222,32 +288,36 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
               </label>
               {term && visibleArticles.length>0 && <p className="subtle" role="status">{visibleArticles.length} von {articles.length} Nachrichten</p>}
             </div>}
-            {visibleArticles.length>0 && <ol className="thread">{visibleArticles.map(article=><li key={article.id}>
+            {visibleArticles.length>0 && <ol className="thread">{visibleArticles.map(article=><li key={article.id} className={article.kind==='internal-note' || article.kind==='internal'?'communication-internal':undefined}>
+              <p className="communication-kind">{articleKinds[article.kind ?? 'unknown']}</p>
               <div><strong>{article.subject}</strong><small>{[article.from,article.created_at && moment(article.created_at)].filter(Boolean).join(' · ')}</small></div>
               <p>{article.body}</p>
               {article.attachments?.map((attachment,index)=><small className="communication-attachment" key={index}>{attachment.filename}</small>)}
+              {article.reply && <div className="communication-article-actions">
+                <button type="button" aria-expanded={reply?.id===article.id} disabled={locked || Boolean(reply)} onClick={event=>{
+                  if(article.reply) setReply({...article.reply,id:article.id,originalSubject:article.subject,trigger:event.currentTarget});
+                }}>Antworten</button>
+              </div>}
             </li>)}</ol>}
             {term && articles.length>0 && visibleArticles.length===0 && <p className="subtle" role="status">Keine Nachrichten für diese Suche.</p>}
             {conversation && articles.length===0 && !loading && !problem && <p className="subtle">Dieses Ticket enthält noch keine Nachrichten.</p>}
           </section>
-          <div className="communication-compose"><Expand title="Antwort schreiben"><Form key={composeVersion} caption="Über Zammad senden" fields={[
+          <div className="communication-compose" hidden={Boolean(reply)}><Expand title="Antwort schreiben"><Form key={composeVersion} caption="Über Zammad senden" fields={[
               {name:'recipient',label:'Empfänger',type:'email',required:true},{name:'subject',label:'Betreff',required:true},{name:'body',label:'Nachricht',type:'textarea',required:true},
-            ]} submit={(v)=>run(async(isCurrent)=>{
-              const message:{[key:string]:unknown}={...v,id:draftId.current ??= crypto.randomUUID()};
-              if(file) {
-                if(file.size>5_242_880) throw new Error('PDF-Anhänge sind bis 5 MB möglich.');
-                const bytes=new Uint8Array(await file.arrayBuffer());
-                message.attachment={name:file.name,data:bytes.toBase64()};
-              }
-              if(!isCurrent()) return;
-              const result=await request('messages',message);
-              if(!isCurrent()) return;
-              await refresh();
-              if(result.status!=='sent') throw new Error('Sendezustand prüfen. Der Versuch steht im Projektverlauf.');
-              if(isCurrent()) setFile(undefined);
-            },'Nachricht an Zammad übergeben.')}>
-              <label className="wide"><span>PDF-Anhang</span><input type="file" accept="application/pdf,.pdf" onChange={(event)=>setFile(event.target.files?.[0])}/></label>
+            ]} submit={values=>sendMessage(values,freeFile)}>
+              <label className="wide"><span>PDF-Anhang</span><input type="file" accept="application/pdf,.pdf" onChange={event=>setFreeFile(event.target.files?.[0])}/></label>
             </Form></Expand></div>
+          {reply && <section ref={replyComposer} className="communication-reply" aria-label="E-Mail-Antwort">
+            <header><h3>Antwort auf „{reply.originalSubject}“</h3>
+              <button type="button" disabled={locked} onClick={()=>closeReply(reply)}>Antwort schließen</button>
+            </header>
+            <p className="subtle">Externe E-Mail an <strong>{reply.recipient}</strong></p>
+            <Form caption="E-Mail über Zammad senden" busyCaption="E-Mail wird gesendet …" fields={[
+              {name:'subject',label:'Betreff',value:reply.subject,required:true},{name:'body',label:'Nachricht',type:'textarea',required:true},
+            ]} submit={values=>sendMessage(values,replyFile,reply)}>
+              <label className="wide"><span>PDF-Anhang</span><input type="file" accept="application/pdf,.pdf" onChange={event=>setReplyFile(event.target.files?.[0])}/></label>
+            </Form>
+          </section>}
           {(conversation?.outgoing.length ?? 0) > 0 && <div className="communication-outgoing"><h3>Sendeversuche</h3><Table headers={['Sendeversuch','Status','Aktion']} rows={(conversation?.outgoing ?? []).map((entry:Row)=>({
               key:entry.id,cells:[entry.subject,({sent:'An Zammad übergeben',pending:'Ausstehend',failed:'Abgelehnt',unknown:'Ausgang unklar'} as Record<string,string>)[entry.status],
                 entry.status==='sent' ? '–' : <div className="actions">

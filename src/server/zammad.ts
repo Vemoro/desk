@@ -9,9 +9,50 @@ const ticketSchema = z.object({ id: z.number().int().positive(), number: z.strin
 const articleSchema = z.object({ id: z.number().int().positive(), body: z.string(), subject: z.string().nullable().optional(),
   from: z.string().nullable().optional(), created_at: z.string().optional(), content_type: z.string().optional(),
   attachments: z.array(z.object({ filename:z.string() })).optional() });
+const articleMetadata = z.object({
+  ticket_id:z.number().int().positive(),
+  type:z.string(),
+  sender:z.string(),
+  internal:z.boolean(),
+  reply_to:z.string().nullable().optional(),
+  message_id:z.string().nullable().optional(),
+});
+const emailAddress = z.email().max(254);
+const messageId = z.string().max(998).regex(/^<[!-~]+@[!-~]+>$/).refine(value=>{
+  const reference = value.slice(1,-1);
+  return !/[<>]/.test(reference) && reference.indexOf('@') === reference.lastIndexOf('@');
+});
+type ArticleContext = {
+  kind:'unknown'|'internal-note'|'internal'|'other'|'incoming-email'|'outgoing-email';
+  reply?:{recipient:string;subject:string;reference:string};
+};
 type Outgoing = { id: string; ticket_id: number; status: 'pending'|'unknown'|'sent'|'failed'; attempted_at: Date; attempt_key?: string;
-  recipient: string; subject: string; body: string; attachment_name: string | null; attachment_data: string | null };
+  recipient: string; subject: string; body: string; attachment_name: string | null; attachment_data: string | null; in_reply_to: string | null };
 const marker = (id: string) => `Desk-Referenz: ${id}`;
+
+function articleContext(source:unknown, article:z.infer<typeof articleSchema>, ticketId:number):ArticleContext {
+  const metadata = articleMetadata.safeParse(source);
+  if (!metadata.success || metadata.data.ticket_id !== ticketId) return {kind:'unknown'};
+  const fields = metadata.data;
+  if (fields.internal) return {kind:fields.type === 'note' ? 'internal-note' : 'internal'};
+  if (fields.type !== 'email') return {kind:'other'};
+  if (fields.sender === 'Agent' || fields.sender === 'System') return {kind:'outgoing-email'};
+  if (fields.sender !== 'Customer') return {kind:'unknown'};
+
+  const mailbox = (fields.reply_to?.trim() || article.from?.trim() || '');
+  // Accept a single bare address or one address with a simple display name.
+  const displayName = mailbox.match(/^(?:"[^"\r\n]*"|[^"<>,;\r\n]+)?\s*<([^<>]+)>$/);
+  const recipient = emailAddress.safeParse(displayName ? displayName[1].trim() : mailbox);
+  const reference = messageId.safeParse(fields.message_id);
+  return {
+    kind:'incoming-email',
+    reply:recipient.success && reference.success ? {
+      recipient:recipient.data,
+      subject:article.subject?.trim().replace(/^(re\s*:\s*)+/i,'') || 'Antwort',
+      reference:reference.data,
+    } : undefined,
+  };
+}
 
 async function lockProjectTicket(transaction: Query, projectId: string) {
   return required(await first<{ zammad_ticket_id: number | null }>(transaction,
@@ -83,9 +124,15 @@ export async function conversations(projectId: string) {
 }
 
 async function loadArticles(remote: ReturnType<typeof integration>, id: number) {
-  const articles = z.array(articleSchema).safeParse(await remote.request(`/ticket_articles/by_ticket/${id}`));
-  if (!articles.success) throw new RemoteError('Zammad hat keinen gültigen Nachrichtenverlauf geliefert.');
-  return articles.data;
+  const source = await remote.request(`/ticket_articles/by_ticket/${id}`);
+  const articles = z.array(articleSchema).safeParse(source);
+  if (!Array.isArray(source) || !articles.success) throw new RemoteError('Zammad hat keinen gültigen Nachrichtenverlauf geliefert.');
+  return articles.data.map((article,index)=>{
+    const context = articleContext(source[index],article,id);
+    return { ...article, kind:context.kind, ...(context.reply ? {
+      reply:{recipient:context.reply.recipient,subject:context.reply.subject},
+    } : {}) };
+  });
 }
 
 export async function send(projectId: string, message: z.infer<typeof zammadMessage>) {
@@ -96,9 +143,28 @@ export async function send(projectId: string, message: z.infer<typeof zammadMess
     if (message.attachment && !Buffer.from(message.attachment.data,'base64').subarray(0,5).equals(Buffer.from('%PDF-'))) {
       throw new DeskError(400, 'Der Anhang muss ein PDF sein.');
     }
-    const saved = await first<Outgoing>(transaction, `INSERT INTO outgoing(id,project_id,ticket_id,subject,body,recipient,attachment_name,attachment_data,status)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,'pending') ON CONFLICT(id) DO NOTHING RETURNING *`,
-      [message.id,projectId,ticketId,message.subject,message.body,message.recipient,message.attachment?.name ?? null,message.attachment?.data ?? null]);
+    let reference: string | null = null;
+    if (message.replyArticleId !== undefined) {
+      const existing = await first(transaction,'SELECT 1 FROM outgoing WHERE id=$1 AND project_id=$2',[message.id,projectId]);
+      if (existing) return {remote,saved:undefined};
+      let source:unknown;
+      try {
+        source = await remote.request(`/ticket_articles/${message.replyArticleId}`);
+      } catch (error) {
+        if (!(error instanceof RemoteError) || (error.upstream !== 403 && error.upstream !== 404)) throw error;
+        throw new DeskError(409,'Die Nachricht gehört nicht zum aktuellen Ticket oder ist nicht mehr verfügbar.');
+      }
+      const article = articleSchema.safeParse(source);
+      const reply = article.success && article.data.id === message.replyArticleId
+        ? articleContext(source,article.data,ticketId).reply : undefined;
+      if (!reply || reply.recipient !== message.recipient) {
+        throw new DeskError(409,'Die Nachricht oder ihre Antwortadresse passt nicht zum aktuellen Ticket. Lade den Verlauf erneut.');
+      }
+      reference = reply.reference;
+    }
+    const saved = await first<Outgoing>(transaction, `INSERT INTO outgoing(id,project_id,ticket_id,subject,body,recipient,attachment_name,attachment_data,in_reply_to,status)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending') ON CONFLICT(id) DO NOTHING RETURNING *`,
+      [message.id,projectId,ticketId,message.subject,message.body,message.recipient,message.attachment?.name ?? null,message.attachment?.data ?? null,reference]);
     return {remote,saved};
   });
   if (!saved) return reviewOutgoing(projectId,message.id,false);
@@ -132,6 +198,7 @@ async function deliver(remote: ReturnType<typeof integration>, current: Outgoing
     const result = await remote.request('/ticket_articles','POST',{
       ticket_id:current.ticket_id, to:current.recipient, subject:current.subject,
       body:`${current.body}\n\n${marker(current.id)}`,type:'email',sender:'Agent',internal:false,content_type:'text/plain',
+      ...(current.in_reply_to ? { in_reply_to:current.in_reply_to } : {}),
       ...(current.attachment_name ? { attachments:[{ filename:current.attachment_name,data:current.attachment_data,'mime-type':'application/pdf' }] } : {}),
     });
     articleId = z.object({ id:z.number().int().positive() }).parse(result).id;

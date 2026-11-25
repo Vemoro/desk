@@ -183,6 +183,14 @@ tr:last-child td { border-bottom:0; }
 .communication-workspace .thread li { border:0; border-radius:0; padding:16px 0; }
 .communication-workspace .thread li + li { border-top:1px solid var(--border); }
 .communication-workspace .thread li:first-child { padding-top:4px; }
+.communication-kind { color:var(--muted); font-size:.85rem; margin:0 0 4px; }
+.communication-workspace .thread li.communication-internal { padding-inline:12px; background:var(--soft); }
+.communication-article-actions { margin-top:8px; }
+.communication-reply { display:grid; gap:12px; padding:16px; border:1px solid var(--border); border-radius:8px; }
+.communication-reply header { display:flex; align-items:start; justify-content:space-between; gap:8px 16px; flex-wrap:wrap; }
+.communication-reply h3,.communication-reply p { margin:0; overflow-wrap:anywhere; }
+.communication-reply .form-grid { grid-template-columns:1fr; }
+.communication-reply .form-action { justify-self:end; }
 .communication-attachment { display:inline-block; padding:4px 8px; border-radius:4px; background:var(--soft); margin:8px 8px 0 0; overflow-wrap:anywhere; }
 .communication-empty { display:grid; gap:16px; padding-block:8px; }
 .communication-compose .expand:not([open]) { width:fit-content; border-color:var(--accent); background:var(--accent); }
