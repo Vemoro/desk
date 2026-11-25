@@ -182,9 +182,12 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
             </div>
           </div>
           {dialog && <CommunicationDialog title={dialogTitle} trigger={dialog.trigger} dismiss={()=>setDialog(undefined)}>{save=>
-            dialog.kind==='link' ? <Form caption="Ticket verknüpfen" fields={[
-              {name:'id',label:'Ticket-ID',type:'number',min:1,required:true},
-            ]} submit={v=>save(()=>run(()=>request('link',{id:Number(v.id)}),'Ticket verknüpft.',{reportInlineError:true}))}/>
+            dialog.kind==='link' ? <>
+              <p className="subtle communication-dialog-hint">Die Ticket-ID steht am Ende der Ticketadresse in Zammad.</p>
+              <Form caption="Ticket verknüpfen" fields={[
+                {name:'id',label:'Ticket-ID',type:'number',min:1,required:true},
+              ]} submit={v=>save(()=>run(()=>request('link',{id:Number(v.id)}),'Ticket verknüpft.',{reportInlineError:true}))}/>
+            </>
             : <Form caption="Ticket anlegen" fields={[
               {name:'title',label:'Betreff',required:true},{name:'customer',label:'Kunden-E-Mail',type:'email',required:true},
               {name:'note',label:'Interne Notiz',type:'textarea',required:true},

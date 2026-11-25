@@ -188,6 +188,7 @@ tr:last-child td { border-bottom:0; }
 .communication-outgoing h3 { font-size:.92rem; margin:0 0 8px; }
 .communication-dialog { width:min(560px,calc(100% - 32px)); }
 .communication-dialog-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+.communication-dialog-hint { margin-bottom:16px; }
 .communication-dialog .form-grid { grid-template-columns:1fr; }
 .communication-dialog .form-action { justify-self:end; }
 @media(max-width:1000px) {
