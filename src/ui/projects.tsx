@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
-import { api, date, downloadPositions, euros, moment, money, name, projectStages, reservationStages, taskStages, type Row } from './client';
-import { Expand, Form, options, Panel, Pill, Table, type Run } from './widgets';
+import { useEffect, useId, useRef, useState } from 'react';
+import { api, calendarDate, downloadPositions, euros, inventoryLabel, inventoryName, moment, money, name, projectStages, reservationStages, taskStages, type Row } from './client';
+import { ConfirmDialog, Expand, Form, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
+import { ProjectHistory } from './project-history';
+import { Communication } from './communication';
 
 export type Data = Record<'contacts'|'projects'|'tasks'|'users'|'lines'|'reservations'|'locations'|'items'|'movements'|'costs'|'stock',Row[]>;
 type Flags = { haben:boolean; zammad:boolean };
@@ -9,9 +11,12 @@ const transitions:Record<string,string[]> = {
   inquiry:['planning','cancelled'], planning:['offered','cancelled'], offered:['planning','confirmed','cancelled'],
   confirmed:['running','cancelled'], running:['complete','cancelled'], complete:[],cancelled:[],
 };
-const dateTime = (value:string) => new Date(value).toISOString();
-const reservationTimes = (values:Record<string,string>) =>
-  ({...values,starts_at:dateTime(values.starts_at),ends_at:dateTime(values.ends_at)});
+function reservationTimes(values:Record<string,string>) {
+  const start=new Date(values.starts_at);
+  const end=new Date(values.ends_at);
+  if(!(end>start)) throw new Error('Das Ende muss nach dem Beginn liegen.');
+  return {...values,starts_at:start.toISOString(),ends_at:end.toISOString()};
+}
 
 export function Projects({data,run,select}:{data:Data;run:Run;select:(id:string)=>void}) {
   const [filter,setFilter]=useState('');
@@ -24,29 +29,35 @@ export function Projects({data,run,select}:{data:Data;run:Run;select:(id:string)
             { name:'contact_id',label:'Interessent',choices:options(data.contacts),required:true },
             { name:'due',label:'Termin',type:'date' },
             { name:'notes',label:'Notiz',type:'textarea' },
-          ]} submit={(fields)=>run(async()=>{const project=await api('projects','POST',{...fields,due:fields.due||null});select(project.id);},'Projekt angelegt.')}/>
+          ]} submit={(fields)=>run(async(isCurrent)=>{
+            const project=await api('projects','POST',{...fields,due:fields.due||null});
+            if(isCurrent()) select(project.id);
+          },'Projekt angelegt.')}/>
         </Expand>
       </div>
       <Table headers={['Projekt','Kontakt','Status','Termin']} rows={data.projects
         .filter((project)=>`${project.name} ${name(data.contacts,project.contact_id)}`.toLowerCase().includes(filter.toLowerCase()))
         .map((project)=>({key:project.id,cells:[<button className="text-button" onClick={()=>select(project.id)}>{project.name}</button>,
-          name(data.contacts,project.contact_id),<Pill label={projectStages[project.stage]} tone={project.stage==='confirmed'?'accent':'neutral'}/>,date(project.due)]}))}/>
+          name(data.contacts,project.contact_id),<Pill label={projectStages[project.stage]} tone={project.stage==='confirmed'?'accent':'neutral'}/>,calendarDate(project.due)]}))}/>
     </Panel>
   </>;
 }
 
 export function Project({project,data,run,flags,accountId,back}:{project:Row;data:Data;run:Run;flags:Flags;accountId:string;back:()=>void}) {
   const [tab,setTab]=useState('overview');
-  const tabs:Record<string,string>={overview:'Überblick',tasks:'Kanban',planning:'Ressourcen & Kalkulation',finance:'Controlling',communication:'Kommunikation'};
+  const title=useRef<HTMLHeadingElement>(null);
+  useEffect(()=>{title.current?.focus();},[]);
+  const tabs:Record<string,string>={overview:'Überblick',tasks:'Kanban',planning:'Ressourcen & Kalkulation',finance:'Controlling',communication:'Kommunikation',history:'Verlauf'};
   return <>
     <div className="breadcrumb"><button className="text-button" onClick={back}>Projekte</button><span>/</span>{project.name}</div>
-    <div className="project-head"><div><h1>{project.name}</h1><div className="subtle">{name(data.contacts,project.contact_id)} · Termin {date(project.due)}</div></div><Pill label={projectStages[project.stage]} tone="accent"/></div>
+    <div className="project-head"><div><h1 ref={title} tabIndex={-1}>{project.name}</h1><div className="subtle">{name(data.contacts,project.contact_id)} · Termin {calendarDate(project.due)}</div></div><Pill label={projectStages[project.stage]} tone="accent"/></div>
     <nav className="tabs" aria-label="Projektansichten">{Object.entries(tabs).map(([key,label])=><button key={key} aria-current={tab===key?'page':undefined} onClick={()=>setTab(key)}>{label}</button>)}</nav>
     {tab==='overview' && <Overview project={project} data={data} run={run} haben={flags.haben}/>}
     {tab==='tasks' && <Kanban project={project} data={data} run={run}/>}
     {tab==='planning' && <Planning project={project} data={data} run={run} accountId={accountId}/>}
     {tab==='finance' && <Controlling project={project} data={data} run={run}/>}
     {tab==='communication' && <Communication project={project} zammad={flags.zammad} run={run}/>}
+    {tab==='history' && <ProjectHistory projectId={project.id}/>}
   </>;
 }
 
@@ -79,11 +90,16 @@ function Overview({project,data,run,haben}:{project:Row;data:Data;run:Run;haben:
 
 function Kanban({project,data,run}:{project:Row;data:Data;run:Run}) {
   const tasks=data.tasks.filter((task)=>task.project_id===project.id);
+  const activePeople=options(data.users.filter(person=>!person.blocked));
+  function assigneeChoices(id:string | null) {
+    const previous=data.users.find(person=>person.id===id && person.blocked);
+    return previous ? [...activePeople,{value:previous.id,label:`${previous.name} (gesperrt)`}] : activePeople;
+  }
   return <>
     <Panel title="Aufgaben" action={<span className="subtle">{tasks.length} Aufgaben</span>}>
       <div className="panel-body"><Expand title="Aufgabe anlegen">
         <Form caption="Aufgabe speichern" fields={[
-          {name:'name',label:'Aufgabe',required:true},{name:'assignee_id',label:'Verantwortlich',choices:options(data.users)},
+          {name:'name',label:'Aufgabe',required:true},{name:'assignee_id',label:'Verantwortlich',choices:activePeople},
           {name:'due',label:'Fällig am',type:'date'},
         ]} submit={(fields)=>run(()=>api('tasks','POST',{project_id:project.id,...fields,assignee_id:fields.assignee_id||null,due:fields.due||null}),'Aufgabe angelegt.')}/>
       </Expand></div>
@@ -95,12 +111,12 @@ function Kanban({project,data,run}:{project:Row;data:Data;run:Run}) {
           if(tasks.some((task)=>task.id===id && task.status!==status)) void run(()=>api(`tasks/${id}`,'PATCH',{status}));}}>
         <h2>{label} <span>{tasks.filter((task)=>task.status===status).length}</span></h2>
         {tasks.filter((task)=>task.status===status).map((task)=><article key={task.id} className="task" draggable onDragStart={(event)=>event.dataTransfer.setData('text/plain',task.id)}>
-          <strong>{task.name}</strong><span className="subtle">{name(data.users,task.assignee_id)} · {date(task.due)}</span>
+          <strong>{task.name}</strong><span className="subtle">{name(data.users,task.assignee_id)} · {calendarDate(task.due)}</span>
           <label><span className="sr-only">Status für {task.name}</span><select value={task.status} onChange={(event)=>run(()=>api(`tasks/${task.id}`,'PATCH',{status:event.target.value}))}>
             {Object.entries(taskStages).map(([key,value])=><option value={key} key={key}>{value}</option>)}
           </select></label>
           <Expand title="Bearbeiten"><Form caption="Aufgabe aktualisieren" fields={[
-            {name:'name',label:'Aufgabe',value:task.name,required:true},{name:'assignee_id',label:'Verantwortlich',value:task.assignee_id,choices:options(data.users)},{name:'due',label:'Fällig am',type:'date',value:task.due?.slice(0,10)},
+            {name:'name',label:'Aufgabe',value:task.name,required:true},{name:'assignee_id',label:'Verantwortlich',value:task.assignee_id,choices:assigneeChoices(task.assignee_id)},{name:'due',label:'Fällig am',type:'date',value:task.due?.slice(0,10)},
           ]} submit={(fields)=>run(()=>api(`tasks/${task.id}`,'PATCH',{...fields,assignee_id:fields.assignee_id||null,due:fields.due||null}))}/></Expand>
         </article>)}
       </section>)}
@@ -109,33 +125,49 @@ function Kanban({project,data,run}:{project:Row;data:Data;run:Run}) {
 }
 
 function Planning({project,data,run,accountId}:{project:Row;data:Data;run:Run;accountId:string}) {
+  const [confirmation,setConfirmation]=useState<Confirmation>();
+  const calculationPanel=useRef<HTMLElement>(null);
   const reservations=data.reservations.filter((row)=>row.project_id===project.id);
   const lines=data.lines.filter((row)=>row.project_id===project.id);
-  const timeFields=[
-    {name:'starts_at',label:'Von',type:'datetime-local',required:true},
-    {name:'ends_at',label:'Bis',type:'datetime-local',required:true},
-  ];
+  const activePeople=options(data.users.filter(person=>!person.blocked));
+  const blockedPeople=new Set(data.users.filter(person=>person.blocked).map(person=>person.id));
+  const personTimeZoneId=useId();
+  const inventoryTimeZoneId=useId();
   const timeZone=Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const timeZoneHint=<p className="subtle wide">Die Zeitzone für neue Eingaben ist {timeZone}.</p>;
+  const timeZoneHint=`Die Zeitzone für neue Eingaben ist ${timeZone}.`;
   const retryNote='Die Wiederholung verwendet die ursprünglich bestätigten Zeitpunkte.';
+  const timeFields=(describedBy:string)=>[
+    {name:'starts_at',label:'Von',type:'datetime-local',required:true,describedBy},
+    {name:'ends_at',label:'Bis',type:'datetime-local',required:true,describedBy},
+  ];
   return <>
     <Panel title="Ressourcenplanung"><div className="panel-body compact-actions">
       <Expand title="Personal vormerken"><Form caption="Person vormerken" retryScope={`reservations:${accountId}:${project.id}:person`} prepare={reservationTimes} retryNote={retryNote} fields={[
-        {name:'user_id',label:'Person',choices:options(data.users),required:true},...timeFields,
-      ]} submit={(v,key)=>run(()=>api('reservations','POST',{...v,project_id:project.id,quantity:1},key),'Person vorgemerkt.')}>{timeZoneHint}</Form></Expand>
+        {name:'user_id',label:'Person',choices:activePeople,required:true},...timeFields(personTimeZoneId),
+      ]} submit={(v,key)=>run(()=>api('reservations','POST',{...v,project_id:project.id,quantity:1},key),'Person vorgemerkt.',{reportWriteRejection:true})}>
+        <p id={personTimeZoneId} className="subtle wide">{timeZoneHint}</p>
+      </Form></Expand>
       <Expand title="Inventar vormerken"><Form caption="Inventar vormerken" retryScope={`reservations:${accountId}:${project.id}:item`} prepare={reservationTimes} retryNote={retryNote} fields={[
-        {name:'item_id',label:'Artikel',choices:options(data.items),required:true},
+        {name:'item_id',label:'Artikel',choices:options(data.items,inventoryLabel),required:true},
         {name:'location_id',label:'Lagerort',choices:options(data.locations),required:true},
-        {name:'quantity',label:'Menge',type:'number',value:1,min:1,required:true},...timeFields,
-      ]} submit={(v,key)=>run(()=>api('reservations','POST',{...v,project_id:project.id,quantity:Number(v.quantity)},key),'Inventar vorgemerkt.')}>{timeZoneHint}</Form></Expand>
+        {name:'quantity',label:'Menge',type:'number',value:1,min:1,required:true},...timeFields(inventoryTimeZoneId),
+      ]} submit={(v,key)=>run(()=>api('reservations','POST',{...v,project_id:project.id,quantity:Number(v.quantity)},key),'Inventar vorgemerkt.',{reportWriteRejection:true})}>
+        <p id={inventoryTimeZoneId} className="subtle wide">{timeZoneHint}</p>
+      </Form></Expand>
     </div><Table headers={['Ressource','Zeitraum','Menge','Status','Aktion']} rows={reservations.map((row)=>({
-      key:row.id,cells:[row.user_id ? name(data.users,row.user_id) : <>{name(data.items,row.item_id)}<small>{name(data.locations,row.location_id)}</small></>,
+      key:row.id,cells:[row.user_id ? name(data.users,row.user_id) : <><span>{inventoryName(data.items,row.item_id)}</span><small>{name(data.locations,row.location_id)}</small></>,
         <>{moment(row.starts_at)}<small>bis {moment(row.ends_at)}</small></>,row.quantity,
         <Pill label={reservationStages[row.status]} tone={row.status==='firm'?'accent':'neutral'}/>,
-        <div className="actions">{row.status==='tentative' && ['confirmed','running'].includes(project.stage) && <button onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'firm'}),'Fest reserviert.')}>Fest reservieren</button>}
+        <div className="actions">{row.status==='tentative' && ['confirmed','running'].includes(project.stage) && (
+          blockedPeople.has(row.user_id) ? <span className="subtle">Konto gesperrt</span>
+            : <button onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'firm'}),'Fest reserviert.')}>Fest reservieren</button>
+        )}
           {row.status!=='released' && <button onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'released'}),'Reservierung freigegeben.')}>Freigeben</button>}</div>],
     }))}/></Panel>
-    <Panel title="Kalkulation" action={<button onClick={()=>run(async()=>downloadPositions(project,await api(`projects/${project.id}/offer-positions`)))}>Angebotspositionen exportieren</button>}>
+    <Panel title="Kalkulation" focusRef={calculationPanel} action={<button onClick={()=>run(async(isCurrent)=>{
+      const positions=await api(`projects/${project.id}/offer-positions`);
+      if(isCurrent()) downloadPositions(project,positions);
+    },undefined,{kind:'read'})}>Angebotspositionen exportieren</button>}>
       <div className="panel-body"><Expand title="Position anlegen"><Form caption="Position speichern" fields={[
         {name:'kind',label:'Art',choices:[{value:'buy',label:'Einkauf'},{value:'sell',label:'Verkauf'}],required:true},
         {name:'name',label:'Position',required:true},{name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},
@@ -149,9 +181,18 @@ function Planning({project,data,run,accountId}:{project:Row;data:Data;run:Run;ac
           {name:'quantity',label:'Menge',type:'number',min:1,value:row.quantity,required:true},
           {name:'unit',label:'Einzelpreis netto in Euro',value:(row.unit_cents/100).toFixed(2).replace('.',','),required:true},
         ]} submit={(v)=>run(()=>api(`lines/${row.id}`,'PATCH',{kind:v.kind,name:v.name,quantity:Number(v.quantity),unit_cents:money(v.unit)}),'Position aktualisiert.')}/>
-          <button onClick={()=>{if(window.confirm('Diese Kalkulationsposition entfernen?')) void run(()=>api(`lines/${row.id}`,'DELETE'),'Position entfernt.');}}>Position entfernen</button>
+          <button onClick={event=>setConfirmation({
+            actionKey:`lines:${row.id}`,
+            title:'Kalkulationsposition entfernen',
+            description:`„${row.name}“ wird aus der Kalkulation dieses Projekts entfernt.`,
+            actionLabel:'Position entfernen',
+            trigger:event.currentTarget,
+            submit:()=>api(`lines/${row.id}`,'DELETE'),
+            feedback:'Position entfernt.',
+          })}>Position entfernen</button>
         </Expand>,
       ]}))}/></Panel>
+    {confirmation&&<ConfirmDialog confirmation={confirmation} run={run} dismiss={()=>setConfirmation(undefined)} fallbackFocus={calculationPanel}/>}
   </>;
 }
 
@@ -170,84 +211,5 @@ export function Controlling({project,data,run}:{project:Row;data:Data;run:Run}) 
       ]} submit={(fields)=>run(()=>api('costs','POST',{entries:[{project_id:project.id,source:'manual',reference:fields.reference,name:fields.name,cents:money(fields.amount)}]}),'Ist-Kosten gespeichert.')}/></Expand></div>
       <Table headers={['Belegreferenz','Bezeichnung','Quelle','Netto']} rows={costs.map((row)=>({key:row.id,cells:[row.reference,row.name,row.source,euros(row.cents)]}))}/>
     </Panel>
-  </>;
-}
-
-function plainText(html:string) {
-  const template=document.createElement('template');
-  template.innerHTML=html;
-  for (const element of template.content.querySelectorAll('script,style,template')) element.remove();
-  return template.content.textContent;
-}
-
-function Communication({project,zammad,run}:{project:Row;zammad:boolean;run:Run}) {
-  const [conversation,setConversation]=useState<any>(null);
-  const [problem,setProblem]=useState('');
-  const [file,setFile]=useState<File>();
-  const [composeVersion,setComposeVersion]=useState(0);
-  const draftId=useRef<string | undefined>(undefined);
-  async function refresh() {
-    if (!zammad || !project.zammad_ticket_id) return;
-    try {
-      const current=await api(`projects/${project.id}/zammad`);
-      if (draftId.current && current.outgoing.some((entry:Row)=>entry.id===draftId.current && entry.status==='sent')) {
-        draftId.current=undefined;
-        setFile(undefined);
-        setComposeVersion((value)=>value+1);
-      }
-      setConversation(current);
-      setProblem('');
-    }
-    catch(error) {setProblem(error instanceof Error ? error.message : 'Verlauf nicht verfügbar.');}
-  }
-  useEffect(()=>{setConversation(null);void refresh();},[project.id,project.zammad_ticket_id,zammad]);
-  const request=(suffix:string,input:unknown)=>api(`projects/${project.id}/zammad/${suffix}`,'POST',input);
-  return <>
-    <Panel title="Externer Vorgang"><div className="panel-body"><Form caption="Verweis speichern" fields={[
-      {name:'external_link',label:'Vorgangslink',type:'url',value:project.external_link},
-      {name:'communication_note',label:'Kommunikationsnotiz',type:'textarea',value:project.communication_note},
-    ]} submit={(input)=>run(()=>api(`projects/${project.id}`,'PATCH',input),'Verweis gespeichert.')}/></div></Panel>
-    {zammad && <Panel title="Zammad" action={conversation?.ticket && <a href={conversation.ticket.url} target="_blank" rel="noreferrer">Ticket {conversation.ticket.number} öffnen</a>}>
-      <div className="panel-body">
-        {problem && <p role="alert" className="inline-error">{problem}</p>}
-        {!project.zammad_ticket_id ? <>
-          <Expand title="Vorhandenes Ticket verknüpfen"><Form caption="Ticket verknüpfen" fields={[{name:'id',label:'Ticket-ID',type:'number',min:1,required:true}]} submit={(v)=>run(()=>request('link',{id:Number(v.id)}),'Ticket verknüpft.')}/></Expand>
-          <Expand title="Ticket anlegen"><Form caption="Ticket anlegen" fields={[
-            {name:'title',label:'Betreff',required:true},{name:'customer',label:'Kunden-E-Mail',type:'email',required:true},
-            {name:'note',label:'Interne Notiz',type:'textarea',required:true},
-          ]} submit={(v)=>run(()=>request('tickets',v),'Ticket angelegt.')}/></Expand>
-        </> : <>
-          <button onClick={()=>void refresh()}>Verlauf aktualisieren</button>
-          <ol className="thread">{conversation?.articles.map((article:any)=><li key={article.id}>
-            <div><strong>{article.subject || 'Nachricht'}</strong><small>{article.from} · {moment(article.created_at)}</small></div>
-            <p>{article.content_type==='text/html' ? plainText(article.body) : article.body}</p>
-            {article.attachments?.map((attachment:{filename:string})=><small key={attachment.filename}>{attachment.filename}</small>)}
-          </li>)}</ol>
-          <Expand title="Antwort schreiben"><Form key={composeVersion} caption="Über Zammad senden" fields={[
-            {name:'recipient',label:'Empfänger',type:'email',required:true},{name:'subject',label:'Betreff',required:true},{name:'body',label:'Nachricht',type:'textarea',required:true},
-          ]} submit={(v)=>run(async()=>{
-            const message:{[key:string]:unknown}={...v,id:draftId.current ??= crypto.randomUUID()};
-            if(file) {
-              if(file.size>5_242_880) throw new Error('PDF-Anhänge sind bis 5 MB möglich.');
-              const bytes=new Uint8Array(await file.arrayBuffer());
-              message.attachment={name:file.name,data:bytes.toBase64()};
-            }
-            const result=await request('messages',message);
-            await refresh();
-            if(result.status!=='sent') throw new Error('Sendezustand prüfen. Der Versuch steht im Projektverlauf.');
-            setFile(undefined);
-          },'Nachricht an Zammad übergeben.')}>
-            <label className="wide"><span>PDF-Anhang</span><input type="file" accept="application/pdf,.pdf" onChange={(event)=>setFile(event.target.files?.[0])}/></label>
-          </Form></Expand>
-          <Table headers={['Sendeversuch','Status','Aktion']} rows={(conversation?.outgoing ?? []).map((entry:Row)=>({
-            key:entry.id,cells:[entry.subject,({sent:'An Zammad übergeben',pending:'Ausstehend',failed:'Abgelehnt',unknown:'Ausgang unklar'} as Record<string,string>)[entry.status],
-              entry.status==='sent' ? '–' : <div className="actions">
-                <button onClick={()=>run(async()=>{await request(`outgoing/${entry.id}`,{retry:false});await refresh();})}>Prüfen</button>
-                <button onClick={()=>{if(window.confirm('Ticketverlauf prüfen und, falls die Nachricht fehlt, erneut senden?')) void run(async()=>{await request(`outgoing/${entry.id}`,{retry:true});await refresh();});}}>Erneut senden</button>
-              </div>],
-          }))}/>
-        </>}
-      </div>
-    </Panel>}
   </>;
 }

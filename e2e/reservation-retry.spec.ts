@@ -13,7 +13,10 @@ for(const [summary,caption,hour] of [['Personal vormerken','Person vormerken','1
     await page.getByRole('button',{name:'Ressourcen & Kalkulation',exact:true}).click();
     const target=planningForm(page,summary);
     await target.locator('summary').click();
-    await expect(target.getByText('Die Zeitzone für neue Eingaben ist Europe/Berlin.')).toBeVisible();
+    const newInputHint='Die Zeitzone für neue Eingaben ist Europe/Berlin.';
+    await expect(target.getByText(newInputHint,{exact:true})).toBeVisible();
+    await expect(target.getByLabel('Von',{exact:true})).toHaveAccessibleDescription(newInputHint);
+    await expect(target.getByLabel('Bis',{exact:true})).toHaveAccessibleDescription(newInputHint);
     if(summary==='Personal vormerken'){
       await target.getByRole('combobox',{name:'Person',exact:true}).selectOption({label:'Noah Beispiel'});
     }else{

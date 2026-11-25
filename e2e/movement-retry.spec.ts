@@ -1,4 +1,4 @@
-import { expect,test,type Page } from '@playwright/test';
+import { expect,test,type Page,type Route } from '@playwright/test';
 import { signIn } from './session';
 
 async function warehouseBooking(page:Page,kind:'consumable'|'equipment'){
@@ -31,14 +31,17 @@ async function openMovement(page:Page,action:'consume'|'return',bookingId:string
   await page.getByLabel('Projektreservierung').selectOption(bookingId);
 }
 
-async function loseFirstResponse(page:Page){
+async function loseFirstResponse(page:Page,beforeAbort?:Promise<void>){
   const calls:{key:string|undefined;id:string}[]=[];
   await page.route('**/api/v1/movements',async route=>{
     const response=await route.fetch();
     expect(response.status()).toBe(201);
     const result=await response.json() as {id:string};
     calls.push({key:route.request().headers()['idempotency-key'],id:result.id});
-    if(calls.length===1) await route.abort('failed');
+    if(calls.length===1){
+      await beforeAbort;
+      await route.abort('failed');
+    }
     else await route.fulfill({response});
   });
   return calls;
@@ -54,10 +57,28 @@ async function stock(page:Page,itemId:string){
 test('Ein Verbrauch lässt sich nach Neuladen und verlorener Antwort ohne Doppelbuchung wiederholen',async({page})=>{
   const {item,booking}=await warehouseBooking(page,'consumable');
   await openMovement(page,'consume',booking.id);
-  const calls=await loseFirstResponse(page);
+  const bookingField=page.getByLabel('Projektreservierung');
+  const quantity=page.locator('details').filter({has:page.getByText('Ausgabe, Rückgabe oder Verbrauch',{exact:true})}).getByLabel('Menge');
   const book=page.getByRole('button',{name:'Bewegung buchen'});
+  const retry=page.getByRole('button',{name:'Letzten Vorgang erneut senden'});
+  await quantity.fill('5');
   await book.click();
+  await expect(page.getByRole('alert')).toContainText('Die Bewegung übersteigt die reservierte Menge.');
+  await expect(retry).toHaveCount(0);
+  await quantity.fill('1');
+
+  let releaseResponse!:()=>void;
+  const beforeAbort=new Promise<void>(resolve=>{releaseResponse=resolve;});
+  const calls=await loseFirstResponse(page,beforeAbort);
+  try {
+    await book.click();
+    await expect.poll(()=>calls.length).toBe(1);
+    await expect(bookingField).toBeDisabled();
+    await expect(bookingField).toHaveValue(booking.id);
+  } finally { releaseResponse(); }
   await expect(page.getByText('Der letzte Vorgang kann bereits gespeichert sein.',{exact:false})).toBeVisible();
+  await expect(bookingField).toBeDisabled();
+  await expect(bookingField).toHaveValue(booking.id);
   expect(calls[0].key).toBeTruthy();
   expect(await stock(page,item.id)).toMatchObject({physical:9,reserved:3});
 
@@ -100,4 +121,48 @@ test('Die letzte Rückgabe bleibt prüfbar, wenn ihre Reservierung keine offene 
   expect(calls[0].key).toBeTruthy();
   expect(calls[1]).toEqual(calls[0]);
   expect(await stock(page,item.id)).toMatchObject({physical:10,reserved:0});
+});
+
+test('Die bestätigte Buchung gibt das erneut geöffnete Formular nach einem Lesefehler frei',async({page})=>{
+  let writes=0;
+  let release!:(route:Route)=>void;
+  const delayed=new Promise<Route>(resolve=>{release=resolve;});
+  let held=false;
+  await page.route('**/api/v1/movements', async route=>{
+    const response=await route.fetch();
+    if(route.request().method()==='POST' && response.ok()) writes++;
+    await route.fulfill({response});
+  });
+  await page.route('**/api/v1/stock',route=>{
+    if(writes===1 && !held){
+      held=true;
+      release(route);
+      return;
+    }
+    return route.continue();
+  });
+  await signIn(page);
+  const nav=page.getByRole('navigation',{name:'Hauptnavigation'});
+  const warehouse=nav.getByRole('button',{name:'Projektlager',exact:true});
+  await warehouse.click();
+  const receive=page.getByText('Wareneingang',{exact:true}).first();
+  const form=page.locator('details').filter({has:page.locator('summary').getByText('Wareneingang',{exact:true})});
+  await receive.click();
+  await form.getByLabel('Artikel').selectOption({label:'Kabelbinder, Packung'});
+  await form.getByLabel('Lagerort').selectOption({label:'Hauptlager'});
+  await form.getByRole('button',{name:'Wareneingang buchen'}).click();
+  const request=await delayed;
+  try{
+    await nav.getByRole('button',{name:'Übersicht',exact:true}).click();
+    await warehouse.click();
+    await receive.click();
+    await expect(form.getByRole('button',{name:'Letzten Vorgang erneut senden'})).toBeVisible();
+    await request.fulfill({status:503,json:{error:'Abruf fehlgeschlagen'}});
+    await page.getByRole('button',{name:'Ansicht aktualisieren',exact:true}).click();
+    await expect(form.getByRole('button',{name:'Letzten Vorgang erneut senden'})).toHaveCount(0);
+    await expect(form.getByLabel('Artikel')).toBeEnabled();
+    expect(writes).toBe(1);
+  }finally{
+    await request.abort().catch(()=>{});
+  }
 });
