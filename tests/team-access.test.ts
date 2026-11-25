@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { password as bunPassword } from 'bun';
 import { handle } from '../src/server/api';
 import { createAccount, createToken } from '../src/server/auth';
 import { required } from '../src/server/errors';
@@ -40,6 +41,73 @@ function write(path: string, method: 'POST' | 'PATCH', body: object, headers: Re
 function setBlocked(id: string, blocked: boolean, headers: Record<string,string>) {
   return write(`/users/${id}/access`, 'PATCH', { blocked }, headers);
 }
+
+test('Passwortwechsel betrifft nur das eigene Konto und nimmt keine API-Tokens an', async () => {
+  const administrator = await createPerson();
+  const member = await createPerson('member');
+  try {
+    const adminSession = sessionCookie(await login(administrator.email));
+    const otherAdminSession = sessionCookie(await login(administrator.email));
+    const memberSession = sessionCookie(await login(member.email));
+    const token = await createToken(administrator,{label:'Schreibtest',scope:'write'});
+    const bearer = {Authorization:`Bearer ${token.token}`};
+    const change = {currentPassword:password,newPassword:crypto.randomUUID(),revokeOtherSessions:true};
+    expect((await write('/me/password','PATCH',change,{})).status).toBe(401);
+    expect((await write('/me/password','PATCH',change,{...adminSession,...bearer})).status).toBe(403);
+    expect((await write('/me/password','PATCH',change,{...adminSession,Origin:'https://elsewhere.example.test'})).status).toBe(403);
+    expect((await write('/me/password','PATCH',{...change,newPassword:'zu-kurz'},adminSession)).status).toBe(400);
+    expect((await write('/me/password','PATCH',{...change,userId:member.id},adminSession)).status).toBe(400);
+    const repeated = await write('/me/password','PATCH',{...change,newPassword:password},adminSession);
+    expect(repeated.status).toBe(400);
+    expect(await repeated.json()).toEqual({error:'Wähle ein anderes neues Passwort.'});
+    expect(await status(otherAdminSession)).toBe(200);
+    expect((await write('/me/password','PATCH',change,adminSession)).status).toBe(200);
+    expect(await status(otherAdminSession)).toBe(401);
+    expect((await login(member.email)).status).toBe(200);
+    expect(await status(memberSession)).toBe(200);
+    expect(await status(bearer)).toBe(200);
+    const legacy = required(await first<{ password_hash:string }>(
+      db,'SELECT password_hash FROM users WHERE id=$1',[administrator.id]));
+    expect(await bunPassword.verify(change.newPassword,legacy.password_hash)).toBe(true);
+    expect(await bunPassword.verify(password,legacy.password_hash)).toBe(false);
+  } finally {
+    await removePeople(administrator.id,member.id);
+  }
+});
+
+test('Zwei gleichzeitige Passwortwechsel können dasselbe aktuelle Passwort nur einmal verwenden', async () => {
+  const member = await createPerson('member');
+  try {
+    const firstSession = sessionCookie(await login(member.email));
+    const secondSession = sessionCookie(await login(member.email));
+    const responses = await Promise.all([firstSession,secondSession].map(headers=>
+      write('/me/password','PATCH',{currentPassword:password,newPassword:crypto.randomUUID()},headers)));
+    expect(responses.map(response=>response.status).sort()).toEqual([200,400]);
+    expect(await status(firstSession)).toBe(200);
+    expect(await status(secondSession)).toBe(200);
+  } finally {
+    await removePeople(member.id);
+  }
+});
+
+test('Ein anders dargestelltes Passwort mit denselben UTF-8-Bytes gilt als bisheriges Passwort', async () => {
+  const email = `${crypto.randomUUID()}@example.test`;
+  const currentPassword = password + '\uFFFD';
+  const person = required(await createAccount({email,name:'Musterperson',role:'member',password:currentPassword}));
+  const signIn = () => write('/login','POST',{email,password:currentPassword},{});
+  try {
+    const current = sessionCookie(await signIn());
+    const other = sessionCookie(await signIn());
+    const result = await write('/me/password','PATCH',{
+      currentPassword,newPassword:password + '\uD800',revokeOtherSessions:true,
+    },current);
+    expect(result.status).toBe(400);
+    expect(await status(other)).toBe(200);
+    expect((await signIn()).status).toBe(200);
+  } finally {
+    await removePeople(person.id);
+  }
+});
 
 test('Kontosperre widerruft Sitzungen und API-Tokens auch über eine spätere Freigabe hinaus', async () => {
   const administrator = await createPerson();

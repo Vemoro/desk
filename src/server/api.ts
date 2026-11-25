@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { databaseReady, db, first, rows, type Query } from './db';
 import { DeskError, required } from './errors';
-import { accountInput, authenticate, createAccount, createToken, login, loginInput, logout, protectOrigin, requireAdmin, tokenInput, type Actor } from './auth';
+import { accountInput, authenticate, changePassword, createAccount, createToken, login, loginInput, logout, passwordChangeInput, protectOrigin, requireAdmin, tokenInput, type Actor } from './auth';
 import { accountAccessInput, changeAccountAccess, withAccountAccess } from './accounts';
 import { schemas, id, projectResponse, projectStage, reservationInput, reservationStatus, movementInput, movementCorrection, costBatch, costAssignment, habenOfferInput, habenContactInput, zammadLinkInput, zammadCreateInput, zammadMessage } from './contracts';
 import { assignCost, changeStage, controlling, getCore, getProject, importCosts, listCore, listCosts, saveCore, type Collection } from './core';
@@ -11,7 +11,7 @@ import { checkZammadConnection, conversations, linkTicket, reviewOutgoing, send,
 import { integrationStatus } from './remote';
 import { readJson } from './request-body';
 
-type Context = { actor: Actor; path: string[]; limit: number; offset: number; requestKey?:string; query: Query };
+type Context = { actor: Actor; sessionId?:string; path: string[]; limit: number; offset: number; requestKey?:string; query: Query };
 type Operation = {
   method: string;
   path: string;
@@ -21,6 +21,7 @@ type Operation = {
   response?: z.ZodType;
   keyed?: boolean;
   adminSession?: boolean;
+  browserSession?: boolean;
   accountAccess?: 'shared' | 'exclusive';
   pageOrder?: string;
 };
@@ -32,7 +33,7 @@ function get(path: string, summary: string, run: (context: Context) => Promise<u
   operations.push({ method: 'GET', path, summary, run, ...options });
 }
 
-function action<T>(method: 'POST'|'PATCH', path: string, summary: string, input: z.ZodType<T>, run: (context: Context, input: T) => Promise<unknown>, options: Pick<Operation,'keyed'|'adminSession'|'accountAccess'> = {}) {
+function action<T>(method: 'POST'|'PATCH', path: string, summary: string, input: z.ZodType<T>, run: (context: Context, input: T) => Promise<unknown>, options: Pick<Operation,'keyed'|'adminSession'|'browserSession'|'accountAccess'> = {}) {
   operations.push({ method,path,summary,input,...options,run:(context,value)=>run(context,input.parse(value)) });
 }
 
@@ -50,6 +51,11 @@ operations.push({ method:'DELETE', path:'/lines/{id}', summary:'Kalkulationsposi
   return required(await first(db,'DELETE FROM lines WHERE id=$1 RETURNING id',[path[1]]));
 }});
 get('/me','Aktuelles Konto',async ({actor})=>actor);
+action('PATCH','/me/password','Eigenes Passwort ändern',passwordChangeInput,
+  ({actor,sessionId,query},input)=>{
+    if (!sessionId) throw new DeskError(403,'Eine Browsersitzung ist erforderlich.');
+    return changePassword(query,actor.id,sessionId,input);
+  },{browserSession:true,accountAccess:'exclusive'});
 get('/integrations','Konfigurierte Integrationen',async()=>integrationStatus());
 action('POST','/integrations/zammad/check','Zammad-Verbindung mit einem bestehenden Ticket prüfen (Administratorsitzung)',
   zammadLinkInput,({actor},input)=>{
@@ -142,12 +148,12 @@ export async function handle(request: Request) {
     }
     const route = operations.find((operation)=>operation.method === request.method && match(operation.path,path));
     async function dispatch(query: Query, body?: () => unknown) {
-      const actor = await authenticate(request,query);
+      const {actor,sessionId} = await authenticate(request,query);
       if (!route) throw new DeskError(404,'API-Endpunkt nicht gefunden.');
       const pagination = pageSchema.parse(Object.fromEntries(url.searchParams));
       const requestKey=route.keyed ? requestKeySchema.parse(request.headers.get(requestKeyHeader) ?? undefined) : undefined;
       const input=route.input ? (body ? body() : await readJson(request)) : undefined;
-      const result = await route.run({actor,path,...pagination,requestKey,query},input);
+      const result = await route.run({actor,sessionId,path,...pagination,requestKey,query},input);
       return json(result,route.method === 'POST' ? 201 : 200);
     }
     if (!route?.accountAccess) return await dispatch(db);
@@ -181,8 +187,9 @@ function openApi() {
     ] : [];
     (paths[op.path] ??= {})[op.method.toLowerCase()] = {
       summary:op.summary,
-      security:op.adminSession ? sessions : [...sessions,{token:[]}],
+      security:op.adminSession || op.browserSession ? sessions : [...sessions,{token:[]}],
       ...(op.adminSession ? {description:'Diese Aktion erfordert eine Sitzung mit der Rolle Administration.'} : {}),
+      ...(op.browserSession ? {description:'Diese Aktion erfordert eine Browsersitzung und betrifft nur das eigene Konto.'} : {}),
       ...(op.pageOrder ? {description:`Reihenfolge (${op.pageOrder}). Eine Seite mit weniger Einträgen als limit oder eine leere Seite beendet die Abfrage. Liegt der nächste offset über der Obergrenze, endet der Abruf möglicherweise vor dem Listenende. Änderungen zwischen Seiten können Einträge verschieben.`} : {}),
       parameters:[
         ...pathParameters,
