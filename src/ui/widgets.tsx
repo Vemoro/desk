@@ -160,7 +160,7 @@ export function Panel({title,subtitle,headingIcon,children,action,focusRef}:{tit
   const titleId=useId();
   return <section className="panel" ref={focusRef} tabIndex={focusRef?-1:undefined} aria-labelledby={focusRef?titleId:undefined}>
     <header className="panel-head">
-      {subtitle ? <div className="panel-heading">{headingIcon}<h2 id={focusRef?titleId:undefined}>{title}</h2><p className="subtle">{subtitle}</p></div>
+      {subtitle ? <div className="panel-heading">{headingIcon}<h2 id={focusRef?titleId:undefined} title={title}>{title}</h2><p className="subtle">{subtitle}</p></div>
         : <h2 id={focusRef?titleId:undefined}>{title}</h2>}
       {action}
     </header>{children}
