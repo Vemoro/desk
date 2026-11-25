@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { databaseReady, db, first, rows } from './db';
 import { DeskError, required } from './errors';
 import { accountInput, authenticate, createAccount, createToken, login, loginInput, logout, protectOrigin, requireAdmin, tokenInput, type Actor } from './auth';
-import { schemas, id, projectStage, reservationInput, reservationStatus, movementInput, costBatch, costAssignment, habenOfferInput, habenContactInput, zammadLinkInput, zammadCreateInput, zammadMessage } from './contracts';
+import { schemas, id, projectResponse, projectStage, reservationInput, reservationStatus, movementInput, costBatch, costAssignment, habenOfferInput, habenContactInput, zammadLinkInput, zammadCreateInput, zammadMessage } from './contracts';
 import { assignCost, changeStage, controlling, getCore, getProject, importCosts, listCore, listCosts, saveCore, type Collection } from './core';
 import { createMovement, createReservation, listMovements, listReservations, listStock, setReservation } from './stock';
 import { pullContacts, syncContact, syncOffer } from './haben';
@@ -16,6 +16,7 @@ type Operation = {
   summary: string;
   run: (context: Context, input: unknown) => Promise<unknown>;
   input?: z.ZodType;
+  response?: z.ZodType;
   keyed?: boolean;
   adminSession?: boolean;
   pageOrder?: string;
@@ -24,7 +25,7 @@ const operations: Operation[] = [];
 const requestKeyHeader='Idempotency-Key';
 const requestKeySchema=z.string().regex(/^[A-Za-z0-9._:-]{1,128}$/).optional();
 
-function get(path: string, summary: string, run: (context: Context) => Promise<unknown>, options: Pick<Operation,'adminSession'|'pageOrder'> = {}) {
+function get(path: string, summary: string, run: (context: Context) => Promise<unknown>, options: Pick<Operation,'adminSession'|'pageOrder'|'response'> = {}) {
   operations.push({ method: 'GET', path, summary, run, ...options });
 }
 
@@ -36,8 +37,9 @@ for (const name of Object.keys(schemas) as Collection[]) {
   const schema = schemas[name];
   const path = `/${name}`;
   get(path,'Einträge auflisten',({limit,offset})=>listCore(name,limit,offset),
-    {pageOrder:name==='lines' ? 'Art, Name, ID' : 'Name, ID'});
-  get(`${path}/{id}`,'Eintrag lesen',({path})=>getCore(name,path[1]));
+    {pageOrder:name==='lines' ? 'Art, Name, ID' : 'Name, ID',response:name==='projects' ? z.array(projectResponse) : undefined});
+  get(`${path}/{id}`,'Eintrag lesen',({path})=>getCore(name,path[1]),
+    {response:name==='projects' ? projectResponse : undefined});
   action('POST',path,'Eintrag anlegen',schema,(context,input)=>saveCore(name,input));
   action('PATCH',`${path}/{id}`,'Eintrag ändern',schema.partial(),({path},input)=>saveCore(name,input,path[1]));
 }
@@ -192,7 +194,10 @@ function openApi() {
           description:'Für Wiederholungen derselben Eingabe beibehalten. Ein Schlüssel gilt pro Konto und Endpunkt. Desk liefert die ursprüngliche Antwort, bei geänderter Eingabe HTTP 409.'}] : []),
       ],
       ...(op.input ? { requestBody:{ required:true,content:{'application/json':{schema:z.toJSONSchema(op.input,{target:'draft-2020-12',io:'input'})}} } } : {}),
-      responses:{ [op.method === 'POST' ? '201' : '200']:{description:'Erfolg'}, 400:{description:'Ungültige Eingabe'},
+      responses:{ [op.method === 'POST' ? '201' : '200']:{
+        description:'Erfolg',
+        ...(op.response ? {content:{'application/json':{schema:z.toJSONSchema(op.response,{target:'draft-2020-12',io:'output'})}}} : {}),
+      }, 400:{description:'Ungültige Eingabe'},
         401:{description:'Anmeldung erforderlich'},403:{description:'Zugriff verweigert'},409:{description:'Konflikt'} },
     };
   }
