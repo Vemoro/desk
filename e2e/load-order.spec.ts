@@ -1,22 +1,10 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
-import { signIn } from './session';
-
-function holdRoute(){
-  let resolve!:(route:Route)=>void;
-  const request=new Promise<Route>((done)=>{resolve=done;});
-  return {request,resolve};
-}
+import { holdRoute, settleResponse, signIn } from './session';
 async function openExport(page:Page){
   await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Projekte',exact:true}).click();
   await page.getByRole('button',{name:'Musterinstallation',exact:true}).click();
   await page.getByRole('button',{name:'Ressourcen & Kalkulation',exact:true}).click();
   return page.getByRole('button',{name:'Angebotspositionen exportieren',exact:true});
-}
-async function settleResponse(page:Page,route:Route,json:unknown,status=200){
-  const response=page.waitForResponse((response)=>response.request()===route.request());
-  await route.fulfill({status,json});
-  await (await response).finished();
-  await page.evaluate(()=>new Promise<void>((done)=>requestAnimationFrame(()=>requestAnimationFrame(()=>done()))));
 }
 const project={id:'projekt',name:'Musterinstallation',stage:'planning'};
 const contact=(name:string)=>[{id:'kontakt',name,email:'montage@example.test'}];
