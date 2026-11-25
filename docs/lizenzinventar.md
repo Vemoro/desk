@@ -6,7 +6,7 @@ Desk verwendet AGPL-3.0-only. Dieses Inventar behandelt die Drittanbieterdateien
 
 Am 25. November 2026 wurde [`b67b1ff30155bd13339bcd36d3e7859515fdbe70`](https://github.com/Vemoro/desk/commit/b67b1ff30155bd13339bcd36d3e7859515fdbe70) aus einem Git-Archiv als Linux/amd64-Image gebaut. Das verwendete Bun-Basisimage `oven/bun:1.4.5` wurde als `sha256:3aa040e5445efa09d75bb428a64ba50db13e2b3ac9b6b0c7f145615f62b2ee18` aufgelöst. Bewertet wurden Browserdateien unter `.output/public`, gebündelte Serverdateien unter `.output/server`, von Nitro kopierte Module und die für die Betriebs-CLI kopierte Zod-Installation. [Anwendungs-CI des Standes](https://github.com/Vemoro/desk/actions/runs/45559129724)
 
-Ein zweiter Build zeichnete über den [Rolldown-Hook `generateBundle`](https://rolldown.rs/reference/Interface.OutputChunk) je Umgebung die Module mit positivem Ausgabeumfang auf. Die Paketnamen und Versionen stammen aus den zugehörigen installierten Manifesten. Unter den 40 verglichenen Browser- und Serverdateien außerhalb von `node_modules` hatten 39 identische Hashes. Im Server-Einstieg unterschieden sich ausschließlich drei Änderungszeitpunkte der statischen Dateien. Die acht von Nitro kopierten Moduldateien stimmten bytegenau überein.
+Ein zweiter Build zeichnete über den Rolldown-Hook `generateBundle` je Umgebung die Module mit positivem Ausgabeumfang auf. Die Paketnamen und Versionen stammen aus den zugehörigen installierten Manifesten. Unter den 40 verglichenen Browser- und Serverdateien außerhalb von `node_modules` hatten 39 identische Hashes. Im Server-Einstieg unterschieden sich ausschließlich drei Änderungszeitpunkte der statischen Dateien. Die acht von Nitro kopierten Moduldateien stimmten bytegenau überein. [Rolldown-Hook `generateBundle`](https://rolldown.rs/reference/Interface.FunctionPluginHooks#generatebundle)
 
 ## Paketversionen in der Anwendungsausgabe
 
@@ -103,7 +103,7 @@ Das Verzeichnis der installierten Abhängigkeiten ist größer als die Ausliefer
 
 ## Befunde für die Auslieferung
 
-- Das Image des geprüften Ausgangsstands enthielt keine Desk-`LICENSE` unter `/desk`. Die Docker-Datei kopiert sie jetzt aus demselben Checkout ins Laufzeit-Image.
+- Das Image des geprüften Ausgangsstands enthielt keine Desk-`LICENSE` unter `/desk`. Das Dockerfile kopiert sie jetzt aus demselben Checkout ins Laufzeit-Image. Der Image-Test vergleicht den Lizenzinhalt nach Vereinheitlichung der Zeilenenden.
 - Das Image des geprüften Ausgangsstands enthielt `tslib` 1.14.1 und 2.9.1. Nitro übernahm bei beiden Versionen die JavaScript-Dateien und Paketmanifeste. Die Originalpakete enthalten außerdem `LICENSE.txt` und `CopyrightNotice.txt`.
 - Bei `pg-types` und `pgpass` steht der MIT-Text mit Urheberhinweis in der jeweiligen `README.md` des installierten Pakets. Berücksichtige diese Texte beim Zusammenstellen der Hinweise. Eine Suche im ausgelieferten PostgreSQL-Bundle fand die beiden Urheberhinweise nicht.
 - Vor einer öffentlichen Auslieferung stehen die gebündelten Drittanbieterhinweise, die Prüfung des Basisimages, der Desk-Copyright-Hinweis und die Zuordnung des entsprechenden Quellcodes zur ausgelieferten Version offen. Vergleiche die Ausgabe erneut, falls Lockfile, Build oder Basisimage wechseln. [Issue #174](https://github.com/Vemoro/desk/issues/174)

@@ -60,8 +60,11 @@ if [[ -z "${DESK_RUNTIME_IMAGE:-}" ]]; then
 fi
 
 echo "Desk-Lizenz im Runtime-Image"
-expected_license="$(git show "$commit:LICENSE" | sha256sum | cut -d ' ' -f 1)"
-image_license="$(docker run --rm --entrypoint sh "$image" -c 'sha256sum /desk/LICENSE' | cut -d ' ' -f 1)"
+license_hash() {
+  sed 's/\r$//' | sha256sum | cut -d ' ' -f 1
+}
+expected_license="$(git show "$commit:LICENSE" | license_hash)"
+image_license="$(docker run --rm --entrypoint sh "$image" -c 'cat /desk/LICENSE' | license_hash)"
 if [[ "$image_license" != "$expected_license" ]]; then
   echo "Die Lizenz im Laufzeit-Image stimmt nicht mit dem Git-Stand überein." >&2
   exit 1
