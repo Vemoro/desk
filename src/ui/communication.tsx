@@ -36,6 +36,10 @@ function CommunicationDialog({title,trigger,dismiss,children}:{
     if(trigger.isConnected) trigger.focus();
   }
 
+  useEffect(()=>{
+    if(saving) dialog.current?.querySelector<HTMLElement>('input, textarea')?.focus();
+  },[saving]);
+
   async function save(action:()=>Promise<boolean>) {
     if(busy.current) return false;
     busy.current=true;
