@@ -149,3 +149,47 @@ test('Ticketabruf aus verlassener Kommunikation verändert die erneut geöffnete
     await oldRequest.abort().catch(()=>{});
   }
 });
+
+test('Nur ein aktueller Versandnachweis darf die unbestätigte interne Notiz zurücksetzen',async({page})=>{
+  const older=holdRoute();
+  const noteText='Interne Notiz mit unklarem Ergebnis';
+  let attemptId='';
+  let calls=0;
+  await page.route(path+'/notes',route=>{
+    attemptId=route.request().postDataJSON().id;
+    return route.fulfill({status:201,json:{id:attemptId,status:'unknown'}});
+  });
+  const attempt=(status:string)=>({...thread('Synthetischer Verlauf'),outgoing:[
+    {id:attemptId,subject:noteText,status},
+  ]});
+  await page.route(path,route=>{
+    calls++;
+    if(calls===2) return older.resolve(route);
+    return route.fulfill({json:calls===1 ? thread('Synthetischer Verlauf') : attempt(calls===3?'unknown':'sent')});
+  });
+  await openTarget(page);
+  const refresh=page.getByRole('button',{name:'Verlauf aktualisieren',exact:true});
+  const note=page.getByRole('textbox',{name:'Interne Notiz',exact:true});
+  await expect(page.getByText('Synthetischer Verlauf',{exact:true})).toBeVisible();
+  await refresh.click();
+  const oldRequest=await older.request;
+  try {
+    await note.fill(noteText);
+    await page.getByRole('button',{name:'Notiz hinzufügen',exact:true}).click();
+    const unclear=page.getByRole('row',{name:/Ausgang unklar/});
+    await expect(unclear).toBeVisible();
+    await expect(note).toBeDisabled();
+
+    await settleResponse(page,oldRequest,attempt('sent'));
+    await expect(unclear).toBeVisible();
+    await expect(note).toHaveValue(noteText);
+    await expect(note).toBeDisabled();
+
+    await refresh.click();
+    await expect(page.getByRole('row',{name:/An Zammad übergeben/})).toBeVisible();
+    await expect(note).toBeEnabled();
+    await expect(note).toBeEmpty();
+  } finally {
+    await oldRequest.abort().catch(()=>{});
+  }
+});
