@@ -11,9 +11,12 @@ const transitions:Record<string,string[]> = {
   inquiry:['planning','cancelled'], planning:['offered','cancelled'], offered:['planning','confirmed','cancelled'],
   confirmed:['running','cancelled'], running:['complete','cancelled'], complete:[],cancelled:[],
 };
-const dateTime = (value:string) => new Date(value).toISOString();
-const reservationTimes = (values:Record<string,string>) =>
-  ({...values,starts_at:dateTime(values.starts_at),ends_at:dateTime(values.ends_at)});
+function reservationTimes(values:Record<string,string>) {
+  const start=new Date(values.starts_at);
+  const end=new Date(values.ends_at);
+  if(!(end>start)) throw new Error('Das Ende muss nach dem Beginn liegen.');
+  return {...values,starts_at:start.toISOString(),ends_at:end.toISOString()};
+}
 
 export function Projects({data,run,select}:{data:Data;run:Run;select:(id:string)=>void}) {
   const [filter,setFilter]=useState('');
