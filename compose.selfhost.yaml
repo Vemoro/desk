@@ -14,7 +14,10 @@ services:
       timeout: 3s
       retries: 12
   desk:
-    build: .
+    build:
+      context: .
+      args:
+        DESK_BUILD_COMMIT: ${DESK_BUILD_COMMIT:-}
     restart: unless-stopped
     depends_on:
       db:

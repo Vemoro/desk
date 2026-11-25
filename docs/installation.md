@@ -52,7 +52,8 @@ Führe die folgenden Befehle im Repository in einer Bash aus. Nach dem Datenbank
 ```bash
 (
   set -e
-  docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost build desk
+  build_commit="$(git rev-parse --verify HEAD)"
+  DESK_BUILD_COMMIT="$build_commit" docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost build desk
   docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost up -d --wait db
   docker compose --env-file .env.selfhost -f compose.selfhost.yaml -p desk-selfhost run --rm desk bun scripts/migrate.ts
   read -rsp 'Passwort für das Desk-Administrationskonto: ' DESK_ADMIN_PASSWORD

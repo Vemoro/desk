@@ -205,10 +205,37 @@ export function Desk() {
       {section==='contacts' && <Contacts data={data} run={run} haben={flags.haben}/>}
       {section==='warehouse' && <Warehouse data={data} run={run} accountId={person.id}/>}
       {section==='costs' && <Costs data={data} run={run}/>}
-      {section==='account' && <PasskeySettings/>}
+      {section==='account' && <><PasskeySettings/><BuildInfo/></>}
       {section==='settings'&&person.role==='admin' && <Settings data={data} run={run} flags={flags}/>}
     </main>
   </div>;
+}
+
+function BuildInfo() {
+  const [copyStatus,setCopyStatus]=useState('');
+  const commit=__DESK_BUILD_COMMIT__ ? `Git-Commit ${__DESK_BUILD_COMMIT__}` : 'Stand unbekannt';
+  const value=`Desk ${__DESK_VERSION__} · ${commit}`;
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopyStatus('Kopiert.');
+    } catch {
+      setCopyStatus('Angabe im Feld auswählen und kopieren.');
+    }
+  }
+
+  return <Panel title="Desk-Version">
+    <div className="panel-body">
+      <label><span>Version und Git-Commit</span>
+        <textarea rows={2} readOnly value={value} onFocus={(event)=>event.currentTarget.select()}/>
+      </label>
+      <div className="actions">
+        <button type="button" onClick={copy}>Kopieren</button>
+        {copyStatus && <small role="status">{copyStatus}</small>}
+      </div>
+    </div>
+  </Panel>;
 }
 
 function Dashboard({data,select,open}:{data:Data;select:(id:string)=>void;open:()=>void}) {
