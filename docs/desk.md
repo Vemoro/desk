@@ -63,7 +63,7 @@ In ausreichend breiten und hohen Fenstern scrollen Verlauf und Sendeversuche unt
 
 Wähle im Verlauf den Dateinamen mit Download-Symbol, um den Anhang zu speichern. Desk lädt die Datei mit der bestehenden Zammad-Verbindung. Lade- und Fehlermeldungen stehen am Anhang. Liefert Zammad für einen Anhang keine gültige Anhang-ID, zeigt Desk den Dateinamen ohne Downloadaktion.
 
-Das Feld **Interne Notiz** ist unter einem verknüpften Ticket geöffnet. **In Notiz zitieren** fügt einen Auszug aus dem gewählten Beitrag in den Entwurf ein. **Notiz hinzufügen** speichert ihn intern in Zammad. Dafür braucht Desk ein Zammad-Agenten-Token mit Zugriff auf die Ticketgruppe. Desk prüft den Agentenzugriff, bevor es den Notiztext übergibt. [Zammad-Berechtigung für Ticket-Erwähnungen](https://docs.zammad.org/en/latest/api/ticket/mentions.html#list)
+Unter dem Verlauf ist zunächst **Interne Notiz** geöffnet. Beim Antworten oder Weiterleiten erscheint der E-Mail-Editor an dieser Stelle. Wenn du ihn schließt oder die E-Mail erfolgreich sendest, erscheint der bisherige Notizentwurf wieder. **In Notiz zitieren** fügt einen Auszug aus dem gewählten Beitrag in den Entwurf ein. **Notiz hinzufügen** speichert ihn intern in Zammad. Dafür braucht Desk ein Zammad-Agenten-Token mit Zugriff auf die Ticketgruppe. Desk prüft den Agentenzugriff, bevor es den Notiztext übergibt. [Zammad-Berechtigung für Ticket-Erwähnungen](https://docs.zammad.org/en/latest/api/ticket/mentions.html#list)
 
 Bei ein- und ausgehenden E-Mails übernimmt **Text weiterleiten** den Nachrichtentext in einen neuen E-Mail-Entwurf. Die Empfängeradresse trägst du selbst ein. Bei Bedarf fügst du dem Entwurf ein PDF hinzu.
 
