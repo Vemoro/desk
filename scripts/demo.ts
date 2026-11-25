@@ -1,5 +1,5 @@
 import { db, first } from '../src/server/db';
-import { createAccount } from '../src/server/auth';
+import { createAccount } from '../src/server/accounts';
 import { changeStage, importCosts, saveCore } from '../src/server/core';
 import { createMovement, createReservation, setReservation } from '../src/server/stock';
 

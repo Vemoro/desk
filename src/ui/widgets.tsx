@@ -1,43 +1,153 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
-import type { Row } from './client';
+import { useEffect, useEffectEvent, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { ApiError, type Row } from './client';
 
-export type Run = (operation:()=>Promise<unknown>, feedback?:string)=>Promise<boolean>;
+export const noWrite = Symbol('noWrite');
+
+type RunOptions = { kind?:'read'|'write'; reportWriteRejection?:boolean; reportInlineError?:boolean };
+export type Run = (operation:(isCurrent:()=>boolean)=>Promise<unknown>, feedback?:string, options?:RunOptions)=>Promise<boolean>;
 type Field = {
   name:string; label:string; type?:string; placeholder?:string; value?:string|number;
-  required?:boolean; choices?:{value:string;label:string}[]; min?:number; max?:number; autoComplete?:string;
+  required?:boolean; choices?:{value:string;label:string}[]; min?:number; max?:number; autoComplete?:string; onChange?:(value:string)=>void; describedBy?:string;
 };
 
 export function options(records:Row[]) {
   return records.map((record)=>({value:record.id,label:record.name ?? record.label ?? record.id}));
 }
 
-export function Form({fields,caption,submit,children,className='form-grid'}:{
-  fields:Field[]; caption:string; submit:(values:Record<string,string>)=>Promise<unknown>; children?:ReactNode; className?:string;
+type Fields = Record<string,string>;
+type Attempt = {key:string; values:Fields; prepared?:Fields};
+type ClearedAttempt = {storageKey:string; key:string};
+const attemptCleared='desk-write-attempt-cleared';
+
+function isFields(value:unknown): value is Fields {
+  return Boolean(value && typeof value==='object' && !Array.isArray(value) &&
+    Object.values(value).every(field=>typeof field==='string'));
+}
+
+function storedAttempt(storageKey:string): Attempt | undefined {
+  try {
+    const value=JSON.parse(sessionStorage.getItem(storageKey) ?? 'null');
+    if(typeof value?.key==='string' && isFields(value.values) &&
+      (value.prepared===undefined || isFields(value.prepared))) return value;
+  } catch {}
+}
+
+export function Form({fields,caption,submit,children,className='form-grid',retryScope,prepare,busyCaption='Wird gespeichert …'}:{
+  fields:Field[]; caption:string; submit:(values:Fields,requestKey?:string)=>Promise<unknown>;
+  children?:ReactNode; className?:string; retryScope?:string; prepare?:(values:Fields)=>Fields; busyCaption?:string;
 }) {
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
+  const [pending,setPending]=useState(false);
+  const formRef=useRef<HTMLFormElement>(null);
+  const attempt=useRef<Attempt|undefined>(undefined);
+  const submitting=useRef(false);
+  const storageKey=retryScope && `desk-pending-write:${retryScope}`;
+  const fieldsLocked=Boolean(storageKey && (busy || pending));
+
+  const restoreFields=useEffectEvent((values:Fields)=>{
+    for(const [name,value] of Object.entries(values)){
+      const onChange=fields.find((field)=>field.name===name)?.onChange;
+      if(onChange){
+        onChange(value);
+        continue;
+      }
+      const field=formRef.current?.elements.namedItem(name);
+      if(field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement){
+        field.value=value;
+      }
+    }
+  });
+
+  useEffect(()=>{
+    attempt.current=storageKey ? storedAttempt(storageKey) : undefined;
+    setPending(Boolean(attempt.current));
+    if(attempt.current) restoreFields(attempt.current.values);
+    if(!storageKey) return;
+    function reflectClearedAttempt(event:Event){
+      const cleared=(event as CustomEvent<ClearedAttempt>).detail;
+      if(cleared.storageKey!==storageKey || cleared.key!==attempt.current?.key) return;
+      attempt.current=undefined;
+      setPending(false);
+    }
+    window.addEventListener(attemptCleared,reflectClearedAttempt);
+    return ()=>window.removeEventListener(attemptCleared,reflectClearedAttempt);
+  },[storageKey]);
+
+  function clearAttempt(key:string){
+    if(storageKey && storedAttempt(storageKey)?.key===key){
+      try {
+        sessionStorage.removeItem(storageKey);
+        window.dispatchEvent(new CustomEvent<ClearedAttempt>(attemptCleared,{detail:{storageKey,key}}));
+      } catch {}
+    }
+    if(attempt.current?.key===key) {
+      attempt.current=undefined;
+      setPending(false);
+    }
+  }
+
   async function onSubmit(event:FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError('');
-    const form=event.currentTarget;
-    const values=Object.fromEntries(Array.from(new FormData(form),([key,value])=>[key,String(value)]));
-    setBusy(true);
-    try { await submit(values); }
-    catch(error) { setError(error instanceof Error ? error.message : 'Die Eingabe konnte nicht gespeichert werden.'); }
-    finally { setBusy(false); }
+    const values=Object.fromEntries(Array.from(new FormData(event.currentTarget),([key,value])=>[key,String(value)]));
+    if(attempt.current && JSON.stringify(attempt.current.values)!==JSON.stringify(values)) {
+      setError('Sende die bisherigen Angaben erneut oder beginne einen neuen Vorgang.');
+      return;
+    }
+    await send(values);
   }
-  return <form className={className} onSubmit={onSubmit}>
+
+  async function send(values:Fields) {
+    if(storageKey && submitting.current) return;
+    setError('');
+    const retrying=Boolean(attempt.current);
+    let key:string|undefined;
+    submitting.current=true;
+    setBusy(true);
+    try {
+      if(storageKey && !attempt.current) {
+        attempt.current={key:crypto.randomUUID(),values,prepared:prepare?.(values)};
+        try { sessionStorage.setItem(storageKey,JSON.stringify(attempt.current)); } catch {}
+      }
+      key=attempt.current?.key;
+      const result=await submit(attempt.current?.prepared ?? values,key);
+      if(key && result===true) clearAttempt(key);
+      else if(key) setPending(true);
+    }
+    catch(error) {
+      if(key && !retrying && error instanceof ApiError && [400,409].includes(error.status)) clearAttempt(key);
+      else if(key) setPending(true);
+      setError(error instanceof Error ? error.message : 'Die Eingabe konnte nicht gespeichert werden.');
+    }
+    finally {
+      submitting.current=false;
+      setBusy(false);
+    }
+  }
+  return <form ref={formRef} className={className} onSubmit={onSubmit}>
     {fields.map((field)=><label key={field.name} className={field.type==='textarea'?'wide':''}>
       <span>{field.label}</span>
-      {field.choices ? <select name={field.name} defaultValue={field.value ?? ''} required={field.required}><option value="">Auswählen</option>
+      {field.choices ? <select name={field.name} value={field.onChange ? field.value ?? '' : undefined} defaultValue={field.onChange ? undefined : field.value ?? ''}
+        disabled={fieldsLocked} required={field.required} aria-describedby={field.describedBy} onChange={(event)=>field.onChange?.(event.target.value)}><option value="">Auswählen</option>
         {field.choices.map((choice)=><option value={choice.value} key={choice.value}>{choice.label}</option>)}</select>
-      : field.type==='textarea' ? <textarea name={field.name} defaultValue={field.value} required={field.required} placeholder={field.placeholder}/>
-      : <input name={field.name} type={field.type ?? 'text'} defaultValue={field.value} required={field.required}
+      : field.type==='textarea' ? <textarea name={field.name} defaultValue={field.value} disabled={fieldsLocked} required={field.required} placeholder={field.placeholder}/>
+      : <input name={field.name} type={field.type ?? 'text'} defaultValue={field.value} disabled={fieldsLocked} required={field.required}
           placeholder={field.placeholder} min={field.min} max={field.max} autoComplete={field.autoComplete}/>}
     </label>)}
     {children}
     {error && <p role="alert" className="inline-error wide">{error}</p>}
-    <div className="form-action"><button className="primary" disabled={busy}>{busy?'Wird gespeichert …':caption}</button></div>
+    {pending && <div className="wide">
+      <p role="status">Der letzte Vorgang kann bereits gespeichert sein. Sende dieselben Angaben erneut, um ihn zu prüfen.</p>
+      <div className="actions">
+        <button type="button" disabled={busy} onClick={()=>{if(attempt.current) void send(attempt.current.values);}}>
+          Letzten Vorgang erneut senden
+        </button>
+        <button type="button" disabled={busy} onClick={()=>{if(attempt.current) clearAttempt(attempt.current.key);setError('');}}>
+          Neuen Vorgang beginnen
+        </button>
+      </div>
+    </div>}
+    <div className="form-action"><button className="primary" disabled={busy || fieldsLocked}>{busy?busyCaption:caption}</button></div>
   </form>;
 }
 
