@@ -47,8 +47,14 @@ function createDeskAuth() {
         },
       },
       authentication:{
-        afterVerification:({verification})=>{
+        afterVerification:async ({verification, ctx, clientData})=>{
           if(!verification.authenticationInfo.userVerified) throw new APIError('UNAUTHORIZED');
+          const credential=await ctx.context.adapter.findOne<{userId:string}>({
+            model:'passkey',where:[{field:'credentialID',value:clientData.id}],
+          });
+          if(!credential || !await ctx.context.internalAdapter.findUserById(credential.userId)) {
+            throw new APIError('UNAUTHORIZED');
+          }
         },
       },
     })],

@@ -1,15 +1,17 @@
 import { z } from 'zod';
-import { databaseReady, db, first, rows } from './db';
+import { databaseReady, db, first, rows, type Query } from './db';
 import { DeskError, required } from './errors';
 import { accountInput, authenticate, createAccount, createToken, login, loginInput, logout, protectOrigin, requireAdmin, tokenInput, type Actor } from './auth';
+import { accountAccessInput, changeAccountAccess, withAccountAccess } from './accounts';
 import { schemas, id, projectResponse, projectStage, reservationInput, reservationStatus, movementInput, costBatch, costAssignment, habenOfferInput, habenContactInput, zammadLinkInput, zammadCreateInput, zammadMessage } from './contracts';
 import { assignCost, changeStage, controlling, getCore, getProject, importCosts, listCore, listCosts, saveCore, type Collection } from './core';
 import { createMovement, createReservation, listMovements, listReservations, listStock, setReservation } from './stock';
 import { pullContacts, syncContact, syncOffer } from './haben';
 import { checkZammadConnection, conversations, linkTicket, reviewOutgoing, send, unlinkTicket } from './zammad';
 import { integrationStatus } from './remote';
+import { readJson } from './request-body';
 
-type Context = { actor: Actor; path: string[]; limit: number; offset: number; requestKey?:string };
+type Context = { actor: Actor; path: string[]; limit: number; offset: number; requestKey?:string; query: Query };
 type Operation = {
   method: string;
   path: string;
@@ -19,6 +21,7 @@ type Operation = {
   response?: z.ZodType;
   keyed?: boolean;
   adminSession?: boolean;
+  accountAccess?: 'shared' | 'exclusive';
   pageOrder?: string;
 };
 const operations: Operation[] = [];
@@ -29,7 +32,7 @@ function get(path: string, summary: string, run: (context: Context) => Promise<u
   operations.push({ method: 'GET', path, summary, run, ...options });
 }
 
-function action<T>(method: 'POST'|'PATCH', path: string, summary: string, input: z.ZodType<T>, run: (context: Context, input: T) => Promise<unknown>, options: Pick<Operation,'keyed'|'adminSession'> = {}) {
+function action<T>(method: 'POST'|'PATCH', path: string, summary: string, input: z.ZodType<T>, run: (context: Context, input: T) => Promise<unknown>, options: Pick<Operation,'keyed'|'adminSession'|'accountAccess'> = {}) {
   operations.push({ method,path,summary,input,...options,run:(context,value)=>run(context,input.parse(value)) });
 }
 
@@ -53,16 +56,21 @@ action('POST','/integrations/zammad/check','Zammad-Verbindung mit einem bestehen
     requireAdmin(actor);
     return checkZammadConnection(input.id);
   },{adminSession:true});
-get('/users','Team auflisten',()=>rows(db,'SELECT id,name,role FROM users ORDER BY name,id'));
+get('/users','Team auflisten',()=>rows(db,'SELECT id,name,role,blocked FROM users ORDER BY name,id'));
 action('POST','/users','Teamkonto anlegen',accountInput,({actor},input)=>{
   requireAdmin(actor);
   return createAccount(input);
 },{adminSession:true});
+action('PATCH','/users/{id}/access','Teamkonto sperren oder freigeben',accountAccessInput,({actor,path,query},input)=>{
+  requireAdmin(actor);
+  return changeAccountAccess(query,path[1],input.blocked);
+},{adminSession:true,accountAccess:'exclusive'});
 get('/tokens','API-Tokens auflisten',({actor})=>{
   requireAdmin(actor);
   return rows(db,'SELECT id,label,scope,created_at FROM api_tokens ORDER BY created_at DESC');
 },{adminSession:true});
-action('POST','/tokens','API-Token erzeugen',tokenInput,({actor},input)=>createToken(actor,input),{adminSession:true});
+action('POST','/tokens','API-Token erzeugen',tokenInput,({actor,query},input)=>createToken(actor,input,query),
+  {adminSession:true,accountAccess:'shared'});
 operations.push({ method:'DELETE', path:'/tokens/{id}', summary:'API-Token widerrufen', adminSession:true, async run({ actor,path }) {
   requireAdmin(actor);
   return required(await first(db,'DELETE FROM api_tokens WHERE id=$1 RETURNING id',[path[1]]));
@@ -106,26 +114,6 @@ const headers = { 'Cache-Control':'no-store','X-Content-Type-Options':'nosniff' 
 const json = (value: unknown, status = 200, extra: Record<string,string> = {}) =>
   Response.json(value,{ status,headers:{ ...headers,...extra } });
 
-async function readJson(request: Request) {
-  if (request.headers.get('content-type')?.split(';')[0] !== 'application/json') throw new DeskError(415,'JSON ist erforderlich.');
-  const reader = request.body?.getReader();
-  if (!reader) throw new DeskError(400,'JSON fehlt.');
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  for (;;) {
-    const next = await reader.read();
-    if (next.done) break;
-    size += next.value.byteLength;
-    if (size > 7_200_000) {
-      await reader.cancel();
-      throw new DeskError(413,'Die Anfrage ist zu groß.');
-    }
-    chunks.push(next.value);
-  }
-  try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); }
-  catch { throw new DeskError(400,'Ungültiges JSON.'); }
-}
-
 function match(template: string, path: string[]) {
   const parts = template.slice(1).split('/');
   return parts.length === path.length && parts.every((part,index)=>
@@ -150,13 +138,20 @@ export async function handle(request: Request) {
       for (const cookie of cookies.getSetCookie()) response.headers.append('Set-Cookie',cookie);
       return response;
     }
-    const actor = await authenticate(request);
     const route = operations.find((operation)=>operation.method === request.method && match(operation.path,path));
-    if (!route) throw new DeskError(404,'API-Endpunkt nicht gefunden.');
-    const pagination = pageSchema.parse(Object.fromEntries(url.searchParams));
-    const requestKey=route.keyed ? requestKeySchema.parse(request.headers.get(requestKeyHeader) ?? undefined) : undefined;
-    const result = await route.run({actor,path,...pagination,requestKey},route.input ? await readJson(request) : undefined);
-    return json(result,route.method === 'POST' ? 201 : 200);
+    async function dispatch(query: Query, body?: () => unknown) {
+      const actor = await authenticate(request,query);
+      if (!route) throw new DeskError(404,'API-Endpunkt nicht gefunden.');
+      const pagination = pageSchema.parse(Object.fromEntries(url.searchParams));
+      const requestKey=route.keyed ? requestKeySchema.parse(request.headers.get(requestKeyHeader) ?? undefined) : undefined;
+      const input=route.input ? (body ? body() : await readJson(request)) : undefined;
+      const result = await route.run({actor,path,...pagination,requestKey,query},input);
+      return json(result,route.method === 'POST' ? 201 : 200);
+    }
+    if (!route?.accountAccess) return await dispatch(db);
+    // Read the body before taking the lock, but report authentication errors first.
+    const body = await readJson(request).then(value=>()=>value, error=>()=>{throw error;});
+    return await withAccountAccess(route.accountAccess, query=>dispatch(query,body));
   } catch (error) {
     if (error instanceof DeskError) return json({ error:error.message },error.status);
     if (error instanceof z.ZodError) return json({ error:error.issues.map((issue)=>`${issue.path.join('.') || 'Eingabe'}: ${issue.message}`).join('; ') },400);
