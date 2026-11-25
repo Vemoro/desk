@@ -221,19 +221,12 @@ export function ConfirmDialog({confirmation,run,dismiss,fallbackFocus}:{
     submitting.current=true;
     setPending(true);
     cancelRef.current?.focus();
-    let message='Die Aktion konnte nicht abgeschlossen werden.';
     try {
-      const completed=await run(async(isCurrent)=>{
-        try {
-          await confirmation.submit(isCurrent);
-        } catch(error) {
-          if(error instanceof Error) message=error.message;
-          throw error;
-        }
-      },confirmation.feedback);
+      const completed=await run(confirmation.submit,confirmation.feedback,{reportInlineError:true});
       submitting.current=false;
       if(completed) close(true);
-      else setProblem(message);
+    } catch(error) {
+      setProblem(error instanceof Error ? error.message : 'Die Aktion konnte nicht abgeschlossen werden.');
     } finally {
       submitting.current=false;
       setPending(false);

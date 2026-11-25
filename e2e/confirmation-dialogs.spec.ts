@@ -113,6 +113,11 @@ for(const status of ['sent','failed','unknown','http'] as const){
       await expect(modal.getByRole('button',{name:'Erneut senden',exact:true})).toBeDisabled();
       await modal.getByRole('button',{name:'Schließen',exact:true}).click();
       await expect(trigger).toBeFocused();
+      await expect(page.getByText(message,{exact:true})).toHaveCount(0);
+      await trigger.click();
+      await expect(modal.getByRole('button',{name:'Abbrechen',exact:true})).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(modal).toBeHidden();
     }
     expect(requests).toBe(1);
   });
