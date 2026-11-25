@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { all, api, ApiError, compileCsv, date, euros, moment, money, movementStages, name, projectStages, type Row } from './client';
+import { all, api, ApiError, compileCsv, date, euros, inventoryLabel, inventoryName, moment, money, movementStages, name, projectStages, type Row } from './client';
 import { Project, Projects, type Data } from './projects';
 import { PasskeyLogin, PasskeySettings } from './passkeys';
 import { Expand, Form, hasPendingWrite, noWrite, options, Panel, Pill, Table, type Run } from './widgets';
@@ -319,7 +319,7 @@ function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
     (!projectFilter || row.project_id===projectFilter) && (!locationFilter || row.location_id===locationFilter));
   const bookingChoices=bookings.map((row)=>({
     value:row.id,
-    label:`${name(data.projects,row.project_id)} · ${name(data.items,row.item_id)} · ${name(data.locations,row.location_id)} · ${moment(row.starts_at)} bis ${moment(row.ends_at)}`,
+    label:`${name(data.projects,row.project_id)} · ${inventoryName(data.items,row.item_id)} · ${name(data.locations,row.location_id)} · ${moment(row.starts_at)} bis ${moment(row.ends_at)}`,
   }));
   const selectedBooking=bookingChoices.find((choice)=>choice.value===bookingId);
   const movements=new Map(data.movements.map(row=>[row.id,row]));
@@ -339,7 +339,7 @@ function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
         {name:'inventory_number',label:'Inventarnummer für Einzelgerät'},
       ]} submit={(input)=>run(()=>api('items','POST',{...input,inventory_number:input.inventory_number||null}),'Artikel angelegt.')}/></Expand>
       <Expand title="Wareneingang"><Form caption="Wareneingang buchen" retryScope={`movements:${accountId}:receive`} fields={[
-        {name:'item_id',label:'Artikel',choices:options(data.items),required:true},{name:'location_id',label:'Lagerort',choices:options(data.locations),required:true},
+        {name:'item_id',label:'Artikel',choices:options(data.items,inventoryLabel),required:true},{name:'location_id',label:'Lagerort',choices:options(data.locations),required:true},
         {name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},{name:'project_id',label:'Projektbezug',choices:options(data.projects)},
       ]} submit={(input,key)=>run(()=>api('movements','POST',{action:'receive',item_id:input.item_id,location_id:input.location_id,
         quantity:Number(input.quantity),project_id:input.project_id||undefined},key),'Wareneingang erfasst.',{reportWriteRejection:true})}/></Expand>
@@ -352,7 +352,7 @@ function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
       </Form></Expand>
     </div>
     <Table headers={['Artikel','Lagerort','Physisch','Reserviert','Frei']} rows={data.stock.map((row)=>({key:`${row.item_id}/${row.location_id}`,cells:[
-      name(data.items,row.item_id),name(data.locations,row.location_id),row.physical,row.reserved,<strong>{row.free}</strong>,
+      inventoryName(data.items,row.item_id),name(data.locations,row.location_id),row.physical,row.reserved,<strong>{row.free}</strong>,
     ]}))}/></Panel>
     <Panel title="Offene Ausgaben">
       <div className="panel-body">
@@ -372,7 +372,7 @@ function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
         </div>
       </div>
       {visibleCheckouts.length ? <Table headers={['Projekt','Artikel','Lagerort','Ausgegeben']} rows={visibleCheckouts.map((row)=>({
-        key:row.id,cells:[name(data.projects,row.project_id),name(data.items,row.item_id),name(data.locations,row.location_id),row.checked_out],
+        key:row.id,cells:[name(data.projects,row.project_id),inventoryName(data.items,row.item_id),name(data.locations,row.location_id),row.checked_out],
       }))}/> : <p className="empty" role="status">{openCheckouts.length?'Keine offenen Ausgaben für diese Filter.':'Es gibt keine offenen Ausgaben.'}</p>}
     </Panel>
     <Panel title="Lagerbewegungen"><Table headers={['Zeitpunkt','Bewegung','Artikel','Lagerort','Projekt','Menge','Erfasst durch','Aktion']}
@@ -391,7 +391,7 @@ function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
               target?.scrollIntoView({block:'center'});
             }}>Original vom {moment(original.created_at)}</a></small>}
             {row.correction_reason && <small>{row.correction_reason}</small>}</div>,
-          name(data.items,row.item_id),name(data.locations,row.location_id),name(data.projects,row.project_id),row.quantity,name(data.users,row.actor_id),
+          inventoryName(data.items,row.item_id),name(data.locations,row.location_id),name(data.projects,row.project_id),row.quantity,name(data.users,row.actor_id),
           correctable && (remaining > 0 || hasPendingWrite(correctionScope) ? <div>
             <button type="button" aria-expanded={correctionId===row.id}
               onClick={()=>setCorrectionId(current=>current===row.id?'':row.id)}>{remaining>0?'Korrigieren':'Korrektur prüfen'}</button>

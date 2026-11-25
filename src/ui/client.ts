@@ -15,6 +15,16 @@ export const date = (value?:string) => value ? new Intl.DateTimeFormat('de-DE',{
 export const moment = (value?:string) => value ? new Intl.DateTimeFormat('de-DE',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value)) : '–';
 export const name = (collection:Row[], id?:string) => collection.find((row)=>row.id===id)?.name ?? '–';
 
+export function inventoryLabel(item:Row):string {
+  const articleName=item.name ?? '–';
+  return item.inventory_number ? `${articleName} (${item.inventory_number})` : articleName;
+}
+
+export function inventoryName(items:Row[], id:string) {
+  const item=items.find(row=>row.id===id);
+  return item ? inventoryLabel(item) : '–';
+}
+
 export class ApiError extends Error {
   constructor(public status:number,message:string) { super(message); }
 }
