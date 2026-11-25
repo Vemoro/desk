@@ -2,13 +2,13 @@ import { password } from 'bun';
 import { APIError, betterAuth } from 'better-auth';
 import { passkey } from '@better-auth/passkey';
 import { Pool } from 'pg';
+import { configuredOrigin } from './origin';
 
 const sessionSeconds = 43_200;
 
 function createDeskAuth() {
-  const configuredOrigin = process.env.DESK_ORIGIN;
-  if (!configuredOrigin) throw new Error('DESK_ORIGIN fehlt.');
-  const baseURL = new URL(configuredOrigin).origin;
+  const baseURL = configuredOrigin();
+  if (!baseURL) throw new Error('DESK_ORIGIN fehlt.');
   const secret = process.env.DESK_AUTH_SECRET;
   if (!secret || secret.length < 32) throw new Error('DESK_AUTH_SECRET fehlt oder ist zu kurz.');
 

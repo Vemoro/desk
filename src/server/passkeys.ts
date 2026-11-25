@@ -1,6 +1,7 @@
 import { APIError } from 'better-auth';
 import { deskAuth } from './desk-auth';
 import { db } from './db';
+import { configuredOrigin } from './origin';
 
 const authenticationOptions='/api/auth/passkey/generate-authenticate-options';
 const registrationOptions='/api/auth/passkey/generate-register-options';
@@ -19,7 +20,7 @@ export async function handlePasskey(request:Request) {
   const requiresSession=endpoints.get(`${request.method} ${path}`);
   if(requiresSession===undefined) return Response.json({message:'Endpunkt nicht gefunden.'},{status:404,headers});
   try {
-    const origin=new URL(process.env.DESK_ORIGIN ?? request.url).origin;
+    const origin=configuredOrigin() ?? new URL(request.url).origin;
     if(request.method==='POST' && request.headers.get('origin')!==origin) {
       return Response.json({message:'Die Herkunft der Anfrage stimmt nicht.'},{status:403,headers});
     }

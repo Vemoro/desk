@@ -5,6 +5,7 @@ import { db, first } from './db';
 import { DeskError } from './errors';
 import { loginInput, type Actor } from './accounts';
 import { deskAuth } from './desk-auth';
+import { configuredOrigin } from './origin';
 
 export { accountInput, createAccount, loginInput, type Actor } from './accounts';
 
@@ -20,7 +21,7 @@ export function requireAdmin(actor: Actor) {
 export function protectOrigin(request: Request) {
   const loginRoute = ['/api/v1/login','/api/v1/logout'].includes(new URL(request.url).pathname);
   if (['GET', 'HEAD'].includes(request.method) || (!loginRoute && request.headers.get('authorization')?.startsWith('Bearer '))) return;
-  const expected = new URL(process.env.DESK_ORIGIN ?? request.url).origin;
+  const expected = configuredOrigin() ?? new URL(request.url).origin;
   if (request.headers.get('origin') !== expected) throw new DeskError(403, 'Die Herkunft der Anfrage stimmt nicht.');
 }
 

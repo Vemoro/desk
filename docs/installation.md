@@ -45,7 +45,7 @@ openssl rand -hex 32
 openssl rand -hex 32
 ```
 
-Trage als `DESK_ORIGIN` die öffentliche HTTPS-Adresse ohne Pfad ein. Leite im Reverse Proxy diese Adresse per HTTP an `127.0.0.1:3000` weiter oder verwende den in `DESK_PORT` gewählten Port. Der Proxy terminiert TLS und reicht den öffentlichen Host und das ursprüngliche HTTPS-Protokoll weiter. Die Adresse im Browser muss mit `DESK_ORIGIN` übereinstimmen.
+Trage als `DESK_ORIGIN` die öffentliche HTTPS-Adresse ohne Pfad, Zugangsdaten, Query oder Fragment ein. Ein abschließender Schrägstrich ist zulässig. Für lokale Tests ist HTTP mit `localhost`, `127.0.0.1` oder `[::1]` möglich. Bei einer ungültigen Adresse bricht Desk den Dienststart mit einem Konfigurationshinweis ab. Leite im Reverse Proxy die öffentliche Adresse per HTTP an `127.0.0.1:3000` weiter oder verwende den in `DESK_PORT` gewählten Port. Der Proxy terminiert TLS und reicht den öffentlichen Host und das ursprüngliche HTTPS-Protokoll weiter. Die Adresse im Browser muss mit `DESK_ORIGIN` übereinstimmen.
 
 Führe die folgenden Befehle im Repository in einer Bash aus. Nach dem Datenbankstart wendet der erste einmalige Desk-Container die Migration an. Der zweite legt das erste Administrationskonto an. Ersetze die Beispieladresse und verwende ein eigenes starkes Passwort, das bei der Eingabe nicht angezeigt wird. Der Block bricht bei einem Fehler vor dem Dienststart ab. Die Passwortvariable des Administrationskontos endet mit der Subshell.
 
