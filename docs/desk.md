@@ -63,8 +63,10 @@ Wende `004_passkeys.sql` vor dem Start der neuen Version mit dem unter [Betrieb]
 Unter **Mein Konto → Desk-Version** lässt sich die Programmversion mit dem Git-Commit kopieren. Am Smartphone öffnest du **Mein Konto** über das Menü. Die Programmversion stammt aus `package.json`. Stelle den vollständigen Commit beim Bau des ausgecheckten Stands bereit.
 
 ```sh
-DESK_BUILD_COMMIT="$(git rev-parse HEAD)" bun run build
-docker build --build-arg DESK_BUILD_COMMIT="$(git rev-parse HEAD)" -t desk:lokal .
+build_commit="$(git rev-parse --verify HEAD)" &&
+  DESK_BUILD_COMMIT="$build_commit" bun run build
+build_commit="$(git rev-parse --verify HEAD)" &&
+  docker build --build-arg "DESK_BUILD_COMMIT=$build_commit" -t desk:lokal .
 ```
 
 Für Docker Compose steht der Aufruf im [Installationsleitfaden](installation.md#eigenständiger-start-mit-docker-compose). Starte anschließend den gebauten Dienst und vergleiche die unter **Desk-Version** angezeigte Angabe mit `git rev-parse HEAD`. Die Angabe bleibt bei einem Neustart desselben Builds erhalten. Ein Build ohne Commit-Angabe zeigt **Stand unbekannt**.
