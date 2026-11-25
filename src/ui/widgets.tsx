@@ -193,7 +193,7 @@ export type Confirmation = {
 export function ConfirmDialog({confirmation,run,dismiss,fallbackFocus}:{
   confirmation:Confirmation;
   run:Run;
-  dismiss:()=>void;
+  dismiss:(confirmed:boolean)=>void;
   fallbackFocus:RefObject<HTMLElement|null>;
 }) {
   const titleId=useId();
@@ -218,7 +218,7 @@ export function ConfirmDialog({confirmation,run,dismiss,fallbackFocus}:{
   function close(confirmed=false) {
     if(submitting.current) return;
     dialogRef.current?.close();
-    dismiss();
+    dismiss(confirmed);
     const target=confirmed || !confirmation.trigger.isConnected ? fallbackFocus.current : confirmation.trigger;
     target?.focus();
   }
