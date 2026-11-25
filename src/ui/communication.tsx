@@ -322,11 +322,13 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   const forwarding=reply?.forwardBody!==undefined;
   const replyChanged=Boolean(reply && !forwarding && conversation && (!updatedReply || updatedReply.recipient!==reply.recipient));
   const ticket=conversation?.ticket;
+  const requester=articles.find(article=>article.kind==='incoming-email' && article.from)?.from;
   const ticketIdHint=useId();
   const dialogTitle=dialog?.kind==='link'?'Ticket verknüpfen':'Ticket anlegen';
 
-  return <div className="communication-layout">
+  return <div className={ticketId && zammad ? 'communication-layout communication-ticket' : 'communication-layout'}>
     <Panel title={ticket?.title || 'Kommunikation'} subtitle={ticket ? 'Zammad-Ticket #'+ticket.number : undefined} focusRef={zammadPanel}
+      headingIcon={requester ? <span className="communication-avatar communication-requester" aria-hidden="true">{articleInitials(requester)}</span> : undefined}
       action={ticketId && zammad ? <button type="button" onClick={()=>void refresh()} disabled={loading}>Verlauf aktualisieren</button> : undefined}>
       <div className="panel-body communication-workspace">
         {!ticketId ? <>
@@ -361,16 +363,15 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
             </div>}
             {visibleArticles.length>0 && <ol className="thread">{visibleArticles.map(article=><li key={article.id} data-kind={article.kind ?? 'unknown'}>
               <span className="communication-avatar" aria-hidden="true">{articleInitials(article.from)}</span>
-              <article className="communication-bubble">
-                <header className="communication-article-head">
+              <article className="communication-message">
+                <div className="communication-bubble">
                   <span className="communication-kind">{articleKinds[article.kind ?? 'unknown']}</span>
-                  {article.created_at && <time dateTime={article.created_at}>{moment(article.created_at)}</time>}
-                </header>
-                <strong>{article.subject}</strong>
-                {article.from && <small className="communication-sender">{article.from}</small>}
-                <p>{article.body}</p>
-                {article.attachments?.map((attachment,index)=><small className="communication-attachment" key={index}>{attachment.filename}</small>)}
-                <div className="communication-article-actions">
+                  <strong>{article.subject}</strong>
+                  {article.from && <small className="communication-sender">{article.from}</small>}
+                  <p>{article.body}</p>
+                  {article.attachments?.map((attachment,index)=><small className="communication-attachment" key={index}>{attachment.filename}</small>)}
+                </div>
+                <footer className="communication-article-actions">
                   {article.reply && <button type="button" aria-expanded={reply?.id===article.id && !forwarding} disabled={locked || Boolean(reply)} onClick={event=>{
                     if(article.reply) setReply({...article.reply,id:article.id,originalSubject:article.subject,trigger:event.currentTarget});
                   }}>Antworten</button>}
@@ -389,12 +390,14 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
                     } else setNoteError('Das Zitat passt nicht mehr in die Notiz mit höchstens 5.000 Zeichen.');
                     noteField.current?.focus();
                   }}>In Notiz zitieren</button>
-                </div>
+                </footer>
+                {article.created_at && <time dateTime={article.created_at}>{moment(article.created_at)}</time>}
               </article>
             </li>)}</ol>}
             {term && articles.length>0 && visibleArticles.length===0 && <p className="subtle" role="status">Keine Nachrichten für diese Suche.</p>}
             {conversation && articles.length===0 && !loading && !problem && <p className="subtle">Dieses Ticket enthält noch keine Nachrichten.</p>}
           </section>
+          <div className="communication-editors">
           <div className="communication-compose" hidden={Boolean(reply)}><Expand title="Antwort schreiben"><Form key={composeVersion} disabled={locked && !reply} caption="Über Zammad senden" fields={[
               {name:'recipient',label:'Empfänger',type:'email',required:true},{name:'subject',label:'Betreff',required:true},{name:'body',label:'Nachricht',type:'textarea',required:true},
             ]} submit={values=>sendMessage(values,freeFile)}>
@@ -434,6 +437,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
             {draft.current?.note && draftActions}
             <div className="form-action"><button type="submit" className="primary" disabled={locked || !noteText.trim()}>Notiz hinzufügen</button></div>
           </form>
+          </div>
           {(conversation?.outgoing.length ?? 0) > 0 && <div className="communication-outgoing"><h3>Sendeversuche</h3><Table headers={['Sendeversuch','Status','Aktion']} rows={(conversation?.outgoing ?? []).map((entry:Row)=>({
               key:entry.id,cells:[entry.subject,({sent:'An Zammad übergeben',pending:'Ausstehend',failed:'Abgelehnt',unknown:'Ausgang unklar'} as Record<string,string>)[entry.status],
                 entry.status==='sent' ? '–' : <div className="actions">

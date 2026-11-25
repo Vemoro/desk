@@ -55,7 +55,7 @@ Desk legt Angebote in der ersten Version über die manuelle Übergabe an Haben a
 
 `ZAMMAD_URL`, `ZAMMAD_TOKEN` und die Ticketgruppe `ZAMMAD_GROUP` setzen. Der Zammad-Zugang benötigt für die Gruppe die passenden Agentenrechte. Desk verwendet das Ticket für den Nachrichtenverlauf und die Übergabe ausgehender Antworten. Der Versand bleibt in Zammad nachvollziehbar. PDF-Anhänge sind bis 5 MB möglich. Ohne Zammad sind Kommunikationslink und Notiz im Projekt verfügbar.
 
-Unter **Kommunikation** zeigt der Ticketkopf Betreff und Ticketnummer. In **Ticketdetails** kannst du das Ticket in Zammad öffnen und die Projektzuordnung verwalten. Der Verlauf ordnet eingehende E-Mails links und ausgehende rechts an. Interne Notizen sind beschriftet und haben einen schraffierten Rand. Wenn Desk die Art des Eintrags nicht erkennen kann, steht dort **Art unbekannt**.
+Unter **Kommunikation** steht der Ticketkopf mit Betreff und Nummer mittig über dem Verlauf. In **Ticketdetails** kannst du das Ticket in Zammad öffnen und die Projektzuordnung verwalten. Der Verlauf zeigt eingehende E-Mails rechts und ausgehende links. Die Aktionen stehen unter dem jeweiligen Beitrag. Interne Notizen sind beschriftet und haben einen schraffierten Rand. Wenn Desk die Art des Eintrags nicht erkennen kann, steht dort **Art unbekannt**.
 
 Das Feld **Interne Notiz** ist unter einem verknüpften Ticket geöffnet. **In Notiz zitieren** fügt einen Auszug aus dem gewählten Beitrag in den Entwurf ein. **Notiz hinzufügen** speichert ihn intern in Zammad. Dafür braucht Desk ein Zammad-Agenten-Token mit Zugriff auf die Ticketgruppe. Desk prüft den Agentenzugriff, bevor es den Notiztext übergibt. [Zammad-Berechtigung für Ticket-Erwähnungen](https://docs.zammad.org/en/latest/api/ticket/mentions.html#list)
 
