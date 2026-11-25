@@ -1,45 +1,56 @@
 # Desk
 
-**Projektverwaltung für kleine Teams auf dem eigenen Server.** Desk verbindet CRM, Kanban, Ressourcenplanung, Kalkulation und Projektlager. Von der Anfrage bis zur Rechnungsreferenz bleibt der Auftrag an einem Ort.
+**Projektverwaltung für kleine Teams, die Aufträge von der Anfrage bis zur Abrechnung organisieren.** In Desk erfasst du den Kundenkontakt, planst Aufgaben, Personal und Material und siehst, was der Auftrag kostet. Desk läuft auf deinem eigenen Server.
 
-[Funktionen](#funktionen) · [Anbindungen](#anbindungen) · [Schnellstart](#schnellstart) · [Betriebsdoku](docs/desk.md) · [Mitwirken](CONTRIBUTING.md)
+[Warum Desk?](#warum-desk) · [So läuft ein Auftrag](#so-läuft-ein-auftrag) · [Funktionen](#funktionen) · [Haben und Zammad](#haben-und-zammad) · [Schnellstart](#schnellstart)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/kanban-dunkel.png">
-  <img src="docs/screenshots/kanban-hell.png" alt="Desk zeigt die Aufgaben einer Veranstaltungsbetreuung in den Kanban-Spalten Offen, In Arbeit, Prüfung und Erledigt" width="900">
+  <img src="docs/screenshots/kanban-hell.png" alt="Kanban einer Veranstaltungsbetreuung mit Aufgaben in Offen, In Arbeit, Prüfung und Erledigt" width="900">
 </picture>
 
-*Kanban im Beispielprojekt des fiktiven Muster Auftragsservice.*
+*Der fiktive Muster Auftragsservice bereitet eine Veranstaltungsbetreuung vor.*
 
 > [!NOTE]
-> Desk befindet sich in Entwicklung. Die Freigabe der ersten Version ist in Vorbereitung. [Roadmap](docs/roadmap.md) · [Release-Abnahme](docs/release-abnahme.md) · [Release-Notizen](CHANGELOG.md)
+> Desk befindet sich in Entwicklung. Die erste öffentliche Version ist in Vorbereitung. [Roadmap](docs/roadmap.md) · [Release-Abnahme](docs/release-abnahme.md) · [Release-Notizen](CHANGELOG.md)
 
-## Wie ein Auftrag in Desk läuft
+## Warum Desk?
 
-Ein neuer Auftrag beginnt mit einem Kontakt und einem Projekt. Das Team verteilt Aufgaben, plant Personal und Material und kalkuliert Einkauf und Verkauf. Nach der Auftragsbestätigung lassen sich Ressourcen verbindlich buchen. Im Projekt bleiben Lagerbewegungen, zugeordnete Belege und die Referenzen zu Angebot und Rechnung sichtbar.
+Bei einem Auftrag greifen viele Entscheidungen ineinander. Ist das Angebot bestätigt? Wer steht am Einsatztag zur Verfügung? Welches Material ist noch frei? Welche Belege gehören zum Projekt? In Desk hängen diese Antworten am selben Auftrag. Das hilft bei einer Veranstaltungsbetreuung genauso wie bei einer Büroinstallation.
+
+Desk führt die operative Arbeit zusammen. Angebote und Rechnungen erstellst du weiterhin in Haben oder in deinem Abrechnungssystem. Projektplanung, Lager und Controlling funktionieren auch mit manuell erfassten Angebots- und Rechnungsreferenzen.
+
+## So läuft ein Auftrag
+
+1. **Anfrage aufnehmen.** Lege den Kontakt und das Projekt an. Desk zeigt mögliche Kontaktdubletten und führt vom Kontaktdetail direkt zu den zugehörigen Projekten.
+2. **Einsatz vorbereiten.** Verteile Aufgaben im Kanban, merke Personal und Inventar vor und kalkuliere Einkauf und Verkauf. Verkaufspositionen kannst du als CSV an die Angebotserstellung übergeben.
+3. **Verbindlich planen.** Erfasse die Bestätigung oder lies den Status eines verknüpften Haben-Angebots ein. Bei der festen Reservierung prüft Desk, ob Personal und Material verfügbar sind.
+4. **Auftrag ausführen und abschließen.** Erfasse Ausgabe, Rückgabe und Verbrauch, ordne Ist-Kosten zu und vergleiche sie mit der Kalkulation. Hinterlege die Rechnungsreferenz am Projekt.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/controlling-dunkel.png">
+  <img src="docs/screenshots/controlling-hell.png" alt="Controlling mit geplanten Einkaufskosten, belegbezogenen Ist-Kosten, Abweichung und geplantem Verkauf" width="900">
+</picture>
+
+*Im Controlling des Musterauftrags stehen Kalkulation und zugeordnete Belege zusammen.*
 
 ## Funktionen
 
-| Bereich | Was du in Desk erledigst |
+| Bereich | Was Desk abdeckt |
 | --- | --- |
-| CRM und Projekte | Kontakte erfassen, Projekte zuordnen und Auftragsstatus sowie Angebots- und Rechnungsreferenzen pflegen. |
-| Kanban und Termine | Aufgaben in vier Spalten bearbeiten, Verantwortliche zuweisen und Termine festhalten. |
-| Ressourcenplanung und Kalkulation | Personal und Inventar vormerken, Ressourcen fest buchen und Einkaufs- und Verkaufspositionen erfassen. |
-| Projektlager | Physischen, reservierten und freien Bestand je Lagerort prüfen. Wareneingang, Ausgabe, Rückgabe und Verbrauch erfassen. |
-| Controlling | Geplante Einkaufskosten und zugeordnete Ist-Kosten vergleichen. Belege per Referenz zuordnen oder aus CSV übernehmen. |
-| Teamkonten | Administratoren und Mitarbeitende melden sich mit Passwort oder eigenen Passkeys an. |
-| REST-API | Kernressourcen über widerrufbare Tokens nutzen. In der laufenden Instanz ist die OpenAPI-Beschreibung unter `/api/v1/openapi.json` erreichbar. |
+| CRM und Projekte | Kontakte, Projektstatus, Termine, Angebots- und Rechnungsreferenzen sowie Projektverlauf |
+| Kanban und Wochenplanung | Aufgaben mit Verantwortlichen und Terminen sowie projektübergreifende Sicht auf Personal- und Inventarreservierungen |
+| Kalkulation und Projektlager | Einkaufs- und Verkaufspositionen, physischer, reservierter und freier Bestand je Lagerort sowie Wareneingang, Ausgabe, Rückgabe und Verbrauch |
+| Controlling | Plan- und Ist-Kosten, manuelle Belegzuordnung und CSV-Import |
+| Team und API | Rollen für Administration und Mitarbeit, Anmeldung mit Passwort oder Passkey und eine versionierte REST-API mit widerrufbaren Tokens. Die OpenAPI-Beschreibung liegt unter `/api/v1/openapi.json`. |
 
-## Anbindungen
+Die Oberfläche ist auf Deutsch und bietet ein helles und dunkles Design. Auf dem Smartphone öffnest du die Navigation über das Menü. [Weitere Ansichten](docs/desk.md#ansichten) · [Navigation am Smartphone](docs/desk.md#navigation-am-smartphone)
 
-Desk unterstützt Projektarbeit, Kalkulation, Lager und Controlling eigenständig. Haben und Zammad lassen sich je nach Arbeitsablauf ergänzen.
+## Haben und Zammad
 
-| Anbindung | Zusammenspiel |
-| --- | --- |
-| Haben | In [Haben](https://haben.app/) Angebote und Rechnungen erstellen. Desk liefert Verkaufspositionen als CSV, verknüpft vorhandene Angebote und liest deren Status ein. Kontakte lassen sich in beide Richtungen abgleichen. Angebotsbestätigung und Referenzen können auch von Hand gepflegt werden. |
-| Zammad | Ein Ticket anlegen oder verknüpfen. Der Verlauf erscheint im Projekt, Zammad versendet Antworten. Ohne Anbindung lassen sich Vorgangslink und Kommunikationsnotiz am Projekt pflegen. |
+**Haben für Angebote und Rechnungen.** Desk exportiert Verkaufspositionen als CSV, liest den Status verknüpfter Angebote und gleicht einzelne verknüpfte Kontakte auf Anstoß in beide Richtungen ab. In Haben erstellst du Angebot und Rechnung. [Haben](https://haben.app/) · [Desk-Anbindung und Kontaktabgleich](docs/desk.md#haben)
 
-Weitere Angaben zu Konfiguration und Berechtigungen stehen in der Betriebsdoku. [Haben](docs/desk.md#haben) · [Zammad](docs/desk.md#zammad)
+**Zammad für die Kommunikation.** Ein Projekt kann ein neues oder bestehendes Ticket verknüpfen. Desk zeigt den Verlauf und übergibt Antworten mit PDF-Anhang an Zammad. Ohne Anbindung hältst du Vorgangslink und Kommunikationsnotiz am Projekt fest. [Desk-Zammad-Anbindung](docs/desk.md#zammad)
 
 ## Schnellstart
 
@@ -51,17 +62,8 @@ Du brauchst die in `package.json` angegebene Bun-Version sowie PostgreSQL. Für 
 4. Ein eigenes Passwort als Umgebungsvariable `DESK_ADMIN_PASSWORD` setzen. Das Konto mit `bun run admin admin@example.test "Desk Admin"` anlegen.
 5. `bun run dev --port 5173 --strictPort` starten und `http://localhost:5173` öffnen. Bei einem anderen Port `DESK_ORIGIN` an die Browseradresse anpassen.
 
-Hinweise zu Build, Container, HTTPS und Sicherung stehen in der Betriebsdoku. [Installation und Betrieb](docs/desk.md#betrieb)
-
-## Einblick in die Demo
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/controlling-dunkel.png">
-  <img src="docs/screenshots/controlling-hell.png" alt="Controlling für eine Veranstaltungsbetreuung mit geplanten und tatsächlichen Einkaufskosten, Abweichung und einem zugeordneten Beleg" width="900">
-</picture>
-
-Das Controlling zeigt hier einen Beleg und seinen Anteil an den Ist-Kosten des Musterauftrags. Beispiele für das Projektlager auf dem Smartphone und die Anleitung zum Erzeugen der Bilder stehen in der Doku. [Weitere Ansichten](docs/desk.md#ansichten) · [Demo und Screenshots](docs/entwicklung.md#befehle-und-screenshot-workflow)
+[Installation und Betrieb](docs/desk.md#betrieb) · [Demo und Screenshots](docs/entwicklung.md#befehle-und-screenshot-workflow)
 
 ## Mitwirken
 
-Die Beitragsrichtlinien erklären, wie du Fehler meldest, Vorschläge einbringst und Änderungen vorbereitest. Desk steht unter der AGPL-3.0-only. [Mitwirken](CONTRIBUTING.md) · [Entwicklungsregeln](docs/entwicklung.md) · [Lizenz](LICENSE)
+Desk steht unter der AGPL-3.0-only. Mit Zugriff auf das derzeit private Repository kannst du Fehler melden, Vorschläge einbringen oder einen Beitrag vorbereiten. [Mitwirken](CONTRIBUTING.md) · [Sicherheitsmeldungen](SECURITY.md) · [Entwicklungsregeln](docs/entwicklung.md) · [Lizenz](LICENSE)
