@@ -91,7 +91,7 @@ test('Passkeys gehören einem eigenen Konto und funktionieren neben dem Passwort
     await expect(memberPage.getByRole('button',{name:'Passkey Muster Privat entfernen'})).toBeVisible();
     await expect(memberPage.getByRole('button',{name:`Passkey ${label} entfernen`})).toHaveCount(0);
 
-    await page.reload();
+    await page.goto('/');
     await expect(page.getByRole('heading',{name:'Übersicht',exact:true})).toBeVisible();
     await page.getByRole('button',{name:'Einstellungen',exact:true}).click();
     const teamRow=page.getByRole('row').filter({has:page.getByText(memberName,{exact:true})});
@@ -103,7 +103,7 @@ test('Passkeys gehören einem eigenen Konto und funktionieren neben dem Passwort
     await expect(teamRow.getByRole('cell',{name:'Gesperrt',exact:true})).toBeVisible();
     expect((await unauthorized.request.get('/api/v1/me')).status()).toBe(401);
 
-    await memberPage.reload();
+    await memberPage.goto('/');
     await expect(memberPage.getByRole('heading',{name:'Anmelden',exact:true})).toBeVisible();
     const verifyBlocked=memberPage.waitForResponse(response=>response.url().endsWith(passkeyPath+'verify-authentication'));
     await memberPage.getByRole('button',{name:'Mit Passkey anmelden'}).click();

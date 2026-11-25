@@ -65,11 +65,13 @@ Wende `004_passkeys.sql` vor dem Start der neuen Version mit dem unter [Betrieb]
 
 ### Teamkonten sperren und freigeben
 
-Unter **Einstellungen → Team** kann die Administration ein Konto sperren. Desk widerruft dabei alle vorhandenen Sitzungen und API-Tokens dieses Kontos. Passwort und registrierte Passkeys funktionieren während der Sperre nicht. Nach der Freigabe kann sich die Person mit dem bisherigen Passwort oder Passkey neu anmelden. API-Tokens müssen neu ausgestellt werden. Mindestens ein Administrationskonto bleibt aktiv.
+Unter **Einstellungen → Team** kann die Administration ein Konto sperren. Desk widerruft dabei alle vorhandenen Sitzungen und API-Tokens dieses Kontos. Während der Sperre lehnt Desk Anmeldungen per Passwort und Passkey ab. Nach der Freigabe kann sich die Person mit dem bisherigen Passwort oder Passkey neu anmelden. API-Tokens müssen neu ausgestellt werden. Mindestens ein Administrationskonto bleibt aktiv.
 
-Der Name bleibt bei vorhandenen Aufgaben und Reservierungen sichtbar. Eine gesperrte Person steht für neue Zuordnungen und Vormerkungen nicht zur Auswahl. Eine bestehende vorläufige Reservierung lässt sich freigeben. Verbindlich buchen lässt sie sich wieder nach Freigabe des Kontos.
+Der Name bleibt bei vorhandenen Aufgaben und Reservierungen sichtbar. Eine Aufgabe lässt sich mit ihrer bisherigen Zuordnung weiter bearbeiten. Bei neuen Zuordnungen und Vormerkungen zeigt Desk nur aktive Konten an. Eine bestehende vorläufige Reservierung lässt sich freigeben. Verbindlich buchen lässt sie sich wieder nach Freigabe des Kontos.
 
 Wende `005_team_access.sql` vor dem Start der neuen Version wie unter [Betrieb](#betrieb) beschrieben an. Vorhandene Konten und ihre Zuordnungen bleiben erhalten. Die Migration übernimmt vorhandene Konten zunächst als aktiv.
+
+Bei einem Rückweg auf einen Desk-Stand vor der Kontensperre bleibt der gespeicherte Kontostatus erhalten. Die frühere Oberfläche bietet bei Aufgaben und Personalvormerkungen wieder alle Teamkonten an. Der frühere Dienst akzeptiert diese Zuordnungen.
 
 ### Desk-Stand für Fehlerberichte
 
