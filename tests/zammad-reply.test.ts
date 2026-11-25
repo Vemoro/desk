@@ -31,12 +31,15 @@ test('Zammad ermittelt die Antwortadresse am ausgewählten Artikel und behält d
   const held=Promise.withResolvers<void>();
   const release=Promise.withResolvers<void>();
   let holdHistory=false;
+  let canWriteNote=false;
   const service=Bun.serve({port:0,hostname:'127.0.0.1',async fetch(request){
     const path=new URL(request.url).pathname;
     if(path==='/api/v1/ticket_articles' && request.method==='POST') {
       sent.push(await request.json() as Record<string,unknown>);
-      return sent.length===1 ? Response.json({error:'Fehlgeschlagen'},{status:422}) : Response.json({id:71},{status:201});
+      return sent.length===1 ? Response.json({error:'Fehlgeschlagen'},{status:422})
+        : Response.json({id:71,internal:sent.at(-1)?.internal},{status:201});
     }
+    if(path==='/api/v1/mentions') return canWriteNote ? Response.json({mentions:[]}) : new Response(null,{status:403});
     if(path===`/api/v1/tickets/${ticketId}` || path===`/api/v1/tickets/${otherTicket}`) {
       const id=Number(path.split('/').at(-1));
       return Response.json({id,number:String(id),title:'Musteranfrage'});
@@ -96,15 +99,20 @@ test('Zammad ermittelt die Antwortadresse am ausgewählten Artikel und behält d
     expect((await call('/notes',{...note,ticketId:otherTicket})).status).toBe(409);
     expect((await call('/notes',{...note,recipient:'extern@example.test'})).status).toBe(400);
     expect((await call('/notes',{...note,id:message.id})).status).toBe(409);
+    expect((await call('/notes',note)).status).toBe(502);
+    expect(sent).toHaveLength(3);
+    canWriteNote=true;
     expect(await (await call('/notes',note)).json()).toMatchObject({status:'sent'});
     expect(await (await call('/notes',note)).json()).toMatchObject({status:'sent'});
     expect(sent).toHaveLength(4);
     expect(sent[3]).toMatchObject({ticket_id:ticketId,type:'note',internal:true,sender:'Agent'});
     expect(sent[3]).not.toHaveProperty('to');
+    expect(await db.unsafe('SELECT id FROM outgoing WHERE id=$1',[note.id])).toEqual([]);
   } finally {
     if(previousUrl===undefined) delete process.env.ZAMMAD_URL; else process.env.ZAMMAD_URL=previousUrl;
     if(previousToken===undefined) delete process.env.ZAMMAD_TOKEN; else process.env.ZAMMAD_TOKEN=previousToken;
     service.stop(true);
+    await db.unsafe('DELETE FROM zammad_note_attempts WHERE project_id=$1',[project.id]);
     await db.unsafe('DELETE FROM outgoing WHERE project_id=$1',[project.id]);
     await db.unsafe('DELETE FROM projects WHERE id=$1',[project.id]);
     await db.unsafe('DELETE FROM contacts WHERE id=$1',[contact.id]);

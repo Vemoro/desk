@@ -27,8 +27,21 @@ type ArticleContext = {
 };
 type Outgoing = { id: string; ticket_id: number; status: 'pending'|'unknown'|'sent'|'failed'; attempted_at: Date; attempt_key?: string;
   recipient: string | null; subject: string; body: string; attachment_name: string | null; attachment_data: string | null; in_reply_to: string | null };
+const attemptTable=(note:boolean)=>note?'zammad_note_attempts':'outgoing';
 const marker = (id: string) => `Desk-Referenz: ${id}`;
 const notStored = (status:number,message:string)=>new DeskError(status,message,'zammad_message_not_stored');
+
+async function requireNoteAccess(remote:ReturnType<typeof integration>,id:number) {
+  try {
+    const result=await remote.request(`/mentions?mentionable_type=Ticket&mentionable_id=${id}`);
+    if(!z.object({mentions:z.array(z.unknown())}).safeParse(result).success) {
+      throw notStored(502,'Zammad hat den Lesezugriff auf Ticket-Erwähnungen nicht bestätigt.');
+    }
+  } catch(error) {
+    if(!(error instanceof RemoteError)) throw error;
+    throw notStored(502,'Interne Notizen benötigen in Zammad ein Agenten-Token mit Zugriff auf die Ticketgruppe.');
+  }
+}
 
 function articleContext(source:unknown, article:z.infer<typeof articleSchema>, ticketId:number):ArticleContext {
   const metadata = articleMetadata.safeParse(source);
@@ -60,7 +73,8 @@ async function lockProjectTicket(transaction: Query, projectId: string) {
 }
 
 async function requireUnusedTicket(transaction:Query,projectId:string,ticketId:number) {
-  if (await first(transaction,'SELECT 1 FROM outgoing WHERE project_id=$1 AND ticket_id=$2 LIMIT 1',[projectId,ticketId])) {
+  if (await first(transaction,`SELECT 1 FROM outgoing WHERE project_id=$1 AND ticket_id=$2
+    UNION ALL SELECT 1 FROM zammad_note_attempts WHERE project_id=$1 AND ticket_id=$2 LIMIT 1`,[projectId,ticketId])) {
     throw new DeskError(409, 'Für dieses Ticket gibt es bereits einen Desk-Sendeversuch.');
   }
 }
@@ -123,7 +137,9 @@ export async function conversations(projectId: string) {
   const [ticket, articles, outgoing] = await Promise.all([
     remote.request(`/tickets/${project.zammad_ticket_id}`),
     loadArticles(remote, project.zammad_ticket_id),
-    rows(db, 'SELECT id,status,recipient,subject,attempted_at FROM outgoing WHERE project_id=$1 AND ticket_id=$2 ORDER BY attempted_at DESC LIMIT 30',[projectId,project.zammad_ticket_id]),
+    rows(db, `SELECT id,status,recipient,subject,attempted_at FROM outgoing WHERE project_id=$1 AND ticket_id=$2
+      UNION ALL SELECT id,status,recipient,subject,attempted_at FROM zammad_note_attempts WHERE project_id=$1 AND ticket_id=$2
+      ORDER BY attempted_at DESC LIMIT 30`,[projectId,project.zammad_ticket_id]),
   ]);
   return { ticket: { ...ticketSchema.parse(ticket), url: `${remote.origin}/#ticket/zoom/${project.zammad_ticket_id}` }, articles, outgoing };
 }
@@ -143,17 +159,25 @@ async function loadArticles(remote: ReturnType<typeof integration>, id: number) 
 export async function send(projectId: string, input: z.infer<typeof zammadMessage> | z.infer<typeof zammadNoteInput>) {
   const note='ticketId' in input ? input : undefined;
   const message='recipient' in input ? input : undefined;
+  const table=attemptTable(Boolean(note));
   const {remote,saved} = await db.begin(async (transaction) => {
     const ticketId = await lockProjectTicket(transaction,projectId);
     if (!ticketId) throw notStored(409, 'Zuerst ein Zammad-Ticket verknüpfen.');
     if (note && note.ticketId!==ticketId) throw notStored(409, 'Die Ticketverknüpfung hat sich geändert.');
     const remote = integration('ZAMMAD');
+    if (await first(transaction,`SELECT 1 FROM ${attemptTable(!note)} WHERE id=$1 AND project_id=$2`,[input.id,projectId])) {
+      throw notStored(409,'Diese Vorgangs-ID gehört zu einer anderen Nachrichtenart.');
+    }
+    if(note) {
+      if(await first(transaction,`SELECT 1 FROM ${table} WHERE id=$1 AND project_id=$2`,[input.id,projectId])) return {remote,saved:undefined};
+      await requireNoteAccess(remote,ticketId);
+    }
     if (message?.attachment && !Buffer.from(message.attachment.data,'base64').subarray(0,5).equals(Buffer.from('%PDF-'))) {
       throw notStored(400, 'Der Anhang muss ein PDF sein.');
     }
     let reference: string | null = null;
     if (message?.replyArticleId !== undefined) {
-      const existing = await first(transaction,'SELECT 1 FROM outgoing WHERE id=$1 AND project_id=$2',[message.id,projectId]);
+      const existing = await first(transaction,`SELECT 1 FROM ${table} WHERE id=$1 AND project_id=$2`,[message.id,projectId]);
       if (existing) return {remote,saved:undefined};
       let source:unknown;
       try {
@@ -173,7 +197,7 @@ export async function send(projectId: string, input: z.infer<typeof zammadMessag
       }
       reference = reply.reference;
     }
-    const saved = await first<Outgoing>(transaction, `INSERT INTO outgoing(id,project_id,ticket_id,subject,body,recipient,attachment_name,attachment_data,in_reply_to,status)
+    const saved = await first<Outgoing>(transaction, `INSERT INTO ${table}(id,project_id,ticket_id,subject,body,recipient,attachment_name,attachment_data,in_reply_to,status)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending') ON CONFLICT(id) DO NOTHING RETURNING *`,
       [input.id,projectId,ticketId,message?.subject ?? 'Interne Notiz',input.body,message?.recipient ?? null,message?.attachment?.name ?? null,message?.attachment?.data ?? null,reference]);
     return {remote,saved};
@@ -183,24 +207,26 @@ export async function send(projectId: string, input: z.infer<typeof zammadMessag
 }
 
 export async function reviewOutgoing(projectId: string, id: string, retry: boolean, expectedNote?:boolean) {
-  const current = required(await first<Outgoing>(db,'SELECT *,attempted_at::text AS attempt_key FROM outgoing WHERE id=$1 AND project_id=$2',[id,projectId]));
-  if (expectedNote!==undefined && (current.recipient===null)!==expectedNote) {
-    throw notStored(409,'Diese Vorgangs-ID gehört zu einer anderen Nachrichtenart.');
-  }
+  const select=(note:boolean)=>`SELECT *,attempted_at::text AS attempt_key FROM ${attemptTable(note)} WHERE id=$1 AND project_id=$2`;
+  const query=expectedNote===undefined ? `${select(false)} UNION ALL ${select(true)}` : select(expectedNote);
+  const current = required(await first<Outgoing>(db,query,[id,projectId]));
+  const note=current.recipient===null;
   const project = await getProject(projectId);
   if (project.zammad_ticket_id !== current.ticket_id) throw new DeskError(409, 'Der Sendeversuch gehört zu einem anderen Ticket.');
   if (current.status === 'sent') return { id, status:'sent' };
   const remote = integration('ZAMMAD');
-  const match = (await loadArticles(remote,current.ticket_id)).find((article) => article.body.includes(marker(id)));
+  const match = (await loadArticles(remote,current.ticket_id)).find((article) =>
+    (!note || article.kind==='internal-note') && article.body.includes(marker(id)));
   if (match) {
-    await updateOutgoing(id,'sent',match.id);
+    await updateOutgoing(id,note,'sent',match.id);
     return { id,status:'sent' };
   }
   if (!retry) return { id,status:current.status };
   if (current.status !== 'failed' && Date.now() - +current.attempted_at < 60_000) {
     throw new DeskError(409, 'Mindestens eine Minute warten und den Ticketverlauf erneut prüfen.');
   }
-  const claimed = await first<Outgoing>(db, `UPDATE outgoing SET status='pending',attempted_at=now()
+  if(note) await requireNoteAccess(remote,current.ticket_id);
+  const claimed = await first<Outgoing>(db, `UPDATE ${attemptTable(note)} SET status='pending',attempted_at=now()
     WHERE id=$1 AND status=$2 AND attempted_at=($3::text)::timestamptz RETURNING *`,[id,current.status,current.attempt_key]);
   if (!claimed) throw new DeskError(409, 'Der Sendeversuch wurde inzwischen aktualisiert.');
   return deliver(remote,claimed);
@@ -217,18 +243,19 @@ async function deliver(remote: ReturnType<typeof integration>, current: Outgoing
       ...(current.in_reply_to ? { in_reply_to:current.in_reply_to } : {}),
       ...(current.attachment_name ? { attachments:[{ filename:current.attachment_name,data:current.attachment_data,'mime-type':'application/pdf' }] } : {}),
     });
-    articleId = z.object({ id:z.number().int().positive() }).parse(result).id;
+    const articleIdSchema=z.object({ id:z.number().int().positive() });
+    articleId = (note ? articleIdSchema.extend({internal:z.literal(true)}) : articleIdSchema).parse(result).id;
   } catch (error) {
     const status = error instanceof RemoteError && error.upstream && error.upstream >= 400 && error.upstream < 500 ? 'failed' : 'unknown';
-    await updateOutgoing(current.id,status);
+    await updateOutgoing(current.id,note,status);
     return { id:current.id,status };
   }
-  await updateOutgoing(current.id,'sent',articleId);
+  await updateOutgoing(current.id,note,'sent',articleId);
   return { id:current.id,status:'sent' };
 }
 
-async function updateOutgoing(id: string, status: string, article?: number) {
-  await db.unsafe(`UPDATE outgoing SET status=$2,article_id=$3,
+async function updateOutgoing(id: string, note:boolean,status: string, article?: number) {
+  await db.unsafe(`UPDATE ${attemptTable(note)} SET status=$2,article_id=$3,
     attachment_data=CASE WHEN $2='sent' THEN NULL ELSE attachment_data END
     WHERE id=$1 AND status<>'sent'`,[id,status,article ?? null]);
 }
