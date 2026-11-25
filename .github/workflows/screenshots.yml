@@ -1,5 +1,10 @@
 name: Doku-Screenshots erstellen
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/screenshots.yml'
+      - 'e2e/screenshots.spec.ts'
 permissions:
   contents: read
 jobs:
