@@ -12,7 +12,7 @@ import { integrationStatus } from './remote';
 import { readJson } from './request-body';
 import { listProjectHistory } from './project-history';
 
-type Context = { actor: Actor; sessionId?:string; path: string[]; limit: number; offset: number; requestKey?:string; query: Query; searchParams:URLSearchParams };
+type Context = { actor: Actor; sessionId?:string; path: string[]; limit: number; offset: number; requestKey?:string; query: Query; searchParams:URLSearchParams; signal:AbortSignal };
 type Operation = {
   method: string;
   path: string;
@@ -118,9 +118,9 @@ action('POST','/projects/{id}/haben-offer','Haben-Angebot verknüpfen oder aktua
 get('/projects/{id}/zammad','Ticket, Verlauf und Desk-Sendeversuche',({path})=>conversations(path[1]));
 const attachmentId=z.coerce.number().int().positive();
 const attachmentQuery=z.strictObject({ticket:attachmentId,article:attachmentId,attachment:attachmentId});
-get('/projects/{id}/zammad/attachment','Anhang am verknüpften Zammad-Ticket herunterladen',({path,searchParams})=>{
+get('/projects/{id}/zammad/attachment','Anhang am verknüpften Zammad-Ticket herunterladen',({path,searchParams,signal})=>{
   const {ticket,article,attachment}=attachmentQuery.parse(Object.fromEntries(searchParams));
-  return downloadAttachment(path[1],ticket,article,attachment);
+  return downloadAttachment(path[1],ticket,article,attachment,signal);
 },{queryParameters:attachmentQuery.shape,fileResponse:true});
 action('POST','/projects/{id}/zammad/link','Zammad-Ticket verknüpfen',zammadLinkInput,({path},input)=>linkTicket(path[1],input.id));
 action('POST','/projects/{id}/zammad/unlink','Zammad-Ticketverknüpfung lösen',zammadLinkInput,({path},input)=>unlinkTicket(path[1],input.id));
@@ -170,7 +170,7 @@ export async function handle(request: Request) {
       const pagination = pageSchema.parse(Object.fromEntries(url.searchParams));
       const requestKey=route.keyed ? requestKeySchema.parse(request.headers.get(requestKeyHeader) ?? undefined) : undefined;
       const input=route.input ? (body ? body() : await readJson(request)) : undefined;
-      const result = await route.run({actor,sessionId,path,...pagination,requestKey,query,searchParams:url.searchParams},input);
+      const result = await route.run({actor,sessionId,path,...pagination,requestKey,query,searchParams:url.searchParams,signal:request.signal},input);
       return result instanceof Response ? result : json(result,route.method === 'POST' ? 201 : 200);
     }
     if (!route?.accountAccess) return await dispatch(db);

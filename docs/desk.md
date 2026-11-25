@@ -53,11 +53,11 @@ Desk legt Angebote in der ersten Version über die manuelle Übergabe an Haben a
 
 ## Zammad
 
-`ZAMMAD_URL`, `ZAMMAD_TOKEN` und die Ticketgruppe `ZAMMAD_GROUP` setzen. Der Zammad-Zugang benötigt für die Gruppe die passenden Agentenrechte. Desk verwendet das Ticket für den Nachrichtenverlauf und die Übergabe ausgehender Antworten. Der Versand bleibt in Zammad nachvollziehbar. PDF-Anhänge sind bis 5 MB möglich. Ohne Zammad sind Kommunikationslink und Notiz im Projekt verfügbar.
+`ZAMMAD_URL`, `ZAMMAD_TOKEN` und die Ticketgruppe `ZAMMAD_GROUP` setzen. Der Zammad-Zugang benötigt für die Gruppe die passenden Agentenrechte. Desk verwendet das Ticket für den Nachrichtenverlauf und die Übergabe ausgehender Antworten. Der Versand bleibt in Zammad nachvollziehbar. Ausgehende PDF-Anhänge sind bis 5 MB möglich. Ohne Zammad sind Kommunikationslink und Notiz im Projekt verfügbar.
 
 Im Ticketverlauf kennzeichnet Desk ein- und ausgehende E-Mails sowie interne Einträge. Wenn Desk die Art des Eintrags nicht erkennen kann, steht dort **Art unbekannt**. Bei einer externen eingehenden E-Mail mit gültiger Nachrichtenkennung und eindeutiger Adresse öffnet **Antworten** den Editor. Desk verwendet Reply-To, wenn das Feld einen Wert enthält. Andernfalls prüft Desk die Absenderadresse. Bei einer ungültigen oder mehrdeutigen Adresse bleibt die Nachricht lesbar. Der Editor zeigt den Empfänger und den bearbeitbaren Entwurfsbetreff. Den tatsächlichen Versandbetreff formatiert Zammad nach seiner Konfiguration. Zum eigenständigen Versand öffnest du **Antwort schreiben** und trägst den Empfänger ein.
 
-Wähle im Verlauf den Dateinamen mit Download-Symbol, um den Anhang zu speichern. Desk lädt die Datei mit der bestehenden Zammad-Verbindung und speichert keine Kopie im Projekt. Ist für einen Anhang kein Abruf verfügbar, zeigt der Verlauf den Dateinamen ohne Downloadaktion.
+Wähle im Verlauf den Dateinamen mit Download-Symbol, um den Anhang zu speichern. Desk lädt die Datei mit der bestehenden Zammad-Verbindung. Lade- und Fehlermeldungen stehen am Anhang. Liefert Zammad für einen Anhang keine gültige Anhang-ID, zeigt Desk den Dateinamen ohne Downloadaktion.
 
 Bei einem unklaren Versand wählst du unter **Kommunikation → Zammad** beim gespeicherten Sendeversuch **Prüfen**. **Erneut senden** zeigt den Betreff zur Bestätigung. Desk sucht vor einer erneuten Sendung nach der Referenz des Versuchs im Ticketverlauf. Bleibt der Ausgang unklar oder wird der Versuch abgelehnt, steht die Meldung im Dialog. Nach **Schließen** kannst du einen weiteren Versuch ausdrücklich bestätigen.
 

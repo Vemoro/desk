@@ -7,6 +7,7 @@ const {db}=await import('../src/server/db');
 const {createAccount,createToken}=await import('../src/server/auth');
 const {handle}=await import('../src/server/api');
 const {saveCore}=await import('../src/server/core');
+const {integration}=await import('../src/server/remote');
 
 test('Zammad-Anhänge bleiben an Anmeldung, aktuellem Ticket und konkreter Nachricht gebunden',async()=>{
   const suffix=crypto.randomUUID();
@@ -84,3 +85,31 @@ test('Zammad-Anhänge bleiben an Anmeldung, aktuellem Ticket und konkreter Nachr
     await db.unsafe('DELETE FROM api_tokens WHERE id=$1',[token.id]);
   }
 });
+
+test('Ein begonnener Dateidownload bleibt über die Frist für Zammad-Antwortheader hinaus lesbar',async()=>{
+  const encoder=new TextEncoder();
+  const service=Bun.serve({port:0,hostname:'127.0.0.1',idleTimeout:20,fetch(){
+    return new Response(new ReadableStream({
+      async start(controller) {
+        controller.enqueue(encoder.encode('%PDF-1.4\n'));
+        await Bun.sleep(6_250);
+        controller.enqueue(encoder.encode('Musterdatei\n'));
+        await Bun.sleep(6_250);
+        controller.enqueue(encoder.encode('%%EOF'));
+        controller.close();
+      },
+    }));
+  }});
+  const oldUrl=process.env.ZAMMAD_URL;
+  const oldToken=process.env.ZAMMAD_TOKEN;
+  try{
+    process.env.ZAMMAD_URL=service.url.origin;
+    process.env.ZAMMAD_TOKEN='muster-zammad-token';
+    const response=await integration('ZAMMAD').download('/ticket_attachment/42/12/41',new AbortController().signal);
+    expect(await response.text()).toBe('%PDF-1.4\nMusterdatei\n%%EOF');
+  }finally{
+    if(oldUrl===undefined) delete process.env.ZAMMAD_URL; else process.env.ZAMMAD_URL=oldUrl;
+    if(oldToken===undefined) delete process.env.ZAMMAD_TOKEN; else process.env.ZAMMAD_TOKEN=oldToken;
+    service.stop(true);
+  }
+},20_000);

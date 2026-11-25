@@ -151,7 +151,7 @@ async function loadArticles(remote: ReturnType<typeof integration>, id: number) 
   });
 }
 
-export async function downloadAttachment(projectId:string,ticketId:number,articleId:number,attachmentId:number) {
+export async function downloadAttachment(projectId:string,ticketId:number,articleId:number,attachmentId:number,signal:AbortSignal) {
   const project=await getProject(projectId);
   if(project.zammad_ticket_id!==ticketId) throw attachmentMissing();
   const remote=integration('ZAMMAD');
@@ -160,7 +160,7 @@ export async function downloadAttachment(projectId:string,ticketId:number,articl
     if(!article.success || article.data.id!==articleId || article.data.ticket_id!==ticketId) throw attachmentMissing();
     const file=article.data.attachments?.find(item=>item.id===attachmentId);
     if(!file) throw attachmentMissing();
-    const upstream=await remote.download(`/ticket_attachment/${ticketId}/${articleId}/${attachmentId}`);
+    const upstream=await remote.download(`/ticket_attachment/${ticketId}/${articleId}/${attachmentId}`,signal);
     try {
       if((await getProject(projectId)).zammad_ticket_id!==ticketId) throw attachmentMissing();
       if(upstream.status!==200 || !upstream.body) throw new RemoteError('Zammad hat keine vollständige Datei geliefert.');
@@ -173,7 +173,7 @@ export async function downloadAttachment(projectId:string,ticketId:number,articl
         'X-Content-Type-Options':'nosniff',
       }});
     } catch(error) {
-      await upstream.body?.cancel();
+      await upstream.body?.cancel().catch(()=>{});
       throw error;
     }
   } catch(error) {

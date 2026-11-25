@@ -15,11 +15,11 @@ export function integration(service: 'HABEN' | 'ZAMMAD') {
   }
   const origin=url.origin;
   const authorization = service === 'HABEN' ? `Bearer ${token}` : `Token token=${token}`;
-  async function requestResponse(path:string,method:string,accept:string,body?:unknown) {
+  async function requestResponse(path:string,method:string,accept:string,body?:unknown,signal=AbortSignal.timeout(12_000)) {
     let result:Response;
     try {
       result=await fetch(new URL(`/api/v1${path}`,origin),{
-        method,redirect:'error',signal:AbortSignal.timeout(12_000),
+        method,redirect:'error',signal,
         headers:{Authorization:authorization,'Content-Type':'application/json',Accept:accept},
         body:body===undefined ? undefined : JSON.stringify(body),
       });
@@ -34,7 +34,16 @@ export function integration(service: 'HABEN' | 'ZAMMAD') {
   }
   return {
     origin,
-    download:(path:string)=>requestResponse(path,'GET','*/*'),
+    async download(path:string,signal:AbortSignal) {
+      const headers=new AbortController();
+      const timeout=setTimeout(()=>headers.abort(),12_000);
+      try {
+        return await requestResponse(path,'GET','*/*',undefined,AbortSignal.any([signal,headers.signal]));
+      } finally {
+        // Only the headers share the JSON deadline. The client can still cancel the transfer.
+        clearTimeout(timeout);
+      }
+    },
     async request(path: string, method = 'GET', body?: unknown): Promise<unknown> {
       const result=await requestResponse(path,method,'application/json',body);
       try {
