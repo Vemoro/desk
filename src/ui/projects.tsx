@@ -184,6 +184,17 @@ function plainText(html:string) {
 }
 
 function Communication({project,zammad,run}:{project:Row;zammad:boolean;run:Run}) {
+  return <>
+    <Panel title="Externer Vorgang"><div className="panel-body"><Form caption="Verweis speichern" fields={[
+      {name:'external_link',label:'Vorgangslink',type:'url',value:project.external_link},
+      {name:'communication_note',label:'Kommunikationsnotiz',type:'textarea',value:project.communication_note},
+    ]} submit={(input)=>run(()=>api(`projects/${project.id}`,'PATCH',input),'Verweis gespeichert.')}/></div></Panel>
+    {(zammad || project.zammad_ticket_id) && <ZammadCommunication key={`${project.id}:${project.zammad_ticket_id ?? ''}`}
+      project={project} zammad={zammad} run={run}/>}
+  </>;
+}
+
+function ZammadCommunication({project,zammad,run}:{project:Row;zammad:boolean;run:Run}) {
   const [conversation,setConversation]=useState<any>(null);
   const [problem,setProblem]=useState('');
   const [file,setFile]=useState<File>();
@@ -205,12 +216,7 @@ function Communication({project,zammad,run}:{project:Row;zammad:boolean;run:Run}
   }
   useEffect(()=>{setConversation(null);void refresh();},[project.id,project.zammad_ticket_id,zammad]);
   const request=(suffix:string,input:unknown)=>api(`projects/${project.id}/zammad/${suffix}`,'POST',input);
-  return <>
-    <Panel title="Externer Vorgang"><div className="panel-body"><Form caption="Verweis speichern" fields={[
-      {name:'external_link',label:'Vorgangslink',type:'url',value:project.external_link},
-      {name:'communication_note',label:'Kommunikationsnotiz',type:'textarea',value:project.communication_note},
-    ]} submit={(input)=>run(()=>api(`projects/${project.id}`,'PATCH',input),'Verweis gespeichert.')}/></div></Panel>
-    {zammad && <Panel title="Zammad" action={conversation?.ticket && <a href={conversation.ticket.url} target="_blank" rel="noreferrer">Ticket {conversation.ticket.number} öffnen</a>}>
+  return <Panel title="Zammad" action={zammad && conversation?.ticket && <a href={conversation.ticket.url} target="_blank" rel="noreferrer">Ticket {conversation.ticket.number} öffnen</a>}>
       <div className="panel-body">
         {problem && <p role="alert" className="inline-error">{problem}</p>}
         {!project.zammad_ticket_id ? <>
@@ -220,39 +226,48 @@ function Communication({project,zammad,run}:{project:Row;zammad:boolean;run:Run}
             {name:'note',label:'Interne Notiz',type:'textarea',required:true},
           ]} submit={(v)=>run(()=>request('tickets',v),'Ticket angelegt.')}/></Expand>
         </> : <>
-          <button onClick={()=>void refresh()}>Verlauf aktualisieren</button>
-          <ol className="thread">{conversation?.articles.map((article:any)=><li key={article.id}>
-            <div><strong>{article.subject || 'Nachricht'}</strong><small>{article.from} · {moment(article.created_at)}</small></div>
-            <p>{article.content_type==='text/html' ? plainText(article.body) : article.body}</p>
-            {article.attachments?.map((attachment:{filename:string})=><small key={attachment.filename}>{attachment.filename}</small>)}
-          </li>)}</ol>
-          <Expand title="Antwort schreiben"><Form key={composeVersion} caption="Über Zammad senden" fields={[
-            {name:'recipient',label:'Empfänger',type:'email',required:true},{name:'subject',label:'Betreff',required:true},{name:'body',label:'Nachricht',type:'textarea',required:true},
-          ]} submit={(v)=>run(async(isCurrent)=>{
-            const message:{[key:string]:unknown}={...v,id:draftId.current ??= crypto.randomUUID()};
-            if(file) {
-              if(file.size>5_242_880) throw new Error('PDF-Anhänge sind bis 5 MB möglich.');
-              const bytes=new Uint8Array(await file.arrayBuffer());
-              message.attachment={name:file.name,data:bytes.toBase64()};
-            }
-            if(!isCurrent()) return;
-            const result=await request('messages',message);
-            if(!isCurrent()) return;
-            await refresh();
-            if(result.status!=='sent') throw new Error('Sendezustand prüfen. Der Versuch steht im Projektverlauf.');
-            if(isCurrent()) setFile(undefined);
-          },'Nachricht an Zammad übergeben.')}>
-            <label className="wide"><span>PDF-Anhang</span><input type="file" accept="application/pdf,.pdf" onChange={(event)=>setFile(event.target.files?.[0])}/></label>
-          </Form></Expand>
-          <Table headers={['Sendeversuch','Status','Aktion']} rows={(conversation?.outgoing ?? []).map((entry:Row)=>({
-            key:entry.id,cells:[entry.subject,({sent:'An Zammad übergeben',pending:'Ausstehend',failed:'Abgelehnt',unknown:'Ausgang unklar'} as Record<string,string>)[entry.status],
-              entry.status==='sent' ? '–' : <div className="actions">
-                <button onClick={()=>run(async(isCurrent)=>{await request(`outgoing/${entry.id}`,{retry:false});if(isCurrent()) await refresh();})}>Prüfen</button>
-                <button onClick={()=>{if(window.confirm('Ticketverlauf prüfen und, falls die Nachricht fehlt, erneut senden?')) void run(async(isCurrent)=>{await request(`outgoing/${entry.id}`,{retry:true});if(isCurrent()) await refresh();});}}>Erneut senden</button>
-              </div>],
-          }))}/>
+          <div className="actions">
+            {zammad && <button type="button" onClick={()=>void refresh()}>Verlauf aktualisieren</button>}
+            {!conversation?.outgoing.length && <button type="button" disabled={zammad && !conversation && !problem} onClick={()=>{
+              const id=Number(project.zammad_ticket_id);
+              if(window.confirm(`Verknüpfung mit Zammad-Ticket ${id} lösen?`)) {
+                void run(()=>request('unlink',{id}),'Ticketverknüpfung gelöst.');
+              }
+            }}>Ticketverknüpfung lösen</button>}
+          </div>
+          {zammad && <>
+            <ol className="thread">{conversation?.articles.map((article:any)=><li key={article.id}>
+              <div><strong>{article.subject || 'Nachricht'}</strong><small>{article.from} · {moment(article.created_at)}</small></div>
+              <p>{article.content_type==='text/html' ? plainText(article.body) : article.body}</p>
+              {article.attachments?.map((attachment:{filename:string})=><small key={attachment.filename}>{attachment.filename}</small>)}
+            </li>)}</ol>
+            <Expand title="Antwort schreiben"><Form key={composeVersion} caption="Über Zammad senden" fields={[
+              {name:'recipient',label:'Empfänger',type:'email',required:true},{name:'subject',label:'Betreff',required:true},{name:'body',label:'Nachricht',type:'textarea',required:true},
+            ]} submit={(v)=>run(async(isCurrent)=>{
+              const message:{[key:string]:unknown}={...v,id:draftId.current ??= crypto.randomUUID()};
+              if(file) {
+                if(file.size>5_242_880) throw new Error('PDF-Anhänge sind bis 5 MB möglich.');
+                const bytes=new Uint8Array(await file.arrayBuffer());
+                message.attachment={name:file.name,data:bytes.toBase64()};
+              }
+              if(!isCurrent()) return;
+              const result=await request('messages',message);
+              if(!isCurrent()) return;
+              await refresh();
+              if(result.status!=='sent') throw new Error('Sendezustand prüfen. Der Versuch steht im Projektverlauf.');
+              if(isCurrent()) setFile(undefined);
+            },'Nachricht an Zammad übergeben.')}>
+              <label className="wide"><span>PDF-Anhang</span><input type="file" accept="application/pdf,.pdf" onChange={(event)=>setFile(event.target.files?.[0])}/></label>
+            </Form></Expand>
+            <Table headers={['Sendeversuch','Status','Aktion']} rows={(conversation?.outgoing ?? []).map((entry:Row)=>({
+              key:entry.id,cells:[entry.subject,({sent:'An Zammad übergeben',pending:'Ausstehend',failed:'Abgelehnt',unknown:'Ausgang unklar'} as Record<string,string>)[entry.status],
+                entry.status==='sent' ? '–' : <div className="actions">
+                  <button onClick={()=>run(async(isCurrent)=>{await request(`outgoing/${entry.id}`,{retry:false});if(isCurrent()) await refresh();})}>Prüfen</button>
+                  <button onClick={()=>{if(window.confirm('Ticketverlauf prüfen und, falls die Nachricht fehlt, erneut senden?')) void run(async(isCurrent)=>{await request(`outgoing/${entry.id}`,{retry:true});if(isCurrent()) await refresh();});}}>Erneut senden</button>
+                </div>],
+            }))}/>
+          </>}
         </>}
       </div>
-    </Panel>}
-  </>;
+    </Panel>;
 }

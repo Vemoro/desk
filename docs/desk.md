@@ -23,6 +23,8 @@ Desk legt Angebote in der ersten Version über die manuelle Übergabe an Haben a
 
 Nach der Einrichtung oder einem Tokenwechsel in den administrativen Einstellungen unter „Integrationen“ die interne ID eines vorhandenen Zammad-Testtickets eintragen und „Zammad-Verbindung prüfen“ wählen. Die interne ID steht im Zammad-Ticketlink und kann von der sichtbaren Ticketnummer abweichen. Desk prüft den Lesezugriff auf das Ticket und seinen Verlauf. [Zammad-Ticket-API](https://docs.zammad.org/en/latest/api/ticket/index.html#show)
 
+Unter **Kommunikation → Zammad** kannst du die Ticketverknüpfung vor dem ersten in Desk gespeicherten Sendeversuch für dieses Ticket lösen. Wähle **Ticketverknüpfung lösen** und bestätige die angezeigte Ticket-ID. Ticket und Verlauf bleiben in Zammad erhalten. Desk behält den Vorgangslink und die Kommunikationsnotiz des Projekts. Danach kannst du wieder ein Ticket verknüpfen.
+
 ## Betrieb
 
 - Je nach Ticketbetrieb stehen drei Installationswege zur Auswahl. [Installationsplan mit und ohne Zammad](installation.md)
