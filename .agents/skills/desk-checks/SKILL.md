@@ -65,7 +65,7 @@ Führe das Beispiel in Bash im getrennten Worktree aus. Es benötigt Docker, die
   bun run demo
   bun x playwright install chromium
   bun -e 'Bun.listen({hostname:"127.0.0.1",port:Number(process.argv[1]),socket:{data(){}}}).stop(true)' "$browser_port"
-  bun --bun vite dev --host 127.0.0.1 --port "$browser_port" --strictPort >"$log" 2>&1 &
+  NITRO_HOST=127.0.0.1 NITRO_PORT="$browser_port" bun .output/server/index.mjs >"$log" 2>&1 &
   server_pid=$!
   for ((attempt=0; attempt<30; attempt++)); do
     if ! kill -0 "$server_pid" 2>/dev/null; then cat "$log" >&2; exit 1; fi
@@ -77,4 +77,4 @@ Führe das Beispiel in Bash im getrennten Worktree aus. Es benötigt Docker, die
 )
 ```
 
-Der Browserlauf prüft beide Musteraufträge. Für weitere UI-Prüfungen nutze dieselbe Demo-Instanz. Der [Screenshot-Skill](../desk-pr-screenshots/SKILL.md) beschreibt, wie du Basis und Änderung vergleichst.
+Der Browserlauf prüft beide Musteraufträge über die zuvor gebaute Anwendung. Für weitere UI-Prüfungen nutze dieselbe Demo-Instanz. Baue sie nach Änderungen am Anwendungscode erneut. Der [Screenshot-Skill](../desk-pr-screenshots/SKILL.md) beschreibt, wie du Basis und Änderung vergleichst.
