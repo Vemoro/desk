@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { all, api, ApiError, compileCsv, date, euros, inventoryLabel, inventoryName, moment, money, movementStages, name, projectStages, type Row } from './client';
+import { all, api, ApiError, calendarDate, compileCsv, euros, inventoryLabel, inventoryName, moment, money, movementStages, name, projectStages, type Row } from './client';
 import { Project, Projects, type Data } from './projects';
 import { PasskeyLogin, PasskeySettings } from './passkeys';
 import { AccountPassword } from './account-password';
@@ -262,12 +262,12 @@ function Dashboard({data,select,open}:{data:Data;select:(id:string)=>void;open:(
     <div className="metrics">{metrics.map(([label,value])=><div className="metric" key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>
     <Panel title="Aktive Projekte" action={<button className="primary" onClick={open}>Alle Projekte</button>}>
       <Table headers={['Projekt','Kontakt','Status','Termin']} rows={active.map((row)=>({key:row.id,cells:[
-        <button className="text-button" onClick={()=>select(row.id)}>{row.name}</button>,name(data.contacts,row.contact_id),<Pill label={projectStages[row.stage]} tone="accent"/>,date(row.due),
+        <button className="text-button" onClick={()=>select(row.id)}>{row.name}</button>,name(data.contacts,row.contact_id),<Pill label={projectStages[row.stage]} tone="accent"/>,calendarDate(row.due),
       ]}))}/>
     </Panel>
     <Panel title="Fällige Aufgaben"><Table headers={['Aufgabe','Projekt','Verantwortlich','Termin']} rows={data.tasks.filter((task)=>task.status!=='done'&&task.due)
       .sort((a,b)=>String(a.due).localeCompare(String(b.due))).slice(0,10)
-      .map((task)=>({key:task.id,cells:[task.name,<button className="text-button" onClick={()=>select(task.project_id)}>{name(data.projects,task.project_id)}</button>,name(data.users,task.assignee_id),date(task.due)]}))}/></Panel>
+      .map((task)=>({key:task.id,cells:[task.name,<button className="text-button" onClick={()=>select(task.project_id)}>{name(data.projects,task.project_id)}</button>,name(data.users,task.assignee_id),calendarDate(task.due)]}))}/></Panel>
   </>;
 }
 
@@ -388,7 +388,7 @@ function Contacts({data,run,haben,openProject}:{data:Data;run:Run;haben:boolean;
         {projects.length>0&&<Table headers={['Projekt','Status','Termin']} rows={projects.map((project)=>({key:project.id,cells:[
           <button type="button" className="text-button" onClick={()=>openProject(project.id)}>{project.name}</button>,
           <Pill label={projectStages[project.stage]} tone={project.stage==='confirmed'?'accent':'neutral'}/>,
-          date(project.due),
+          calendarDate(project.due),
         ]}))}/>}
       </section>
     </Panel>}

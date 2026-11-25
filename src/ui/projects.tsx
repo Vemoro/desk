@@ -1,5 +1,5 @@
 import { useContext, useEffect, useRef, useState } from 'react';
-import { api, date, downloadPositions, euros, inventoryLabel, inventoryName, moment, money, name, projectStages, reservationStages, taskStages, type Row } from './client';
+import { api, calendarDate, downloadPositions, euros, inventoryLabel, inventoryName, moment, money, name, projectStages, reservationStages, taskStages, type Row } from './client';
 import { ConfirmationRequests, ConfirmDialog, Expand, Form, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
 import { ProjectHistory } from './project-history';
 
@@ -34,17 +34,19 @@ export function Projects({data,run,select}:{data:Data;run:Run;select:(id:string)
       <Table headers={['Projekt','Kontakt','Status','Termin']} rows={data.projects
         .filter((project)=>`${project.name} ${name(data.contacts,project.contact_id)}`.toLowerCase().includes(filter.toLowerCase()))
         .map((project)=>({key:project.id,cells:[<button className="text-button" onClick={()=>select(project.id)}>{project.name}</button>,
-          name(data.contacts,project.contact_id),<Pill label={projectStages[project.stage]} tone={project.stage==='confirmed'?'accent':'neutral'}/>,date(project.due)]}))}/>
+          name(data.contacts,project.contact_id),<Pill label={projectStages[project.stage]} tone={project.stage==='confirmed'?'accent':'neutral'}/>,calendarDate(project.due)]}))}/>
     </Panel>
   </>;
 }
 
 export function Project({project,data,run,flags,accountId,back}:{project:Row;data:Data;run:Run;flags:Flags;accountId:string;back:()=>void}) {
   const [tab,setTab]=useState('overview');
+  const title=useRef<HTMLHeadingElement>(null);
+  useEffect(()=>{title.current?.focus();},[]);
   const tabs:Record<string,string>={overview:'Überblick',tasks:'Kanban',planning:'Ressourcen & Kalkulation',finance:'Controlling',communication:'Kommunikation',history:'Verlauf'};
   return <>
     <div className="breadcrumb"><button className="text-button" onClick={back}>Projekte</button><span>/</span>{project.name}</div>
-    <div className="project-head"><div><h1>{project.name}</h1><div className="subtle">{name(data.contacts,project.contact_id)} · Termin {date(project.due)}</div></div><Pill label={projectStages[project.stage]} tone="accent"/></div>
+    <div className="project-head"><div><h1 ref={title} tabIndex={-1}>{project.name}</h1><div className="subtle">{name(data.contacts,project.contact_id)} · Termin {calendarDate(project.due)}</div></div><Pill label={projectStages[project.stage]} tone="accent"/></div>
     <nav className="tabs" aria-label="Projektansichten">{Object.entries(tabs).map(([key,label])=><button key={key} aria-current={tab===key?'page':undefined} onClick={()=>setTab(key)}>{label}</button>)}</nav>
     {tab==='overview' && <Overview project={project} data={data} run={run} haben={flags.haben}/>}
     {tab==='tasks' && <Kanban project={project} data={data} run={run}/>}
@@ -105,7 +107,7 @@ function Kanban({project,data,run}:{project:Row;data:Data;run:Run}) {
           if(tasks.some((task)=>task.id===id && task.status!==status)) void run(()=>api(`tasks/${id}`,'PATCH',{status}));}}>
         <h2>{label} <span>{tasks.filter((task)=>task.status===status).length}</span></h2>
         {tasks.filter((task)=>task.status===status).map((task)=><article key={task.id} className="task" draggable onDragStart={(event)=>event.dataTransfer.setData('text/plain',task.id)}>
-          <strong>{task.name}</strong><span className="subtle">{name(data.users,task.assignee_id)} · {date(task.due)}</span>
+          <strong>{task.name}</strong><span className="subtle">{name(data.users,task.assignee_id)} · {calendarDate(task.due)}</span>
           <label><span className="sr-only">Status für {task.name}</span><select value={task.status} onChange={(event)=>run(()=>api(`tasks/${task.id}`,'PATCH',{status:event.target.value}))}>
             {Object.entries(taskStages).map(([key,value])=><option value={key} key={key}>{value}</option>)}
           </select></label>
