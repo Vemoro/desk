@@ -171,7 +171,7 @@ export function Desk() {
 
   if(person===undefined) return <main className="login"><p>Desk wird geladen …</p></main>;
   if(!person) return <main className="login">
-    <div className="login-box"><div className="login-brand"><span className="mark">D</span><strong>Desk</strong>{themeButton}</div>
+    <div className="login-box"><div className="login-brand"><img className="mark" src="/desk-bildmarke.svg" alt=""/><strong>Desk</strong>{themeButton}</div>
       <h1>Anmelden</h1>{alert}
       <Form caption="Anmelden" fields={[
         {name:'email',label:'E-Mail',type:'email',required:true,autoComplete:'username'},
