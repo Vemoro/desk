@@ -1,7 +1,7 @@
 import { useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { api, ApiError, downloadBlob, moment, type Row } from './client';
 import { Icon } from './icons';
-import { ConfirmationRequests, ConfirmDialog, Expand, Form, Panel, Table, type Confirmation, type Run } from './widgets';
+import { ConfirmationRequests, ConfirmDialog, Form, Panel, Table, type Confirmation, type Run } from './widgets';
 
 type Article = { id:number; subject?:string|null; from?:string|null; created_at?:string; content_type?:string;
   body:string; attachments?:{filename:string;id?:number}[]; kind?:keyof typeof articleKinds;
@@ -209,6 +209,9 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   const [freeFile,setFreeFile]=useState<File>();
   const [replyFile,setReplyFile]=useState<File>();
   const [composeVersion,setComposeVersion]=useState(0);
+  const [composing,setComposing]=useState(false);
+  const composeButton=useRef<HTMLButtonElement>(null);
+  const freeComposer=useRef<HTMLElement>(null);
   const [reply,setReply]=useState<ReplyTarget>();
   const replyComposer=useRef<HTMLElement>(null);
   const noteField=useRef<HTMLTextAreaElement>(null);
@@ -226,11 +229,16 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
     if(reply) replyComposer.current?.querySelector<HTMLElement>(reply.forwardBody===undefined?'textarea':'input[type=email]')?.focus();
   },[reply]);
   useEffect(()=>{
+    if(composing) {
+      freeComposer.current?.querySelector<HTMLInputElement>('input[type=email]')?.focus();
+    }
+  },[composing]);
+  useEffect(()=>{
     if(!locked && focusNoteAfterSave.current) {
       focusNoteAfterSave.current=false;
       noteField.current?.focus({preventScroll:true});
     }
-  },[locked,noteText]);
+  },[locked,noteText,composing]);
 
   function closeReply(target:ReplyTarget) {
     setReply(undefined);
@@ -261,6 +269,8 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
     else {
       setFreeFile(undefined);
       setComposeVersion(value=>value+1);
+      setComposing(false);
+      focusNoteAfterSave.current=true;
     }
   }
 
@@ -420,10 +430,13 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
               {visibleArticles.length>0 && <ol className="thread">{visibleArticles.map(article=><li key={article.id} data-kind={article.kind ?? 'unknown'}>
                 <span className="communication-avatar" aria-hidden="true">{articleInitials(article.from)}</span>
                 <article className="communication-message">
+                  <div className="communication-message-meta">
+                    {article.from && <span className="communication-sender">{article.from}</span>}
+                    {article.created_at && <time dateTime={article.created_at}>{moment(article.created_at)}</time>}
+                  </div>
                   <div className="communication-bubble">
                     <span className="communication-kind">{articleKinds[article.kind ?? 'unknown']}</span>
                     <strong>{article.subject}</strong>
-                    {article.from && <small className="communication-sender">{article.from}</small>}
                     <p>{article.body}</p>
                     {article.attachments?.length ? <div className="communication-attachments">
                       {article.attachments.map((attachment,index)=>{
@@ -443,7 +456,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
                         id:article.id,originalSubject:article.subject,recipient:'',subject:('WG: '+article.subject).slice(0,160),
                         trigger:event.currentTarget,forwardBody:'\n\n'+article.body,
                       })}>Text weiterleiten</button>}
-                    <button type="button" disabled={locked} onClick={()=>{
+                    <button type="button" disabled={locked || Boolean(reply)} onClick={()=>{
                       const excerpt=article.body.length>800 ? article.body.slice(0,800)+' …' : article.body;
                       const quote=[article.subject,...excerpt.split(/\r?\n/)].map(line=>'> '+line).join('\n');
                       const next=noteText ? noteText+'\n\n'+quote : quote;
@@ -451,10 +464,12 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
                         setNoteText(next);
                         setNoteError('');
                       } else setNoteError('Das Zitat passt nicht mehr in die Notiz mit höchstens 5.000 Zeichen.');
-                      noteField.current?.focus();
+                      if(composing) {
+                        setComposing(false);
+                        focusNoteAfterSave.current=true;
+                      } else noteField.current?.focus();
                     }}>In Notiz zitieren</button>
                   </footer>
-                  {article.created_at && <time dateTime={article.created_at}>{moment(article.created_at)}</time>}
                 </article>
               </li>)}</ol>}
               {term && articles.length>0 && visibleArticles.length===0 && <p className="subtle" role="status">Keine Nachrichten für diese Suche.</p>}
@@ -506,12 +521,19 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
                   </div>],
               }))}/></div>}
           </div>
-          <div className="communication-editors">
-            <div className="communication-compose" hidden={Boolean(reply)}><Expand title="Antwort schreiben"><Form key={composeVersion} disabled={locked && !reply} caption="Über Zammad senden" fields={[
+          <div className="communication-editors" aria-label="Beitrag verfassen">
+            <section className="communication-reply" aria-label="Neue E-Mail" ref={freeComposer} hidden={!composing || Boolean(reply)}>
+              <header><h3>Neue E-Mail</h3>
+                <button type="button" disabled={locked} onClick={()=>{
+                  setComposing(false);
+                  requestAnimationFrame(()=>composeButton.current?.focus());
+                }}>Zur internen Notiz</button>
+              </header>
+              <Form key={composeVersion} disabled={locked && !reply} caption="Über Zammad senden" fields={[
                 {name:'recipient',label:'Empfänger',type:'email',required:true},{name:'subject',label:'Betreff',required:true},{name:'body',label:'Nachricht',type:'textarea',required:true},
               ]} submit={values=>sendMessage(values,freeFile)}>
                 <label className="wide"><span>PDF-Anhang</span><input type="file" disabled={locked && !reply} accept="application/pdf,.pdf" onChange={event=>setFreeFile(event.target.files?.[0])}/></label>
-              </Form>{!reply && !draft.current?.note && draftActions}</Expand></div>
+              </Form>{!reply && !draft.current?.note && draftActions}</section>
             {reply && <section ref={replyComposer} className="communication-reply" aria-label={forwarding?'E-Mail-Weiterleitung':'E-Mail-Antwort'}>
               <header><h3>{forwarding?'Weiterleitung von':'Antwort auf'} „{reply.originalSubject}“</h3>
                 <button type="button" disabled={locked} onClick={()=>closeReply(reply)}>{forwarding?'Weiterleitung schließen':'Antwort schließen'}</button>
@@ -532,7 +554,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
               </Form>
               {!draft.current?.note && draftActions}
             </section>}
-            <form className="communication-note" onSubmit={event=>{
+            <form className="communication-note" hidden={composing || Boolean(reply)} onSubmit={event=>{
               event.preventDefault();
               setNoteError('');
               if(!noteText.trim()) return;
@@ -540,11 +562,14 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
                 setNoteError(error instanceof Error ? error.message : 'Die Notiz konnte nicht gespeichert werden.');
               });
             }}>
-              <label><span>Interne Notiz</span><textarea ref={noteField} value={noteText} maxLength={5000} required
+              <label><span><Icon name="lock"/> Interne Notiz</span><textarea ref={noteField} value={noteText} maxLength={5000} required
                 disabled={locked} placeholder="Notiz für das Team schreiben …" onChange={event=>setNoteText(event.target.value)}/></label>
               {noteError && <p className="inline-error" role="alert">{noteError}</p>}
               {draft.current?.note && draftActions}
-              <div className="form-action"><button type="submit" className="primary" disabled={locked || !noteText.trim()}>Notiz hinzufügen</button></div>
+              <div className="communication-note-actions">
+                <button ref={composeButton} type="button" disabled={locked} onClick={()=>setComposing(true)}><Icon name="mail"/> Antwort schreiben</button>
+                <button type="submit" className="primary" disabled={locked || !noteText.trim()}>Notiz hinzufügen</button>
+              </div>
             </form>
           </div>
         </>}
