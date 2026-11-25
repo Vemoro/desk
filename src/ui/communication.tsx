@@ -155,6 +155,9 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   const [locked,setLocked]=useState(false);
   const [canReplay,setCanReplay]=useState(false);
   const [replayError,setReplayError]=useState('');
+  const [unresolvedRetry,setUnresolvedRetry]=useState<string>();
+  const retryVersion=useRef(0);
+  const retryInProgress=useRef<string|undefined>(undefined);
   useEffect(()=>{
     if(reply) replyComposer.current?.querySelector('textarea')?.focus();
   },[reply]);
@@ -173,6 +176,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
     setLocked(false);
     setCanReplay(false);
     setReplayError('');
+    setUnresolvedRetry(undefined);
   }
 
   function resetDraft() {
@@ -226,8 +230,9 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
       result=await request('messages',current.payload);
     } catch(error) {
       if(isCurrent() && draft.current?.id===current.id) {
-        // These receipt statuses in the initial Desk response occur before insertion.
-        if(!replay && error instanceof ApiError && [400,409,502,503].includes(error.status)) draft.current=undefined;
+        // A gateway error can arrive after Desk has already accepted the message.
+        if(!replay && error instanceof ApiError &&
+          (error.code==='zammad_message_not_stored' || error.code==='invalid_input')) draft.current=undefined;
         else setCanReplay(true);
       }
       throw error;
@@ -279,7 +284,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
       <button type="button" onClick={()=>void replayMessage()}>Mit denselben Angaben fortfahren</button>
     </div>}
     {replayError && <p className="inline-error" role="alert">{replayError}</p>}
-    {currentAttempt?.status==='failed' && <div className="communication-replay">
+    {currentAttempt?.status==='failed' && currentAttempt.id!==unresolvedRetry && <div className="communication-replay">
       <p className="subtle">Zammad hat den Versuch abgelehnt. Du kannst hier eine neue Nachricht vorbereiten.</p>
       <button type="button" onClick={clearDraft}>Neuen Entwurf beginnen</button>
     </div>}
@@ -372,7 +377,15 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
           {(conversation?.outgoing.length ?? 0) > 0 && <div className="communication-outgoing"><h3>Sendeversuche</h3><Table headers={['Sendeversuch','Status','Aktion']} rows={(conversation?.outgoing ?? []).map((entry:Row)=>({
               key:entry.id,cells:[entry.subject,({sent:'An Zammad übergeben',pending:'Ausstehend',failed:'Abgelehnt',unknown:'Ausgang unklar'} as Record<string,string>)[entry.status],
                 entry.status==='sent' ? '–' : <div className="actions">
-                  <button onClick={()=>run(async(isCurrent)=>{await request(`outgoing/${entry.id}`,{retry:false});if(isCurrent()) await refresh();})}>Prüfen</button>
+                  <button onClick={()=>run(async(isCurrent)=>{
+                    const version=retryVersion.current;
+                    const result=await request(`outgoing/${entry.id}`,{retry:false});
+                    if(!isCurrent()) return;
+                    if(result.status==='failed' && retryVersion.current===version && retryInProgress.current!==entry.id) {
+                      setUnresolvedRetry(current=>current===entry.id ? undefined : current);
+                    }
+                    await refresh();
+                  })}>Prüfen</button>
                   <button onClick={event=>setConfirmation({
                     actionKey:`${outgoingKey}${entry.id}`,
                     title:'Zammad-Sendeversuch wiederholen',
@@ -380,11 +393,27 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
                     actionLabel:'Erneut senden',
                     trigger:event.currentTarget,
                     submit:async isCurrent=>{
-                      const result=await request(`outgoing/${entry.id}`,{retry:true});
-                      if(!isCurrent()) return;
-                      await refresh();
-                      if(result.status==='failed') throw new Error('Zammad hat den Sendeversuch abgelehnt.');
-                      if(result.status!=='sent') throw new Error('Der Ausgang des Sendeversuchs ist weiterhin unklar.');
+                      const protectsDraft=draft.current?.id===entry.id;
+                      if(protectsDraft) {
+                        retryVersion.current++;
+                        retryInProgress.current=entry.id;
+                        setUnresolvedRetry(entry.id);
+                      }
+                      try {
+                        const result=await request(`outgoing/${entry.id}`,{retry:true});
+                        if(!isCurrent()) return;
+                        await refresh();
+                        if(result.status==='failed') {
+                          if(protectsDraft) setUnresolvedRetry(undefined);
+                          throw new Error('Zammad hat den Sendeversuch abgelehnt.');
+                        }
+                        if(result.status!=='sent') throw new Error('Der Ausgang des Sendeversuchs ist weiterhin unklar.');
+                      } finally {
+                        if(protectsDraft) {
+                          retryInProgress.current=undefined;
+                          retryVersion.current++;
+                        }
+                      }
                     },
                     feedback:'Sendeversuch bestätigt.',
                   })}>Erneut senden</button>

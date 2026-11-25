@@ -12,20 +12,31 @@ test('Zammad beantwortet die gewählte E-Mail mit nachvollziehbarem Empfänger u
   ];
   const outbound:{id:string;replyArticleId:number;recipient:string;subject:string;body:string;attachment?:{name:string;data:string}}[]=[];
   const attempts:{id:string;subject:string;status:string}[]=[];
+  let historyUnavailable=false;
   await page.route('**/api/v1/projects?*',route=>route.fulfill({json:[{id:'reply-test',name,stage:'planning',zammad_ticket_id:42}]}));
   await page.route('**/api/v1/integrations',route=>route.fulfill({json:{zammad:true,haben:false}}));
-  await page.route(path,route=>route.fulfill({json:{
-    ticket:{id:42,number:'1042',title:'Anfrage des Musterbüros',url:'https://zammad.example.test/'},
-    articles,outgoing:attempts,
-  }}));
+  await page.route(path,route=>historyUnavailable
+    ? route.fulfill({status:502,json:{error:'Verlauf ist gerade nicht erreichbar.'}})
+    : route.fulfill({json:{
+      ticket:{id:42,number:'1042',title:'Anfrage des Musterbüros',url:'https://zammad.example.test/'},
+      articles,outgoing:attempts,
+    }}));
   await page.route(path+'/outgoing/*',route=>{
+    if(route.request().postDataJSON().retry) {
+      attempts[0]!.status='unknown';
+      historyUnavailable=true;
+      return route.fulfill({status:201,json:{status:'unknown'}});
+    }
+    historyUnavailable=false;
     attempts[0]!.status='failed';
     return route.fulfill({status:201,json:{status:'failed'}});
   });
   await page.route(path+'/messages',route=>{
     outbound.push(route.request().postDataJSON());
-    if(outbound.length===1) return route.fulfill({status:502,json:{error:'Die Antwortadresse kann gerade nicht geprüft werden.'}});
-    if(outbound.length===2) return route.abort('failed');
+    if(outbound.length===1) return route.fulfill({status:502,json:{
+      error:'Die Antwortadresse kann gerade nicht geprüft werden.',code:'zammad_message_not_stored',
+    }});
+    if(outbound.length===2) return route.fulfill({status:502,json:{error:'Bad Gateway'}});
     const current=outbound.at(-1)!;
     const status=outbound.length===3 ? 'unknown' : 'sent';
     if(status==='sent') articles.shift();
@@ -72,6 +83,14 @@ test('Zammad beantwortet die gewählte E-Mail mit nachvollziehbarem Empfänger u
   await expect(editor.getByLabel('PDF-Anhang')).toBeDisabled();
   await expect(editor.getByRole('button',{name:'E-Mail über Zammad senden'})).toBeDisabled();
   await expect(page.getByText('Ausgang unklar',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Prüfen',exact:true}).click();
+  await expect(editor.getByRole('button',{name:'Neuen Entwurf beginnen'})).toBeVisible();
+  await page.getByRole('button',{name:'Erneut senden',exact:true}).click();
+  const confirmation=page.getByRole('dialog',{name:'Zammad-Sendeversuch wiederholen'});
+  await confirmation.getByRole('button',{name:'Erneut senden',exact:true}).click();
+  await expect(confirmation.getByRole('alert')).toHaveText('Der Ausgang des Sendeversuchs ist weiterhin unklar.');
+  await confirmation.getByRole('button',{name:'Schließen',exact:true}).click();
+  await expect(editor.getByRole('button',{name:'Neuen Entwurf beginnen'})).toHaveCount(0);
   await page.getByRole('button',{name:'Prüfen',exact:true}).click();
   await editor.getByRole('button',{name:'Neuen Entwurf beginnen'}).click();
   await expect(editor.getByLabel('Nachricht',{exact:true})).toBeEnabled();

@@ -68,7 +68,9 @@ test('Zammad ermittelt die Antwortadresse am ausgewählten Artikel und behält d
     expect(history.articles.map(article=>article.reply?.recipient)).toEqual(['antwort@example.test','mara@example.test',undefined,undefined,undefined,undefined]);
     expect((await call('/messages',{...message,replyArticleId:16})).status).toBe(409);
     expect((await call('/messages',{...message,replyArticleId:14})).status).toBe(409);
-    expect((await call('/messages',{...message,replyArticleId:18})).status).toBe(409);
+    const invalidReference=await call('/messages',{...message,replyArticleId:18});
+    expect(invalidReference.status).toBe(409);
+    expect(await invalidReference.json()).toMatchObject({code:'zammad_message_not_stored'});
     expect((await call('/messages',{...message,recipient:'mara@example.test'})).status).toBe(409);
     expect(sent).toHaveLength(0);
     expect(await (await call('/messages',message)).json()).toMatchObject({status:'failed'});

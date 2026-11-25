@@ -27,7 +27,7 @@ export function inventoryName(items:Row[], id:string) {
 }
 
 export class ApiError extends Error {
-  constructor(public status:number,message:string) { super(message); }
+  constructor(public status:number,message:string,public code?:string) { super(message); }
 }
 
 export async function api<T = any>(path:string,method='GET',input?:unknown,requestKey?:string):Promise<T> {
@@ -39,7 +39,7 @@ export async function api<T = any>(path:string,method='GET',input?:unknown,reque
     body:input === undefined ? undefined : JSON.stringify(input),
   });
   const result = await response.json();
-  if (!response.ok) throw new ApiError(response.status,result.error ?? 'Die Aktion konnte nicht abgeschlossen werden.');
+  if (!response.ok) throw new ApiError(response.status,result.error ?? 'Die Aktion konnte nicht abgeschlossen werden.',result.code);
   return result;
 }
 

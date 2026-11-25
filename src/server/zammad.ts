@@ -28,6 +28,7 @@ type ArticleContext = {
 type Outgoing = { id: string; ticket_id: number; status: 'pending'|'unknown'|'sent'|'failed'; attempted_at: Date; attempt_key?: string;
   recipient: string; subject: string; body: string; attachment_name: string | null; attachment_data: string | null; in_reply_to: string | null };
 const marker = (id: string) => `Desk-Referenz: ${id}`;
+const notStored = (status:number,message:string)=>new DeskError(status,message,'zammad_message_not_stored');
 
 function articleContext(source:unknown, article:z.infer<typeof articleSchema>, ticketId:number):ArticleContext {
   const metadata = articleMetadata.safeParse(source);
@@ -142,10 +143,10 @@ async function loadArticles(remote: ReturnType<typeof integration>, id: number) 
 export async function send(projectId: string, message: z.infer<typeof zammadMessage>) {
   const {remote,saved} = await db.begin(async (transaction) => {
     const ticketId = await lockProjectTicket(transaction,projectId);
-    if (!ticketId) throw new DeskError(409, 'Zuerst ein Zammad-Ticket verknüpfen.');
+    if (!ticketId) throw notStored(409, 'Zuerst ein Zammad-Ticket verknüpfen.');
     const remote = integration('ZAMMAD');
     if (message.attachment && !Buffer.from(message.attachment.data,'base64').subarray(0,5).equals(Buffer.from('%PDF-'))) {
-      throw new DeskError(400, 'Der Anhang muss ein PDF sein.');
+      throw notStored(400, 'Der Anhang muss ein PDF sein.');
     }
     let reference: string | null = null;
     if (message.replyArticleId !== undefined) {
@@ -155,14 +156,17 @@ export async function send(projectId: string, message: z.infer<typeof zammadMess
       try {
         source = await remote.request(`/ticket_articles/${message.replyArticleId}`);
       } catch (error) {
-        if (!(error instanceof RemoteError) || (error.upstream !== 403 && error.upstream !== 404)) throw error;
-        throw new DeskError(409,'Die Nachricht gehört nicht zum aktuellen Ticket oder ist nicht mehr verfügbar.');
+        if (!(error instanceof RemoteError)) throw error;
+        if (error.upstream === 403 || error.upstream === 404) {
+          throw notStored(409,'Die Nachricht gehört nicht zum aktuellen Ticket oder ist nicht mehr verfügbar.');
+        }
+        throw notStored(502,error.message);
       }
       const article = articleSchema.safeParse(source);
       const reply = article.success && article.data.id === message.replyArticleId
         ? articleContext(source,article.data,ticketId).reply : undefined;
       if (!reply || reply.recipient !== message.recipient) {
-        throw new DeskError(409,'Die Nachricht oder ihre Antwortadresse passt nicht zum aktuellen Ticket. Lade den Verlauf erneut.');
+        throw notStored(409,'Die Nachricht oder ihre Antwortadresse passt nicht zum aktuellen Ticket. Lade den Verlauf erneut.');
       }
       reference = reply.reference;
     }
