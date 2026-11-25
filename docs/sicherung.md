@@ -31,13 +31,13 @@ pg_restore --host=TESTHOST --port=5432 --username=desk --dbname=desk_restore_dem
   --single-transaction --exit-on-error --no-owner --no-privileges /geschuetzter/pfad/desk.dump
 ```
 
-Das Ziel benötigt eigene Rollen und Berechtigungen. `--no-owner` und `--no-privileges` lassen Eigentümer und Grants aus der Quelle beim Prüfrestore aus. [PostgreSQL 17 zu pg_restore](https://www.postgresql.org/docs/17/app-pgrestore.html)
+Prüfe, ob `pg_restore` erfolgreich beendet wurde, bevor du Desk mit der wiederhergestellten Datenbank startest. Das Ziel benötigt eigene Rollen und Berechtigungen. `--no-owner` und `--no-privileges` lassen Eigentümer und Grants aus der Quelle beim Prüfrestore aus. Vor einer Freigabe an Nutzende die [Vorgaben für wiederhergestellte Sitzungen](desk.md#update-auf-better-auth) ausführen. [PostgreSQL 17 zu pg_restore](https://www.postgresql.org/docs/17/app-pgrestore.html)
 
 ## Probelauf mit Muster Auftragsservice
 
 Lege in einem isolierten PostgreSQL-17-Dienst zuerst eine neue Quelle namens `desk_backup_demo` an. Setze deren lokale `DATABASE_URL`. Prüfe vor `bun run migrate` und `bun run demo`, dass Host, Port und Datenbankname in dieser Variable zur mit `psql` geprüften Testquelle passen. Führe die beiden Befehle erst danach aus. `bun run demo` benötigt dafür `DESK_DEMO_PASSWORD`. Führe Sicherung und Wiederherstellung wie oben aus. Prüfe, dass das Ziel `desk_restore_demo` ist und die Quelle `desk_backup_demo` bleibt.
 
-Starte dieselbe Anwendungsversion mit der `DATABASE_URL` des Ziels und einer eigenen lokalen `DESK_ORIGIN`. Wenn die getestete Version Better Auth nutzt, setze ein separates Test-Secret in `DESK_AUTH_SECRET`. Starte aus einem Arbeitsverzeichnis ohne produktive `.env` und ohne geerbte Haben- oder Zammad-Konfiguration. Setze `HABEN_URL`, `HABEN_TOKEN`, `ZAMMAD_URL` und `ZAMMAD_TOKEN` für den Testprozess ausdrücklich auf leer. In PowerShell 7.5 bleiben mit `$env:HABEN_URL=''` gesetzte Leerwerte erhalten.
+Verwende für die Probe einen getrennten Checkout derselben Anwendungsversion ohne produktive `.env`. Setze die `DATABASE_URL` des Ziels und ein separates Test-Secret in `DESK_AUTH_SECRET`. Setze `NITRO_HOST=127.0.0.1` und verwende einen freien `NITRO_PORT`, zum Beispiel `4184`. Setze `DESK_ORIGIN` auf die passende Adresse, im Beispiel `http://127.0.0.1:4184`. Setze `HABEN_URL`, `HABEN_TOKEN`, `ZAMMAD_URL` und `ZAMMAD_TOKEN` für den Testprozess ausdrücklich auf leer. In PowerShell 7.5 bleiben mit `$env:HABEN_URL=''` gesetzte Leerwerte erhalten. Führe `bun install --frozen-lockfile`, `bun run build` und `bun run start` aus.
 
 1. Mit dem Demo-Konto anmelden. Der authentifizierte Aufruf von `/api/v1/integrations` muss `haben: false` und `zammad: false` ergeben.
 2. Das Projekt **Veranstaltungsbetreuung im Kulturhaus** öffnen und seine externe Angebotsreferenz **ANG-K-102** im Überblick prüfen.

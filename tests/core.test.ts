@@ -79,9 +79,180 @@ describe('Fachlicher Projektablauf', () => {
     await expect(setReservation(overlapping,'firm')).rejects.toThrow('bereits fest');
     expect(await setReservation(beside,'firm')).toMatchObject({status:'firm'});
   });
+
+  test('Haben und Zammad melden eine fehlerhafte Basisadresse vor dem ersten Netzwerkaufruf',async()=>{
+    const origin=process.env.DESK_ORIGIN ?? 'http://127.0.0.1';
+    const login=await handle(new Request(origin+'/api/v1/login',{method:'POST',
+      headers:{Origin:origin,'Content-Type':'application/json'},
+      body:JSON.stringify({email:actor.email,password:'muster-test-passwort'})}));
+    expect(login.status).toBe(200);
+    const cookie=login.headers.get('Set-Cookie')!.split(';')[0];
+    const post=(path:string,body:unknown)=>handle(new Request(origin+'/api/v1'+path,{
+      method:'POST',headers:{Origin:origin,'Content-Type':'application/json',Cookie:cookie},body:JSON.stringify(body),
+    }));
+    const cases=[
+      {service:'HABEN',path:'/haben/contacts/import',body:{},token:'muster-haben-token',
+        authorization:'Bearer muster-haben-token',paths:['/api/v1/kontakte']},
+      {service:'ZAMMAD',path:'/integrations/zammad/check',body:{id:42},token:'muster-zammad-token',
+        authorization:'Token token=muster-zammad-token',paths:['/api/v1/tickets/42','/api/v1/ticket_articles/by_ticket/42']},
+    ] as const;
+    for(const entry of cases){
+      const urlKey=entry.service+'_URL';
+      const tokenKey=entry.service+'_TOKEN';
+      const previousUrl=process.env[urlKey];
+      const previousToken=process.env[tokenKey];
+      const originalFetch=globalThis.fetch;
+      let fetches=0;
+      const calls:string[]=[];
+      const local=Bun.serve({hostname:'127.0.0.1',port:0,fetch(request){
+        const path=new URL(request.url).pathname;
+        calls.push(path);
+        if(request.method!=='GET' || request.headers.get('Authorization')!==entry.authorization) {
+          return new Response(null,{status:401});
+        }
+        if(path==='/api/v1/kontakte') return Response.json({data:[],total:0});
+        if(path==='/api/v1/tickets/42') return Response.json({id:42,number:'42',title:'Testticket'});
+        if(path==='/api/v1/ticket_articles/by_ticket/42') return Response.json([]);
+        return new Response(null,{status:404});
+      }});
+      try {
+        process.env[tokenKey]=entry.token;
+        globalThis.fetch=Object.assign(async ()=>{
+          fetches++;
+          throw new Error('Unerwarteter Netzwerkaufruf');
+        },originalFetch);
+        for(const base of ['https://[muster','http://muster.example.test','https://user:pass@muster.example.test','https://muster.example.test/api']){
+          process.env[urlKey]=base;
+          const response=await post(entry.path,entry.body);
+          expect(response.status).toBe(503);
+          expect(await response.json()).toEqual({error:entry.service+'_URL muss eine HTTPS-Basisadresse sein.'});
+        }
+        expect(fetches).toBe(0);
+        globalThis.fetch=originalFetch;
+        process.env[urlKey]=local.url.origin;
+        expect((await post(entry.path,entry.body)).status).toBe(201);
+        expect(calls).toEqual([...entry.paths]);
+      } finally {
+        globalThis.fetch=originalFetch;
+        local.stop(true);
+        if(previousUrl===undefined) delete process.env[urlKey]; else process.env[urlKey]=previousUrl;
+        if(previousToken===undefined) delete process.env[tokenKey]; else process.env[tokenKey]=previousToken;
+      }
+    }
+  });
 });
 
 describe('API und Integrationen',()=>{
+  test('Vormerkungen verwenden pro Konto und Endpunkt denselben Vorgangsschlüssel nur einmal',async()=>{
+    const data=await fixture(saveCore,'Wiederholte Vormerkungen');
+    const owner=await createToken(actor,{label:'Muster-Planung',scope:'write'});
+    const other=(await createAccount({email:crypto.randomUUID()+'@example.test',name:'Zweite Testperson',
+      password:'muster-test-passwort',role:'admin'}))!;
+    const otherToken=await createToken(other,{label:'Zweite Muster-Planung',scope:'write'});
+    const key=crypto.randomUUID();
+    async function call(input:object,requestKey?:string,token=owner.token,path='reservations'){
+      const headers:Record<string,string>={Authorization:`Bearer ${token}`,'Content-Type':'application/json'};
+      if(requestKey) headers['Idempotency-Key']=requestKey;
+      return handle(new Request(`http://desk.local/api/v1/${path}`,{method:'POST',headers,body:JSON.stringify(input)}));
+    }
+    async function create(input:object,requestKey?:string,token=owner.token){
+      const response=await call(input,requestKey,token);
+      expect(response.status).toBe(201);
+      return await response.json() as {id:string;status:string};
+    }
+    async function count(){
+      return (await first<{count:number}>(db,'SELECT count(*)::int AS count FROM reservations WHERE project_id=$1',[data.project]))?.count;
+    }
+    const {location_id:_,...period}=data.booking;
+    const personnel={...period,user_id:actor.id,quantity:1};
+    const [left,right]=await Promise.all([create(personnel,key),create(personnel,key)]);
+    expect(left).toEqual(right);
+    expect(await count()).toBe(1);
+    const equipment={...data.booking,item_id:data.equipment,quantity:2,
+      starts_at:'2028-05-25T11:00:00.123456+02:00',ends_at:'2028-05-25T17:00:00+02:00'};
+    expect((await call(equipment,key)).status).toBe(409);
+    expect(await count()).toBe(1);
+    expect((await create(personnel,key,otherToken.token)).id).not.toBe(left.id);
+    expect((await create(personnel,crypto.randomUUID())).id).not.toBe(left.id);
+    expect(await count()).toBe(3);
+    const equipmentKey=crypto.randomUUID();
+    const utcEquipment={...equipment,starts_at:'2028-05-25T09:00:00.123456Z',ends_at:'2028-05-25T15:00:00Z'};
+    const [itemReservation,parallelItem]=await Promise.all([
+      create(equipment,equipmentKey),create(utcEquipment,equipmentKey),
+    ]);
+    expect(parallelItem).toEqual(itemReservation);
+    expect(await count()).toBe(4);
+    expect((await call({...equipment,quantity:3},equipmentKey)).status).toBe(409);
+    expect((await call({...utcEquipment,starts_at:'2028-05-25T09:00:00.123457Z'},equipmentKey)).status).toBe(409);
+    await setReservation(itemReservation.id,'released');
+    expect(await create(utcEquipment,equipmentKey)).toEqual(itemReservation);
+    expect(await count()).toBe(4);
+    expect((await call({action:'receive',item_id:data.material,location_id:data.location,quantity:1},key,owner.token,'movements')).status).toBe(201);
+    await create(equipment);
+    await create(equipment);
+    expect(await count()).toBe(6);
+  });
+
+  test('Lagerbewegungen mit demselben Vorgangsschlüssel werden genau einmal gebucht',async()=>{
+    const data=await fixture(saveCore,'Wiederholte Lagerbewegungen');
+    await changeStage(data.project,'planning');
+    await saveCore('projects',{offer_ref:'ANG-WIEDERHOLUNG'},data.project);
+    await changeStage(data.project,'offered');
+    await changeStage(data.project,'confirmed');
+    const token=await createToken(actor,{label:'Lagerwiederholung',scope:'write'});
+    async function call(input:object,key?:string){
+      const headers:Record<string,string>={Authorization:`Bearer ${token.token}`,'Content-Type':'application/json'};
+      if(key!==undefined) headers['Idempotency-Key']=key;
+      return handle(new Request('http://desk.local/api/v1/movements',{
+        method:'POST',headers,body:JSON.stringify(input),
+      }));
+    }
+    async function ok(input:object,key?:string){
+      const response=await call(input,key);
+      expect(response.status).toBe(201);
+      return await response.json() as {id:string};
+    }
+    const receipt={action:'receive',item_id:data.material,location_id:data.location,quantity:10};
+    const receiptKey=crypto.randomUUID();
+    const receipts=await Promise.all([ok(receipt,receiptKey),ok(receipt,receiptKey)]);
+    expect(receipts[0]).toEqual(receipts[1]);
+    expect((await call({...receipt,quantity:11},receiptKey)).status).toBe(409);
+    expect((await call(receipt,'ungültiger Schlüssel')).status).toBe(400);
+    expect((await listStock()).find(row=>row.item_id===data.material)?.physical).toBe(10);
+
+    const material=getId(await createReservation({...data.booking,item_id:data.material,quantity:4}));
+    await setReservation(material,'firm');
+    const consume={action:'consume',reservation_id:material,quantity:1};
+    const consumeKey=crypto.randomUUID();
+    const consumed=await ok(consume,consumeKey);
+    expect(await ok(consume,consumeKey)).toEqual(consumed);
+    expect((await listStock()).find(row=>row.item_id===data.material)).toMatchObject({physical:9,reserved:3});
+    expect((await ok(consume,crypto.randomUUID())).id).not.toBe(consumed.id);
+    expect((await listStock()).find(row=>row.item_id===data.material)).toMatchObject({physical:8,reserved:2});
+
+    await ok({action:'receive',item_id:data.equipment,location_id:data.location,quantity:4});
+    const equipment=getId(await createReservation({...data.booking,item_id:data.equipment,quantity:4,
+      starts_at:addMinutes(Date.now(),-5),ends_at:addMinutes(Date.now(),60)}));
+    const issue={action:'issue',reservation_id:equipment,quantity:2};
+    const issueKey=crypto.randomUUID();
+    expect((await call(issue,issueKey)).status).toBe(409);
+    await setReservation(equipment,'firm');
+    const issued=await ok(issue,issueKey);
+    expect(await ok(issue,issueKey)).toEqual(issued);
+    const giveBack={action:'return',reservation_id:equipment,quantity:1};
+    const returnKey=crypto.randomUUID();
+    const returned=await ok(giveBack,returnKey);
+    expect(await ok(giveBack,returnKey)).toEqual(returned);
+    await setReservation(equipment,'released');
+    expect(await ok(issue,issueKey)).toEqual(issued);
+    expect((await listStock()).find(row=>row.item_id===data.equipment)?.physical).toBe(3);
+    expect(await first(db,'SELECT count(*)::integer AS count FROM movements WHERE reservation_id=$1',[equipment]))
+      .toEqual({count:2});
+    await expect(ok(receipt)).resolves.toHaveProperty('id');
+    await expect(ok(receipt)).resolves.toHaveProperty('id');
+    expect((await listStock()).find(row=>row.item_id===data.material)?.physical).toBe(28);
+  });
+
   test('OpenAPI und Berechtigungen eines widerrufbaren Tokens',async()=>{
     const anonymous=await handle(new Request('http://desk.local/api/v1/projects'));
     expect(anonymous.status).toBe(401);
@@ -94,6 +265,24 @@ describe('API und Integrationen',()=>{
     expect((await handle(new Request('http://desk.local/api/v1/projects',{method:'POST',headers,body:'{}'}))).status).toBe(403);
     await db.unsafe('DELETE FROM api_tokens WHERE id=$1',[token.id]);
     expect((await handle(new Request('http://desk.local/api/v1/projects',{headers}))).status).toBe(401);
+  });
+
+  test('Anmeldung akzeptiert die normalisierte HTTPS-Origin und setzt ein Secure-Cookie',async()=>{
+    const child=Bun.spawn([process.execPath,'-e',`
+      import assert from 'node:assert/strict';
+      import { handle } from './src/server/api';
+      const login=(origin)=>handle(new Request('http://127.0.0.1/api/v1/login',{
+        method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},
+        body:JSON.stringify({email:process.env.DESK_FIXTURE_EMAIL,password:'muster-test-passwort'}),
+      }));
+      const allowed=await login('https://desk.example.test');
+      assert.equal(allowed.status,200);
+      assert.match(allowed.headers.get('Set-Cookie') ?? '',/; Secure/);
+      assert.equal((await login('https://fremd.example.test')).status,403);
+      process.exit(0);
+    `],{env:{...process.env,DESK_ORIGIN:'https://desk.example.test/',DESK_FIXTURE_EMAIL:actor.email},
+      stdout:'inherit',stderr:'inherit'});
+    expect(await child.exited).toBe(0);
   });
 
   test('Unklaren Zammad-Versand im Verlauf wiederfinden, ohne erneut zu senden',async()=>{
@@ -135,6 +324,69 @@ describe('API und Integrationen',()=>{
       if(priorUrl===undefined)delete process.env.ZAMMAD_URL; else process.env.ZAMMAD_URL=priorUrl;
       if(priorToken===undefined)delete process.env.ZAMMAD_TOKEN; else process.env.ZAMMAD_TOKEN=priorToken;
       service.stop(true);
+    }
+  });
+
+  test('Zammad-Verbindung wird nur mit Administratorsitzung und per Lesezugriff geprüft',async()=>{
+    const origin=process.env.DESK_ORIGIN ?? 'http://127.0.0.1';
+    const password='muster-test-passwort';
+    const staffEmail=crypto.randomUUID()+'@example.test';
+    await createAccount({email:staffEmail,name:'Musterperson',password,role:'member'});
+    const token=await createToken(actor,{label:'Verbindungsprüfung',scope:'write'});
+    async function loginCookie(email:string){
+      const response=await handle(new Request(origin+'/api/v1/login',{method:'POST',
+        headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({email,password})}));
+      expect(response.status).toBe(200);
+      return response.headers.get('Set-Cookie')!.split(';')[0];
+    }
+    const adminCookie=await loginCookie(actor.email);
+    const staffCookie=await loginCookie(staffEmail);
+    const check=(auth:Record<string,string>)=>handle(new Request(origin+'/api/v1/integrations/zammad/check',
+      {method:'POST',headers:{Origin:origin,'Content-Type':'application/json',...auth},body:'{"id":42}'}));
+    const calls: string[]=[];
+    const ticketPath='/api/v1/tickets/42';
+    const articlePath='/api/v1/ticket_articles/by_ticket/42';
+    let allowed=true;
+    const service=Bun.serve({hostname:'127.0.0.1',port:0,fetch(request){
+      const path=new URL(request.url).pathname;
+      calls.push(`${request.method} ${path}`);
+      if(request.method!=='GET' || request.headers.get('authorization')!=='Token token=muster-zammad-token'){
+        return new Response('Unerwarteter Aufruf',{status:400});
+      }
+      if(path===ticketPath) return Response.json({id:42,number:'42',title:'Synthetisches Testticket'});
+      if(path===articlePath) return allowed ? Response.json([{id:17,body:'Synthetischer Artikel'}])
+        : new Response('Interne Antwort mit muster-zammad-token',{status:403});
+      return new Response('Unbekannter Pfad',{status:404});
+    }});
+    const previousUrl=process.env.ZAMMAD_URL;
+    const previousToken=process.env.ZAMMAD_TOKEN;
+    try {
+      process.env.ZAMMAD_URL=service.url.origin;
+      process.env.ZAMMAD_TOKEN='muster-zammad-token';
+      expect((await check({Cookie:staffCookie})).status).toBe(403);
+      expect((await check({Authorization:`Bearer ${token.token}`})).status).toBe(403);
+      expect(calls).toEqual([]);
+      const success=await check({Cookie:adminCookie});
+      expect(success.status).toBe(201);
+      expect(await success.json()).toEqual({ok:true});
+      expect(calls.splice(0)).toEqual([`GET ${ticketPath}`,`GET ${articlePath}`]);
+
+      allowed=false;
+      const denied=await check({Cookie:adminCookie});
+      expect(denied.status).toBe(502);
+      expect(await denied.json()).toEqual({error:'Zammad verweigert den Zugriff auf das Ticket oder den Verlauf.'});
+      expect(calls.splice(0)).toEqual([`GET ${ticketPath}`,`GET ${articlePath}`]);
+
+      delete process.env.ZAMMAD_TOKEN;
+      const unconfigured=await check({Cookie:adminCookie});
+      expect(unconfigured.status).toBe(503);
+      expect(await unconfigured.json()).toEqual({error:'ZAMMAD ist nicht eingerichtet.'});
+      expect(calls).toEqual([]);
+    } finally {
+      if(previousUrl===undefined) delete process.env.ZAMMAD_URL; else process.env.ZAMMAD_URL=previousUrl;
+      if(previousToken===undefined) delete process.env.ZAMMAD_TOKEN; else process.env.ZAMMAD_TOKEN=previousToken;
+      service.stop(true);
+      await db.unsafe('DELETE FROM api_tokens WHERE id=$1',[token.id]);
     }
   });
 });
