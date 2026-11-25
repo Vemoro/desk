@@ -36,9 +36,9 @@ export function hasPendingWrite(scope:string) {
   return Boolean(storedAttempt(`desk-pending-write:${scope}`));
 }
 
-export function Form({fields,caption,submit,children,className='form-grid',retryScope,prepare,busyCaption='Wird gespeichert …',disabled=false}:{
+export function Form({fields,caption,submit,children,className='form-grid',retryScope,prepare,retryNote,busyCaption='Wird gespeichert …',disabled=false}:{
   fields:Field[]; caption:string; submit:(values:Fields,requestKey?:string)=>Promise<unknown>;
-  children?:ReactNode; className?:string; retryScope?:string; prepare?:(values:Fields)=>Fields; busyCaption?:string; disabled?:boolean;
+  children?:ReactNode; className?:string; retryScope?:string; prepare?:(values:Fields)=>Fields; retryNote?:string; busyCaption?:string; disabled?:boolean;
 }) {
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
@@ -142,7 +142,7 @@ export function Form({fields,caption,submit,children,className='form-grid',retry
     {children}
     {error && <p role="alert" className="inline-error wide">{error}</p>}
     {pending && <div className="wide">
-      <p role="status">Der letzte Vorgang kann bereits gespeichert sein. Sende dieselben Angaben erneut, um ihn zu prüfen.</p>
+      <p role="status">Der letzte Vorgang kann bereits gespeichert sein. Sende dieselben Angaben erneut, um ihn zu prüfen.{retryNote && <> {retryNote}</>}</p>
       <div className="actions">
         <button type="button" disabled={busy} onClick={()=>{if(attempt.current) void send(attempt.current.values);}}>
           Letzten Vorgang erneut senden
