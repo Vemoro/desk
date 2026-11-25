@@ -31,8 +31,10 @@ export async function syncOffer(projectId: string, offerId?: string, actorId?: s
   return db.begin(async transaction=>{
     await lockPlanning(transaction);
     const current = await getProject(projectId,transaction);
-    if (!offerId && current.haben_offer_id !== id) {
-      throw new DeskError(409,'Die Haben-Angebotsverknüpfung wurde inzwischen geändert.');
+    // Compare the saved offer snapshots after the remote read, for refreshes and relinking alike.
+    if (current.haben_offer_id !== existing.haben_offer_id ||
+      JSON.stringify(current.haben_offer) !== JSON.stringify(existing.haben_offer)) {
+      throw new DeskError(409,'Das Haben-Angebot wurde inzwischen abgeglichen. Bitte Projekt neu laden.');
     }
     const updated = required(await first<Project>(transaction,`
       UPDATE projects SET haben_offer_id=$2,haben_offer=($3::text)::jsonb,offer_ref=$4,

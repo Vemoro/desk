@@ -31,8 +31,11 @@ test('Der Projektverlauf zeigt den neuen Status und die ausgelöste Freigabe',as
   await expect(rows.nth(1)).toContainText('Freigegeben');
   await expect(rows.nth(1)).toContainText('Mira Muster · Automatische Freigabe');
   await expect(rows.nth(2)).toContainText('Anfrage → Abgesagt');
-  await project(page,'Büroinstallation Westflügel');
+  await project(page,'Veranstaltungsbetreuung im Kulturhaus');
   await views.getByRole('button',{name:'Verlauf'}).click();
   await expect(page.getByRole('table')).toContainText('Angebot → Bestätigt');
   await expect(page.getByRole('table')).not.toContainText('Anfrage → Abgesagt');
+  await page.setViewportSize({width:390,height:844});
+  await expect(views.getByRole('button',{name:'Verlauf'})).toBeVisible();
+  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
 });
