@@ -13,7 +13,7 @@ if (buildCommit && !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i.test(buildCommit)) {
 export default defineConfig(async () => ({
   define: {
     __DESK_MIGRATION_FILES__: JSON.stringify(await migrationFiles()),
-    __DESK_VERSION__: JSON.stringify(packageInfo.version),
+    __DESK_VERSION__: JSON.stringify(packageInfo.deskVersion),
     __DESK_BUILD_COMMIT__: JSON.stringify(buildCommit),
   },
   optimizeDeps: { exclude: ['bun'] },
