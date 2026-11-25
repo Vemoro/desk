@@ -207,7 +207,7 @@ export function Desk() {
       {section==='warehouse' && <Warehouse data={data} run={run} accountId={person.id}/>}
       {section==='costs' && <Costs data={data} run={run}/>}
       {section==='account' && <><PasskeySettings/><BuildInfo/></>}
-      {section==='settings'&&person.role==='admin' && <Settings data={data} run={run} flags={flags}/>}
+      {section==='settings'&&person.role==='admin' && <Settings data={data} run={run} flags={flags} accountId={person.id}/>}
     </main>
   </div>;
 }
@@ -389,7 +389,7 @@ function Costs({data,run}:{data:Data;run:Run}) {
   ]}))}/></Panel>;
 }
 
-function Settings({data,run,flags}:{data:Data;run:Run;flags:{haben:boolean;zammad:boolean}}) {
+function Settings({data,run,flags,accountId}:{data:Data;run:Run;flags:{haben:boolean;zammad:boolean};accountId:string}) {
   const [tokens,setTokens]=useState<Row[]>([]);
   const [issued,setIssued]=useState('');
   const [checkedTicket,setCheckedTicket]=useState<number>();
@@ -401,7 +401,22 @@ function Settings({data,run,flags}:{data:Data;run:Run;flags:{haben:boolean;zamma
       {name:'password',label:'Passwort (mindestens 12 Zeichen)',type:'password',required:true,autoComplete:'new-password'},
       {name:'role',label:'Rolle',choices:[{value:'member',label:'Mitarbeit'},{value:'admin',label:'Administration'}],required:true},
     ]} submit={(input)=>run(()=>api('users','POST',input),'Konto angelegt.')}/></Expand></div>
-    <Table headers={['Name','Rolle']} rows={data.users.map((row)=>({key:row.id,cells:[row.name,row.role==='admin'?'Administration':'Mitarbeit']}))}/></Panel>
+    <Table headers={['Name','Rolle','Zugang','Aktion']} rows={data.users.map((row)=>({key:row.id,cells:[
+      row.name,row.role==='admin'?'Administration':'Mitarbeit',row.blocked?'Gesperrt':'Aktiv',
+      <button onClick={()=>{
+        const blocked=!row.blocked;
+        const ownAccount=row.id===accountId;
+        const consequence=ownAccount?' Du wirst abgemeldet.':'';
+        if(blocked && !window.confirm(`Konto von ${row.name} sperren? Desk widerruft vorhandene Sitzungen und API-Tokens. Projektzuordnungen bleiben erhalten.${consequence}`)) return;
+        void run(async isCurrent=>{
+          await api(`users/${row.id}/access`,'PATCH',{blocked});
+          if(isCurrent()) {
+            setIssued('');
+            if(!ownAccount) await refresh().catch(()=>{});
+          }
+        },blocked?'Konto gesperrt.':'Konto freigegeben.');
+      }}>{row.blocked?'Konto freigeben':'Konto sperren'}</button>,
+    ]}))}/></Panel>
     <Panel title="API-Zugriff" action={<a href="/api/v1/openapi.json" target="_blank" rel="noreferrer">OpenAPI</a>}><div className="panel-body">
       <Expand title="API-Token erzeugen"><Form caption="Token erzeugen" fields={[
         {name:'label',label:'Name',required:true},{name:'scope',label:'Berechtigung',choices:[{value:'read',label:'Lesen'},{value:'write',label:'Lesen und schreiben'}],required:true},

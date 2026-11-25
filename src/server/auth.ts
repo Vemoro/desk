@@ -1,9 +1,9 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { APIError } from 'better-auth';
 import { z } from 'zod';
-import { db, first } from './db';
+import { db, first, type Query } from './db';
 import { DeskError } from './errors';
-import { loginInput, type Actor } from './accounts';
+import { loginInput, withAccountAccess, type Actor } from './accounts';
 import { deskAuth } from './desk-auth';
 import { configuredOrigin } from './origin';
 
@@ -33,11 +33,11 @@ export async function login(input: z.infer<typeof loginInput>, request: Request)
   if (attempt.count >= 8) throw new DeskError(429, 'Zu viele Anmeldeversuche. Bitte später erneut versuchen.');
   if (attempts.size < 10000 || attempts.has(key)) attempts.set(key, { ...attempt, count: attempt.count + 1 });
   try {
-    const { headers } = await deskAuth().api.signInEmail({
+    const { headers } = await withAccountAccess('shared', () => deskAuth().api.signInEmail({
       body: { email: input.email.toLowerCase(), password: input.password },
       headers: request.headers,
       returnHeaders: true,
-    });
+    }));
     attempts.delete(key);
     return headers;
   } catch (error) {
@@ -59,18 +59,18 @@ export async function logout(request: Request) {
   return headers;
 }
 
-export async function authenticate(request: Request): Promise<Actor> {
+export async function authenticate(request: Request, query: Query = db): Promise<Actor> {
   const auth = request.headers.get('authorization');
   let actor: Actor | undefined;
   if (auth !== null) {
     const bearer = auth.startsWith('Bearer ') ? auth.slice(7) : '';
     if (bearer && bearer.length <= 200) {
-      actor = await first<Actor>(db, 'SELECT u.id,u.email,u.name,u.role,t.scope FROM api_tokens t JOIN users u ON u.id=t.user_id WHERE t.hash=$1', [hash(bearer)]);
+      actor = await first<Actor>(query, 'SELECT u.id,u.email,u.name,u.role,t.scope FROM api_tokens t JOIN users u ON u.id=t.user_id WHERE t.hash=$1 AND NOT u.blocked', [hash(bearer)]);
     }
   } else if (request.headers.has('cookie')) {
     const session = await deskAuth().api.getSession({ headers: request.headers });
     if (session) {
-      actor = await first<Actor>(db,'SELECT id,email,name,role FROM users WHERE id=$1',[session.user.id]);
+      actor = await first<Actor>(query,'SELECT id,email,name,role FROM users WHERE id=$1 AND NOT blocked',[session.user.id]);
     }
   }
   if (!actor) throw new DeskError(401, 'Anmeldung erforderlich.');
@@ -78,10 +78,14 @@ export async function authenticate(request: Request): Promise<Actor> {
   return actor;
 }
 
-export async function createToken(actor: Actor, input: z.infer<typeof tokenInput>) {
+export async function createToken(actor: Actor, input: z.infer<typeof tokenInput>, query: Query = db) {
   requireAdmin(actor);
   const token = `desk_${secret()}`;
-  const record = await first<{ id:string; label:string; scope:string; created_at:Date }>(db, 'INSERT INTO api_tokens(hash,user_id,label,scope) VALUES ($1,$2,$3,$4) RETURNING id,label,scope,created_at',
+  const record = await first<{ id:string; label:string; scope:string; created_at:Date }>(query,`
+    INSERT INTO api_tokens(hash,user_id,label,scope)
+    SELECT $1,id,$3,$4 FROM users WHERE id=$2 AND NOT blocked FOR SHARE
+    RETURNING id,label,scope,created_at`,
     [hash(token), actor.id, input.label, input.scope]);
+  if (!record) throw new DeskError(401, 'Anmeldung erforderlich.');
   return { ...record, token };
 }

@@ -1,6 +1,7 @@
 import type { z } from 'zod';
 import { db, first, rows, type Query } from './db';
 import { DeskError, required } from './errors';
+import { requireAvailableAssignee } from './accounts';
 import { schemas, type costInput, type projectStage, type stages } from './contracts';
 
 export type Collection = keyof typeof schemas;
@@ -44,7 +45,16 @@ export async function saveCore(table: Collection, data: Record<string, unknown>,
   const statement = id
     ? `UPDATE ${table} SET ${keys.map((key, index) => `${key}=${placeholders[index]}`).join(',')} WHERE id=$${keys.length + 1}`
     : `INSERT INTO ${table}(${keys.join(',')}) VALUES (${placeholders.join(',')})`;
-  return required(await first<{id:string} & Record<string,unknown>>(db, `${statement} RETURNING ${selected[table]}`, id ? [...values, id] : values));
+  const save = async (query: Query) =>
+    required(await first<{id:string} & Record<string,unknown>>(query, `${statement} RETURNING ${selected[table]}`, id ? [...values, id] : values));
+  const assignee = data.assignee_id;
+  if (table !== 'tasks' || typeof assignee !== 'string') return save(db);
+  return db.begin(async transaction=>{
+    const prior = id ? required(await first<{ assignee_id: string | null }>(transaction,
+      'SELECT assignee_id FROM tasks WHERE id=$1 FOR UPDATE',[id])) : undefined;
+    if (prior?.assignee_id !== assignee.toLowerCase()) await requireAvailableAssignee(transaction,assignee);
+    return save(transaction);
+  });
 }
 
 const transitions: Record<Stage, Stage[]> = {

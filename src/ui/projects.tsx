@@ -82,11 +82,16 @@ function Overview({project,data,run,haben}:{project:Row;data:Data;run:Run;haben:
 
 function Kanban({project,data,run}:{project:Row;data:Data;run:Run}) {
   const tasks=data.tasks.filter((task)=>task.project_id===project.id);
+  const activePeople=options(data.users.filter(person=>!person.blocked));
+  function assigneeChoices(id:string | null) {
+    const previous=data.users.find(person=>person.id===id && person.blocked);
+    return previous ? [...activePeople,{value:previous.id,label:`${previous.name} (gesperrt)`}] : activePeople;
+  }
   return <>
     <Panel title="Aufgaben" action={<span className="subtle">{tasks.length} Aufgaben</span>}>
       <div className="panel-body"><Expand title="Aufgabe anlegen">
         <Form caption="Aufgabe speichern" fields={[
-          {name:'name',label:'Aufgabe',required:true},{name:'assignee_id',label:'Verantwortlich',choices:options(data.users)},
+          {name:'name',label:'Aufgabe',required:true},{name:'assignee_id',label:'Verantwortlich',choices:activePeople},
           {name:'due',label:'Fällig am',type:'date'},
         ]} submit={(fields)=>run(()=>api('tasks','POST',{project_id:project.id,...fields,assignee_id:fields.assignee_id||null,due:fields.due||null}),'Aufgabe angelegt.')}/>
       </Expand></div>
@@ -103,7 +108,7 @@ function Kanban({project,data,run}:{project:Row;data:Data;run:Run}) {
             {Object.entries(taskStages).map(([key,value])=><option value={key} key={key}>{value}</option>)}
           </select></label>
           <Expand title="Bearbeiten"><Form caption="Aufgabe aktualisieren" fields={[
-            {name:'name',label:'Aufgabe',value:task.name,required:true},{name:'assignee_id',label:'Verantwortlich',value:task.assignee_id,choices:options(data.users)},{name:'due',label:'Fällig am',type:'date',value:task.due?.slice(0,10)},
+            {name:'name',label:'Aufgabe',value:task.name,required:true},{name:'assignee_id',label:'Verantwortlich',value:task.assignee_id,choices:assigneeChoices(task.assignee_id)},{name:'due',label:'Fällig am',type:'date',value:task.due?.slice(0,10)},
           ]} submit={(fields)=>run(()=>api(`tasks/${task.id}`,'PATCH',{...fields,assignee_id:fields.assignee_id||null,due:fields.due||null}))}/></Expand>
         </article>)}
       </section>)}
@@ -114,6 +119,8 @@ function Kanban({project,data,run}:{project:Row;data:Data;run:Run}) {
 function Planning({project,data,run,accountId}:{project:Row;data:Data;run:Run;accountId:string}) {
   const reservations=data.reservations.filter((row)=>row.project_id===project.id);
   const lines=data.lines.filter((row)=>row.project_id===project.id);
+  const activePeople=options(data.users.filter(person=>!person.blocked));
+  const blockedPeople=new Set(data.users.filter(person=>person.blocked).map(person=>person.id));
   const timeFields=[
     {name:'starts_at',label:'Von',type:'datetime-local',required:true},
     {name:'ends_at',label:'Bis',type:'datetime-local',required:true},
@@ -121,7 +128,7 @@ function Planning({project,data,run,accountId}:{project:Row;data:Data;run:Run;ac
   return <>
     <Panel title="Ressourcenplanung"><div className="panel-body compact-actions">
       <Expand title="Personal vormerken"><Form caption="Person vormerken" retryScope={`reservations:${accountId}:${project.id}:person`} prepare={reservationTimes} fields={[
-        {name:'user_id',label:'Person',choices:options(data.users),required:true},...timeFields,
+        {name:'user_id',label:'Person',choices:activePeople,required:true},...timeFields,
       ]} submit={(v,key)=>run(()=>api('reservations','POST',{...v,project_id:project.id,quantity:1},key),'Person vorgemerkt.',{reportWriteRejection:true})}/></Expand>
       <Expand title="Inventar vormerken"><Form caption="Inventar vormerken" retryScope={`reservations:${accountId}:${project.id}:item`} prepare={reservationTimes} fields={[
         {name:'item_id',label:'Artikel',choices:options(data.items),required:true},
@@ -132,7 +139,10 @@ function Planning({project,data,run,accountId}:{project:Row;data:Data;run:Run;ac
       key:row.id,cells:[row.user_id ? name(data.users,row.user_id) : <>{name(data.items,row.item_id)}<small>{name(data.locations,row.location_id)}</small></>,
         <>{moment(row.starts_at)}<small>bis {moment(row.ends_at)}</small></>,row.quantity,
         <Pill label={reservationStages[row.status]} tone={row.status==='firm'?'accent':'neutral'}/>,
-        <div className="actions">{row.status==='tentative' && ['confirmed','running'].includes(project.stage) && <button onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'firm'}),'Fest reserviert.')}>Fest reservieren</button>}
+        <div className="actions">{row.status==='tentative' && ['confirmed','running'].includes(project.stage) && (
+          blockedPeople.has(row.user_id) ? <span className="subtle">Konto gesperrt</span>
+            : <button onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'firm'}),'Fest reserviert.')}>Fest reservieren</button>
+        )}
           {row.status!=='released' && <button onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'released'}),'Reservierung freigegeben.')}>Freigeben</button>}</div>],
     }))}/></Panel>
     <Panel title="Kalkulation" action={<button onClick={()=>run(async(isCurrent)=>{

@@ -1,6 +1,7 @@
 import type { z } from 'zod';
 import { db, first, rows, type Query } from './db';
 import { DeskError, required } from './errors';
+import { requireAvailableAssignee } from './accounts';
 import { getProject, lockPlanning } from './core';
 import type { movementInput, reservationInput } from './contracts';
 
@@ -36,6 +37,7 @@ async function physical(query: Query, itemId: string, locationId: string) {
 
 async function reserveCapacity(query: Query, request: Reservation) {
   if (request.user_id) {
+    await requireAvailableAssignee(query,request.user_id);
     const conflict = await first(query, `SELECT id FROM reservations WHERE user_id=$1 AND status='firm' AND id<>$2
       AND starts_at<$4 AND ends_at>$3 LIMIT 1`, [request.user_id, request.id, request.starts_at, request.ends_at]);
     if (conflict) throw new DeskError(409, 'Die Person ist in diesem Zeitraum bereits fest eingeplant.');
@@ -75,6 +77,7 @@ export async function createReservation(input: z.infer<typeof reservationInput>,
   },async transaction=>{
     const project = await getProject(input.project_id, transaction);
     if (['complete','cancelled'].includes(project.stage)) throw new DeskError(409, 'Das Projekt ist abgeschlossen.');
+    if (input.user_id) await requireAvailableAssignee(transaction,input.user_id);
     if (input.item_id) {
       const material = await item(transaction, input.item_id);
       if (material.inventory_number && input.quantity !== 1) throw new DeskError(400, 'Ein Einzelgerät hat die Menge 1.');

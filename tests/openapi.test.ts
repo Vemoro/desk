@@ -84,7 +84,7 @@ test('Der API-Vertrag unterscheidet Sitzungen, Token und die Administrationsroll
   });
   expect(byPath.get('/paths/~1ready/get')).toMatchObject({security:[]});
   const adminOperations=new Set([
-    '/paths/~1users/post','/paths/~1tokens/get','/paths/~1tokens/post','/paths/~1tokens~1{id}/delete',
+    '/paths/~1users/post','/paths/~1users~1{id}~1access/patch','/paths/~1tokens/get','/paths/~1tokens/post','/paths/~1tokens~1{id}/delete',
     '/paths/~1integrations~1zammad~1check/post',
   ]);
   const sessions=[{secureSession:[]},{session:[]}];

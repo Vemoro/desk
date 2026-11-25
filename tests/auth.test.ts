@@ -43,6 +43,15 @@ test('Migration erhält Altbestand und widerruft alte Sitzungen',async()=>{
     const createdAfterRollback = (await first<{id:string}>(transaction,
       "INSERT INTO users(email,name,password_hash,role) VALUES ('neu@example.test','Nach Rückweg','hash','member') RETURNING id"))!;
     expect(await first(transaction,'SELECT password FROM auth_accounts WHERE "userId"=$1',[createdAfterRollback.id])).toEqual({password:'hash'});
+
+    await transaction.unsafe(await Bun.file(new URL('../migrations/005_team_access.sql',import.meta.url)).text()).simple();
+    expect(await first(transaction,`SELECT u.id,u.blocked FROM users u
+      JOIN auth_users a ON a.id=u.id JOIN tasks t ON t.assignee_id=u.id JOIN api_tokens k ON k.user_id=u.id
+      WHERE u.id=$1 AND t.project_id=$2 AND k.hash='alter-token'`,[legacy.id,project.id])).toEqual({id:legacy.id,blocked:false});
+    await transaction.unsafe('UPDATE users SET blocked=true WHERE id=$1',[legacy.id]);
+    expect(await first(transaction,'SELECT id FROM auth_users WHERE id=$1',[legacy.id])).toBeUndefined();
+    expect(await first(transaction,'SELECT assignee_id FROM tasks WHERE project_id=$1',[project.id])).toEqual({assignee_id:legacy.id});
+
     await transaction.unsafe(`DROP SCHEMA ${schema} CASCADE`);
   });
 });

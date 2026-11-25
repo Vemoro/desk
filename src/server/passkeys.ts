@@ -2,6 +2,9 @@ import { APIError } from 'better-auth';
 import { deskAuth } from './desk-auth';
 import { db } from './db';
 import { configuredOrigin } from './origin';
+import { withAccountAccess } from './accounts';
+import { DeskError } from './errors';
+import { readRequestBody } from './request-body';
 
 const authenticationOptions='/api/auth/passkey/generate-authenticate-options';
 const registrationOptions='/api/auth/passkey/generate-register-options';
@@ -27,7 +30,10 @@ export async function handlePasskey(request:Request) {
     if(requiresSession && request.headers.has('authorization')) {
       return Response.json({message:'Eine Desk-Sitzung ist erforderlich.'},{status:401,headers});
     }
-    const response=await deskAuth().handler(request);
+    // A streaming client must finish sending before it can delay a revocation.
+    const input=request.body ? new Request(request,{body:await readRequestBody(request)}) : request;
+    const run=()=>deskAuth().handler(input);
+    const response=path===authenticationOptions ? await run() : await withAccountAccess('shared',run);
     for(const [name,value] of Object.entries(headers)) response.headers.set(name,value);
     if(response.ok && (path===authenticationOptions || path===registrationOptions)) {
       await db.unsafe('DELETE FROM auth_verifications WHERE "expiresAt"<=now()');
@@ -40,6 +46,7 @@ export async function handlePasskey(request:Request) {
     }
     return response;
   } catch(error) {
+    if(error instanceof DeskError) return Response.json({message:error.message},{status:error.status,headers});
     const status=error instanceof APIError ? error.statusCode : 500;
     if(status>=500) console.error('Desk-Anmeldung: Die Passkey-Anfrage ist fehlgeschlagen.');
     return Response.json({message:'Passkey-Anfrage fehlgeschlagen.'},{status,headers});

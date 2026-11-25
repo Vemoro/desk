@@ -38,9 +38,10 @@ test('Passkeys gehören einem eigenen Konto und funktionieren neben dem Passwort
   await signIn(page);
   const origin=new URL(page.url()).origin;
   const email=`passkey-${crypto.randomUUID()}@example.test`;
+  const memberName=`Muster Mitarbeit ${email.slice(8,16)}`;
   const password=process.env.DESK_DEMO_PASSWORD!;
   const member=await page.request.post('/api/v1/users',{
-    headers:{Origin:origin},data:{email,password,name:'Muster Mitarbeit',role:'member'},
+    headers:{Origin:origin},data:{email,password,name:memberName,role:'member'},
   });
   expect(member.status()).toBe(201);
   await page.getByRole('button',{name:'Mein Konto',exact:true}).click();
@@ -89,10 +90,35 @@ test('Passkeys gehören einem eigenen Konto und funktionieren neben dem Passwort
     await memberPage.getByRole('button',{name:'Passkey hinzufügen'}).click();
     await expect(memberPage.getByRole('button',{name:'Passkey Muster Privat entfernen'})).toBeVisible();
     await expect(memberPage.getByRole('button',{name:`Passkey ${label} entfernen`})).toHaveCount(0);
+
+    await page.goto('/');
+    await expect(page.getByRole('heading',{name:'Übersicht',exact:true})).toBeVisible();
+    await page.getByRole('button',{name:'Einstellungen',exact:true}).click();
+    const teamRow=page.getByRole('row').filter({has:page.getByText(memberName,{exact:true})});
+    page.once('dialog',dialog=>dialog.dismiss());
+    await teamRow.getByRole('button',{name:'Konto sperren'}).click();
+    await expect(teamRow.getByRole('cell',{name:'Aktiv',exact:true})).toBeVisible();
+    page.once('dialog',dialog=>dialog.accept());
+    await teamRow.getByRole('button',{name:'Konto sperren'}).click();
+    await expect(teamRow.getByRole('cell',{name:'Gesperrt',exact:true})).toBeVisible();
+    expect((await unauthorized.request.get('/api/v1/me')).status()).toBe(401);
+
+    await memberPage.goto('/');
+    await expect(memberPage.getByRole('heading',{name:'Anmelden',exact:true})).toBeVisible();
+    const verifyBlocked=memberPage.waitForResponse(response=>response.url().endsWith(passkeyPath+'verify-authentication'));
+    await memberPage.getByRole('button',{name:'Mit Passkey anmelden'}).click();
+    expect((await verifyBlocked).status()).toBe(401);
+    await expect(memberPage.getByRole('alert')).toContainText('Anmeldung mit Passkey wurde nicht abgeschlossen');
+
+    await teamRow.getByRole('button',{name:'Konto freigeben'}).click();
+    await expect(teamRow.getByRole('cell',{name:'Aktiv',exact:true})).toBeVisible();
+    await memberPage.getByRole('button',{name:'Mit Passkey anmelden'}).click();
+    await expect(memberPage.getByRole('heading',{name:'Übersicht',exact:true})).toBeVisible();
   } finally {
     await unauthorized.close();
   }
 
+  await page.getByRole('button',{name:'Mein Konto',exact:true}).click();
   await page.getByRole('button',{name:'Abmelden',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Anmelden',exact:true})).toBeVisible();
   const signInOptions=await (await page.request.get(passkeyPath+'generate-authenticate-options')).json();
