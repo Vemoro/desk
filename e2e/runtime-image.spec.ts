@@ -1,5 +1,5 @@
 import { expect,test } from '@playwright/test';
-import { deskVersion } from '../package.json' with { type: 'json' };
+import packageInfo from '../package.json' with { type: 'json' };
 
 test('Runtime-Image erlaubt Anmeldung und meldet den ausgelieferten Git-Stand',async({page})=>{
   const password=process.env.DESK_RUNTIME_TEST_PASSWORD;
@@ -19,5 +19,5 @@ test('Runtime-Image erlaubt Anmeldung und meldet den ausgelieferten Git-Stand',a
   expect(await projects.json()).toEqual([]);
   await page.getByRole('button',{name:'Mein Konto',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Desk-Version',exact:true})).toBeVisible();
-  await expect(page.getByLabel('Version und Git-Commit')).toHaveValue(`Desk ${deskVersion} · Git-Commit ${commit}`);
+  await expect(page.getByLabel('Version und Git-Commit')).toHaveValue(`Desk ${packageInfo.deskVersion} · Git-Commit ${commit}`);
 });
