@@ -21,6 +21,10 @@ Eine Verbrauchskorrektur schreibt die Menge dem Lagerort gut. Bei fester Reservi
 
 War die Antwort auf eine bereits gespeicherte Vollkorrektur unklar, öffne an der Originalbuchung **Korrektur prüfen** und wähle **Letzten Vorgang erneut senden**. Desk zeigt das Ergebnis der ursprünglichen Buchung.
 
+### Bestand filtern
+
+Unter **Bestand je Lagerort** sucht **Bestand suchen** nach Teilen des Artikelnamens, der Artikelnummer oder der Inventarnummer. Groß- und Kleinschreibung spielen dabei keine Rolle. **Lagerort filtern** lässt sich mit der Suche kombinieren. Bei leerem Suchergebnis zeigt Desk „Kein Bestand für diese Filter.“ **Filter zurücksetzen** zeigt wieder alle Bestandszeilen. Der Abschnitt **Offene Ausgaben** hat eigene Filter.
+
 ## Haben
 
 `HABEN_URL` und `HABEN_TOKEN` auf dem Desk-Server setzen. Angebote benötigen Leserechte für Angebote. Ein Kontaktabgleich benötigt passend zum gewählten Vorgang Lese- oder Schreibrechte für Kontakte. Gemeinsam gepflegt werden Name, E-Mail und Telefon. Der Import legt neue Kontakte an, deren Namen und E-Mail-Adresse keinem unverknüpften Desk-Kontakt entsprechen. Bestehende Verknüpfungen werden einzeln abgeglichen. Bei abweichenden Änderungen auf beiden Seiten bleibt die Wahl beim Team.
