@@ -12,7 +12,7 @@ test('Kontaktsuche berücksichtigt formatierte Telefonnummern, Namen und E-Mail'
   const search=page.getByRole('searchbox',{name:'Kontakte suchen'});
   const table=page.getByRole('table');
   await expect(table.getByRole('row')).toHaveCount(4);
-  for(const query of ['30 123-4','301234','MIRA','montage@example']){
+  for(const query of ['30 123-4','301234','+49 (30) 123-4567','MIRA','montage@example']){
     await search.fill(query);
     await expect(table.getByRole('row')).toHaveCount(2);
     await expect(table.getByText('+49 (30) 123-4567',{exact:true})).toBeVisible();

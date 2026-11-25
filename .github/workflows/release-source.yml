@@ -1,0 +1,39 @@
+name: Desk-Quellpaket prüfen
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: Vollständige Commit-ID des Desk-Kandidaten
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  source:
+    if: github.ref == 'refs/heads/main' && github.event.repository.private == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: refs/heads/main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Commit prüfen und Quellpaket erstellen
+        env:
+          CANDIDATE_SHA: ${{ inputs.commit }}
+        run: |
+          if [[ "$GITHUB_REF" != refs/heads/main ]]; then
+            echo "Der Workflow wird auf main gestartet." >&2
+            exit 1
+          fi
+          if ! git --no-replace-objects merge-base --is-ancestor -- "$CANDIDATE_SHA" HEAD; then
+            echo "Der Kandidat muss aus der Historie von main stammen." >&2
+            exit 1
+          fi
+          python3 scripts/package-release-source.py "$CANDIDATE_SHA" "${RUNNER_TEMP}/desk-release-source"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: Desk-Quellpaket
+          path: ${{ runner.temp }}/desk-release-source/
+          if-no-files-found: error
+          compression-level: 0
