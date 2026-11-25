@@ -44,3 +44,20 @@ Verwende für die Probe einen getrennten Checkout derselben Anwendungsversion oh
 3. Im Projektlager den Wareneingang **Mobiles Technikset** mit Menge **1** prüfen. Über die authentifizierten Endpunkte `/api/v1/movements` und `/api/v1/locations` lässt sich die Lagerort-ID dem **Hauptlager** zuordnen.
 
 Halte Quelle, Ziel, verwendete Anwendungsversion, Ergebnis und Zeitpunkt fest. Zugangsdaten und Archiv bleiben im geschützten Arbeitsbereich.
+
+## Upgrade und Wiederanlauf proben
+
+Sichere die Testdaten auf dem Ausgangsstand. Stelle dasselbe Vorab-Archiv in zwei neu angelegten Datenbanken wieder her. Verwende pro Desk-Instanz den zugehörigen Checkout, einen eigenen Loopback-Port und die passende `DESK_ORIGIN` wie im Probelauf. Setze die Integrationsvariablen in beiden Instanzen auf leer.
+
+1. Setze im Checkout der Zielversion `DATABASE_URL` auf die erste Wiederherstellung. Prüfe die Verbindung und führe `bun run migrate` aus. Vergleiche das Ergebnis von `SELECT name FROM desk_migrations ORDER BY name;` mit den erwarteten Migrationsdateien des Zielstands. Starte die Zielversion mit dieser Datenbank. Prüfe Anmeldung, Integrationsstatus und die Daten des Beispielauftrags.
+2. Starte die Ausgangsversion mit ihrer Laufzeitkonfiguration und setze `DATABASE_URL` auf die zweite, aus dem Vorab-Archiv wiederhergestellte Datenbank. Prüfe Anmeldung, Integrationsstatus, Migrationsstand und den Zugriff auf Projekt und Beleg.
+
+### Erste Probe am 24. November 2026
+
+Die Quelle war Desk-Kern [`b7a69f4`](https://github.com/Vemoro/desk/commit/b7a69f4b644c74296bca895f1c6c4f6babff9b42). Das Upgrade-Ziel war [`f7f865a`](https://github.com/Vemoro/desk/commit/f7f865a96325df1e0c25d391c7b2c4fbc2ce3167). Die Sicherung und beide Wiederherstellungen liefen mit PostgreSQL 17.12 in einer lokalen Testumgebung. Das Archiv wurde im Custom-Format erstellt und mit `--single-transaction --exit-on-error --no-owner --no-privileges` wiederhergestellt.
+
+| Prüfung | Ergebnis |
+| --- | --- |
+| Zielversion | `001_core.sql` und `002_delivery_reference.sql` waren registriert. Die Anmeldung war erfolgreich und die Integrationsabfrage meldete Haben und Zammad als deaktiviert. |
+| Projekt und Lager | Die authentifizierte REST-API lieferte „Büroinstallation Westflügel“ mit dem Kontakt „Kontor West“, fünf Aufgaben und dem zugeordneten Beleg `E-K-103` über 62,90 €. Der vorhandene Wareneingang „Mobiles Technikset“ mit Menge 1 hatte `delivery_reference: null`. |
+| Wiederanlauf | In der zweiten Wiederherstellung war nur `001_core.sql` registriert. Die Ausgangsversion erlaubte die Anmeldung und lieferte Projekt und Beleg mit derselben Zuordnung. Beide Integrationen waren deaktiviert. |
