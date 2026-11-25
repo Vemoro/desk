@@ -299,7 +299,6 @@ function Contacts({data,run,haben}:{data:Data;run:Run;haben:boolean}) {
     if(!isCurrent()) return;
     setSelected(result.id);
     setComparison(undefined);
-    setDuplicates(undefined);
   }
 
   async function createContact(fields:Record<string,string>) {
@@ -313,6 +312,7 @@ function Contacts({data,run,haben}:{data:Data;run:Run;haben:boolean}) {
       setDuplicates({input,contacts});
       return;
     }
+    setDuplicates(undefined);
     await run(isCurrent=>saveContact(input,isCurrent),'Kontakt angelegt.');
   }
 
@@ -372,7 +372,10 @@ function Contacts({data,run,haben}:{data:Data;run:Run;haben:boolean}) {
         {comparison&&comparison.action!=='conflict'&&<p role="status">Abgleich abgeschlossen.</p>}
       </Expand>}
     </div></Panel>}
-    {confirmation&&<ConfirmDialog confirmation={confirmation} run={run} dismiss={()=>setConfirmation(undefined)} fallbackFocus={contactPanel}/>}
+    {confirmation&&<ConfirmDialog confirmation={confirmation} run={run} dismiss={(confirmed)=>{
+      setConfirmation(undefined);
+      if(confirmed) setDuplicates(undefined);
+    }} fallbackFocus={contactPanel}/>}
   </>;
 }
 

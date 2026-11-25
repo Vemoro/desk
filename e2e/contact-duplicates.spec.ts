@@ -72,38 +72,54 @@ test('Dubletten aus allen geladenen Seiten anzeigen und bewusst einen Kontakt an
   await expect(warning).toBeHidden();
 });
 
-test('Dieselbe Dublettenbestätigung bleibt nach einem Ansichtswechsel gesperrt',async({page})=>{
-  let posts=0;
-  const release=Promise.withResolvers<void>();
-  await page.route('**/api/v1/contacts?*',route=>route.fulfill({json:existing.slice(-3)}));
-  await page.route('**/api/v1/contacts',async route=>{
-    posts++;
-    await release.promise;
-    await route.fulfill({status:409,json:{error:'Kontakt konnte nicht gespeichert werden.'}});
+for(const outcome of ['Erfolg','Fehler'] as const) {
+  test(`Bei einer laufenden Dublettenbestätigung zeigt Desk nach einem Ansichtswechsel den ${outcome}`,async({page})=>{
+    let posts=0;
+    const contacts=existing.slice(-3);
+    const release=Promise.withResolvers<void>();
+    await page.route('**/api/v1/contacts?*',route=>route.fulfill({json:contacts}));
+    await page.route('**/api/v1/contacts',async route=>{
+      posts++;
+      await release.promise;
+      if(outcome==='Erfolg') {
+        const created={...route.request().postDataJSON(),id:'created',name:'Mira Montage Neu'};
+        contacts.push(created);
+        return route.fulfill({status:201,json:created});
+      }
+      await route.fulfill({status:409,json:{error:'Kontakt konnte nicht gespeichert werden.'}});
+    });
+    async function openConfirmation() {
+      await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Kontakte',exact:true}).click();
+      await page.getByText('Kontakt anlegen',{exact:true}).click();
+      await page.getByRole('textbox',{name:'Name',exact:true}).fill('Mira Montage');
+      await page.getByRole('button',{name:'Kontakt speichern',exact:true}).click();
+      await page.getByRole('button',{name:'Trotzdem anlegen',exact:true}).click();
+      return page.getByRole('dialog',{name:'Neuen Kontakt anlegen'});
+    }
+    try {
+      await signIn(page);
+      await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Übersicht',exact:true}).click();
+      const first=await openConfirmation();
+      await first.getByRole('button',{name:'Kontakt anlegen',exact:true}).click();
+      await expect.poll(()=>posts).toBe(1);
+      await page.goBack();
+      await expect(page.getByRole('heading',{name:'Übersicht',exact:true})).toBeVisible();
+      const reopened=await openConfirmation();
+      await expect(reopened.getByRole('alert')).toHaveText('Diese Aktion läuft bereits.');
+      await expect(reopened.getByRole('button',{name:'Kontakt anlegen',exact:true})).toBeDisabled();
+      release.resolve();
+      if(outcome==='Erfolg') {
+        await expect(reopened).toBeHidden();
+        await expect(page.getByRole('region',{name:'Mögliche Dubletten',exact:true})).toBeHidden();
+        await expect(page.getByRole('button',{name:'Mira Montage Neu',exact:true})).toBeVisible();
+      } else {
+        await expect(reopened.getByRole('alert')).toHaveText('Kontakt konnte nicht gespeichert werden.');
+        await reopened.getByRole('button',{name:'Schließen',exact:true}).click();
+        await expect(page.getByRole('textbox',{name:'Name',exact:true})).toHaveValue('Mira Montage');
+      }
+      expect(posts).toBe(1);
+    } finally {
+      release.resolve();
+    }
   });
-  async function openConfirmation() {
-    await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Kontakte',exact:true}).click();
-    await page.getByText('Kontakt anlegen',{exact:true}).click();
-    await page.getByRole('textbox',{name:'Name',exact:true}).fill('Mira Montage');
-    await page.getByRole('button',{name:'Kontakt speichern',exact:true}).click();
-    await page.getByRole('button',{name:'Trotzdem anlegen',exact:true}).click();
-    return page.getByRole('dialog',{name:'Neuen Kontakt anlegen'});
-  }
-  try {
-    await signIn(page);
-    const first=await openConfirmation();
-    await first.getByRole('button',{name:'Kontakt anlegen',exact:true}).click();
-    await expect.poll(()=>posts).toBe(1);
-    await page.goBack();
-    const reopened=await openConfirmation();
-    await expect(reopened.getByRole('alert')).toHaveText('Diese Aktion läuft bereits.');
-    await expect(reopened.getByRole('button',{name:'Kontakt anlegen',exact:true})).toBeDisabled();
-    release.resolve();
-    await expect(reopened.getByRole('alert')).toHaveText('Kontakt konnte nicht gespeichert werden.');
-    await reopened.getByRole('button',{name:'Schließen',exact:true}).click();
-    await expect(page.getByRole('textbox',{name:'Name',exact:true})).toHaveValue('Mira Montage');
-    expect(posts).toBe(1);
-  } finally {
-    release.resolve();
-  }
-});
+}
