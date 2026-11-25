@@ -10,16 +10,16 @@ import { checkZammadConnection, conversations, linkTicket, reviewOutgoing, send,
 import { integrationStatus } from './remote';
 
 type Context = { actor: Actor; path: string[]; limit: number; offset: number; requestKey?:string };
-type Operation = { method: string; path: string; summary: string; run: (context: Context, input: unknown) => Promise<unknown>; input?: z.ZodType; keyed?: boolean; sessionOnly?: boolean };
+type Operation = { method: string; path: string; summary: string; run: (context: Context, input: unknown) => Promise<unknown>; input?: z.ZodType; keyed?: boolean; adminSession?: boolean };
 const operations: Operation[] = [];
 const requestKeyHeader='Idempotency-Key';
 const requestKeySchema=z.string().regex(/^[A-Za-z0-9._:-]{1,128}$/).optional();
 
-function get(path: string, summary: string, run: (context: Context) => Promise<unknown>) {
-  operations.push({ method: 'GET', path, summary, run });
+function get(path: string, summary: string, run: (context: Context) => Promise<unknown>, options: Pick<Operation,'adminSession'> = {}) {
+  operations.push({ method: 'GET', path, summary, run, ...options });
 }
 
-function action<T>(method: 'POST'|'PATCH', path: string, summary: string, input: z.ZodType<T>, run: (context: Context, input: T) => Promise<unknown>, options: Pick<Operation,'keyed'|'sessionOnly'> = {}) {
+function action<T>(method: 'POST'|'PATCH', path: string, summary: string, input: z.ZodType<T>, run: (context: Context, input: T) => Promise<unknown>, options: Pick<Operation,'keyed'|'adminSession'> = {}) {
   operations.push({ method,path,summary,input,...options,run:(context,value)=>run(context,input.parse(value)) });
 }
 
@@ -40,18 +40,18 @@ action('POST','/integrations/zammad/check','Zammad-Verbindung mit einem bestehen
   zammadLinkInput,({actor},input)=>{
     requireAdmin(actor);
     return checkZammadConnection(input.id);
-  },{sessionOnly:true});
+  },{adminSession:true});
 get('/users','Team auflisten',()=>rows(db,'SELECT id,name,role FROM users ORDER BY name,id'));
 action('POST','/users','Teamkonto anlegen',accountInput,({actor},input)=>{
   requireAdmin(actor);
   return createAccount(input);
-});
+},{adminSession:true});
 get('/tokens','API-Tokens auflisten',({actor})=>{
   requireAdmin(actor);
   return rows(db,'SELECT id,label,scope,created_at FROM api_tokens ORDER BY created_at DESC');
-});
-action('POST','/tokens','API-Token erzeugen',tokenInput,({actor},input)=>createToken(actor,input));
-operations.push({ method:'DELETE', path:'/tokens/{id}', summary:'API-Token widerrufen', async run({ actor,path }) {
+},{adminSession:true});
+action('POST','/tokens','API-Token erzeugen',tokenInput,({actor},input)=>createToken(actor,input),{adminSession:true});
+operations.push({ method:'DELETE', path:'/tokens/{id}', summary:'API-Token widerrufen', adminSession:true, async run({ actor,path }) {
   requireAdmin(actor);
   return required(await first(db,'DELETE FROM api_tokens WHERE id=$1 RETURNING id',[path[1]]));
 }});
@@ -155,10 +155,12 @@ function openApi() {
     '/ready':{get:{summary:'Bereitschaft des Dienstes',security:[],
       responses:{200:{description:'Bereit'},503:{description:'Nicht bereit'}}}},
   };
+  const sessions=[{secureSession:[]},{session:[]}];
   for (const op of operations) {
     (paths[op.path] ??= {})[op.method.toLowerCase()] = {
       summary:op.summary,
-      security:op.sessionOnly?[{secureSession:[]},{session:[]}]:[{token:[]}],
+      security:op.adminSession ? sessions : [...sessions,{token:[]}],
+      ...(op.adminSession ? {description:'Diese Aktion erfordert eine Sitzung mit der Rolle Administration.'} : {}),
       parameters:[
         ...[...op.path.matchAll(/\{(\w+)\}/g)].map(([,name])=>({name,in:'path',required:true,schema:{type:'string',format:'uuid'}})),
         ...(op.keyed ? [{name:requestKeyHeader,in:'header',required:false,schema:z.toJSONSchema(requestKeySchema.unwrap()),
@@ -170,7 +172,8 @@ function openApi() {
     };
   }
   return { openapi:'3.1.0',info:{title:'Desk API',version:'1.0.0'},servers:[{url:'/api/v1'}],paths,
-    components:{securitySchemes:{token:{type:'http',scheme:'bearer'},
+    components:{securitySchemes:{token:{type:'http',scheme:'bearer',
+      description:'Ein Lese-Token erlaubt Lesezugriffe. Schreibzugriffe erfordern ein Schreib-Token.'},
       session:{type:'apiKey',in:'cookie',name:'desk-auth.session_token'},
       secureSession:{type:'apiKey',in:'cookie',name:'__Secure-desk-auth.session_token'},
     }} };

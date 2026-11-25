@@ -50,6 +50,30 @@ test('Der ausgelieferte API-Vertrag entspricht dem Schema seiner OpenAPI-Version
   expect(await specificationErrors(await servedSpecification())).toEqual([]);
 });
 
+test('Der API-Vertrag unterscheidet Sitzungen, Token und die Administrationsrolle',async()=>{
+  const byPath=new Map(entries(await servedSpecification()));
+  expect(byPath.get('/components/securitySchemes/session')).toMatchObject({type:'apiKey',in:'cookie',name:'desk-auth.session_token'});
+  expect(byPath.get('/components/securitySchemes/secureSession')).toMatchObject({type:'apiKey',in:'cookie',name:'__Secure-desk-auth.session_token'});
+  expect(byPath.get('/components/securitySchemes/token')).toMatchObject({
+    type:'http',scheme:'bearer',description:expect.stringMatching(/Lese-Token.*Schreib-Token/),
+  });
+  expect(byPath.get('/paths/~1ready/get')).toMatchObject({security:[]});
+  const adminOperations=new Set([
+    '/paths/~1users/post','/paths/~1tokens/get','/paths/~1tokens/post','/paths/~1tokens~1{id}/delete',
+    '/paths/~1integrations~1zammad~1check/post',
+  ]);
+  const sessions=[{secureSession:[]},{session:[]}];
+  for(const [path,operation] of byPath){
+    if(!/^\/paths\/[^/]+\/(?:get|post|patch|delete)$/.test(path) || path==='/paths/~1ready/get') continue;
+    if(adminOperations.delete(path)){
+      expect(operation).toMatchObject({security:sessions,description:expect.stringContaining('Rolle Administration')});
+    }else{
+      expect(operation).toMatchObject({security:[...sessions,{token:[]}]});
+    }
+  }
+  expect(adminOperations.size).toBe(0);
+});
+
 test('Die OpenAPI-Prüfung meldet den Pfad eines fehlenden Pflichtelements',async()=>{
   const invalid=structuredClone(await servedSpecification());
   delete invalid.info.title;

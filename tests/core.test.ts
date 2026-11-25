@@ -267,6 +267,45 @@ describe('API und Integrationen',()=>{
     expect((await handle(new Request('http://desk.local/api/v1/projects',{headers}))).status).toBe(401);
   });
 
+  test('Sitzungen und Token entsprechen den dokumentierten API-Berechtigungen',async()=>{
+    const origin=process.env.DESK_ORIGIN ?? 'http://127.0.0.1';
+    const password='muster-test-passwort';
+    const staffEmail=crypto.randomUUID()+'@example.test';
+    await createAccount({email:staffEmail,name:'Musterperson',password,role:'member'});
+    const request=(path:string,options?:RequestInit)=>handle(new Request(origin+'/api/v1'+path,options));
+    const jsonHeaders={Origin:origin,'Content-Type':'application/json'};
+    async function loginCookie(email:string){
+      const response=await request('/login',{method:'POST',headers:jsonHeaders,body:JSON.stringify({email,password})});
+      expect(response.status).toBe(200);
+      const cookie=response.headers.getSetCookie().find(value=>/^(?:__Secure-)?desk-auth\.session_token=/.test(value));
+      expect(cookie).toBeDefined();
+      return cookie!.split(';')[0];
+    }
+    const member={Cookie:await loginCookie(staffEmail)};
+    const admin={Cookie:await loginCookie(actor.email)};
+    const read=await createToken(actor,{label:'API-Lesetest',scope:'read'});
+    const write=await createToken(actor,{label:'API-Schreibtest',scope:'write'});
+    const readToken={Authorization:`Bearer ${read.token}`};
+    const writeToken={Authorization:`Bearer ${write.token}`};
+    try {
+      for(const headers of [member,readToken,writeToken]){
+        expect((await request('/contacts',{headers})).status).toBe(200);
+      }
+      const addContact=(headers:Record<string,string>)=>request('/contacts',{
+        method:'POST',headers:{...jsonHeaders,...headers},body:'{"name":"Muster API-Zugriff"}',
+      });
+      expect((await addContact(member)).status).toBe(201);
+      expect((await addContact(readToken)).status).toBe(403);
+      expect((await addContact(writeToken)).status).toBe(201);
+      expect((await request('/tokens',{headers:admin})).status).toBe(200);
+      for(const headers of [member,readToken,writeToken]){
+        expect((await request('/tokens',{headers})).status).toBe(403);
+      }
+    } finally {
+      await db.unsafe('DELETE FROM api_tokens WHERE id IN ($1,$2)',[read.id,write.id]);
+    }
+  });
+
   test('Anmeldung akzeptiert die normalisierte HTTPS-Origin und setzt ein Secure-Cookie',async()=>{
     const child=Bun.spawn([process.execPath,'-e',`
       import assert from 'node:assert/strict';
@@ -277,7 +316,8 @@ describe('API und Integrationen',()=>{
       }));
       const allowed=await login('https://desk.example.test');
       assert.equal(allowed.status,200);
-      assert.match(allowed.headers.get('Set-Cookie') ?? '',/; Secure/);
+      const cookie=allowed.headers.getSetCookie().find(entry=>entry.startsWith('__Secure-desk-auth.session_token='));
+      assert.match(cookie ?? '',/; Secure/);
       assert.equal((await login('https://fremd.example.test')).status,403);
       process.exit(0);
     `],{env:{...process.env,DESK_ORIGIN:'https://desk.example.test/',DESK_FIXTURE_EMAIL:actor.email},
