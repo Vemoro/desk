@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, date, downloadPositions, euros, inventoryLabel, inventoryName, moment, money, name, projectStages, reservationStages, taskStages, type Row } from './client';
 import { Expand, Form, options, Panel, Pill, Table, type Run } from './widgets';
+import { ProjectHistory } from './project-history';
 
 export type Data = Record<'contacts'|'projects'|'tasks'|'users'|'lines'|'reservations'|'locations'|'items'|'movements'|'costs'|'stock',Row[]>;
 type Flags = { haben:boolean; zammad:boolean };
@@ -40,7 +41,7 @@ export function Projects({data,run,select}:{data:Data;run:Run;select:(id:string)
 
 export function Project({project,data,run,flags,accountId,back}:{project:Row;data:Data;run:Run;flags:Flags;accountId:string;back:()=>void}) {
   const [tab,setTab]=useState('overview');
-  const tabs:Record<string,string>={overview:'Überblick',tasks:'Kanban',planning:'Ressourcen & Kalkulation',finance:'Controlling',communication:'Kommunikation'};
+  const tabs:Record<string,string>={overview:'Überblick',tasks:'Kanban',planning:'Ressourcen & Kalkulation',finance:'Controlling',communication:'Kommunikation',history:'Verlauf'};
   return <>
     <div className="breadcrumb"><button className="text-button" onClick={back}>Projekte</button><span>/</span>{project.name}</div>
     <div className="project-head"><div><h1>{project.name}</h1><div className="subtle">{name(data.contacts,project.contact_id)} · Termin {date(project.due)}</div></div><Pill label={projectStages[project.stage]} tone="accent"/></div>
@@ -50,6 +51,7 @@ export function Project({project,data,run,flags,accountId,back}:{project:Row;dat
     {tab==='planning' && <Planning project={project} data={data} run={run} accountId={accountId}/>}
     {tab==='finance' && <Controlling project={project} data={data} run={run}/>}
     {tab==='communication' && <Communication project={project} zammad={flags.zammad} run={run}/>}
+    {tab==='history' && <ProjectHistory projectId={project.id}/>}
   </>;
 }
 

@@ -56,7 +56,7 @@ test('Der ausgelieferte API-Vertrag entspricht dem Schema seiner OpenAPI-Version
 
 test('Der API-Vertrag beschreibt Seitennavigation nur für paginierte Listen',async()=>{
   const byPath=new Map(entries(await servedSpecification()));
-  const paginated=new Set(['contacts','projects','tasks','lines','locations','items','reservations','movements','costs']);
+  const paginated=new Set(['contacts','projects','projects~1{id}~1history','tasks','lines','locations','items','reservations','movements','costs']);
   for(const [path,value] of byPath){
     const operation=/^\/paths\/~1([^/]+)\/(?:get|post|patch|delete)\/parameters$/.exec(path);
     if(!operation) continue;

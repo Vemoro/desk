@@ -3,6 +3,7 @@ import { db, first, rows, type Query } from './db';
 import { DeskError, required } from './errors';
 import { requireAvailableAssignee } from './accounts';
 import { schemas, type costInput, type projectStage, type stages } from './contracts';
+import { recordStage, releaseProjectReservations } from './project-history';
 
 export type Collection = keyof typeof schemas;
 type Stage = typeof stages[number];
@@ -71,7 +72,7 @@ export async function lockPlanning(query: Query) {
   await query.unsafe('SELECT pg_advisory_xact_lock(61274)');
 }
 
-export async function changeStage(id: string, stage: z.infer<typeof projectStage>['stage']) {
+export async function changeStage(id: string, stage: z.infer<typeof projectStage>['stage'], actorId?: string) {
   return db.begin(async (transaction) => {
     await lockPlanning(transaction);
     const existing = await getProject(id, transaction);
@@ -81,10 +82,10 @@ export async function changeStage(id: string, stage: z.infer<typeof projectStage
       throw new DeskError(409, 'Zuerst eine Angebotsreferenz erfassen.');
     }
     if (stage === 'complete' && !existing.invoice_ref) throw new DeskError(409, 'Zuerst eine Rechnungsreferenz erfassen.');
-    if (stage === 'cancelled' || stage === 'complete') {
-      await transaction.unsafe("UPDATE reservations SET status='released' WHERE project_id=$1 AND status<>'released'", [id]);
-    }
-    return first(transaction, 'UPDATE projects SET stage=$1 WHERE id=$2 RETURNING *', [stage, id]);
+    const project = await first(transaction, 'UPDATE projects SET stage=$1 WHERE id=$2 RETURNING *', [stage, id]);
+    await recordStage(transaction,id,actorId,existing.stage,stage,'desk');
+    if (stage === 'cancelled' || stage === 'complete') await releaseProjectReservations(transaction,id,actorId);
+    return project;
   });
 }
 

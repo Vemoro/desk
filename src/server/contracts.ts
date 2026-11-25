@@ -55,6 +55,15 @@ export const movementInput = z.discriminatedUnion('action', [
   z.strictObject({ action: z.enum(['issue','return','consume']), reservation_id: id, quantity }),
 ]);
 export const movementCorrection = z.strictObject({ quantity, reason: memo.min(1) });
+export const projectHistoryResponse = z.array(z.strictObject({
+  id, created_at:z.iso.datetime(), actor_id:id.nullable(), actor_name:z.string().nullable(),
+  kind:z.enum(['stage','reservation','movement']), source:z.enum(['desk','haben','project']),
+  status:z.enum([...stages,'firm','released','receive','issue','return','consume','correct_receive','correct_consume']),
+  previous_status:projectStage.shape.stage.nullable(), reservation_id:id.nullable(),
+  resource_name:z.string().nullable(), inventory_number:z.string().nullable(), location_name:z.string().nullable(),
+  quantity:z.number().int().positive().nullable(), correction_reason:z.string().nullable(),
+}));
+export type ProjectHistoryEntry = z.infer<typeof projectHistoryResponse>[number];
 export const costInput = z.strictObject({
   project_id: id.nullable().optional(), source: title, reference: title,
   cost_center: short.optional(), name: title, cents,

@@ -38,9 +38,9 @@ try {
     ]) {
       const project=getId(await saveCore('projects',{name:label,contact_id:contact,cost_center:center,due,
         notes:'Beispielauftrag von Muster Auftragsservice.',offer_ref:`ANG-${center}`}));
-      await changeStage(project,'planning');
-      await changeStage(project,'offered');
-      await changeStage(project,'confirmed');
+      await changeStage(project,'planning',admin);
+      await changeStage(project,'offered',admin);
+      await changeStage(project,'confirmed',admin);
       for (const [task,status,assignee] of [
         ['Bedarf mit Kunde abstimmen','done',admin],['Materialliste prüfen','review',member],
         ['Einsatz vorbereiten','doing',member],['Übergabe dokumentieren','todo',admin],
@@ -52,8 +52,16 @@ try {
       const ends_at=`${due}T17:00:00+02:00`;
       const staff=getId(await createReservation({project_id:project,user_id:member,quantity:1,starts_at,ends_at}));
       const resource=getId(await createReservation({project_id:project,item_id:consumable,location_id:warehouse,quantity:3,starts_at,ends_at}));
-      await setReservation(staff,'firm');
-      await setReservation(resource,'firm');
+      await setReservation(staff,'firm',admin);
+      await setReservation(resource,'firm',admin);
+      await db.unsafe(`
+        WITH ordered AS (
+          SELECT id,row_number() OVER (ORDER BY created_at,id) AS position
+          FROM project_history WHERE project_id=$1
+        )
+        UPDATE project_history h SET created_at=$2::timestamptz + ordered.position * interval '1 minute'
+        FROM ordered WHERE h.id=ordered.id
+      `,[project,`${due}T07:00:00+02:00`]);
       await importCosts([{source:'demo',reference:`E-${center}`,cost_center:center,name:'Befestigungsmaterial',cents:6290}]);
     }
     await importCosts([{source:'demo',reference:'E-104',name:'Kurierfahrt',cents:1790}]);

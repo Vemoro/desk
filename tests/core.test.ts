@@ -9,6 +9,7 @@ const { handle } = await import('../src/server/api');
 const { changeStage, controlling, importCosts, saveCore } = await import('../src/server/core');
 const { createReservation, setReservation, createMovement, listReservations, listStock } = await import('../src/server/stock');
 const { addMinutes, fixture } = await import('./fixture');
+const { projectHistoryResponse } = await import('../src/server/contracts');
 let actor: NonNullable<Awaited<ReturnType<typeof createAccount>>>;
 const getId = (value:unknown)=>(value as {id:string}).id;
 
@@ -18,6 +19,53 @@ beforeAll(async () => {
 });
 
 describe('Fachlicher Projektablauf', () => {
+  test('Projektverlauf zeigt erfolgreiche Ereignisse, Altbewegungen und Freigaben nur des Projekts',async()=>{
+    const data=await fixture(saveCore,'Muster Projektverlauf');
+    const other=await fixture(saveCore,'Muster Parallelauftrag');
+    const token=await createToken(actor,{label:'Muster Verlauf',scope:'write'});
+    const headers={Authorization:`Bearer ${token.token}`,'Content-Type':'application/json'};
+    const request=(path:string,method='GET',body?:unknown)=>handle(new Request('http://desk.local/api/v1'+path,{
+      method,headers,body:body===undefined?undefined:JSON.stringify(body),
+    }));
+    const project=`/projects/${data.project}`;
+    const stage=(stage:string)=>request(project+'/stage','PATCH',{stage});
+    const old=await createMovement({action:'receive',project_id:data.project,item_id:data.material,location_id:data.location,quantity:8},actor.id);
+    await db.unsafe('UPDATE movements SET created_at=$2 WHERE id=$1',[getId(old),'2020-01-01T08:00:00Z']);
+    await changeStage(other.project,'planning',actor.id);
+    expect((await stage('complete')).status).toBe(409);
+    expect((await stage('planning')).status).toBe(200);
+    await saveCore('projects',{offer_ref:'ANG-VERLAUF'},data.project);
+    expect((await stage('offered')).status).toBe(200);
+    expect((await stage('confirmed')).status).toBe(200);
+    const booking=getId(await createReservation({...data.booking,item_id:data.material,quantity:3}));
+    const excess=getId(await createReservation({...data.booking,item_id:data.material,quantity:8}));
+    const set=(id:string,status:string)=>request(`/reservations/${id}`,'PATCH',{status});
+    expect((await set(booking,'firm')).status).toBe(200);
+    expect((await set(booking,'firm')).status).toBe(200);
+    expect((await set(excess,'firm')).status).toBe(409);
+    expect((await request('/movements','POST',{action:'consume',reservation_id:booking,quantity:2})).status).toBe(201);
+    expect((await request('/movements','POST',{action:'consume',reservation_id:booking,quantity:2})).status).toBe(409);
+    await expect(changeStage(data.project,'cancelled',crypto.randomUUID())).rejects.toThrow();
+    expect(await (await request(project)).json()).toMatchObject({stage:'confirmed'});
+    expect(await first(db,'SELECT status FROM reservations WHERE id=$1',[booking])).toMatchObject({status:'firm'});
+    expect((await stage('cancelled')).status).toBe(200);
+    expect((await stage('cancelled')).status).toBe(200);
+    const history=await request(project+'/history');
+    expect(history.status).toBe(200);
+    const entries=projectHistoryResponse.parse(await history.json());
+    expect(entries.map(event=>event.status)).toEqual(['released','released','cancelled','consume','firm','confirmed','offered','planning','receive']);
+    expect(entries.map(event=>event.created_at)).toEqual(entries.map(event=>event.created_at).sort().reverse());
+    expect(entries.every(event=>event.actor_id===actor.id && event.actor_name===actor.name)).toBe(true);
+    expect(entries.slice(0,2).map(event=>event.reservation_id).sort()).toEqual([booking,excess].sort());
+    expect(entries.slice(0,2).every(event=>event.source==='project')).toBe(true);
+    expect(entries[8]).toMatchObject({id:getId(old),created_at:'2020-01-01T08:00:00.000Z',quantity:8});
+    const page=await request(project+'/history?limit=2&offset=2');
+    expect(await page.json()).toEqual(entries.slice(2,4));
+    const elsewhere=await request(`/projects/${other.project}/history`);
+    expect(await elsewhere.json()).toEqual([expect.objectContaining({status:'planning'})]);
+    expect((await request(`/projects/${crypto.randomUUID()}/history`)).status).toBe(404);
+  });
+
   for (const [example, reserve] of [['Veranstaltungsbetreuung', true],['Büroinstallation',false]] as const) {
     test(`${example} ohne Integrationen bis zur Rechnungsreferenz`,async()=>{
       const data=await fixture(saveCore,example);
