@@ -3,7 +3,7 @@ import { ApiError, type Row } from './client';
 
 export const noWrite = Symbol('noWrite');
 
-type RunOptions = { kind?:'read'|'write'; reportWriteRejection?:boolean };
+type RunOptions = { kind?:'read'|'write'; reportWriteRejection?:boolean; reportInlineError?:boolean };
 export type Run = (operation:(isCurrent:()=>boolean)=>Promise<unknown>, feedback?:string, options?:RunOptions)=>Promise<boolean>;
 type Field = {
   name:string; label:string; type?:string; placeholder?:string; value?:string|number;
@@ -32,9 +32,9 @@ function storedAttempt(storageKey:string): Attempt | undefined {
   } catch {}
 }
 
-export function Form({fields,caption,submit,children,className='form-grid',retryScope,prepare}:{
+export function Form({fields,caption,submit,children,className='form-grid',retryScope,prepare,busyCaption='Wird gespeichert …'}:{
   fields:Field[]; caption:string; submit:(values:Fields,requestKey?:string)=>Promise<unknown>;
-  children?:ReactNode; className?:string; retryScope?:string; prepare?:(values:Fields)=>Fields;
+  children?:ReactNode; className?:string; retryScope?:string; prepare?:(values:Fields)=>Fields; busyCaption?:string;
 }) {
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
@@ -147,7 +147,7 @@ export function Form({fields,caption,submit,children,className='form-grid',retry
         </button>
       </div>
     </div>}
-    <div className="form-action"><button className="primary" disabled={busy || fieldsLocked}>{busy?'Wird gespeichert …':caption}</button></div>
+    <div className="form-action"><button className="primary" disabled={busy || fieldsLocked}>{busy?busyCaption:caption}</button></div>
   </form>;
 }
 

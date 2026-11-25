@@ -6,11 +6,11 @@ import { schemas, id, projectStage, reservationInput, reservationStatus, movemen
 import { assignCost, changeStage, controlling, getCore, getProject, importCosts, listCore, listCosts, saveCore, type Collection } from './core';
 import { createMovement, createReservation, listMovements, listReservations, listStock, setReservation } from './stock';
 import { pullContacts, syncContact, syncOffer } from './haben';
-import { conversations, linkTicket, reviewOutgoing, send } from './zammad';
+import { checkZammadConnection, conversations, linkTicket, reviewOutgoing, send } from './zammad';
 import { integrationStatus } from './remote';
 
 type Context = { actor: Actor; path: string[]; limit: number; offset: number; requestKey?:string };
-type Operation = { method: string; path: string; summary: string; run: (context: Context, input: unknown) => Promise<unknown>; input?: z.ZodType; keyed?:boolean };
+type Operation = { method: string; path: string; summary: string; run: (context: Context, input: unknown) => Promise<unknown>; input?: z.ZodType; keyed?: boolean; sessionOnly?: boolean };
 const operations: Operation[] = [];
 const requestKeyHeader='Idempotency-Key';
 const requestKeySchema=z.string().regex(/^[A-Za-z0-9._:-]{1,128}$/).optional();
@@ -19,8 +19,8 @@ function get(path: string, summary: string, run: (context: Context) => Promise<u
   operations.push({ method: 'GET', path, summary, run });
 }
 
-function action<T>(method: 'POST'|'PATCH', path: string, summary: string, input: z.ZodType<T>, run: (context: Context, input: T) => Promise<unknown>, keyed=false) {
-  operations.push({ method,path,summary,input,keyed,run:(context,value)=>run(context,input.parse(value)) });
+function action<T>(method: 'POST'|'PATCH', path: string, summary: string, input: z.ZodType<T>, run: (context: Context, input: T) => Promise<unknown>, options: Pick<Operation,'keyed'|'sessionOnly'> = {}) {
+  operations.push({ method,path,summary,input,...options,run:(context,value)=>run(context,input.parse(value)) });
 }
 
 for (const name of Object.keys(schemas) as Collection[]) {
@@ -36,6 +36,11 @@ operations.push({ method:'DELETE', path:'/lines/{id}', summary:'Kalkulationsposi
 }});
 get('/me','Aktuelles Konto',async ({actor})=>actor);
 get('/integrations','Konfigurierte Integrationen',async()=>integrationStatus());
+action('POST','/integrations/zammad/check','Zammad-Verbindung mit einem bestehenden Ticket prüfen (Administratorsitzung)',
+  zammadLinkInput,({actor},input)=>{
+    requireAdmin(actor);
+    return checkZammadConnection(input.id);
+  },{sessionOnly:true});
 get('/users','Team auflisten',()=>rows(db,'SELECT id,name,role FROM users ORDER BY name,id'));
 action('POST','/users','Teamkonto anlegen',accountInput,({actor},input)=>{
   requireAdmin(actor);
@@ -58,11 +63,11 @@ get('/projects/{id}/offer-positions','Verkaufspositionen für das Angebot',async
 });
 get('/reservations','Reservierungen auflisten',({limit,offset})=>listReservations(limit,offset));
 action('POST','/reservations','Ressource vormerken',reservationInput,({actor,requestKey},input)=>
-  createReservation(input,requestKey ? {actorId:actor.id,key:requestKey} : undefined),true);
+  createReservation(input,requestKey ? {actorId:actor.id,key:requestKey} : undefined),{keyed:true});
 action('PATCH','/reservations/{id}','Reservierung festlegen oder freigeben',reservationStatus,({path},input)=>setReservation(path[1],input.status));
 get('/stock','Lagerbestand je Lagerort',()=>listStock());
 get('/movements','Lagerbewegungen',({limit,offset})=>listMovements(limit,offset));
-action('POST','/movements','Lagerbewegung erfassen',movementInput,({actor,requestKey},input)=>createMovement(input,actor.id,requestKey),true);
+action('POST','/movements','Lagerbewegung erfassen',movementInput,({actor,requestKey},input)=>createMovement(input,actor.id,requestKey),{keyed:true});
 get('/costs','Ist-Kosten und offene Zuordnungen',({limit,offset})=>listCosts(limit,offset));
 action('POST','/costs','Ist-Kosten übernehmen',costBatch,(context,input)=>importCosts(input.entries));
 action('PATCH','/costs/{id}','Ist-Kosten einem Projekt zuordnen',costAssignment,({path},input)=>assignCost(path[1],input.project_id));
@@ -152,7 +157,7 @@ function openApi() {
   for (const op of operations) {
     (paths[op.path] ??= {})[op.method.toLowerCase()] = {
       summary:op.summary,
-      security:[{token:[]}],
+      security:op.sessionOnly?[{secureSession:[]},{session:[]}]:[{token:[]}],
       parameters:[
         ...[...op.path.matchAll(/\{(\w+)\}/g)].map(([,name])=>({name,in:'path',required:true,schema:{type:'string',format:'uuid'}})),
         ...(op.keyed ? [{name:requestKeyHeader,in:'header',required:false,schema:z.toJSONSchema(requestKeySchema.unwrap()),
@@ -164,5 +169,8 @@ function openApi() {
     };
   }
   return { openapi:'3.1.0',info:{title:'Desk API',version:'1.0.0'},servers:[{url:'/api/v1'}],paths,
-    components:{securitySchemes:{token:{type:'http',scheme:'bearer'}}} };
+    components:{securitySchemes:{token:{type:'http',scheme:'bearer'},
+      session:{type:'apiKey',in:'cookie',name:'desk-auth.session_token'},
+      secureSession:{type:'apiKey',in:'cookie',name:'__Secure-desk-auth.session_token'},
+    }} };
 }
