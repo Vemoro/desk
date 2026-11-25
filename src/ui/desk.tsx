@@ -105,7 +105,7 @@ export function Desk() {
     finally { if(session===sessionVersion.current) setRefreshing(false); }
   }
 
-  const run:Run=async(operation,feedback,{kind='write',reportWriteRejection}={})=>{
+  const run:Run=async(operation,feedback,{kind='write',reportWriteRejection,reportInlineError}={})=>{
     const session=sessionVersion.current;
     const isCurrent=()=>session===sessionVersion.current;
     setNotice({message:'',error:false});
@@ -123,6 +123,7 @@ export function Desk() {
       if(!isCurrent()) return false;
       if(reportWriteRejection && error instanceof ApiError && [400,409].includes(error.status)) throw error;
       if(error instanceof ApiError && error.status===401) endSession();
+      else if(reportInlineError) throw error;
       setNotice({message:error instanceof Error?error.message:'Die Aktion ist fehlgeschlagen.',error:true});
       return false;
     }
@@ -415,12 +416,13 @@ function Settings({data,run,flags}:{data:Data;run:Run;flags:{haben:boolean;zamma
     </div><div className="panel-body">
       <Form caption="Zammad-Verbindung prüfen" busyCaption="Wird geprüft …" fields={[
         {name:'id',label:'Zammad-Ticket-ID',type:'number',min:1,max:2_147_483_647,required:true},
-      ]} submit={async({id})=>{
+      ]} submit={({id})=>run(async(isCurrent)=>{
         const ticket=Number(id);
         setCheckedTicket(undefined);
         await api('integrations/zammad/check','POST',{id:ticket});
-        setCheckedTicket(ticket);
-      }}/>
+        if(isCurrent()) setCheckedTicket(ticket);
+        return noWrite;
+      },undefined,{kind:'read',reportInlineError:true})}/>
       {checkedTicket!==undefined && <p role="status">Ticket {checkedTicket} und sein Verlauf sind erreichbar.</p>}
     </div></Panel>
   </>;

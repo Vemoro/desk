@@ -3,7 +3,7 @@ import { ApiError, type Row } from './client';
 
 export const noWrite = Symbol('noWrite');
 
-type RunOptions = { kind?:'read'|'write'; reportWriteRejection?:boolean };
+type RunOptions = { kind?:'read'|'write'; reportWriteRejection?:boolean; reportInlineError?:boolean };
 export type Run = (operation:(isCurrent:()=>boolean)=>Promise<unknown>, feedback?:string, options?:RunOptions)=>Promise<boolean>;
 type Field = {
   name:string; label:string; type?:string; placeholder?:string; value?:string|number;

@@ -21,7 +21,7 @@ Desk legt Angebote in der ersten Version über die manuelle Übergabe an Haben a
 
 `ZAMMAD_URL`, `ZAMMAD_TOKEN` und die Ticketgruppe `ZAMMAD_GROUP` setzen. Der Zammad-Zugang benötigt für die Gruppe die passenden Agentenrechte. Desk verwendet das Ticket für den Nachrichtenverlauf und die Übergabe ausgehender Antworten. Der Versand bleibt in Zammad nachvollziehbar. PDF-Anhänge sind bis 5 MB möglich. Wenn das Ergebnis einer Sendung unklar ist, zuerst den gespeicherten Sendeversuch prüfen. Eine erneute Sendung ist eine ausdrückliche Aktion und sucht zuvor nach der Desk-Referenz im Ticket. Ohne Zammad sind Kommunikationslink und Notiz im Projekt verfügbar.
 
-Nach der Einrichtung oder einem Tokenwechsel in den administrativen Einstellungen unter „Integrationen“ die ID eines vorhandenen Zammad-Testtickets eintragen und „Zammad-Verbindung prüfen“ wählen. Desk liest das Ticket und seinen Verlauf. Der Test lässt Ticket, Nachrichten und Projektzuordnungen unverändert.
+Nach der Einrichtung oder einem Tokenwechsel in den administrativen Einstellungen unter „Integrationen“ die interne ID eines vorhandenen Zammad-Testtickets eintragen und „Zammad-Verbindung prüfen“ wählen. Die interne ID steht im Zammad-Ticketlink und kann von der sichtbaren Ticketnummer abweichen. Desk prüft den Lesezugriff auf das Ticket und seinen Verlauf. [Zammad-Ticket-API](https://docs.zammad.org/en/latest/api/ticket/index.html#show)
 
 ## Betrieb
 

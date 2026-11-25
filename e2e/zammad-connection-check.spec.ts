@@ -7,8 +7,9 @@ test('Der Zammad-Lesetest startet erst beim Absenden und zeigt sein Ergebnis in 
   await page.route('**/api/v1/integrations/zammad/check',route=>{
     const body=route.request().postDataJSON();
     submitted.push(body);
-    return body.id===42 ? route.fulfill({status:201,json:{ok:true}})
-      : route.fulfill({status:502,json:{error:'Zammad ist nicht erreichbar oder die Antwort ist unklar.'}});
+    if(body.id===42) return route.fulfill({status:201,json:{ok:true}});
+    if(body.id===43) return route.fulfill({status:502,json:{error:'Zammad ist nicht erreichbar oder die Antwort ist unklar.'}});
+    return route.fulfill({status:401,json:{error:'Anmeldung erforderlich.'}});
   });
   await signIn(page);
   await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Einstellungen',exact:true}).click();
@@ -23,5 +24,9 @@ test('Der Zammad-Lesetest startet erst beim Absenden und zeigt sein Ergebnis in 
   await submit.click();
   await expect(panel.getByRole('alert')).toContainText('Zammad ist nicht erreichbar');
   await expect(panel.getByRole('status')).toHaveCount(0);
-  expect(submitted).toEqual([{id:42},{id:43}]);
+  await id.fill('44');
+  await submit.click();
+  await expect(page.getByRole('heading',{name:'Anmelden',exact:true})).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveText('Anmeldung erforderlich.');
+  expect(submitted).toEqual([{id:42},{id:43},{id:44}]);
 });
