@@ -1,0 +1,26 @@
+import { expect,test } from '@playwright/test';
+import packageInfo from '../package.json' with { type: 'json' };
+
+test('Runtime-Image erlaubt Anmeldung und meldet den ausgelieferten Git-Stand',async({page})=>{
+  const password=process.env.DESK_RUNTIME_TEST_PASSWORD;
+  const commit=process.env.DESK_RUNTIME_TEST_COMMIT;
+  const sourceUrl=process.env.DESK_RUNTIME_TEST_SOURCE_URL;
+  if(!password || !commit) throw new Error('Runtime-Probe über bash scripts/check-runtime-image.sh starten.');
+
+  const anonymous=await page.request.get('/api/v1/projects');
+  expect(anonymous.status()).toBe(401);
+  await page.goto('/');
+  if(sourceUrl) await expect(page.getByRole('link',{name:'Desk-Quellcode',exact:true})).toHaveAttribute('href',sourceUrl);
+  await page.getByLabel('E-Mail').fill('runtime@example.test');
+  await page.getByLabel('Passwort').fill(password);
+  await page.getByRole('button',{name:'Anmelden',exact:true}).click();
+  await page.getByRole('heading',{name:'Übersicht',exact:true}).waitFor({state:'visible',timeout:5000});
+
+  const projects=await page.request.get('/api/v1/projects');
+  expect(projects.status()).toBe(200);
+  expect(await projects.json()).toEqual([]);
+  await page.getByRole('button',{name:'Mein Konto',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Desk-Version',exact:true})).toBeVisible();
+  await expect(page.getByLabel('Version und Git-Commit')).toHaveValue(`Desk ${packageInfo.deskVersion} · Git-Commit ${commit}`);
+  if(sourceUrl) await expect(page.getByRole('link',{name:'Desk-Quellcode',exact:true})).toHaveAttribute('href',sourceUrl);
+});
