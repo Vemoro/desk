@@ -29,11 +29,13 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.59.0",
+    "@seriousme/openapi-schema-validator": "^2.12.0",
     "@types/bun": "latest",
     "@types/pg": "^8.23.1",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^6.3.0",
+    "ajv": "^8.20.0",
     "nitro": "3.0.261103-rc",
     "typescript": "^5.9.0",
     "vite": "^8.3.0"

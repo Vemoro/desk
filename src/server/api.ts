@@ -164,7 +164,7 @@ function openApi() {
         ...(op.keyed ? [{name:requestKeyHeader,in:'header',required:false,schema:z.toJSONSchema(requestKeySchema.unwrap()),
           description:'Für Wiederholungen derselben Eingabe beibehalten. Ein Schlüssel gilt pro Konto und Endpunkt. Desk liefert die ursprüngliche Antwort, bei geänderter Eingabe HTTP 409.'}] : []),
       ],
-      ...(op.input ? { requestBody:{ required:true,content:{'application/json':{schema:z.toJSONSchema(op.input,{target:'openapi-3.0',io:'input'})}} } } : {}),
+      ...(op.input ? { requestBody:{ required:true,content:{'application/json':{schema:z.toJSONSchema(op.input,{target:'draft-2020-12',io:'input'})}} } } : {}),
       responses:{ [op.method === 'POST' ? '201' : '200']:{description:'Erfolg'}, 400:{description:'Ungültige Eingabe'},
         401:{description:'Anmeldung erforderlich'},403:{description:'Zugriff verweigert'},409:{description:'Konflikt'} },
     };
