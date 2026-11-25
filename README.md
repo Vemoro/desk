@@ -1,6 +1,11 @@
-# Desk
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/marke/desk-logo-dunkel.svg">
+  <img src="docs/marke/desk-logo-hell.svg" alt="Desk" width="200">
+</picture>
 
-**Projektverwaltung für kleine Teams, die Aufträge von der Anfrage bis zur Abrechnung organisieren.** In Desk erfasst du den Kundenkontakt, planst Aufgaben, Personal und Material und siehst, was der Auftrag kostet. Desk läuft auf deinem eigenen Server.
+# Den ganzen Auftrag im Blick.
+
+**Desk ist Projektverwaltung für kleine Teams, die Aufträge von der Anfrage bis zur Abrechnung organisieren.** In Desk erfasst du den Kundenkontakt, planst Aufgaben, Personal und Material und siehst, was der Auftrag kostet. Desk läuft auf deinem eigenen Server.
 
 [Warum Desk?](#warum-desk) · [So läuft ein Auftrag](#so-läuft-ein-auftrag) · [Funktionen](#funktionen) · [Haben und Zammad](#haben-und-zammad) · [Schnellstart](#schnellstart)
 
