@@ -23,6 +23,7 @@ const second='9902_rollback_probe_second.sql';
 const failure='intentional-rollback-probe';
 const secondSql='CREATE TABLE rollback_probe_second (id integer);\n';
 const names=[`${scope}-db`,`${scope}-desk`];
+const dockerCleanup:string[][]=[];
 
 function run(command:string[], allowFailure=false) {
   const result=Bun.spawnSync(command,{env,stdout:'pipe',stderr:'pipe'});
@@ -35,6 +36,11 @@ function run(command:string[], allowFailure=false) {
 }
 
 const docker=(args:string[],allowFailure=false)=>run(['docker',...args],allowFailure);
+function createDockerResource(args:string[],remove:string[]) {
+  docker(args);
+  dockerCleanup.push(remove);
+}
+
 const sql=(statement:string)=>docker(['exec',names[0],'psql','-v','ON_ERROR_STOP=1','-U','desk','-d','desk','-Atqc',statement]).output;
 const migrate=(directory:string,allowFailure=false)=>docker([
   'run','--rm','--network',scope,'-e','DATABASE_URL','--mount',`type=bind,source=${directory},target=/desk/migrations,readonly`,
@@ -65,11 +71,11 @@ try {
   await cp(fixtures,baseline,{recursive:true});
   await writeFile(join(fixtures,first),'CREATE TABLE rollback_probe_first (id integer);\n');
   await writeFile(join(fixtures,second),secondSql+`SELECT '${failure}'::integer;\n`);
-  docker(['build','--tag',scope,checkout]);
-  docker(['network','create',scope]);
-  docker(['volume','create',scope]);
-  docker(['create','--name',names[0],'--network',scope,'--mount',`type=volume,source=${scope},target=/var/lib/postgresql/data`,
-    '-e','POSTGRES_USER=desk','-e','POSTGRES_DB=desk','-e','POSTGRES_PASSWORD','postgres:17']);
+  createDockerResource(['build','--tag',scope,checkout],['image','rm',scope]);
+  createDockerResource(['network','create',scope],['network','rm',scope]);
+  createDockerResource(['volume','create',scope],['volume','rm',scope]);
+  createDockerResource(['create','--name',names[0],'--network',scope,'--mount',`type=volume,source=${scope},target=/var/lib/postgresql/data`,
+    '-e','POSTGRES_USER=desk','-e','POSTGRES_DB=desk','-e','POSTGRES_PASSWORD','postgres:17'],['rm','-fv',names[0]]);
   docker(['start',names[0]]);
   for(let attempt=0;attempt<30;attempt++){
     if(docker(['exec',names[0],'pg_isready','-h','127.0.0.1','-U','desk','-d','desk'],true).status===0) break;
@@ -81,7 +87,8 @@ try {
     INSERT INTO projects (name,contact_id,notes) SELECT 'Musterauftrag',id,'Vor der Migration erfasst' FROM contact RETURNING id;`);
   const snapshot=()=>sql(`SELECT row_to_json(projects) FROM projects WHERE id='${project}'::uuid;`);
   const before=snapshot();
-  docker(['create','--name',names[1],'--network',scope,'-p',`127.0.0.1:${port}:3000`,'-e','DATABASE_URL','-e','DESK_ORIGIN',scope]);
+  createDockerResource(['create','--name',names[1],'--network',scope,'-p',`127.0.0.1:${port}:3000`,'-e','DATABASE_URL','-e','DESK_ORIGIN',scope],
+    ['rm','-fv',names[1]]);
   docker(['start',names[1]]);
   await readiness(503);
 
@@ -103,10 +110,20 @@ try {
   requireResult(snapshot()===before,'Projektdaten nach Migration verändert.');
   console.log('Wiederanlauf bestätigt: HTTP 200, beide Migrationen angewendet, Musterprojekt unverändert.');
 } finally {
-  for(const name of names) docker(['rm','-fv',name],true);
-  docker(['volume','rm',scope],true);
-  docker(['network','rm',scope],true);
-  docker(['image','rm',scope],true);
-  const target=await realpath(workspace);
-  if(dirname(target)===tempRoot && target===workspace) await rm(target,{recursive:true,force:true});
+  for(const args of dockerCleanup.reverse()) {
+    try {
+      docker(args);
+    } catch(error) {
+      console.error(`Docker-Ressource ${args.at(-1)} konnte nicht entfernt werden.`,error);
+      process.exitCode=1;
+    }
+  }
+  try {
+    const target=await realpath(workspace);
+    if(dirname(target)!==tempRoot || target!==workspace) throw new Error('Unerwarteter Pfad für das Testverzeichnis.');
+    await rm(target,{recursive:true,force:true});
+  } catch(error) {
+    console.error(`Testverzeichnis ${workspace} konnte nicht entfernt werden.`,error);
+    process.exitCode=1;
+  }
 }
