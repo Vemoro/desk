@@ -8,8 +8,8 @@ export function integration(service: 'HABEN' | 'ZAMMAD') {
   const base = process.env[`${service}_URL`];
   const token = process.env[`${service}_TOKEN`];
   if (!base || !token) throw new DeskError(503, `${service} ist nicht eingerichtet.`);
-  const url = new URL(base);
-  if (url.username || url.password || url.pathname !== '/' || url.search || url.hash ||
+  const url = URL.parse(base);
+  if (!url || url.username || url.password || url.pathname !== '/' || url.search || url.hash ||
       (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost','127.0.0.1'].includes(url.hostname)))) {
     throw new DeskError(503, `${service}_URL muss eine HTTPS-Basisadresse sein.`);
   }
