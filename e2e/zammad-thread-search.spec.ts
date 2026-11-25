@@ -4,7 +4,7 @@ import { project, signIn } from './session';
 const projectName='Musterinstallation';
 const apiPath='/api/v1/projects/muster/zammad';
 async function openTarget(page:Page){
-  const data={id:'muster',name:projectName,stage:'planning',zammad_ticket_id:42};
+  const data={id:'muster',name:projectName,stage:'planning',zammad_ticket_id:42 as number|null};
   const common={from:'Mira Muster',created_at:'2028-05-17T09:00:00Z',content_type:'text/plain'};
   const articles=[
     {...common,id:1,subject:'Montage bestätigt',body:'Der Termin steht.'},
@@ -13,10 +13,15 @@ async function openTarget(page:Page){
   ];
   await page.route('**/api/v1/projects?*',route=>route.fulfill({json:[data]}));
   await page.route('**/api/v1/integrations',route=>route.fulfill({json:{zammad:true,haben:false}}));
-  await page.route('**/api/v1/projects/muster',route=>{
-    expect(route.request().method()).toBe('PATCH');
+  await page.route('**'+apiPath+'/unlink',route=>{
+    expect(route.request().postDataJSON()).toEqual({id:42});
+    data.zammad_ticket_id=null;
+    return route.fulfill({status:201,json:{ok:true}});
+  });
+  await page.route('**'+apiPath+'/link',route=>{
+    expect(route.request().postDataJSON()).toEqual({id:43});
     data.zammad_ticket_id=43;
-    return route.fulfill({json:data});
+    return route.fulfill({status:201,json:{id:43}});
   });
   await page.route('**'+apiPath,route=>route.fulfill({json:{
     ticket:{id:data.zammad_ticket_id,number:String(data.zammad_ticket_id),title:'Anfrage vom Musterbüro',url:'https://zammad.example.test/'},
@@ -60,9 +65,12 @@ test('Zammad filtert lokal den sichtbaren Ticketverlauf und lässt den Entwurf s
   await search.fill('');
   await expect(subjects).toHaveText(['Montage bestätigt','Rückfrage zum Material','Anfahrt']);
   await search.fill('termin');
-  await page.getByRole('button',{name:'Verweis hinzufügen',exact:true}).click();
-  await page.getByLabel('Kommunikationsnotiz').fill('Ticketbezug aktualisiert.');
-  await page.getByRole('button',{name:'Verweis speichern',exact:true}).click();
+  await page.getByRole('button',{name:'Ticketverknüpfung lösen',exact:true}).click();
+  await page.getByRole('dialog',{name:'Ticketverknüpfung lösen'}).getByRole('button',{name:'Verknüpfung lösen',exact:true}).click();
+  await page.getByRole('button',{name:'Ticket verknüpfen',exact:true}).click();
+  const linkDialog=page.getByRole('dialog',{name:'Ticket verknüpfen'});
+  await linkDialog.getByLabel('Ticket-ID').fill('43');
+  await linkDialog.getByRole('button',{name:'Ticket verknüpfen',exact:true}).click();
   await expect(subjects).toHaveText(['Neues Ticket']);
   await expect(search).toHaveValue('');
 });
