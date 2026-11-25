@@ -171,8 +171,8 @@ export async function handle(request: Request) {
     const body = await readJson(request).then(value=>()=>value, error=>()=>{throw error;});
     return await withAccountAccess(route.accountAccess, query=>dispatch(query,body));
   } catch (error) {
-    if (error instanceof DeskError) return json({ error:error.message },error.status);
-    if (error instanceof z.ZodError) return json({ error:error.issues.map((issue)=>`${issue.path.join('.') || 'Eingabe'}: ${issue.message}`).join('; ') },400);
+    if (error instanceof DeskError) return json({ error:error.message, ...(error.code ? {code:error.code} : {}) },error.status);
+    if (error instanceof z.ZodError) return json({ error:error.issues.map((issue)=>`${issue.path.join('.') || 'Eingabe'}: ${issue.message}`).join('; '),code:'invalid_input' },400);
     const databaseError = error as { errno?:string; code?:string };
     const sqlState = databaseError.errno ?? databaseError.code;
     if (sqlState === '23505') return json({error:'Dieser Wert oder diese Zuordnung ist bereits vorhanden.'},409);

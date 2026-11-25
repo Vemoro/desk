@@ -99,5 +99,6 @@ export const zammadLinkInput = z.strictObject({ id: ticketId });
 export const zammadCreateInput = z.strictObject({ title, customer: z.email().max(254), note: memo.min(1) });
 export const zammadMessage = z.strictObject({
   id, recipient: z.email().max(254), subject: title, body: memo.min(1),
+  replyArticleId: z.number().int().positive().max(2_147_483_647).optional(),
   attachment: z.strictObject({ name: z.string().max(180).regex(/^[^/\\\r\n]+\.pdf$/i), data: z.base64().max(6_990_508) }).optional(),
 });

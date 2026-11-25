@@ -36,9 +36,9 @@ export function hasPendingWrite(scope:string) {
   return Boolean(storedAttempt(`desk-pending-write:${scope}`));
 }
 
-export function Form({fields,caption,submit,children,className='form-grid',retryScope,prepare,busyCaption='Wird gespeichert …'}:{
+export function Form({fields,caption,submit,children,className='form-grid',retryScope,prepare,busyCaption='Wird gespeichert …',disabled=false}:{
   fields:Field[]; caption:string; submit:(values:Fields,requestKey?:string)=>Promise<unknown>;
-  children?:ReactNode; className?:string; retryScope?:string; prepare?:(values:Fields)=>Fields; busyCaption?:string;
+  children?:ReactNode; className?:string; retryScope?:string; prepare?:(values:Fields)=>Fields; busyCaption?:string; disabled?:boolean;
 }) {
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
@@ -47,7 +47,7 @@ export function Form({fields,caption,submit,children,className='form-grid',retry
   const attempt=useRef<Attempt|undefined>(undefined);
   const submitting=useRef(false);
   const storageKey=retryScope && `desk-pending-write:${retryScope}`;
-  const fieldsLocked=Boolean(storageKey && (busy || pending));
+  const fieldsLocked=disabled || Boolean(storageKey && (busy || pending));
 
   const restoreFields=useEffectEvent((values:Fields)=>{
     for(const [name,value] of Object.entries(values)){
@@ -93,6 +93,7 @@ export function Form({fields,caption,submit,children,className='form-grid',retry
 
   async function onSubmit(event:FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if(disabled) return;
     const values=Object.fromEntries(Array.from(new FormData(event.currentTarget),([key,value])=>[key,String(value)]));
     if(attempt.current && JSON.stringify(attempt.current.values)!==JSON.stringify(values)) {
       setError('Sende die bisherigen Angaben erneut oder beginne einen neuen Vorgang.');
