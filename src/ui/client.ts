@@ -6,19 +6,35 @@ export const projectStages: Record<string,string> = {
 };
 export const taskStages: Record<string,string> = {todo:'Offen',doing:'In Arbeit',review:'Prüfung',done:'Erledigt'};
 export const reservationStages: Record<string,string> = {tentative:'Vorgemerkt',firm:'Fest reserviert',released:'Freigegeben'};
-export const movementStages: Record<string,string> = {receive:'Wareneingang',issue:'Ausgabe',return:'Rückgabe',consume:'Verbrauch'};
+export const movementStages: Record<string,string> = {
+  receive:'Wareneingang',issue:'Ausgabe',return:'Rückgabe',consume:'Verbrauch',
+  correct_receive:'Korrektur Wareneingang',correct_consume:'Korrektur Verbrauch',
+};
 export const euros = (cents:number) => new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(cents / 100);
 export const date = (value?:string) => value ? new Intl.DateTimeFormat('de-DE',{dateStyle:'medium'}).format(new Date(value)) : '–';
 export const moment = (value?:string) => value ? new Intl.DateTimeFormat('de-DE',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value)) : '–';
 export const name = (collection:Row[], id?:string) => collection.find((row)=>row.id===id)?.name ?? '–';
 
+export function inventoryLabel(item:Row):string {
+  const articleName=item.name ?? '–';
+  return item.inventory_number ? `${articleName} (${item.inventory_number})` : articleName;
+}
+
+export function inventoryName(items:Row[], id:string) {
+  const item=items.find(row=>row.id===id);
+  return item ? inventoryLabel(item) : '–';
+}
+
 export class ApiError extends Error {
   constructor(public status:number,message:string) { super(message); }
 }
 
-export async function api<T = any>(path:string,method='GET',input?:unknown):Promise<T> {
+export async function api<T = any>(path:string,method='GET',input?:unknown,requestKey?:string):Promise<T> {
+  const headers=new Headers();
+  if(input!==undefined) headers.set('Content-Type','application/json');
+  if(requestKey!==undefined) headers.set('Idempotency-Key',requestKey);
   const response = await fetch(`/api/v1/${path}`,{
-    method, headers:input === undefined ? undefined : {'Content-Type':'application/json'},
+    method, headers,
     body:input === undefined ? undefined : JSON.stringify(input),
   });
   const result = await response.json();
