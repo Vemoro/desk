@@ -64,4 +64,4 @@ Das Controlling zeigt hier einen Beleg und seinen Anteil an den Ist-Kosten des M
 
 ## Mitwirken
 
-Die Beitragsrichtlinien erklären, wie du Fehler meldest, Vorschläge einbringst und Änderungen vorbereitest. Desk steht unter der AGPL-3.0-only. [Mitwirken](CONTRIBUTING.md) · [Entwicklungsregeln](docs/entwicklung.md) · [Lizenz](LICENSE)
+Die Beitragsrichtlinien erklären, wie du Fehler meldest, Vorschläge einbringst und Änderungen vorbereitest. Desk steht unter der AGPL-3.0-only. [Mitwirken](CONTRIBUTING.md) · [Entwicklungsregeln](docs/entwicklung.md) · [Lizenz](LICENSE) · [Lizenzinventar der Auslieferung](docs/lizenzinventar.md)
