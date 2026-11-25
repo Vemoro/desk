@@ -3,10 +3,10 @@ import { project, signIn } from './session';
 
 for(const type of ['Personal','Inventar']) {
   test(`${type} prüft Beginn und Ende vor dem Schreiben`,async({page})=>{
-    let writes=0;
+    const writes:{key:string|undefined; interval:{starts_at:string;ends_at:string}}[]=[];
     await page.route('**/api/v1/reservations',async route=>{
       if(route.request().method()!=='POST') return route.continue();
-      writes++;
+      writes.push({key:route.request().headers()['idempotency-key'],interval:route.request().postDataJSON()});
       return route.fulfill({response:await route.fetch()});
     });
     await signIn(page);
@@ -26,14 +26,20 @@ for(const type of ['Personal','Inventar']) {
     for(const end of ['2029-05-18T08:45','2029-05-18T09:00']){
       await form.getByLabel('Bis').fill(end);
       await save.click();
-      await expect(save).toBeEnabled();
-      expect(writes).toBe(0);
       await expect(form.getByRole('alert')).toHaveText('Das Ende muss nach dem Beginn liegen.');
+      expect(writes).toHaveLength(0);
+      await expect(save).toBeEnabled();
+      await expect(form.getByLabel('Von')).toHaveValue('2029-05-18T09:00');
       await expect(form.getByLabel('Bis')).toHaveValue(end);
     }
     await form.getByLabel('Bis').fill('2029-05-18T10:00');
     await save.click();
     await expect(page.getByRole('status').getByText(type==='Personal'?'Person vorgemerkt.':'Inventar vorgemerkt.')).toBeVisible();
-    expect(writes).toBe(1);
+    expect(writes).toHaveLength(1);
+    expect(writes[0].key).toMatch(/^[0-9a-f-]{36}$/);
+    expect(writes[0].interval).toMatchObject({
+      starts_at:'2029-05-18T07:00:00.000Z',
+      ends_at:'2029-05-18T08:00:00.000Z',
+    });
   });
 }
