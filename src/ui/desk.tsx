@@ -290,8 +290,8 @@ function Contacts({data,run,haben,openProject}:{data:Data;run:Run;haben:boolean;
   const duplicateWarning=useRef<HTMLElement>(null);
   const [focusContact,setFocusContact]=useState('');
   const contact=data.contacts.find((row)=>row.id===selected);
-  const query=search.toLowerCase();
-  const phoneDigits=/^[\d\s+()-]+$/.test(search) ? search.replace(/\D/g,'') : '';
+  const query=search.trim().toLowerCase();
+  const phoneDigits=/^[\d\s+()-]+$/.test(query) ? query.replace(/\D/g,'') : '';
   const visibleContacts=data.contacts.filter((row)=>
     `${row.name} ${row.email}`.toLowerCase().includes(query)
     || (phoneDigits!=='' && (row.phone ?? '').replace(/\D/g,'').includes(phoneDigits)));
