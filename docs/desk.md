@@ -1,5 +1,11 @@
 # Desk verwenden und betreiben
 
+## Desk als Web-App installieren
+
+Öffne die HTTPS-Adresse deiner Desk-Instanz. Wähle in Chrome oder Edge unter Windows die Installationsaktion in der Adressleiste oder im Browsermenü. In Chrome unter Android findest du sie im Browsermenü. Öffne unter iOS das Teilen-Menü in Safari, wähle **Zu Home-Bildschirm hinzufügen** und aktiviere **Als Web-App öffnen**.
+
+Starte Desk danach über das blaue Desk-Symbol im Startmenü oder auf dem Home-Bildschirm und melde dich wie gewohnt an. Die installierte App benötigt eine Verbindung zu deiner Desk-Instanz.
+
 ## Ein Auftrag
 
 1. Einen Kontakt und ein Projekt anlegen. Aufgaben im Kanban verteilen und den Projektstatus auf Planung setzen.
