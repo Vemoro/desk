@@ -95,6 +95,125 @@ async function warehouseReceipt(page:Page,quantity:number){
   return {receipt,item,original,corrections};
 }
 
+test('Lagerbewegungen filtern, ohne Korrekturmengen oder andere Lagerfilter zu ändern',async({page})=>{
+  const checkout={item_id:'kit',location_id:'ost',status:'firm',checked_out:1};
+  const movement={item_id:'kit',location_id:'ost',actor_id:'mira',created_at:'2028-05-17T09:00:00Z',quantity:1};
+  const fixtures={
+    projects:[
+      {id:'office',name:'Musterinstallation',stage:'running'},
+      {id:'events',name:'Musterbetreuung',stage:'running'},
+    ],
+    items:[{id:'kit',name:'Montagekoffer',code:'MK-01',kind:'equipment'}],
+    locations:[{id:'ost',name:'Musterlager Ost'}],
+    reservations:[
+      {...checkout,id:'booking-a',project_id:'office'},
+      {...checkout,id:'booking-b',project_id:'events'},
+    ],
+    stock:[{item_id:'kit',location_id:'ost',physical:4,reserved:2,free:2}],
+    movements:[
+      {...movement,id:'receipt',action:'receive',quantity:5,project_id:null},
+      {...movement,id:'receipt-correction',action:'correct_receive',quantity:5,corrects_movement_id:'receipt',correction_reason:'Musterlieferung korrigiert'},
+      {...movement,id:'consumption',action:'consume',quantity:3,project_id:'office'},
+      {...movement,id:'consumption-correction',action:'correct_consume',corrects_movement_id:'consumption',project_id:'office'},
+      {...movement,id:'office-return',action:'return',project_id:'office'},
+      {...movement,id:'event-return',action:'return',project_id:'events'},
+      {...movement,id:'historical-receipt',action:'receive',project_id:'missing-project'},
+    ],
+  };
+  for(const [resource,json] of Object.entries(fixtures)){
+    const url='**/api/v1/'+resource+(resource==='stock'?'':'?*');
+    await page.route(url,route=>route.fulfill({json}));
+  }
+  await signIn(page);
+  await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Projektlager',exact:true}).click();
+  const panel=(name:string)=>page.locator('.panel').filter({has:page.getByRole('heading',{name,exact:true})});
+  const stock=panel('Bestand je Lagerort').getByLabel('Bestand suchen');
+  const checkoutProject=panel('Offene Ausgaben').getByLabel('Projekt filtern');
+  const ledger=panel('Lagerbewegungen');
+  const kind=ledger.getByLabel('Bewegungsart filtern');
+  const project=ledger.getByLabel('Projekt filtern');
+  const reset=ledger.getByRole('button',{name:'Filter zurücksetzen',exact:true});
+  const rows=ledger.locator('tbody tr:visible');
+  const rowById=(id:string)=>rows.filter({has:page.locator(`#bewegung-${id}`)});
+  await expect(rows).toHaveCount(7);
+  await expect(ledger.getByText('7 von 7 Bewegungen',{exact:true})).toBeVisible();
+  await expect(kind).toHaveValue('');
+  await expect(project).toHaveValue('');
+  await expect(reset).toBeDisabled();
+  await rowById('receipt-correction').getByRole('link',{name:/Original vom/}).click();
+  await expect(page.locator('#bewegung-receipt')).toBeFocused();
+
+  await stock.fill('MK-01');
+  await checkoutProject.selectOption('events');
+  await kind.selectOption('return');
+  await project.selectOption('office');
+  await expect(rows).toHaveCount(1);
+  await expect(rowById('office-return')).toBeVisible();
+  await expect(rowById('event-return')).toHaveCount(0);
+  await expect(ledger.getByText('1 von 7 Bewegungen',{exact:true})).toBeVisible();
+
+  await kind.selectOption('receive');
+  await expect(ledger.getByText('Keine Lagerbewegungen für diese Filter.',{exact:true})).toBeVisible();
+  await expect(ledger.getByText('0 von 7 Bewegungen',{exact:true})).toBeVisible();
+  await project.selectOption('without-project');
+  await expect(rows).toHaveCount(1);
+  await expect(rowById('historical-receipt')).toHaveCount(0);
+  await expect(rowById('receipt').getByText('Vollständig korrigiert',{exact:true})).toBeVisible();
+  await expect(rowById('receipt').getByRole('button',{name:'Korrigieren',exact:true})).toHaveCount(0);
+
+  await kind.selectOption('correct_receive');
+  await expect(rows).toHaveCount(1);
+  await expect(rowById('receipt-correction').getByText(/Original vom/)).toBeVisible();
+  await expect(rowById('receipt-correction').getByRole('link',{name:/Original vom/})).toHaveCount(0);
+  await kind.selectOption('correct_consume');
+  await project.selectOption('office');
+  await expect(rows).toHaveCount(1);
+  await expect(rowById('consumption-correction')).toBeVisible();
+  await kind.selectOption('consume');
+  await rowById('consumption').getByRole('button',{name:'Korrigieren',exact:true}).click();
+  const correctionQuantity=rowById('consumption').getByLabel('Korrekturmenge');
+  const correctionReason=rowById('consumption').getByLabel('Begründung');
+  await expect(correctionQuantity).toHaveAttribute('max','2');
+  await correctionQuantity.fill('2');
+  await correctionReason.fill('Beim Rückbau nachgezählt');
+  await kind.selectOption('return');
+  await expect(rowById('consumption')).toHaveCount(0);
+
+  await reset.click();
+  await expect(rows).toHaveCount(7);
+  await expect(correctionQuantity).toHaveValue('2');
+  await expect(correctionReason).toHaveValue('Beim Rückbau nachgezählt');
+  await expect(rowById('historical-receipt')).toBeVisible();
+  await expect(rowById('receipt-correction').getByRole('link',{name:/Original vom/})).toBeVisible();
+  await expect(stock).toHaveValue('MK-01');
+  await expect(checkoutProject).toHaveValue('events');
+  await expect(reset).toBeDisabled();
+
+  let releaseResponse!:()=>void;
+  let writes=0;
+  const responseHeld=new Promise<void>(resolve=>{releaseResponse=resolve;});
+  await page.route('**/api/v1/movements/consumption/corrections',async route=>{
+    writes++;
+    await responseHeld;
+    await route.abort();
+  });
+  try {
+    await rowById('consumption').getByRole('button',{name:'Korrektur buchen',exact:true}).click();
+    await expect.poll(()=>writes).toBe(1);
+    await kind.selectOption('receive');
+    await project.selectOption('office');
+    await expect(rows).toHaveCount(0);
+    await reset.click();
+    await expect(correctionQuantity).toBeDisabled();
+    await expect(rowById('consumption').getByRole('button',{name:'Wird gespeichert …',exact:true})).toBeDisabled();
+    await expect(rowById('consumption').getByRole('button',{name:'Neuen Vorgang beginnen',exact:true})).toHaveCount(0);
+  } finally {
+    releaseResponse();
+  }
+  await expect(rowById('consumption').getByRole('button',{name:'Letzten Vorgang erneut senden',exact:true})).toBeVisible();
+  expect(writes).toBe(1);
+});
+
 test('Offene Ausgaben nach Artikel filtern, ohne Bestand und Lagerbewegungen mitzufiltern',async({page})=>{
   const checkout={project_id:'office',location_id:'ost',status:'firm',checked_out:1};
   const movement={action:'issue',created_at:'2028-05-17T09:00:00Z',actor_id:'mira',quantity:1};

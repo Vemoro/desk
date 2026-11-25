@@ -419,9 +419,12 @@ function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
   const [checkoutItem,setCheckoutItem]=useState('');
   const [bookingId,setBookingId]=useState('');
   const [correctionId,setCorrectionId]=useState('');
+  const [writingCorrection,setWritingCorrection]=useState(false);
   const [stockQuery,setStockQuery]=useState('');
   const [stockLocation,setStockLocation]=useState('');
   const [onlyAvailable,setOnlyAvailable]=useState(false);
+  const [movementKind,setMovementKind]=useState('');
+  const [movementProject,setMovementProject]=useState('');
   const itemsById=new Map(data.items.map((item)=>[item.id,item]));
   const projectsById=new Map(data.projects.map((project)=>[project.id,project]));
   const stockTerm=stockQuery.trim().toLowerCase();
@@ -443,6 +446,12 @@ function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
     label:`${name(data.projects,row.project_id)} · ${inventoryName(data.items,row.item_id)} · ${name(data.locations,row.location_id)} · ${moment(row.starts_at)} bis ${moment(row.ends_at)}`,
   }));
   const selectedBooking=bookingChoices.find((choice)=>choice.value===bookingId);
+  const visibleMovements=data.movements.filter(row=>
+    (!movementKind || row.action===movementKind)
+    && (!movementProject || (movementProject==='without-project' ? !row.project_id : row.project_id===movementProject)));
+  const visibleMovementIds=new Set(visibleMovements.map(row=>row.id));
+  // Keep an open correction mounted until it closes, including while its row is filtered out.
+  const renderedMovements=data.movements.filter(row=>visibleMovementIds.has(row.id) || row.id===correctionId);
   const movements=new Map(data.movements.map(row=>[row.id,row]));
   const corrected=new Map<string,number>();
   for(const row of data.movements) {
@@ -519,40 +528,68 @@ function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
         ]};
       })}/> : <p className="empty" role="status">{openCheckouts.length?'Keine offenen Ausgaben für diese Filter.':'Es gibt keine offenen Ausgaben.'}</p>}
     </Panel>
-    <Panel title="Lagerbewegungen"><Table headers={['Zeitpunkt','Bewegung','Artikel','Lagerort','Projekt','Menge','Erfasst durch','Aktion']}
-      rows={data.movements.map(row=>{
+    <Panel title="Lagerbewegungen">
+      <div className="panel-body">
+        <div className="form-grid">
+          <label><span>Bewegungsart filtern</span><select value={movementKind} onChange={event=>setMovementKind(event.target.value)}>
+            <option value="">Alle Bewegungsarten</option>
+            {Object.entries(movementStages).map(([value,label])=><option key={value} value={value}>{label}</option>)}
+          </select></label>
+          <label><span>Projekt filtern</span><select value={movementProject} onChange={event=>setMovementProject(event.target.value)}>
+            <option value="">Alle Projekte</option>
+            <option value="without-project">Ohne Projektbezug</option>
+            {options(data.projects).map(({value,label})=><option key={value} value={value}>{label}</option>)}
+          </select></label>
+        </div>
+        <div className="actions">
+          <button type="button" disabled={!movementKind && !movementProject}
+            onClick={()=>{setMovementKind('');setMovementProject('');}}>Filter zurücksetzen</button>
+          <span className="subtle" role="status">{visibleMovements.length} von {data.movements.length} Bewegungen</span>
+        </div>
+      </div>
+      {renderedMovements.length > 0 && <Table hidden={visibleMovements.length===0}
+      headers={['Zeitpunkt','Bewegung','Artikel','Lagerort','Projekt','Menge','Erfasst durch','Aktion']}
+      rows={renderedMovements.map(row=>{
         const remaining=row.quantity-(corrected.get(row.id) ?? 0);
         const original=movements.get(row.corrects_movement_id);
+        const originalLabel=original && `Original vom ${moment(original.created_at)}`;
         const correctable=['receive','consume'].includes(row.action);
         const correctionScope=`movements:${accountId}:correction:${row.id}`;
-        return {key:row.id,cells:[
+        return {key:row.id,hidden:!visibleMovementIds.has(row.id),cells:[
           <span id={`bewegung-${row.id}`} tabIndex={-1}>{moment(row.created_at)}</span>,
-          <div><span>{movementStages[row.action]}</span>{original && <small><a href={`#bewegung-${original.id}`}
+          <div><span>{movementStages[row.action]}</span>{original && <small>{visibleMovementIds.has(original.id) ? <a href={`#bewegung-${original.id}`}
             onClick={event=>{
               event.preventDefault();
               const target=document.getElementById(`bewegung-${original.id}`);
               target?.focus({preventScroll:true});
               target?.scrollIntoView({block:'center'});
-            }}>Original vom {moment(original.created_at)}</a></small>}
+            }}>{originalLabel}</a> : originalLabel}</small>}
             {row.correction_reason && <small>{row.correction_reason}</small>}</div>,
           inventoryName(data.items,row.item_id),name(data.locations,row.location_id),name(data.projects,row.project_id),row.quantity,name(data.users,row.actor_id),
           correctable && (remaining > 0 || hasPendingWrite(correctionScope) ? <div>
-            <button type="button" aria-expanded={correctionId===row.id}
+            <button type="button" aria-expanded={correctionId===row.id} disabled={writingCorrection}
               onClick={()=>setCorrectionId(current=>current===row.id?'':row.id)}>{remaining>0?'Korrigieren':'Korrektur prüfen'}</button>
             {correctionId===row.id && <div className="stock-correction-form"><Form caption="Korrektur buchen"
               retryScope={correctionScope} fields={[
                 {name:'quantity',label:'Korrekturmenge',type:'number',required:true,min:1,max:remaining,value:1},
                 {name:'reason',label:'Begründung',type:'textarea',required:true},
               ]} submit={async (input,key)=>{
-                const saved=await run(()=>api(`movements/${row.id}/corrections`,'POST',
-                  {quantity:Number(input.quantity),reason:input.reason},key),'Korrektur gebucht.',{reportWriteRejection:true});
-                if(saved) setCorrectionId(current=>current===row.id?'':current);
-                return saved;
+                setWritingCorrection(true);
+                try {
+                  const saved=await run(()=>api(`movements/${row.id}/corrections`,'POST',
+                    {quantity:Number(input.quantity),reason:input.reason},key),'Korrektur gebucht.',{reportWriteRejection:true});
+                  if(saved) setCorrectionId(current=>current===row.id?'':current);
+                  return saved;
+                } finally {
+                  setWritingCorrection(false);
+                }
               }}/></div>}
           </div>
             : <span className="subtle">Vollständig korrigiert</span>),
         ]};
-      })}/></Panel>
+      })}/>}
+      {visibleMovements.length===0 && <p className="empty" role="status">{data.movements.length?'Keine Lagerbewegungen für diese Filter.':'Es gibt keine Lagerbewegungen.'}</p>}
+    </Panel>
   </>;
 }
 
