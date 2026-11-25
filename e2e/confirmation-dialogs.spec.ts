@@ -102,7 +102,7 @@ for(const status of ['sent','failed','unknown','http'] as const){
     if(status==='sent'){
       await expect(modal).toBeHidden();
       await expect(trigger).toHaveCount(0);
-      await expect(page.getByRole('region',{name:'Zammad',exact:true})).toBeFocused();
+      await expect(page.getByRole('region',{name:'Kommunikation',exact:true})).toBeFocused();
     } else {
       const message={
         failed:'Zammad hat den Sendeversuch abgelehnt.',

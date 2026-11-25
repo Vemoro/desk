@@ -168,3 +168,29 @@ tr:last-child td { border-bottom:0; }
 
 .contact-projects { border-top:1px solid var(--border); }
 .contact-projects h3 { margin:0; font-size:1rem; }
+
+/* Project communication */
+.communication-layout { display:grid; grid-template-columns:minmax(0,1fr) minmax(220px,280px); gap:16px; align-items:start; }
+.communication-details { display:grid; gap:12px; min-width:0; }
+.communication-details button,.communication-reference button { justify-self:start; }
+.communication-reference { overflow-wrap:anywhere; }
+.communication-reference p { white-space:pre-wrap; }
+.communication-workspace { gap:20px; }
+.communication-workspace .thread { gap:0; }
+.communication-workspace .thread li { border:0; border-radius:0; padding:16px 0; }
+.communication-workspace .thread li + li { border-top:1px solid var(--border); }
+.communication-workspace .thread li:first-child { padding-top:4px; }
+.communication-attachment { display:inline-block; padding:4px 8px; border-radius:4px; background:var(--soft); margin:8px 8px 0 0; overflow-wrap:anywhere; }
+.communication-empty { display:grid; gap:16px; padding-block:8px; }
+.communication-compose .expand:not([open]) { width:fit-content; border-color:var(--accent); background:var(--accent); }
+.communication-compose .expand:not([open]) summary { color:#fff; min-height:40px; }
+.communication-compose .expand:not([open]) summary:hover { background:#1d4586; border-radius:7px; }
+.communication-outgoing h3 { font-size:.92rem; margin:0 0 8px; }
+.communication-dialog { width:min(560px,calc(100% - 32px)); }
+.communication-dialog-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+.communication-dialog-hint { margin-bottom:16px; }
+.communication-dialog .form-grid { grid-template-columns:1fr; }
+.communication-dialog .form-action { justify-self:end; }
+@media(max-width:1000px) {
+  .communication-layout { grid-template-columns:1fr; }
+}
