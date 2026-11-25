@@ -23,7 +23,7 @@ Betreibe Desk und Zammad als getrennte Compose-Projekte. Zammad behält seine ei
 3. Zammad per `docker compose up -d` starten und eine Gruppe für Desk sowie ein Agentenkonto dafür einrichten. Für E-Mail-Antworten einen Mailkanal konfigurieren und in der Gruppe die passende Absenderadresse wählen. In einer Testumgebung ein isoliertes Postfach verwenden. [Zammad-Gruppeneinstellungen](https://admin-docs.zammad.org/en/latest/manage/groups/settings.html)
 4. Desk mit eigener PostgreSQL-Datenbank starten und wie in Weg B anbinden. Ein vorbereitetes Ticket verknüpfen und den gelesenen Verlauf prüfen. In einem zweiten Musterprojekt ein Ticket anlegen und in Zammad Gruppe und interne Notiz abgleichen.
 
-Vor einem Update die Desk-Datenbank und den Zammad-Stack getrennt sichern. Für eine Restore-Probe den Zammad-Datenbankdump und die Speicherdateien in eine separate Instanz einspielen und den Suchindex neu aufbauen. Danach die bisherigen Ticket-IDs, den Nachrichtenverlauf und einen Beispielanhang prüfen. [Zammad-Backup und Restore](https://docs.zammad.org/en/latest/appendix/backup-and-restore/docker-compose.html)
+Vor einem Update die Desk-Datenbank und den Zammad-Stack getrennt sichern. Für eine Restore-Probe den Zammad-Datenbankdump und die Speicherdateien in eine separate Instanz einspielen. Vor dem Start der Prüfkopie den Zugriff auf die produktiven Mailkanäle sperren, da der Restore deren Einstellungen übernimmt. Für eine Zustellprobe einen lokalen Testkanal verwenden. Danach den Suchindex neu aufbauen. Danach die bisherigen Ticket-IDs, den Nachrichtenverlauf und einen Beispielanhang prüfen. [Zammad-Backup und Restore](https://docs.zammad.org/en/latest/appendix/backup-and-restore/docker-compose.html)
 
 ## B · Bestehende Zammad-Instanz anbinden
 
