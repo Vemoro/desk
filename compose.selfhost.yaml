@@ -18,6 +18,7 @@ services:
       context: .
       args:
         DESK_BUILD_COMMIT: ${DESK_BUILD_COMMIT:-}
+        DESK_SOURCE_URL: ${DESK_SOURCE_URL:-}
     restart: unless-stopped
     depends_on:
       db:

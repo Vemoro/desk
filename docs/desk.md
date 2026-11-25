@@ -134,6 +134,12 @@ build_commit="$(git rev-parse --verify HEAD)" &&
 
 Für Docker Compose steht der Aufruf im [Installationsleitfaden](installation.md#eigenständiger-start-mit-docker-compose). Starte anschließend den gebauten Dienst und vergleiche die unter **Desk-Version** angezeigte Angabe mit `git rev-parse HEAD`. Die Angabe bleibt bei einem Neustart desselben Builds erhalten. Ein Build ohne Commit-Angabe zeigt **Stand unbekannt**.
 
+### Quellcode für den ausgelieferten Stand
+
+Stelle den Quellcode des ausgelieferten Desk-Stands unter einer dauerhaften HTTPS-Adresse ohne Anmeldung bereit. Gib diese Adresse beim Bau als `DESK_SOURCE_URL` an. Beim Build aus dem Checkout ist das eine Umgebungsvariable. Bei Docker übergibst du sie mit `--build-arg "DESK_SOURCE_URL=$source_url"`. Bei Compose setzt du den Wert in `.env.selfhost` vor dem [Bau des Desk-Images](installation.md#eigenständiger-start-mit-docker-compose).
+
+Mit gesetzter Adresse erscheint **Desk-Quellcode** auf der Anmeldeseite und unter **Mein Konto → Desk-Version**. Ohne die Angabe bleibt der Link ausgeblendet. Die Adresse gehört zum Build. Prüfe vor der Auslieferung, dass der verlinkte Quellstand der angezeigten Commit-ID entspricht und sich ohne Anmeldung abrufen lässt.
+
 ### Rollback einer fehlgeschlagenen Migration prüfen
 
 Führe `bun scripts/rehearse-migration-rollback.ts` im Git-Checkout aus. Die Probe verwendet eine eigene PostgreSQL-Instanz und ein Docker-Image aus einer temporären Kopie des ausgecheckten Commits. Benötigt werden Git, tar, die in `package.json` angegebene Bun-Version und ein Docker-Kontext, der lokale Verzeichnisse einbinden und einen lokalen Loopback-Port bereitstellen kann. Der freie Port ist standardmäßig 4182. Über `DESK_ROLLBACK_TEST_PORT` lässt sich ein anderer Port wählen.

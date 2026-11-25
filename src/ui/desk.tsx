@@ -178,6 +178,7 @@ export function Desk() {
         {name:'password',label:'Passwort',type:'password',required:true,autoComplete:'current-password'},
       ]} submit={(input)=>signIn(()=>api('login','POST',input))}/>
       <PasskeyLogin onSignIn={signIn}/>
+      <SourceLink/>
     </div></main>;
 
   return <ConfirmationRequests value={confirmationRequests.current}><div className="frame">
@@ -246,10 +247,17 @@ function BuildInfo() {
       </label>
       <div className="actions">
         <button type="button" onClick={copy}>Kopieren</button>
+        <SourceLink/>
         {copyStatus && <small role="status">{copyStatus}</small>}
       </div>
     </div>
   </Panel>;
+}
+
+function SourceLink() {
+  return __DESK_SOURCE_URL__
+    ? <a href={__DESK_SOURCE_URL__} target="_blank" rel="noreferrer">Desk-Quellcode</a>
+    : null;
 }
 
 function Dashboard({data,select,open}:{data:Data;select:(id:string)=>void;open:()=>void}) {
