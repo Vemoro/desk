@@ -23,7 +23,7 @@ Unter **Projekte** kannst du die Suche mit **Status**, **Fälligkeit** und **Kon
 
 Wenn du aus einem Projekt etwa **Kanban**, **Controlling** oder **Verlauf** teilen möchtest, öffne die Ansicht und kopiere ihre Adresse. Desk öffnet nach der Anmeldung den verlinkten Bereich. Ältere Projektlinks ohne Ansichtsangabe öffnen weiterhin den **Überblick**. Ist ein Projekt für dich nicht verfügbar, zeigt Desk einen Hinweis in der Projektliste.
 
-Im **Kanban** erfasst du Aufgaben mit **Karte hinzufügen** direkt in der passenden Spalte. Nach dem Speichern kannst du dort gleich den nächsten Titel eingeben. Wähle eine Karte oder öffne sie mit Enter, um Titel, Zuständigkeit, Fälligkeit oder Status zu ändern. Du kannst Karten auch in eine andere Statusspalte ziehen. Auf schmalen Bildschirmen lässt sich das Board horizontal scrollen.
+Im **Kanban** erfasst du Aufgaben mit **Karte hinzufügen** direkt in der passenden Spalte. Nach dem Speichern kannst du dort gleich den nächsten Titel eingeben. Wähle eine Karte oder öffne sie mit Enter, um Titel, Zuständigkeit, Fälligkeit oder Status zu ändern. Ziehe eine Karte auf die gewünschte Position innerhalb einer Spalte oder in eine andere Spalte. Der Einfügehinweis zeigt, wo sie abgelegt wird. Für Tastatur und Touch öffnet **Verschieben** an der Karte die Auswahl von Zielspalte und Zielposition. Desk speichert die Reihenfolge je Spalte. Auf schmalen Bildschirmen lässt sich das Board horizontal scrollen.
 
 Wähle unter **Kontakte** den Namen eines Kontakts. Unter **Zugehörige Projekte** stehen seine Projekte mit Status und Termin. Wähle den Projektnamen, um das Projekt zu öffnen. Gleichnamige Kontakte zeigen jeweils ihre eigenen Projekte.
 
@@ -182,6 +182,13 @@ Führe `bun scripts/rehearse-migration-rollback.ts` im Git-Checkout aus. Die Pro
 
 Die Probe ergänzt ausschließlich in der temporären Kopie zwei SQL-Dateien. Nach einem Fehler in der zweiten Datei prüft sie beide Testtabellen, das Migrationsprotokoll, den Bereitschaftsstatus und ein bereits gespeichertes Musterprojekt. Nach der Korrektur derselben Testdatei werden die Migrationen auf derselben Testdatenbank angewendet und alle vier Ergebnisse erneut geprüft. Kann die Probe ihre Testressourcen nicht vollständig entfernen, meldet sie die betroffenen Ressourcen und endet mit einem Fehlerstatus.
 
+### Kanban-Reihenfolge über die REST-API
+
+`GET /api/v1/tasks` gibt Aufgaben wie bisher paginiert nach Name und ID aus. `GET /api/v1/tasks/kanban` liefert alle Aufgaben mit ihren Kanban-Positionen in einem Datenstand. `kanban_position` ist eine positive Ganzzahl oder `null`. Sortiere das Board je Projekt und Status nach der Position. Karten ohne Position folgen nach Name und ID.
+
+`PATCH /api/v1/projects/{id}/kanban/{taskId}` verschiebt eine Karte in den angegebenen `status`. Übergib in `before_task_id` die Karte in der Zielspalte, vor der sie stehen soll, oder `null` für das Spaltenende. Die Zielkarte muss eine andere Karte desselben Projekts in der Zielspalte sein. Ist sie dort inzwischen nicht mehr verfügbar, antwortet Desk mit HTTP 409. Eine erfolgreiche Antwort enthält Karten-ID, Status und gespeicherte Position. Bestehende Aufrufe zum Anlegen oder Ändern von Aufgaben bleiben gültig. Neue Karten und tatsächliche Statuswechsel ohne Positionsangabe gehen ans Spaltenende.
+
+Wende `010_kanban_order.sql` vor dem Start an. Die Migration übernimmt die bisher sichtbare Reihenfolge je Projekt und Status nach Name und ID. Die Positionen liegen in einer eigenen Tabelle. Ein Rückwechsel auf einen älteren Anwendungsstand erhält die Positionen von Karten mit unverändertem Status. Karten, die dort neu angelegt werden oder den Status wechseln, stehen nach der Rückkehr am Ende ihrer Spalte.
 ### Seitennavigation der REST-API
 
 `limit` bestimmt die Höchstzahl der Einträge pro Seite (1 bis 200, Standard 100). `offset` überspringt Einträge am Anfang der aktuellen sortierten Liste (0 bis 1.000.000, Standard 0). Diese Parameter gelten für die folgenden GET-Listen:

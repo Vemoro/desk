@@ -5,7 +5,9 @@ import { accountInput, authenticate, changePassword, createAccount, createToken,
 import { accountAccessInput, changeAccountAccess, withAccountAccess } from './accounts';
 import { schemas, id, planningRange, planningResponse, projectHistoryResponse, projectResponse, projectStage, reservationInput, reservationStatus, movementInput, movementCorrection, costBatch, costAssignment, habenOfferInput, habenContactInput, zammadLinkInput, zammadCreateInput, zammadMessage } from './contracts';
 import { zammadNoteInput } from './contracts';
+import { kanbanMove, kanbanMoveResponse, kanbanTaskResponse } from './contracts';
 import { assignCost, changeStage, controlling, getCore, getProject, importCosts, listCore, listCosts, saveCore, type Collection } from './core';
+import { listKanbanTasks, moveKanbanTask } from './kanban-order';
 import { correctMovement, createMovement, createReservation, listMovements, listPlanningReservations, listReservations, listStock, setReservation } from './stock';
 import { pullContacts, syncContact, syncOffer } from './haben';
 import { checkZammadConnection, conversations, downloadAttachment, linkTicket, reviewOutgoing, send, unlinkTicket } from './zammad';
@@ -37,7 +39,7 @@ function get(path: string, summary: string, run: (context: Context) => Promise<u
   operations.push({ method: 'GET', path, summary, run, ...options });
 }
 
-function action<T>(method: 'POST'|'PATCH', path: string, summary: string, input: z.ZodType<T>, run: (context: Context, input: T) => Promise<unknown>, options: Pick<Operation,'keyed'|'adminSession'|'browserSession'|'accountAccess'> = {}) {
+function action<T>(method: 'POST'|'PATCH', path: string, summary: string, input: z.ZodType<T>, run: (context: Context, input: T) => Promise<unknown>, options: Pick<Operation,'keyed'|'adminSession'|'browserSession'|'accountAccess'|'response'> = {}) {
   operations.push({ method,path,summary,input,...options,run:(context,value)=>run(context,input.parse(value)) });
 }
 
@@ -86,6 +88,9 @@ operations.push({ method:'DELETE', path:'/tokens/{id}', summary:'API-Token wider
   return required(await first(db,'DELETE FROM api_tokens WHERE id=$1 RETURNING id',[path[1]]));
 }});
 action('PATCH','/projects/{id}/stage','Projektstatus ändern',projectStage,({actor,path},input)=>changeStage(path[1],input.stage,actor.id));
+get('/tasks/kanban','Aufgaben mit Kanban-Positionen aus einem Datenstand laden',()=>listKanbanTasks(),{response:z.array(kanbanTaskResponse)});
+action('PATCH','/projects/{id}/kanban/{taskId}','Kanban-Karte vor eine Zielkarte oder ans Spaltenende verschieben',kanbanMove,
+  ({path},input)=>moveKanbanTask(path[1],path[3],input.status,input.before_task_id),{response:kanbanMoveResponse});
 get('/projects/{id}/history','Projektverlauf abrufen',async ({path,limit,offset})=>{
   await getProject(path[1]);
   return listProjectHistory(path[1],limit,offset);
