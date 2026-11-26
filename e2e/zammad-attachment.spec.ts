@@ -31,7 +31,7 @@ test('Ticketanhänge bleiben bei Wartezeit und Fehler am Artikel bedienbar',asyn
   });
   await signIn(page);
   await project(page,name);
-  await page.getByRole('button',{name:'Kommunikation',exact:true}).click();
+  await page.getByRole('link',{name:'Kommunikation',exact:true}).click();
   const article=page.getByRole('region',{name:'Ticketverlauf'}).getByRole('listitem').filter({hasText:'Büroanfrage'});
   const controls=article.getByRole('button',{name:`${filename} herunterladen`,exact:true});
   await expect(controls).toHaveCount(2);
@@ -77,7 +77,7 @@ test('Filtern und Notizzitat brechen einen gestarteten Download nicht ab',async(
   });
   await signIn(page);
   await project(page,name);
-  await page.getByRole('button',{name:'Kommunikation',exact:true}).click();
+  await page.getByRole('link',{name:'Kommunikation',exact:true}).click();
   const history=page.getByRole('region',{name:'Ticketverlauf'});
   const attachment=history.getByRole('button',{name:'Materialliste.pdf herunterladen'});
   try{

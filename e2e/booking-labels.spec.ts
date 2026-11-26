@@ -115,7 +115,7 @@ test('Gleichnamige Einzelgeräte bleiben anhand der Inventarnummer in Planung un
   await page.getByRole('button',{name:'Menü',exact:true}).click();
   await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Projekte',exact:true}).click();
   await page.getByRole('button',{name:project.name,exact:true}).click();
-  await page.getByRole('button',{name:'Ressourcen & Kalkulation',exact:true}).click();
+  await page.getByRole('link',{name:'Ressourcen & Kalkulation',exact:true}).click();
   await page.locator('summary').filter({hasText:/^Inventar vormerken$/}).click();
   const planning=panel('Ressourcenplanung');
   const candidates=planning.locator('select[name="item_id"] option');

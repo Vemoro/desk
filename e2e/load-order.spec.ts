@@ -3,7 +3,7 @@ import { holdRoute, settleResponse, signIn } from './session';
 async function openExport(page:Page){
   await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Projekte',exact:true}).click();
   await page.getByRole('button',{name:'Musterinstallation',exact:true}).click();
-  await page.getByRole('button',{name:'Ressourcen & Kalkulation',exact:true}).click();
+  await page.getByRole('link',{name:'Ressourcen & Kalkulation',exact:true}).click();
   return page.getByRole('button',{name:'Angebotspositionen exportieren',exact:true});
 }
 const project={id:'projekt',name:'Musterinstallation',stage:'planning'};
@@ -113,7 +113,7 @@ async function switchAccount(page:Page,email:string){
   await page.getByLabel('E-Mail').fill(email);
   await page.getByLabel('Passwort').fill(process.env.DESK_DEMO_PASSWORD!);
   await page.getByRole('button',{name:'Anmelden',exact:true}).click();
-  await expect(page.getByText('Muster Zweitkonto',{exact:true})).toBeVisible();
+  await expect(page.getByRole('complementary').getByText('Muster Zweitkonto',{exact:true})).toBeVisible();
 }
 
 async function secondAccount(page:Page){
@@ -152,7 +152,7 @@ for(const operation of ['download','project'] as const){
       const address=page.url();
       await settleResponse(page,request,operation==='download'?[{name:'Musterartikel',quantity:1,unit_cents:100}]:{id:'alter-auftrag'},operation==='download'?200:201);
       await expect(page).toHaveURL(address);
-      await expect(page.getByText('Muster Zweitkonto',{exact:true})).toBeVisible();
+      await expect(page.getByRole('complementary').getByText('Muster Zweitkonto',{exact:true})).toBeVisible();
       expect(downloads).toBe(0);
     }finally{
       await request.abort().catch(()=>{});

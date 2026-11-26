@@ -42,7 +42,7 @@ test('Kalkulationsposition erst nach einer Bestätigung entfernen',async({page})
   });
   await signIn(page);
   await project(page,projectRow.name);
-  await page.getByRole('button',{name:'Ressourcen & Kalkulation',exact:true}).click();
+  await page.getByRole('link',{name:'Ressourcen & Kalkulation',exact:true}).click();
   await page.getByText('Position bearbeiten',{exact:true}).click();
   const trigger=page.getByRole('button',{name:'Position entfernen',exact:true});
   await assertDismissal(page,trigger,'Kalkulationsposition entfernen');
@@ -89,7 +89,7 @@ for(const status of ['sent','failed','unknown','http'] as const){
     });
     await signIn(page);
     await project(page,projectRow.name);
-    await page.getByRole('button',{name:'Kommunikation',exact:true}).click();
+    await page.getByRole('link',{name:'Kommunikation',exact:true}).click();
     const trigger=page.getByRole('button',{name:'Erneut senden',exact:true});
     if(status==='sent'){
       await assertDismissal(page,trigger,'Zammad-Sendeversuch wiederholen');
@@ -146,7 +146,7 @@ for(const scenario of [
       });
       async function openConfirmation() {
         await project(page,projectRow.name);
-        await page.getByRole('button',{name:scenario.tab,exact:true}).click();
+        await page.getByRole('link',{name:scenario.tab,exact:true}).click();
         if(scenario.name==='Kalkulation') await page.getByText('Position bearbeiten',{exact:true}).click();
         await page.getByRole('button',{name:scenario.action,exact:true}).click();
       }

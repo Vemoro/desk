@@ -103,8 +103,9 @@ tr:nth-last-child(1 of :not([hidden])) td { border-bottom:0; }
 .project-filters > .project-contact-filter { flex-basis:264px; }
 .actions,.tabs { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .tabs { border-bottom:1px solid var(--border); }
-.tabs button { background:transparent; border:0; border-radius:0; color:var(--muted); margin-bottom:-1px; }
-.tabs button[aria-current] { border-bottom:2px solid var(--accent-ink); color:var(--accent-ink); font-weight:700; }
+.tabs a { display:inline-flex; align-items:center; min-height:40px; padding:8px 12px; color:var(--muted); text-decoration:none; margin-bottom:-1px; }
+.tabs a:focus-visible { outline-color:var(--accent-ink); }
+.tabs a[aria-current] { border-bottom:2px solid var(--accent-ink); color:var(--accent-ink); font-weight:700; }
 .two-col,.compact-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
 .board { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
 .board-column { background:var(--soft); border:1px solid var(--border); border-radius:var(--radius); min-height:252px; padding:11px; }

@@ -10,7 +10,7 @@ async function openTarget(page:Page){
   await page.route('**/api/v1/integrations',route=>route.fulfill({json:{zammad:true,haben:false}}));
   await signIn(page);
   await project(page,record.name);
-  await page.getByRole('button',{name:'Kommunikation',exact:true}).click();
+  await page.getByRole('link',{name:'Kommunikation',exact:true}).click();
   return page.getByRole('region',{name:'Anfrage vom Musterbüro',exact:true});
 }
 function conversation(articles:typeof baseArticles){

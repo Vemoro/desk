@@ -142,7 +142,7 @@ test('Ein fehlgeschlagener neuerer Export-Abruf hält die bestätigte Speicherun
   try{
     await nav.getByRole('button',{name:'Projekte',exact:true}).click();
     await page.getByRole('button',{name:'Büroinstallation Westflügel',exact:true}).click();
-    await page.getByRole('button',{name:'Ressourcen & Kalkulation',exact:true}).click();
+    await page.getByRole('link',{name:'Ressourcen & Kalkulation',exact:true}).click();
     await page.getByRole('button',{name:'Angebotspositionen exportieren',exact:true}).click();
     await expect.poll(()=>readsAfterWrite).toBe(2);
     await first.fulfill({status:503,json:{error:'Erster Abruf fehlgeschlagen'}});

@@ -14,7 +14,7 @@ async function openTarget(page:Page) {
   await page.route('**/api/v1/integrations',route=>route.fulfill({json:{zammad:true,haben:false}}));
   await signIn(page);
   await project(page,projectName);
-  await page.getByRole('button',{name:'Kommunikation',exact:true}).click();
+  await page.getByRole('link',{name:'Kommunikation',exact:true}).click();
 }
 
 test('Leerer Ticketverlauf unterscheidet sich von Laden und einer Suche ohne Treffer',async({page})=>{
@@ -140,10 +140,10 @@ test('Ticketabruf aus verlassener Kommunikation verändert die erneut geöffnete
   const history=page.getByRole('region',{name:'Ticketverlauf',exact:true});
   try {
     await expect(history).toHaveAttribute('aria-busy','true');
-    await page.getByRole('button',{name:'Überblick',exact:true}).click();
+    await page.getByRole('link',{name:'Überblick',exact:true}).click();
     await expect(history).toHaveCount(0);
     initialView=false;
-    await page.getByRole('button',{name:'Kommunikation',exact:true}).click();
+    await page.getByRole('link',{name:'Kommunikation',exact:true}).click();
     const current=history.getByText('Verlauf nach Wiederöffnen',{exact:true});
     await expect(current).toBeVisible();
     const note=page.getByRole('textbox',{name:'Interne Notiz',exact:true});

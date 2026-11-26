@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { all, api, ApiError, calendarDate, compileCsv, euros, inventoryLabel, inventoryName, moment, money, movementStages, name, projectStages, type Row } from './client';
 import { defaultProjectFilters, Project, Projects, type Data } from './projects';
+import { projectHash, projectView, type ProjectView } from './project-views';
 import { PasskeyLogin, PasskeySettings } from './passkeys';
 import { AccountPassword } from './account-password';
 import { WeeklyPlanning } from './weekly-planning';
@@ -17,6 +18,7 @@ export function Desk() {
   const [flags,setFlags]=useState({haben:false,zammad:false});
   const [section,setSection]=useState<Section>('dashboard');
   const [projectId,setProjectId]=useState('');
+  const [view,setView]=useState<ProjectView>('overview');
   const [projectFilters,setProjectFilters]=useState(defaultProjectFilters);
   const [planningWeek,setPlanningWeek]=useState<string>();
   const [theme,setTheme]=useState('light');
@@ -71,8 +73,12 @@ export function Desk() {
     const current=localStorage.getItem('desk-theme');
     if(current==='dark')setTheme(current);
     function onHash() {
-      const [route,id]=location.hash.slice(1).split('/');
-      if(route in sections) {setSection(route as Section);setProjectId(id??'');}
+      const [route,id,requestedView]=location.hash.slice(1).split('/');
+      if(route==='desk-main') return;
+      const next=Object.hasOwn(sections,route) ? route as Section : 'dashboard';
+      setSection(next);
+      setProjectId(next==='projects' ? id ?? '' : '');
+      setView(projectView(next==='projects' && id ? requestedView : undefined));
     }
     onHash();
     window.addEventListener('hashchange',onHash);
@@ -147,7 +153,8 @@ export function Desk() {
     setNotice({message:'',error:false});
     setSection(to);
     setProjectId(id);
-    location.hash=id?`${to}/${id}`:to;
+    setView('overview');
+    location.hash=id && to==='projects' ? projectHash(id) : to;
   }
 
   async function signIn(authenticate:()=>Promise<unknown>) {
@@ -184,7 +191,10 @@ export function Desk() {
     </div></main>;
 
   return <ConfirmationRequests value={confirmationRequests.current}><div className="frame">
-    <a href="#desk-main" className="skip">Zum Inhalt</a>
+    <a href="#desk-main" className="skip" onClick={(event)=>{
+      event.preventDefault();
+      document.getElementById('desk-main')?.focus();
+    }}>Zum Inhalt</a>
     <Navigation person={person} section={section} themeButton={themeButton} onNavigate={navigate} onLogout={async()=>{
       if(logoutPending.current) return;
       logoutPending.current=true;
@@ -210,7 +220,8 @@ export function Desk() {
         </button>
       </div>}
       {section==='dashboard' && <Dashboard data={data} select={(id)=>navigate('projects',id)} open={()=>navigate('projects')}/>}
-      {section==='projects' && (project?<Project key={project.id} project={project} data={data} run={run} flags={flags} accountId={person.id} back={()=>navigate('projects')}/>
+      {section==='projects' && projectId && !project && <p className="notice" role="status">Dieses Projekt ist nicht verfügbar.</p>}
+      {section==='projects' && (project?<Project key={project.id} tab={view} project={project} data={data} run={run} flags={flags} accountId={person.id} back={()=>navigate('projects')}/>
         :<Projects data={data} run={run} filters={projectFilters} onFilter={setProjectFilters} select={(id)=>navigate('projects',id)}/>)}
       {section==='planning' && <WeeklyPlanning selectedWeek={planningWeek} onWeek={setPlanningWeek} onSessionExpired={()=>{
         endSession();

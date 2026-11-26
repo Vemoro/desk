@@ -10,7 +10,7 @@ for(const [summary,caption,hour] of [['Personal vormerken','Person vormerken','1
     await signIn(page);
     await project(page,'Büroinstallation Westflügel');
     const projectId=new URL(page.url()).hash.split('/').at(-1);
-    await page.getByRole('button',{name:'Ressourcen & Kalkulation',exact:true}).click();
+    await page.getByRole('link',{name:'Ressourcen & Kalkulation',exact:true}).click();
     const target=planningForm(page,summary);
     await target.locator('summary').click();
     const newInputHint='Die Zeitzone für neue Eingaben ist Europe/Berlin.';
@@ -61,7 +61,7 @@ for(const [summary,caption,hour] of [['Personal vormerken','Person vormerken','1
       const recovered=await reopened.newPage();
       await recovered.route('**/api/v1/reservations',intercept);
       await recovered.goto(address);
-      await recovered.getByRole('button',{name:'Ressourcen & Kalkulation',exact:true}).click();
+      await recovered.getByRole('link',{name:'Ressourcen & Kalkulation',exact:true}).click();
       const recoveredForm=planningForm(recovered,summary);
       await recoveredForm.locator('summary').click();
       await expect(recoveredForm.getByText('Die Zeitzone für neue Eingaben ist UTC.')).toBeVisible();
