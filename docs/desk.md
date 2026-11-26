@@ -23,7 +23,7 @@ Unter **Projekte** kannst du die Suche mit **Status**, **Fälligkeit** und **Kon
 
 Wenn du aus einem Projekt etwa **Kanban**, **Controlling** oder **Verlauf** teilen möchtest, öffne die Ansicht und kopiere ihre Adresse. Desk öffnet nach der Anmeldung den verlinkten Bereich. Ältere Projektlinks ohne Ansichtsangabe öffnen weiterhin den **Überblick**. Ist ein Projekt für dich nicht verfügbar, zeigt Desk einen Hinweis in der Projektliste.
 
-Im **Kanban** erfasst du Aufgaben mit **Karte hinzufügen** direkt in der passenden Spalte. Nach dem Speichern kannst du dort gleich den nächsten Titel eingeben. Wähle eine Karte oder öffne sie mit Enter, um Titel, Zuständigkeit, Fälligkeit oder Status zu ändern. Du kannst Karten auch in eine andere Statusspalte ziehen. Auf schmalen Bildschirmen lässt sich das Board horizontal scrollen.
+Im **Kanban** erfasst du Aufgaben mit **Karte hinzufügen** direkt in der passenden Spalte. Nach dem Speichern kannst du dort gleich den nächsten Titel eingeben. Wähle eine Karte oder öffne sie mit Enter, um Titel, Zuständigkeit, Fälligkeit oder Status zu ändern. Ziehe eine Karte auf die gewünschte Position innerhalb einer Spalte oder in eine andere Spalte. Der Einfügehinweis zeigt, wo sie abgelegt wird. Für Tastatur und Touch öffnet **Verschieben** an der Karte die Auswahl von Zielspalte und Zielposition. Desk speichert die Reihenfolge je Spalte. Auf schmalen Bildschirmen lässt sich das Board horizontal scrollen.
 
 Wähle unter **Kontakte** den Namen eines Kontakts. Unter **Zugehörige Projekte** stehen seine Projekte mit Status und Termin. Wähle den Projektnamen, um das Projekt zu öffnen. Gleichnamige Kontakte zeigen jeweils ihre eigenen Projekte.
 

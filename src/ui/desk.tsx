@@ -41,7 +41,8 @@ export function Desk() {
     const isCurrent=()=>session===sessionVersion.current && request===loadVersion.current && saved===savedVersion.current;
     try {
       const [integrations,...result]=await Promise.all([api('integrations'),...collections.map((collection)=>
-        collection==='users'||collection==='stock'?api<Row[]>(collection):all(collection),
+        collection==='users'||collection==='stock'?api<Row[]>(collection):
+          all(collection==='tasks'?'tasks?include_kanban_position=true':collection),
       )]);
       if(!isCurrent()) return false;
       setFlags(integrations);
