@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type DragEvent } from 'react';
+import { useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction, type RefObject, type DragEvent } from 'react';
 import { api, ApiError, calendarDate, name, taskStages, type Row } from './client';
 import { Icon } from './icons';
 import { Form, FormDialog, options, type Run } from './widgets';
@@ -55,7 +55,6 @@ export function ProjectKanban({projectId,tasks:allTasks,users,run}:{projectId:st
   const [editor,setEditor]=useState<{task:Row;trigger:HTMLButtonElement;move?:boolean}>();
   const dragging=useRef<string|undefined>(undefined);
   const [dropPosition,setDropPosition]=useState<DropPosition>();
-  const activePeople=options(users.filter(person=>!person.blocked));
 
   useLayoutEffect(()=>{
     if(editor || !restoreFocus.current) return;
@@ -66,11 +65,6 @@ export function ProjectKanban({projectId,tasks:allTasks,users,run}:{projectId:st
     restoreFocus.current=undefined;
     (card ?? board.current)?.focus();
   },[editor]);
-
-  function assigneeChoices(id:string | null) {
-    const previous=users.find(person=>person.id===id && person.blocked);
-    return previous ? [...activePeople,{value:previous.id,label:`${previous.name} (gesperrt)`}] : activePeople;
-  }
 
   function dismiss() {
     if(!editor) return;
@@ -125,7 +119,38 @@ export function ProjectKanban({projectId,tasks:allTasks,users,run}:{projectId:st
 
   return <section className="project-kanban">
     <header className="kanban-heading"><h2>Aufgaben</h2><span className="subtle">{tasks.length} {tasks.length===1?'Aufgabe':'Aufgaben'}</span></header>
-    <div className="board" ref={board} tabIndex={0} role="region" aria-label="Kanban">
+    <KanbanColumns board={board} columns={columns} dropPosition={dropPosition} dragging={dragging} projectId={projectId}
+      run={run} users={users} setEditor={setEditor} markDrop={markDrop} positionAtPointer={positionAtPointer}
+      setDropPosition={setDropPosition} drop={drop} clearDrop={clearDrop}/>
+    {editor && <FormDialog title={editor.move?'Karte verschieben':'Karte bearbeiten'} trigger={editor.trigger} dismiss={dismiss}>{save=>
+      editor.move ? <MoveCardForm task={editor.task} columns={columns} submit={position=>save(()=>move(editor.task.id,position,true))}/>
+      : <Form caption="Karte speichern" fields={[
+        {name:'name',label:'Kartentitel',value:editor.task.name,required:true},
+        {name:'assignee_id',label:'Verantwortlich',value:editor.task.assignee_id,choices:assigneeChoices(users,editor.task.assignee_id)},
+        {name:'due',label:'Fällig am',type:'date',value:editor.task.due?.slice(0,10)},
+        {name:'status',label:'Status',value:editor.task.status,choices:statusChoices,required:true},
+      ]} submit={fields=>{
+        const changes=Object.fromEntries([
+          ['name',editor.task.name,fields.name],
+          ['assignee_id',editor.task.assignee_id||null,fields.assignee_id||null],
+          ['due',editor.task.due?.slice(0,10)||null,fields.due||null],
+          ['status',editor.task.status,fields.status],
+        ].filter(([,previous,next])=>previous!==next).map(([key,,value])=>[key,value]));
+        const saveCard=()=>run(()=>api(`tasks/${editor.task.id}`,'PATCH',changes),'Karte gespeichert.',{reportInlineError:true});
+        return save(Object.keys(changes).length ? saveCard : async()=>true);
+      }}/>
+    }</FormDialog>}
+  </section>;
+}
+
+function KanbanColumns({board,columns,dropPosition,dragging,projectId,run,users,setEditor,markDrop,positionAtPointer,
+  setDropPosition,drop,clearDrop}:{
+  board:RefObject<HTMLDivElement|null>; columns:Record<string,Row[]>; dropPosition?:DropPosition; dragging:RefObject<string|undefined>;
+  projectId:string; run:Run; users:Row[]; setEditor:(editor:{task:Row;trigger:HTMLButtonElement;move?:boolean})=>void;
+  markDrop:(event:DragEvent,position:DropPosition)=>void; positionAtPointer:(event:DragEvent<HTMLElement>,status:string)=>DropPosition;
+  setDropPosition:Dispatch<SetStateAction<DropPosition|undefined>>; drop:(event:DragEvent,position:DropPosition)=>void; clearDrop:()=>void;
+}) {
+  return <div className="board" ref={board} tabIndex={0} role="region" aria-label="Kanban">
       {statusChoices.map(({value:status,label})=>{
         const cards=columns[status];
         return <section key={status} className="board-column" aria-label={label}
@@ -156,24 +181,11 @@ export function ProjectKanban({projectId,tasks:allTasks,users,run}:{projectId:st
           <AddCard projectId={projectId} status={status} run={run}/>
         </section>;
       })}
-    </div>
-    {editor && <FormDialog title={editor.move?'Karte verschieben':'Karte bearbeiten'} trigger={editor.trigger} dismiss={dismiss}>{save=>
-      editor.move ? <MoveCardForm task={editor.task} columns={columns} submit={position=>save(()=>move(editor.task.id,position,true))}/>
-      : <Form caption="Karte speichern" fields={[
-        {name:'name',label:'Kartentitel',value:editor.task.name,required:true},
-        {name:'assignee_id',label:'Verantwortlich',value:editor.task.assignee_id,choices:assigneeChoices(editor.task.assignee_id)},
-        {name:'due',label:'Fällig am',type:'date',value:editor.task.due?.slice(0,10)},
-        {name:'status',label:'Status',value:editor.task.status,choices:statusChoices,required:true},
-      ]} submit={fields=>{
-        const changes=Object.fromEntries([
-          ['name',editor.task.name,fields.name],
-          ['assignee_id',editor.task.assignee_id||null,fields.assignee_id||null],
-          ['due',editor.task.due?.slice(0,10)||null,fields.due||null],
-          ['status',editor.task.status,fields.status],
-        ].filter(([,previous,next])=>previous!==next).map(([key,,value])=>[key,value]));
-        const saveCard=()=>run(()=>api(`tasks/${editor.task.id}`,'PATCH',changes),'Karte gespeichert.',{reportInlineError:true});
-        return save(Object.keys(changes).length ? saveCard : async()=>true);
-      }}/>
-    }</FormDialog>}
-  </section>;
+    </div>;
+}
+
+function assigneeChoices(users:Row[],id:string | null) {
+  const activePeople=options(users.filter(person=>!person.blocked));
+  const previous=users.find(person=>person.id===id && person.blocked);
+  return previous ? [...activePeople,{value:previous.id,label:`${previous.name} (gesperrt)`}] : activePeople;
 }

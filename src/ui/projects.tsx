@@ -31,40 +31,7 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
   const search=useRef<HTMLInputElement>(null);
   const searchHelpId=useId();
   const today=useLocalDay();
-  const query=filters.query.trim().toLowerCase();
-  const filtered=filters.query!=='' || filters.stage!=='all' || filters.due!=='all' || filters.contactId!=='';
-  const contactLabelCounts=new Map<string,number>();
-  const contacts=data.contacts.map(contact=>{
-    const label=[contact.name,contact.email].filter(Boolean).join(' · ').replace(/[\t\n\f\r ]+/g,' ').trim();
-    contactLabelCounts.set(label,(contactLabelCounts.get(label)??0)+1);
-    return {id:contact.id,label,phone:contact.phone};
-  });
-  function contactOptionLabel({label,phone}:typeof contacts[number]) {
-    return phone && (contactLabelCounts.get(label)??0)>1 ? `${label} · ${phone}` : label;
-  }
-  const selectedContact=contacts.find(contact=>contact.id===filters.contactId);
-  const projects=data.projects.filter((project)=>{
-    if(filters.contactId && project.contact_id!==filters.contactId) return false;
-    const matchesSearch=`${project.name} ${name(data.contacts,project.contact_id)}`.toLowerCase().includes(query)
-      || [project.offer_ref,project.invoice_ref,project.cost_center].some(value=>value?.toLowerCase().includes(query));
-    const active=!['complete','cancelled'].includes(project.stage);
-    const matchesStage=filters.stage==='all' || (filters.stage==='open'?active:project.stage===filters.stage);
-    const dueDate=project.due?.slice(0,10);
-    const matchesDue=filters.due==='all'
-      || (filters.due==='overdue' && active && Boolean(dueDate) && dueDate<today)
-      || (filters.due==='today' && dueDate===today)
-      || (filters.due==='missing' && !dueDate);
-    return matchesSearch && matchesStage && matchesDue;
-  });
-  if(filters.sort==='due') {
-    projects.sort((left,right)=>{
-      const leftDue=left.due?.slice(0,10);
-      const rightDue=right.due?.slice(0,10);
-      if(!leftDue) return rightDue?1:0;
-      if(!rightDue) return -1;
-      return leftDue.localeCompare(rightDue);
-    });
-  }
+  const {filtered,contacts,selectedContact,projects,contactOptionLabel}=filteredProjects(data,filters,today);
   return <>
     <Panel title="Projekte">
       <div className="panel-body">
@@ -121,6 +88,44 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
           name(data.contacts,project.contact_id),<Pill label={projectStages[project.stage]} tone={project.stage==='confirmed'?'accent':'neutral'}/>,calendarDate(project.due)]}))}/>}
     </Panel>
   </>;
+}
+
+function filteredProjects(data:Data,filters:ProjectFilters,today:string) {
+  const query=filters.query.trim().toLowerCase();
+  const filtered=filters.query!=='' || filters.stage!=='all' || filters.due!=='all' || filters.contactId!=='';
+  const contactLabelCounts=new Map<string,number>();
+  const contacts=data.contacts.map(contact=>{
+    const label=[contact.name,contact.email].filter(Boolean).join(' · ').replace(/[\t\n\f\r ]+/g,' ').trim();
+    contactLabelCounts.set(label,(contactLabelCounts.get(label)??0)+1);
+    return {id:contact.id,label,phone:contact.phone};
+  });
+  function contactOptionLabel({label,phone}:typeof contacts[number]) {
+    return phone && (contactLabelCounts.get(label)??0)>1 ? `${label} · ${phone}` : label;
+  }
+  const selectedContact=contacts.find(contact=>contact.id===filters.contactId);
+  const projects=data.projects.filter((project)=>{
+    if(filters.contactId && project.contact_id!==filters.contactId) return false;
+    const matchesSearch=`${project.name} ${name(data.contacts,project.contact_id)}`.toLowerCase().includes(query)
+      || [project.offer_ref,project.invoice_ref,project.cost_center].some(value=>value?.toLowerCase().includes(query));
+    const active=!['complete','cancelled'].includes(project.stage);
+    const matchesStage=filters.stage==='all' || (filters.stage==='open'?active:project.stage===filters.stage);
+    const dueDate=project.due?.slice(0,10);
+    const matchesDue=filters.due==='all'
+      || (filters.due==='overdue' && active && Boolean(dueDate) && dueDate<today)
+      || (filters.due==='today' && dueDate===today)
+      || (filters.due==='missing' && !dueDate);
+    return matchesSearch && matchesStage && matchesDue;
+  });
+  if(filters.sort==='due') {
+    projects.sort((left,right)=>{
+      const leftDue=left.due?.slice(0,10);
+      const rightDue=right.due?.slice(0,10);
+      if(!leftDue) return rightDue?1:0;
+      if(!rightDue) return -1;
+      return leftDue.localeCompare(rightDue);
+    });
+  }
+  return {filtered,contacts,selectedContact,projects,contactOptionLabel};
 }
 
 export function Project({project,data,run,flags,accountId,back,tab}:{project:Row;data:Data;run:Run;flags:Flags;accountId:string;back:()=>void;tab:ProjectView}) {
@@ -183,9 +188,13 @@ function Overview({project,data,run,haben}:{project:Row;data:Data;run:Run;haben:
   </div>;
 }
 
-function Planning({project,data,run,accountId}:{project:Row;data:Data;run:Run;accountId:string}) {
-  const [confirmation,setConfirmation]=useState<Confirmation>();
-  const calculationPanel=useRef<HTMLElement>(null);
+type ProjectPlanningProps={project:Row;data:Data;run:Run;accountId:string};
+
+function Planning(props:ProjectPlanningProps) {
+  return <><ProjectReservations {...props}/><ProjectCalculation project={props.project} data={props.data} run={props.run}/></>;
+}
+
+function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) {
   const [resourceFilter,setResourceFilter]=useState('');
   const [statusFilter,setStatusFilter]=useState('');
   const resourceSelector=useRef<HTMLSelectElement>(null);
@@ -215,7 +224,6 @@ function Planning({project,data,run,accountId}:{project:Row;data:Data;run:Run;ac
     }
   }
 
-  const lines=data.lines.filter((row)=>row.project_id===project.id);
   const activePeople=options(data.users.filter(person=>!person.blocked));
   const blockedPeople=new Set(data.users.filter(person=>person.blocked).map(person=>person.id));
   const personTimeZoneId=useId();
@@ -227,8 +235,7 @@ function Planning({project,data,run,accountId}:{project:Row;data:Data;run:Run;ac
     {name:'starts_at',label:'Von',type:'datetime-local',required:true,describedBy},
     {name:'ends_at',label:'Bis',type:'datetime-local',required:true,describedBy},
   ];
-  return <>
-    <Panel title="Ressourcenplanung">
+  return <Panel title="Ressourcenplanung">
       <div className="panel-body">
         <div className="form-grid">
           <label><span>Ressourcentyp</span><select ref={resourceSelector} value={resourceFilter} onChange={(event)=>setResourceFilter(event.target.value)}>
@@ -271,7 +278,14 @@ function Planning({project,data,run,accountId}:{project:Row;data:Data;run:Run;ac
             : <button type="button" onFocus={rememberStatusFocus} onBlur={forgetStatusFocus} onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'firm'}),'Fest reserviert.')}>Fest reservieren</button>
         )}
           {row.status!=='released' && <button type="button" onFocus={rememberStatusFocus} onBlur={forgetStatusFocus} onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'released'}),'Reservierung freigegeben.')}>Freigeben</button>}</div>],
-    }))}/>}</Panel>
+    }))}/>}</Panel>;
+}
+
+function ProjectCalculation({project,data,run}:Omit<ProjectPlanningProps,'accountId'>) {
+  const [confirmation,setConfirmation]=useState<Confirmation>();
+  const calculationPanel=useRef<HTMLElement>(null);
+  const lines=data.lines.filter((row)=>row.project_id===project.id);
+  return <>
     <Panel title="Kalkulation" focusRef={calculationPanel} action={<button onClick={()=>run(async(isCurrent)=>{
       const positions=await api(`projects/${project.id}/offer-positions`);
       if(isCurrent()) downloadPositions(project,positions);
