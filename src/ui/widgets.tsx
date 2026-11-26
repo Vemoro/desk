@@ -103,7 +103,7 @@ export function Form({fields,caption,submit,children,className='form-grid',retry
   }
 
   async function send(values:Fields) {
-    if(storageKey && submitting.current) return;
+    if(submitting.current) return;
     setError('');
     const retrying=Boolean(attempt.current);
     let key:string|undefined;
