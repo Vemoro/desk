@@ -85,13 +85,16 @@ for(const fromOpening of [false,true]){
     const current=thread('Aktueller Verlauf');
     const currentError='Aktueller Abruf fehlgeschlagen';
     const olderTitle='Verspäteter Verlauf';
-    let reads=0;
+    const oldRequests:Route[]=[];
+    let phase:'initial'|'older'|'newer'|'recovered'=fromOpening?'older':'initial';
     await page.route(path,route=>{
       expect(route.request().method()).toBe('GET');
-      const attempt=++reads-(fromOpening?0:1);
-      if(attempt===0) return route.fulfill({json:previous});
-      if(attempt===1) return older.resolve(route);
-      if(attempt===2) return newer.resolve(route);
+      if(phase==='initial') return route.fulfill({json:previous});
+      if(phase==='older'){
+        oldRequests.push(route);
+        return older.resolve(route);
+      }
+      if(phase==='newer') return newer.resolve(route);
       return route.fulfill({json:current});
     });
     await openTarget(page);
@@ -104,13 +107,15 @@ for(const fromOpening of [false,true]){
     let newRequest:Route|undefined;
     if(!fromOpening){
       await expect(previousVersion).toBeVisible();
+      phase='older';
       await refresh.click();
     }
-    const oldRequest=await older.request;
+    await older.request;
     try {
       await expect(loading).toBeVisible();
       await expect(history).toHaveAttribute('aria-busy','true');
       await expect(refresh).toBeEnabled();
+      phase='newer';
       await refresh.press('Enter');
       await expect(refresh).toBeFocused();
       newRequest=await newer.request;
@@ -119,12 +124,12 @@ for(const fromOpening of [false,true]){
         await settleResponse(page,newRequest,{error:currentError},503);
         await expect(history.getByRole('alert')).toHaveText(currentError);
         await expect(loading).toHaveCount(0);
-        await settleResponse(page,oldRequest,thread(olderTitle));
+        for(const request of oldRequests) await settleResponse(page,request,thread(olderTitle));
         await expect(history.getByRole('alert')).toHaveText(currentError);
       }else{
         await expect(previousVersion).toBeVisible();
         await expect(outgoingStatus).toBeVisible();
-        await settleResponse(page,oldRequest,{error:'Alter Abruffehler'},503);
+        for(const request of oldRequests) await settleResponse(page,request,{error:'Alter Abruffehler'},503);
         await expect(loading).toBeVisible();
         await expect(history).toHaveAttribute('aria-busy','true');
         await expect(history.getByRole('alert')).toHaveCount(0);
@@ -137,12 +142,14 @@ for(const fromOpening of [false,true]){
       await expect(loading).toHaveCount(0);
       await expect(history).toHaveAttribute('aria-busy','false');
 
+      phase='recovered';
+      const recovery=page.waitForResponse(response=>response.url().endsWith('/api/v1/projects/muster/zammad'));
       await refresh.click();
+      expect((await recovery).ok()).toBe(true);
       await expect(visibleVersion).toBeVisible();
       await expect(history.getByRole('alert')).toHaveCount(0);
-      expect(reads).toBe(fromOpening?3:4);
     } finally {
-      await oldRequest.abort().catch(()=>{});
+      await Promise.all(oldRequests.map(request=>request.abort().catch(()=>{})));
       await newRequest?.abort().catch(()=>{});
     }
   });
