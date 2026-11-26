@@ -12,6 +12,14 @@ Nutze vorhandene Komponenten und Abläufe, wenn ihr Verhalten passt. Halte Ände
 
 Behandle gespeicherte Geldbeträge in ganzen Cent. Prüfe bei Schreibvorgängen Wiederholungen, mögliche Konkurrenz und den Zustand nach einem Fehler. Ergänze beim Ändern der Datenbank eine neue Migration. Bereits angewendete Migrationen bleiben stabil. Änderungen an gespeicherten Daten brauchen eine Probe mit repräsentativem Altbestand und belegtem Wiederanlauf. Für die Oberfläche gelten die [Gestaltungsregeln](../DESIGN.md).
 
+### Dateigröße und Funktionslänge
+
+Für TypeScript- und TSX-Quelldateien unter `src/` und `scripts/` gelten höchstens 400 physische Zeilen je Datei und 80 Codezeilen je Funktion. Tests, Deklarationsdateien und der generierte Router sind ausgenommen. Die Funktionsprüfung zählt Zeilen mit Code-Token im Rumpf. Leerzeilen, reine Kommentare, Textzeilen in JSX und Fortsetzungszeilen in Zeichenketten zählen nur, wenn auf derselben Zeile weiterer Code beginnt. Eine Aufteilung erhält Verhalten und Grenzen der vorhandenen Schnittstellen. [Habens Größenregeln](https://haben.app/mitwirken.html#automatische-prüfungen-der-regeln)
+
+`bun run check` prüft die Grenzen lokal und in der Anwendungs-CI. `bun run check:code-size --bestand` zeigt die noch zu langen Stellen. Die befristete Liste unter `.checks/code-size.json` führt die beim Umstieg gemessenen Höchstwerte. Die CI vergleicht Ausnahmen mit dem Git-Stand der Zielbasis. Sie lehnt neue oder vergrößerte Ausnahmen ab. Kürzere oder entfernte Stellen werden im selben PR aus der Liste gestrichen oder auf den neuen Wert gesetzt.
+
+Mit `bun run check:code-size --release` prüfst du den Stand für den Release. Ab `deskVersion` 0.2.0.0 erzwingt die Anwendungs-CI diese Prüfung auch beim regulären Aufruf. Vor der Freigabe müssen die Übergangsausnahmen abgebaut sein. [Release-Abnahme](release-abnahme.md)
+
 ## Issue-Review vor der Planung
 
 Ein umsetzbares Issue erklärt das konkrete Problem, belegt den aktuellen Stand und begründet die Lösungswahl. Die Abnahme nennt beobachtbare Ergebnisse und die Randfälle, die für den betroffenen Ablauf relevant sind. Umfang und Länge richten sich nach der Aufgabe. [Issue schreiben](../.agents/skills/desk-issue-schreiben/SKILL.md)
