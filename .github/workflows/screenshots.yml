@@ -12,7 +12,7 @@ jobs:
           - name: vorher
             sha: 00d01308b16c4d7d975f7c2224b1e213a6697d5e
           - name: nachher
-            sha: be71e51bfef78ecce774759fd367c45b3eeec887
+            sha: 612efa7d663f6c7ad717bd637e4fa3b0b8a094ba
     services:
       postgres:
         image: postgres:17
