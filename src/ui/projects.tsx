@@ -169,7 +169,30 @@ function Overview({project,data,run,haben}:{project:Row;data:Data;run:Run;haben:
 function Planning({project,data,run,accountId}:{project:Row;data:Data;run:Run;accountId:string}) {
   const [confirmation,setConfirmation]=useState<Confirmation>();
   const calculationPanel=useRef<HTMLElement>(null);
-  const reservations=data.reservations.filter((row)=>row.project_id===project.id);
+  const [resourceFilter,setResourceFilter]=useState('');
+  const [statusFilter,setStatusFilter]=useState('');
+  const resourceSelector=useRef<HTMLSelectElement>(null);
+  const focusedStatusAction=useRef<HTMLButtonElement>(null);
+  const visibleReservations=data.reservations.filter((row)=>
+    row.project_id===project.id
+    && (!resourceFilter || (row.user_id?'user':'item')===resourceFilter)
+    && (!statusFilter || row.status===statusFilter));
+  const filtered=Boolean(resourceFilter || statusFilter);
+
+  useEffect(()=>{
+    const button=focusedStatusAction.current;
+    focusedStatusAction.current=null;
+    if(button && !button.isConnected && document.activeElement===document.body) {
+      resourceSelector.current?.focus();
+    }
+  },[data.reservations]);
+
+  async function updateReservation(button:HTMLButtonElement,id:string,status:'firm'|'released',feedback:string) {
+    if(document.activeElement===button) focusedStatusAction.current=button;
+    const saved=await run(()=>api(`reservations/${id}`,'PATCH',{status}),feedback);
+    if(!saved && focusedStatusAction.current===button) focusedStatusAction.current=null;
+  }
+
   const lines=data.lines.filter((row)=>row.project_id===project.id);
   const activePeople=options(data.users.filter(person=>!person.blocked));
   const blockedPeople=new Set(data.users.filter(person=>person.blocked).map(person=>person.id));
@@ -183,7 +206,27 @@ function Planning({project,data,run,accountId}:{project:Row;data:Data;run:Run;ac
     {name:'ends_at',label:'Bis',type:'datetime-local',required:true,describedBy},
   ];
   return <>
-    <Panel title="Ressourcenplanung"><div className="panel-body compact-actions">
+    <Panel title="Ressourcenplanung">
+      <div className="panel-body">
+        <div className="form-grid">
+          <label><span>Ressourcentyp</span><select ref={resourceSelector} value={resourceFilter} onChange={(event)=>setResourceFilter(event.target.value)}>
+            <option value="">Alle</option><option value="user">Personal</option><option value="item">Inventar</option>
+          </select></label>
+          <label><span>Status filtern</span><select value={statusFilter} onChange={(event)=>setStatusFilter(event.target.value)}>
+            <option value="">Alle</option>
+            {Object.entries(reservationStages).map(([value,label])=><option key={value} value={value}>{label}</option>)}
+          </select></label>
+        </div>
+        <div className="actions">
+          <span className="subtle" role="status">{visibleReservations.length} {visibleReservations.length===1?'Reservierung':'Reservierungen'}</span>
+          <button type="button" disabled={!filtered} onClick={()=>{
+            setResourceFilter('');
+            setStatusFilter('');
+            resourceSelector.current?.focus();
+          }}>Filter zurücksetzen</button>
+        </div>
+      </div>
+      <div className="panel-body compact-actions">
       <Expand title="Personal vormerken"><Form caption="Person vormerken" retryScope={`reservations:${accountId}:${project.id}:person`} prepare={reservationTimes} retryNote={retryNote} fields={[
         {name:'user_id',label:'Person',choices:activePeople,required:true},...timeFields(personTimeZoneId),
       ]} submit={(v,key)=>run(()=>api('reservations','POST',{...v,project_id:project.id,quantity:1},key),'Person vorgemerkt.',{reportWriteRejection:true})}>
@@ -196,16 +239,17 @@ function Planning({project,data,run,accountId}:{project:Row;data:Data;run:Run;ac
       ]} submit={(v,key)=>run(()=>api('reservations','POST',{...v,project_id:project.id,quantity:Number(v.quantity)},key),'Inventar vorgemerkt.',{reportWriteRejection:true})}>
         <p id={inventoryTimeZoneId} className="subtle wide">{timeZoneHint}</p>
       </Form></Expand>
-    </div><Table headers={['Ressource','Zeitraum','Menge','Status','Aktion']} rows={reservations.map((row)=>({
+    </div>{filtered && !visibleReservations.length ? <p className="empty">Keine Reservierungen für diese Filter.</p>
+    : <Table headers={['Ressource','Zeitraum','Menge','Status','Aktion']} rows={visibleReservations.map((row)=>({
       key:row.id,cells:[row.user_id ? name(data.users,row.user_id) : <><span>{inventoryName(data.items,row.item_id)}</span><small>{name(data.locations,row.location_id)}</small></>,
         <>{moment(row.starts_at)}<small>bis {moment(row.ends_at)}</small></>,row.quantity,
         <Pill label={reservationStages[row.status]} tone={row.status==='firm'?'accent':'neutral'}/>,
         <div className="actions">{row.status==='tentative' && ['confirmed','running'].includes(project.stage) && (
           blockedPeople.has(row.user_id) ? <span className="subtle">Konto gesperrt</span>
-            : <button onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'firm'}),'Fest reserviert.')}>Fest reservieren</button>
+            : <button type="button" onClick={(event)=>void updateReservation(event.currentTarget,row.id,'firm','Fest reserviert.')}>Fest reservieren</button>
         )}
-          {row.status!=='released' && <button onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'released'}),'Reservierung freigegeben.')}>Freigeben</button>}</div>],
-    }))}/></Panel>
+          {row.status!=='released' && <button type="button" onClick={(event)=>void updateReservation(event.currentTarget,row.id,'released','Reservierung freigegeben.')}>Freigeben</button>}</div>],
+    }))}/>}</Panel>
     <Panel title="Kalkulation" focusRef={calculationPanel} action={<button onClick={()=>run(async(isCurrent)=>{
       const positions=await api(`projects/${project.id}/offer-positions`);
       if(isCurrent()) downloadPositions(project,positions);

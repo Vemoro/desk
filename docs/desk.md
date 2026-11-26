@@ -61,6 +61,8 @@ War die Antwort auf eine bereits gespeicherte Vollkorrektur unklar, öffne an de
 
 Unter **Bestand je Lagerort** sucht **Bestand suchen** nach Teilen des Artikelnamens, der Artikelnummer oder der Inventarnummer. Groß- und Kleinschreibung spielen dabei keine Rolle. Eine Bestandszeile muss alle aktiven Filter erfüllen. **Nur mit freiem Bestand** zeigt Zeilen mit einem Wert größer als null in der Spalte **Frei**. Ergibt die Filterung keine Treffer, erscheint „Kein Bestand für diese Filter.“ **Filter zurücksetzen** leert Suche und Lagerortwahl und deaktiviert die Option. **Offene Ausgaben** und **Lagerbewegungen** bleiben separat sichtbar.
 
+Öffne im Projekt **Ressourcen & Kalkulation**. Unter **Ressourcenplanung** kannst du die Vormerkungen des geöffneten Projekts nach **Ressourcentyp** und **Status filtern**. Die Trefferzahl folgt der aktuellen Auswahl. Nach einer Freigabe oder festen Reservierung bleiben die Filter aktiv. Mit **Filter zurücksetzen** siehst du wieder alle Vormerkungen des Projekts.
+
 ## Haben
 
 `HABEN_URL` und `HABEN_TOKEN` auf dem Desk-Server setzen. Angebote benötigen Leserechte für Angebote. Für Kontakte stehen die benötigten Rechte, der erste Import, das Verknüpfen und die Wiederholung nach Fehlern im [Kontaktabgleich zwischen Desk und Haben](haben-kontaktabgleich.md).
