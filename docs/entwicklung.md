@@ -20,10 +20,28 @@ Verwende für laufende Arbeit einen Entwurf. Vor der Freigabe zur Prüfung müss
 
 ## Änderungen prüfen
 
-1. **Selbstprüfung.** Der Autor prüft Passung zum Umfang, jedes Akzeptanzkriterium, fachliche Quellen, Wiederverwendung und die einfachste tragfähige Umsetzung. Er nennt offene Folgen für bestehende Daten, Schnittstellen, Rechte und Updates. Der Bericht nennt Basis, Head und Prüfnachweise.
+1. **Selbstprüfung.** Zur Prüfung des eigenen Beitrags gehören Passung zum Umfang, jedes Akzeptanzkriterium, fachliche Quellen, Wiederverwendung und die einfachste tragfähige Umsetzung. Der Bericht nennt Basis, Head, Prüfnachweise und offene Folgen für bestehende Daten, Schnittstellen, Rechte und Updates.
 2. **Unabhängiges Review.** Ein anderer Mensch oder ein frischer Agent erhält Issue, Zielbasis, Head, Diff und bei Bedarf den relevanten unveränderten Aufrufkontext. Gib ihm bei agentischem Review weder Entstehungsverlauf noch Selbstbewertung. Code und Markdown brauchen ihre jeweilige Prüfung. Wenn beide betroffen sind, prüft sie je eine unabhängige Person oder ein frischer Agent.
 3. **Befunde und Nachprüfung.** Ein Codebefund nennt Datei, beobachtetes Verhalten und einen auf dem geprüften Stand fehlschlagenden Test. Fachliche Annahmen werden mit Quelle und Gegenprobe geprüft. Ist ein belastbarer automatisierter Nachweis technisch nicht möglich, dokumentiere die manuelle Reproduktion und die offene Grenze. Doku-Befunde brauchen eine Stelle und einen Abgleich mit Code, Befehlen oder Primärquelle. Trenne Vorschläge von Befunden. Wiederhole nach einer Änderung die einschlägige Prüfung und ordne sie dem neuen Head zu.
 4. **Freigabe.** Der Maintainer entscheidet über Merge und Release. Änderungen an Anmeldung, Berechtigungen, Datenmigrationen, Lagerbuchungen, Kosten und schreibenden Anbindungen brauchen eine gezielte fachliche Prüfung der Folgen und Fehlerfälle. Unsicherheit über den fachlichen Sollzustand wird vor Freigabe entschieden.
+
+### Prüfnachweise im Pull Request
+
+Veröffentliche die **Selbstprüfung** als eigenen Kommentar. Halte darin Passung, Akzeptanzkriterien mit Belegen, fachliche Quellen, Einfachheit, Regelverstöße und offene Entscheidungen fest. Bei agentischer Umsetzung erfolgt diese Prüfung in einer frischen Session ohne Entstehungsverlauf. Für jedes anschließende unabhängige Review erhält eine weitere frische Session oder eine andere Person den Auftrag nach Schritt 2.
+
+Veröffentliche **Unabhängiges Code-Review** und **Unabhängige Doku-Prüfung** jeweils als eigenen Kommentar, auch bei einem Ergebnis ohne Befunde. Nenne in jedem Prüfkommentar Zielbasis, geprüften Head, Umfang, Befunde, gelaufene und ausgelassene Checks mit Grund sowie offene Punkte. Belege einen behobenen Befund mit Fix-Commit und Nachprüfung. Bei einem neuen Head oder einer neuen Zielbasis ergänze den Kommentar mit einem belegten Nachtrag oder einem erneuten Review. Ergebnisse eines frischen Agenten können unter demselben GitHub-Konto erscheinen. Kennzeichne, wer geprüft hat und ob du dessen Bericht zusammenfasst.
+
+Verlinke die Kommentare in der PR-Beschreibung. Prüfe diese Links und den abgedeckten Stand vor „Ready for review“, vor Übergabe auf dem Freigabeboard und vor dem Merge. Fehlt ein erforderlicher Kommentar oder belegt er nur einen älteren Stand, hole die Prüfung und den Nachweis vor dem jeweiligen Schritt nach.
+
+Für die fiktive „Büroinstallation Westflügel“ verbessert ein PR die Projektsuche und passt ihre Anleitung an. Die Tabelle zeigt Auszüge aus den erforderlichen Prüfkommentaren. Die PR-Beschreibung verlinkt jeden dieser Kommentare.
+
+| Kommentar | Beispiel für Code und Doku | Beispiel für einen reinen Doku-PR |
+| --- | --- | --- |
+| Selbstprüfung | Die Suche findet das Projekt über die Kostenstelle wie im Issue verlangt. | Die Anleitung erklärt den bereits vorhandenen Suchweg. |
+| Unabhängiges Code-Review | Der Browserfall findet das Projekt über die Kostenstelle und erhält die übrigen Filter. | Entfällt. |
+| Unabhängige Doku-Prüfung | Die Anleitung stimmt mit Feldbeschriftung, Suchverhalten und verlinkter Projektliste überein. | Feldbeschriftung, Schritte und Link stimmen. |
+
+[Habens Selbstprüfung](https://github.com/Speicherstadt/haben/blob/4dd9603df8ecc2f08ac790897b627afe5a0619cd/.claude/skills/beitrag-pruefen/references/selbstpruefung.md) · [Habens Code-Review im PR](https://github.com/Speicherstadt/haben/pull/1945) · [Habens Doku-Prüfung im PR](https://github.com/Speicherstadt/haben/pull/1942)
 
 ### Überlappende Änderungen
 

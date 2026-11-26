@@ -11,3 +11,4 @@ Nutze Basis, Head, Diff und Auftrag aus dem [Review-Rahmen](../../../docs/entwic
 2. Prüfe interne Links, Anker und Quellenlinks. Dokumentation erklärt Nutzenden und Beitragenden, was sie tun müssen. Ein Skill verweist auf die maßgebliche Regel und beschreibt den agentischen Ablauf.
 3. Prüfe bei Skills, ob Name, Beschreibung und verlinkte Ressourcen zum tatsächlichen Ablauf passen. Teste risikoreiche oder wiederkehrende Schritte an einem zulässigen Beispiel. Halte fehlende Voraussetzungen fest.
 4. Melde konkrete Befunde mit Stelle und Beleg und unterscheide sie von Textvorschlägen. Nenne auch bei fehlenden Befunden Head und tatsächlich geprüfte Teile. Bei Code und Markdown ergänzt ein getrenntes [Code-Review](../desk-tdd-review/SKILL.md) den Doku-Abgleich.
+5. Veröffentliche das Ergebnis als eigenen [Prüfkommentar im PR](../../../docs/entwicklung.md#prüfnachweise-im-pull-request), auch ohne Befund.
