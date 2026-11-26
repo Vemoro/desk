@@ -1,3 +1,4 @@
+import { Field } from './field';
 import type { ReactNode } from 'react';
 import { PasskeyLogin } from './passkeys';
 import { OidcLogin } from './oidc-login';
@@ -23,9 +24,7 @@ export function BuildInfo() {
 
   return <Panel title="Desk-Version">
     <div className="panel-body">
-      <label><span>Version und Git-Commit</span>
-        <textarea rows={2} readOnly value={value} onFocus={(event)=>event.currentTarget.select()}/>
-      </label>
+      <Field label="Version und Git-Commit">{props=><textarea {...props} rows={2} readOnly value={value} onFocus={(event)=>event.currentTarget.select()}/>}</Field>
       <div className="actions">
         <button type="button" onClick={copy}>Kopieren</button>
         <SourceLink/>

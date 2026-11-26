@@ -76,7 +76,7 @@ export function FormDialog({title,trigger,dismiss,children}:{
       <h2 id={titleId}>{title}</h2>
       <button type="button" disabled={saving} onClick={close}>Schließen</button>
     </header>
-    {children(save)}
+    <div className="dialog-content">{children(save)}</div>
   </dialog>;
 }
 
@@ -95,10 +95,15 @@ export function Expand({title,children}:{title:string;children:ReactNode}) {
   return <details className="expand"><summary>{title}</summary><div className="expand-body">{children}</div></details>;
 }
 
-export function Table({headers,rows,hidden}:{headers:string[];rows:{key:string;cells:ReactNode[];hidden?:boolean}[];hidden?:boolean}) {
+export function Table({headers,rows,hidden,numeric=[]}:{
+  headers:string[]; rows:{key:string;cells:ReactNode[];hidden?:boolean}[]; hidden?:boolean; numeric?:number[];
+}) {
   if (!rows.length) return <p className="empty">Noch keine Einträge.</p>;
-  return <div className="table-wrap" hidden={hidden}><table><thead><tr>{headers.map((header)=><th key={header}>{header}</th>)}</tr></thead>
-    <tbody>{rows.map((row)=><tr key={row.key} hidden={row.hidden}>{row.cells.map((cell,index)=><td key={index} data-label={headers[index]}><div>{cell}</div></td>)}</tr>)}</tbody>
+  return <div className="table-wrap" hidden={hidden}><table role="table"><thead role="rowgroup"><tr role="row">
+    {headers.map((header,index)=><th key={header} scope="col" role="columnheader" data-numeric={numeric.includes(index)||undefined}>{header}</th>)}
+  </tr></thead><tbody role="rowgroup">{rows.map((row)=><tr key={row.key} role="row" hidden={row.hidden}>
+    {row.cells.map((cell,index)=><td key={index} role="cell" data-label={headers[index]} data-numeric={numeric.includes(index)||undefined}><div>{cell}</div></td>)}
+  </tr>)}</tbody>
   </table></div>;
 }
 
@@ -114,6 +119,7 @@ export type Confirmation = {
   title:string;
   description:string;
   actionLabel:string;
+  danger?:boolean;
   trigger:HTMLButtonElement;
   submit:(isCurrent:()=>boolean)=>Promise<unknown>;
   feedback?:string;
@@ -200,14 +206,16 @@ export function ConfirmDialog({confirmation,run,dismiss,fallbackFocus}:{
         else first?.focus();
       }
     }}>
-    <h2 id={titleId}>{confirmation.title}</h2>
-    <p id={descriptionId}>{confirmation.description}</p>
-    {message && <p className="inline-error" role="alert">{message}</p>}
-    <div className="actions">
-      <button type="button" ref={cancelRef} aria-disabled={pending || undefined} onClick={()=>close()}>{message?'Schließen':'Abbrechen'}</button>
-      <button type="button" ref={confirmRef} className="primary" onClick={confirm} disabled={Boolean(request || problem)}>
-        {pending?'Wird ausgeführt …':confirmation.actionLabel}
-      </button>
+    <header className="confirm-dialog-title"><h2 id={titleId}>{confirmation.title}</h2></header>
+    <div className="dialog-content">
+      <p id={descriptionId}>{confirmation.description}</p>
+      {message && <p className="inline-error" role="alert">{message}</p>}
+      <div className="actions">
+        <button type="button" ref={cancelRef} aria-disabled={pending || undefined} onClick={()=>close()}>{message?'Schließen':'Abbrechen'}</button>
+        <button type="button" ref={confirmRef} className={confirmation.danger?'primary destructive':'primary'} onClick={confirm} disabled={Boolean(request || problem)}>
+          {pending?'Wird ausgeführt …':confirmation.actionLabel}
+        </button>
+      </div>
     </div>
   </dialog>;
 }

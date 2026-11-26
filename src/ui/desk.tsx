@@ -92,7 +92,7 @@ export function Desk() {
         selectContact={id=>navigate('contacts',id)} openProject={id=>navigate('projects',id)}/>}
       {section==='warehouse' && <Warehouse data={data} run={run} accountId={person.id}/>}
       {section==='costs' && <Costs data={data} run={run}/>}
-      {section==='account' && <><AccountPassword/><PasskeySettings/><BuildInfo/></>}
+      {section==='account' && <><AccountPassword/><PasskeySettings run={run}/><BuildInfo/></>}
       {section==='settings'&&person.role==='admin' && <Settings data={data} run={run} flags={flags} accountId={person.id}/>}
     </main>
   </div></ConfirmationRequests>;

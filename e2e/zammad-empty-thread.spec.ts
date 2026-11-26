@@ -8,6 +8,33 @@ const ticket={id:42,number:'42',title:'Anfrage vom Musterbüro',url:'https://zam
 const path='**/api/v1/projects/muster/zammad';
 const outgoing=[{id:'attempt',subject:'Angebot gesendet',status:'sent'}];
 
+test('Der Fokus bleibt beim Tab-Umlauf im kleinen Ticketdialog sichtbar',async({page})=>{
+  await page.route('**/api/v1/projects?*',route=>route.fulfill({json:[{id:'muster',name:projectName,stage:'planning'}]}));
+  await page.route('**/api/v1/integrations',route=>route.fulfill({json:{zammad:true,haben:false}}));
+  await signIn(page);
+  await project(page,projectName);
+  await page.getByRole('link',{name:'Kommunikation',exact:true}).click();
+  await page.setViewportSize({width:390,height:320});
+  const trigger=page.getByRole('button',{name:'Ticket anlegen',exact:true});
+  await trigger.click();
+  const dialog=page.getByRole('dialog',{name:'Ticket anlegen'});
+  const first=dialog.getByLabel('Betreff');
+  await expect(first).toBeFocused();
+  for(let index=0;index<5;index++) {
+    await page.keyboard.press('Tab');
+    expect(await dialog.evaluate(element=>{
+      const focus=document.activeElement;
+      if(!focus || !element.contains(focus)) return false;
+      const bounds=focus.getBoundingClientRect();
+      return focus.contains(document.elementFromPoint(bounds.x+bounds.width/2,bounds.y+bounds.height/2));
+    })).toBe(true);
+  }
+  await expect(first).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(trigger).toBeFocused();
+});
+
 async function openTarget(page:Page) {
   const record={id:'muster',name:projectName,stage:'planning',zammad_ticket_id:42};
   await page.route('**/api/v1/projects?*',route=>route.fulfill({json:[record]}));

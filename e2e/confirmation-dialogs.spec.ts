@@ -45,6 +45,9 @@ test('Kalkulationsposition erst nach einer Bestätigung entfernen',async({page})
   await page.getByRole('link',{name:'Ressourcen & Kalkulation',exact:true}).click();
   await page.getByText('Position bearbeiten',{exact:true}).click();
   const trigger=page.getByRole('button',{name:'Position entfernen',exact:true});
+  await page.getByRole('button',{name:'Position aktualisieren',exact:true}).focus();
+  await page.keyboard.press('Tab');
+  await expect(trigger).not.toBeFocused();
   await assertDismissal(page,trigger,'Kalkulationsposition entfernen');
   expect(requests).toBe(0);
 

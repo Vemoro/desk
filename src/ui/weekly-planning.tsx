@@ -1,3 +1,4 @@
+import { Field } from './field';
 import { useEffect, useEffectEvent, useState } from 'react';
 import type { PlanningBooking } from '../server/contracts';
 import { microsecondsWithinMillisecond } from '../time';
@@ -113,7 +114,7 @@ export function WeeklyPlanning({selectedWeek,onWeek,openProject,onSessionExpired
             <button type="button" onClick={()=>choose(new Date())}>Diese Woche</button>
             <button type="button" onClick={()=>choose(localDay(monday,7))}>Nächste Woche</button>
           </div>
-          <label><span>Datum der Woche</span><input type="date" value={days[0].key} onChange={event=>choose(new Date(`${event.target.value}T12:00:00`))}/></label>
+          <Field label="Datum der Woche">{props=><input {...props} type="date" value={days[0].key} onChange={event=>choose(new Date(`${event.target.value}T12:00:00`))}/>}</Field>
         </div>
         {!current && <p className="subtle" role="status">Reservierungen werden geladen …</p>}
         {current?.error && <div className="actions">

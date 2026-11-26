@@ -1,3 +1,4 @@
+import { Field } from './field';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { api, calendarDate, projectStages, type Row } from './client';
 import type { Data } from './projects';
@@ -79,7 +80,7 @@ export function Contacts({data,run,haben,selected,selectContact,openProject}:{da
 
   return <>
     <Panel title="Interessenten und Kontakte" focusRef={contactPanel} action={haben&&<button onClick={()=>run(()=>api('haben/contacts/import','POST',{}),'Haben-Kontakte importiert.')}>Aus Haben importieren</button>}>
-      <div className="panel-body"><label className="filter"><span>Kontakte suchen</span><input type="search" value={search} onChange={(event)=>setSearch(event.target.value)}/></label>
+      <div className="panel-body"><Field label="Kontakte suchen" className="filter">{props=><input {...props} type="search" value={search} onChange={(event)=>setSearch(event.target.value)}/>}</Field>
         <Expand title="Kontakt anlegen">
           <div onInput={()=>setDuplicates(undefined)}>
             <Form caption="Kontakt speichern" fields={fields()} submit={createContact}/>

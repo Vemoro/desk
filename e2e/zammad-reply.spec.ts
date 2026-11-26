@@ -35,7 +35,11 @@ test('Interne Notiz bleibt geöffnet und kann einen Beitrag zitieren',async({pag
   await expect(note).toBeVisible();
   const saveNote=page.getByRole('button',{name:'Notiz hinzufügen',exact:true});
   await expect(saveNote).toBeEnabled();
-  await saveNote.click();
+  await note.focus();
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  await expect(saveNote).toBeFocused();
+  await page.keyboard.press('Enter');
   await expect(note).toBeFocused();
   await expect(note).toHaveAccessibleDescription('Schreibe zuerst eine interne Notiz.');
   expect(notesWritten).toBe(0);
@@ -159,7 +163,11 @@ test('Zammad beantwortet die gewählte E-Mail mit nachvollziehbarem Empfänger u
   await reply.click();
   await expect(editor.getByLabel('Betreff')).toHaveValue('Erste Anfrage');
   await editor.getByLabel('Nachricht',{exact:true}).fill('Bitte am Haupteingang melden.');
-  await editor.getByLabel('PDF-Anhang').setInputFiles({
+  await page.keyboard.press('Tab');
+  await expect(editor.getByLabel('PDF-Anhang')).toBeFocused();
+  const chooser=page.waitForEvent('filechooser');
+  await page.keyboard.press('Space');
+  await (await chooser).setFiles({
     name:'Muster.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-Muster'),
   });
   await expect(editor.getByText('Muster.pdf',{exact:true})).toBeVisible();

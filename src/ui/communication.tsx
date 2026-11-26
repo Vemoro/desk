@@ -142,12 +142,12 @@ function TicketDetails({ticketId,projectId,ticket,zammad,failed,conversation,req
     {ticketId && <Panel title="Ticketdetails">
       <div className="panel-body communication-reference communication-ticket-details">
         {ticket ? <a href={ticket.url} target="_blank" rel="noreferrer">Ticket {ticket.number} öffnen</a> : <p className="subtle">Ticket-ID {ticketId}</p>}
-        {!conversation?.outgoing.length && <button type="button" disabled={zammad && !conversation && !failed}
+        {!conversation?.outgoing.length && <button type="button" className="danger" disabled={zammad && !conversation && !failed}
           onClick={event=>setConfirmation({
             actionKey:'zammad-unlink:'+projectId+':'+ticketId,
             title:'Ticketverknüpfung lösen',
             description:'Die Zuordnung zu Zammad-Ticket '+(ticket?.number ?? ticketId)+' wird aus dem Projekt entfernt. Das Ticket bleibt in Zammad erhalten.',
-            actionLabel:'Verknüpfung lösen',
+            actionLabel:'Verknüpfung lösen',danger:true,
             trigger:event.currentTarget,
             submit:()=>request('unlink',{id:ticketId}),
             feedback:'Ticketverknüpfung gelöst.',
