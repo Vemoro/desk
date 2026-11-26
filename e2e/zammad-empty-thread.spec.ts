@@ -76,6 +76,78 @@ function thread(subject:string) {
   return {ticket,outgoing:[],articles:[{id:1,kind:'internal-note',subject,body:'Synthetischer Ticketverlauf.'}]};
 }
 
+for(const fromOpening of [false,true]){
+  test(fromOpening ? 'Ein erneuter Abruf beim Öffnen behält den jüngsten Fehler'
+    : 'Eine ältere Antwort beendet den jüngsten manuellen Abruf nicht',async({page})=>{
+    const older=holdRoute();
+    const newer=holdRoute();
+    const previous={...thread('Bisheriger Verlauf'),outgoing};
+    const current=thread('Aktueller Verlauf');
+    const currentError='Aktueller Abruf fehlgeschlagen';
+    const olderTitle='Verspäteter Verlauf';
+    let reads=0;
+    await page.route(path,route=>{
+      expect(route.request().method()).toBe('GET');
+      const attempt=++reads-(fromOpening?0:1);
+      if(attempt===0) return route.fulfill({json:previous});
+      if(attempt===1) return older.resolve(route);
+      if(attempt===2) return newer.resolve(route);
+      return route.fulfill({json:current});
+    });
+    await openTarget(page);
+    const history=page.getByRole('region',{name:'Ticketverlauf',exact:true});
+    const loading=page.getByRole('status').filter({hasText:loadingLabel});
+    const refresh=page.getByRole('button',{name:'Verlauf aktualisieren',exact:true});
+    const visibleVersion=history.getByText('Aktueller Verlauf',{exact:true});
+    const previousVersion=history.getByText('Bisheriger Verlauf',{exact:true});
+    const outgoingStatus=page.getByRole('row',{name:/Angebot gesendet.*An Zammad übergeben/});
+    let newRequest:Route|undefined;
+    if(!fromOpening){
+      await expect(previousVersion).toBeVisible();
+      await refresh.click();
+    }
+    const oldRequest=await older.request;
+    try {
+      await expect(loading).toBeVisible();
+      await expect(history).toHaveAttribute('aria-busy','true');
+      await expect(refresh).toBeEnabled();
+      await refresh.press('Enter');
+      await expect(refresh).toBeFocused();
+      newRequest=await newer.request;
+
+      if(fromOpening){
+        await settleResponse(page,newRequest,{error:currentError},503);
+        await expect(history.getByRole('alert')).toHaveText(currentError);
+        await expect(loading).toHaveCount(0);
+        await settleResponse(page,oldRequest,thread(olderTitle));
+        await expect(history.getByRole('alert')).toHaveText(currentError);
+      }else{
+        await expect(previousVersion).toBeVisible();
+        await expect(outgoingStatus).toBeVisible();
+        await settleResponse(page,oldRequest,{error:'Alter Abruffehler'},503);
+        await expect(loading).toBeVisible();
+        await expect(history).toHaveAttribute('aria-busy','true');
+        await expect(history.getByRole('alert')).toHaveCount(0);
+        await expect(previousVersion).toBeVisible();
+        await expect(outgoingStatus).toBeVisible();
+        await settleResponse(page,newRequest,current);
+        await expect(visibleVersion).toBeVisible();
+      }
+      await expect(history.getByText(olderTitle,{exact:true})).toHaveCount(0);
+      await expect(loading).toHaveCount(0);
+      await expect(history).toHaveAttribute('aria-busy','false');
+
+      await refresh.click();
+      await expect(visibleVersion).toBeVisible();
+      await expect(history.getByRole('alert')).toHaveCount(0);
+      expect(reads).toBe(fromOpening?3:4);
+    } finally {
+      await oldRequest.abort().catch(()=>{});
+      await newRequest?.abort().catch(()=>{});
+    }
+  });
+}
+
 for(const staleStatus of [200,503]){
   test(`Verspäteter Ticketabruf (${staleStatus}) überschreibt weder aktuellen Stand noch Entwurf`,async({page})=>{
     const older=holdRoute();
