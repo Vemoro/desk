@@ -48,10 +48,12 @@ export function github(issueToken: string, roadmapToken: string) {
 
   async function board() {
     const result = await graph<{
-      node: { number: number; owner: { login: string }; field: { id: string; options: { name: string; id: string }[] } | null } | null;
-    }>('query($id:ID!){node(id:$id){... on ProjectV2{number owner{... on Organization{login}} field(name:"Status"){... on ProjectV2SingleSelectField{id options{id name}}}}}}',{id:projectId});
+      node: { number: number; viewerCanUpdate: boolean; owner: { login: string }; field: { id: string; options: { name: string; id: string }[] } | null } | null;
+    }>('query($id:ID!){node(id:$id){... on ProjectV2{number viewerCanUpdate owner{... on Organization{login}} field(name:"Status"){... on ProjectV2SingleSelectField{id options{id name}}}}}}',{id:projectId});
     const project = result.node;
-    if (project?.owner.login !== 'Vemoro' || project.number !== 2 || !project.field) throw new Error('Desk Roadmap nicht verfügbar.');
+    if (project?.owner.login !== 'Vemoro' || project.number !== 2 || !project.field || !project.viewerCanUpdate) {
+      throw new Error('Desk Roadmap nicht verfügbar oder ohne Schreibzugriff.');
+    }
     const { field } = project;
     const options = new Map(field.options.map(option => [option.name, option.id]));
     if (!options.has('Geplant') || !options.has('In Arbeit')) throw new Error('Statusoptionen der Desk Roadmap fehlen.');

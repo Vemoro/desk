@@ -41,8 +41,19 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: package.json
+      - name: Zugriff auf Desk Roadmap
+        if: vars.DESK_ROADMAP_APP_CLIENT_ID != ''
+        id: roadmap
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          client-id: ${{ vars.DESK_ROADMAP_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DESK_ROADMAP_APP_PRIVATE_KEY }}
+          owner: Vemoro
+          repositories: desk
+          permission-organization-projects: write
+          permission-issues: read
       - run: bun scripts/roadmap/run.ts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ROADMAP_TOKEN: ${{ secrets.DESK_ROADMAP_TOKEN }}
+          ROADMAP_TOKEN: ${{ steps.roadmap.outputs.token }}
           ROADMAP_PROBE: ${{ github.event_name == 'workflow_dispatch' && inputs.probe }}

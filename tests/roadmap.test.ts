@@ -62,6 +62,8 @@ test('parses direct commands and PR references while ignoring quoted or fenced t
   expect(command('/uebernehmen')).toBe('übernehmen');
   expect(command('Danke!\n/freigeben')).toBe('freigeben');
   expect(command('> /übernehmen\n~~~bash\n/freigeben\n~~~\n    /uebernehmen')).toBeNull();
+  expect(command('<pre>\n/übernehmen\n</pre>\n<!--\n/freigeben\n-->')).toBeNull();
+  expect(command('~~~html\n<pre>\n~~~\n/übernehmen')).toBe('übernehmen');
   expect(ticketReferences('Refs #123, #45\n> Fixes #1234\nUmgesetzt #4')).toEqual([123, 45, 4]);
 });
 
@@ -107,6 +109,52 @@ test('a failed removal restores the card for the next attempt', async () => {
   f.failRemoval();
   await expect(f.send('/freigeben')).rejects.toThrow('temporary failure');
   expect(f.writes).toEqual(['Geplant', '-mira', 'In Arbeit']);
+});
+
+test('an existing claim leaves a later manual card status in place', async () => {
+  const f = fixture();
+  await f.send('/übernehmen');
+  f.card.status = 'Geplant';
+  f.writes.length = 0;
+  await f.send('/übernehmen');
+  expect(f.writes).toEqual(['comment']);
+  expect(f.card.status).toBe('Geplant');
+});
+
+test('releasing an archived card still removes the caller without moving the card', async () => {
+  const f = fixture();
+  f.issue.assignees = [mira];
+  f.card.status = 'In Arbeit';
+  f.card.isArchived = true;
+  await f.send('/freigeben');
+  expect(f.writes).toEqual(['-mira', 'comment']);
+});
+
+test('a concurrent assignee keeps the card in progress after the caller is removed', async () => {
+  const f = fixture();
+  f.issue.assignees = [mira];
+  f.card.status = 'In Arbeit';
+  const remove = f.api.remove;
+  f.api.remove = async (number, login) => {
+    f.issue.assignees.push(alex);
+    return await remove(number, login);
+  };
+  await f.send('/freigeben');
+  expect(f.issue.assignees).toEqual([alex]);
+  expect(f.card.status).toBe('In Arbeit');
+});
+
+test('a failed confirmation can be retried without releasing the card again', async () => {
+  const f = fixture();
+  f.issue.assignees = [mira];
+  f.card.status = 'In Arbeit';
+  const comment = f.api.comment;
+  f.api.comment = async () => { throw new Error('temporary comment failure'); };
+  await expect(f.send('/freigeben')).rejects.toThrow('temporary comment failure');
+  f.api.comment = comment;
+  await f.send('/freigeben');
+  expect(f.writes).toEqual(['Geplant', '-mira', 'comment']);
+  expect(f.comments[0].body).toContain('das Issue ist bereits unbesetzt');
 });
 
 test('reminder clocks are inclusive at fourteen and seven days and reset on a new comment', () => {

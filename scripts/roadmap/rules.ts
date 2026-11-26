@@ -5,7 +5,7 @@ const day = 86_400_000;
 
 function prose(text: string) {
   let fence = '';
-  return text.split(/\r?\n/).filter(line => {
+  const markdown = text.split(/\r?\n/).filter(line => {
     const codeFence = /^ {0,3}(\x60{3,}|~{3,})/.exec(line)?.[1];
     if (codeFence) {
       if (!fence) fence = codeFence;
@@ -14,6 +14,8 @@ function prose(text: string) {
     }
     return !fence && !/^( {4}|\t|\s*>)/.test(line);
   }).join('\n');
+  return markdown.replace(/<(?:pre|code)\b[^>]*>[\s\S]*?(?:<\/(?:pre|code)\s*>|$)|<!--[\s\S]*?(?:-->|$)/gi,
+    block => block.replace(/[^\r\n]/g, ' '));
 }
 
 export function command(text: string): Command | null {
