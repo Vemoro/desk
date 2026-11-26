@@ -25,7 +25,7 @@ Die [Entwicklungsrunden](entwicklung.md#entwicklungsrunden-für-agenten) beschre
 
 ## Issues übernehmen und freigeben
 
-Schreibe `/übernehmen` oder `/uebernehmen` am Anfang einer Zeile in einem neuen Kommentar. Die Befehle gelten für offene, freie Issues mit aktiver Karte unter „Geplant“ oder „In Arbeit“. Wenn GitHub die Zuweisung bestätigt, steht die Karte unter „In Arbeit“. Mit `/freigeben` hebst du deine Zuweisung auf. Eine dadurch frei gewordene Karte unter „In Arbeit“ geht nach „Geplant“ zurück. Befehle in Zitaten oder Codeblöcken bleiben ohne Wirkung.
+Schreibe `/übernehmen` oder `/uebernehmen` am Anfang einer Zeile in einem neuen Kommentar. Die Befehle gelten für offene, freie Issues mit aktiver Karte unter „Geplant“ oder „In Arbeit“. Wenn GitHub die Zuweisung bestätigt, steht die Karte unter „In Arbeit“. Mit `/freigeben` hebst du deine Zuweisung auf. Eine dadurch frei gewordene aktive Karte unter „In Arbeit“ geht nach „Geplant“ zurück. Befehle in Zitaten oder Codeblöcken bleiben ohne Wirkung.
 
 Der tägliche Lauf erinnert bei Übernahmen per Bot, sobald 14 Tage ohne Rückmeldung verstrichen sind. Nach weiteren sieben Tagen ohne Rückmeldung gibt er das Issue frei. Ein Kommentar der zugewiesenen Person startet die Frist neu. Ein offener PR einschließlich Entwurf schützt die Aufgabe, wenn in seiner Beschreibung etwa `Refs #123` oder `Umgesetzt #123` steht. Manuelle Zuweisungen ohne Übernahmebefehl und GitHub-Collaborators dieses Repositorys sind von der automatischen Rückgabe ausgenommen. Für Pull Requests gilt der [Review- und Freigabeprozess](entwicklung.md#änderungen-prüfen).
 

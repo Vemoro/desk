@@ -196,3 +196,22 @@ test('scheduled reminder exempts repository collaborators', async () => {
   await runReminders(f.api, false, start + 14 * day);
   expect(f.writes).toEqual([]);
 });
+
+test('a reply during the final open PR check keeps the assignment', async () => {
+  const f = fixture();
+  const now = start + 21 * day;
+  f.card.status = 'In Arbeit';
+  f.issue.assignees = [mira];
+  f.confirm('claim', start);
+  f.confirm('reminder', start + 14 * day);
+  let pullsChecked = 0;
+  f.api.pulls = async () => {
+    if (++pullsChecked === 2) {
+      f.comments.push({ user: mira, body: 'Ich arbeite weiter daran.', created_at: new Date(now).toISOString() });
+    }
+    return [];
+  };
+  await runReminders(f.api, false, now);
+  expect(pullsChecked).toBe(2);
+  expect(f.writes).toEqual([]);
+});

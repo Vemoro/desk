@@ -117,13 +117,15 @@ export async function runReminders(api: GitHub, probe: boolean, now = Date.now()
     if (current.state !== 'open' || current.assignees.length !== 1 || !hasAssignee(current, login)) continue;
     const currentCard = await board.card(number);
     if (!currentCard || currentCard.isArchived || currentCard.status !== 'In Arbeit') continue;
+    if (operation === 'release') {
+      const recentPulls = await api.pulls();
+      if (recentPulls.some(pull => ticketReferences(pull.body ?? '').includes(number))) continue;
+    }
     if (await pendingReminder(api, number, login, now) !== operation) continue;
     if (operation === 'remind') {
       await api.comment(number, marker('reminder', login) + '\n@' + login +
         ' arbeitest du noch an diesem Issue? Ein kurzer Kommentar reicht. Nach sieben weiteren Tagen ohne Rückmeldung wird es wieder freigegeben.');
     } else {
-      const recentPulls = await api.pulls();
-      if (recentPulls.some(pull => ticketReferences(pull.body ?? '').includes(number))) continue;
       const returned = await giveBack(api, board, current, currentCard, login);
       await api.comment(number, '@' + login + ' deine Zuweisung ist nach der Erinnerung aufgehoben.' +
         (returned ? ' Das Issue steht wieder unter „Geplant“.' : ''));
