@@ -237,6 +237,57 @@ describe('Fachlicher Projektablauf', () => {
 });
 
 describe('API und Integrationen',()=>{
+  test('Belegte Projekt-Kostenstellen beim Anlegen und Bearbeiten melden',async()=>{
+    const data=await fixture(saveCore,'Musterauftrag Kostenstellen');
+    const token=await createToken(actor,{label:'Kostenstellen-Test',scope:'write'});
+    const headers={Authorization:`Bearer ${token.token}`,'Content-Type':'application/json'};
+    const send=(method:string,path:string,body:unknown)=>handle(new Request(`http://desk.local/api/v1/${path}`,{
+      method,headers,body:JSON.stringify(body),
+    }));
+    const project={name:'Musterinstallation ohne Kostenstelle',contact_id:data.contact};
+    const message={error:'Diese Kostenstelle ist bereits einem Projekt zugeordnet.'};
+    try {
+      const duplicateCreate=await send('POST','projects',{...project,cost_center:data.center});
+      expect(duplicateCreate.status).toBe(409);
+      expect(await duplicateCreate.json()).toEqual(message);
+
+      const blankProjects=await Promise.all([
+        send('POST','projects',project),
+        send('POST','projects',{...project,name:'Musterbetreuung ohne Kostenstelle',cost_center:''}),
+      ]);
+      for(const blank of blankProjects) expect(blank.status).toBe(201);
+      const [firstBlank,secondBlank]=await Promise.all(blankProjects.map(response=>response.json()));
+      expect(firstBlank).toMatchObject({cost_center:''});
+      expect(secondBlank).toMatchObject({cost_center:''});
+
+      const duplicateUpdate=await send('PATCH',`projects/${firstBlank.id}`,{cost_center:data.center});
+      expect(duplicateUpdate.status).toBe(409);
+      expect(await duplicateUpdate.json()).toEqual(message);
+
+      const unchanged=await send('PATCH',`projects/${data.project}`,{cost_center:data.center});
+      expect(unchanged.status).toBe(200);
+      expect(await unchanged.json()).toMatchObject({cost_center:data.center});
+    } finally {
+      await db.unsafe('DELETE FROM api_tokens WHERE id=$1',[token.id]);
+    }
+  });
+
+  test('Doppelter Artikelcode behält die allgemeine Konfliktmeldung',async()=>{
+    const token=await createToken(actor,{label:'Artikelcode-Test',scope:'write'});
+    const headers={Authorization:`Bearer ${token.token}`,'Content-Type':'application/json'};
+    const code=`TEST-${crypto.randomUUID()}`;
+    try {
+      await saveCore('items',{name:'Mustergerät',kind:'equipment',code});
+      const duplicate=await handle(new Request('http://desk.local/api/v1/items',{
+        method:'POST',headers,body:JSON.stringify({name:'Zweites Mustergerät',kind:'equipment',code}),
+      }));
+      expect(duplicate.status).toBe(409);
+      expect(await duplicate.json()).toEqual({error:'Dieser Wert oder diese Zuordnung ist bereits vorhanden.'});
+    } finally {
+      await db.unsafe('DELETE FROM api_tokens WHERE id=$1',[token.id]);
+    }
+  });
+
   test('Vormerkungen verwenden pro Konto und Endpunkt denselben Vorgangsschlüssel nur einmal',async()=>{
     const data=await fixture(saveCore,'Wiederholte Vormerkungen');
     const owner=await createToken(actor,{label:'Muster-Planung',scope:'write'});
