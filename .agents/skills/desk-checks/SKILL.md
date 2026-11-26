@@ -17,6 +17,8 @@ Beende nach der Prüfung nur die eigens gestarteten Testdienste. Notiere Befehle
 
 Führe das Beispiel in Bash im getrennten Worktree aus. Es benötigt Docker, die Bun-Version aus `package.json`, curl und die Chromium-Systembibliotheken für Playwright. Auf einem frischen Linux-System kannst du Chromium und seine Systembibliotheken mit `bun x playwright install --with-deps chromium` installieren. Docker vergibt einen eigenen PostgreSQL-Port auf Loopback. Der Desk-Browserport ist standardmäßig 4280 und lässt sich mit `DESK_CHECK_BROWSER_PORT` ändern.
 
+Verwende im Browser `http://localhost:<Port>`. Desk leitet die WebAuthn-Relying-Party-ID aus dem Host von `DESK_ORIGIN` ab. Chromium lehnt die IP-Adresse `127.0.0.1` als Relying-Party-ID ab. Der HTTP-Listener und PostgreSQL können weiter an IPv4-Loopback gebunden werden. `DESK_E2E_URL` übernimmt dieselbe Browser-Origin. [WebAuthn-Relying-Party-ID](https://www.w3.org/TR/webauthn-3/#relying-party-identifier)
+
 ```bash
 (
   set -euo pipefail
@@ -48,7 +50,7 @@ Führe das Beispiel in Bash im getrennten Worktree aus. Es benötigt Docker, die
   database_address=$(docker port "$database" 5432/tcp)
   database_base="postgres://desk:$password@$database_address"
   export DATABASE_URL="$database_base/desk_checks_test"
-  export DESK_ORIGIN="http://127.0.0.1:$browser_port"
+  export DESK_ORIGIN="http://localhost:$browser_port"
   export DESK_AUTH_SECRET="$(random_hex)$(random_hex)"
   export HABEN_URL= HABEN_TOKEN= ZAMMAD_URL= ZAMMAD_TOKEN=
   bun install --frozen-lockfile
@@ -73,8 +75,8 @@ Führe das Beispiel in Bash im getrennten Worktree aus. Es benötigt Docker, die
     sleep 1
   done
   curl -fsS --max-time 2 "$DESK_E2E_URL/api/v1/ready"
-  bun x playwright test --project=core e2e/core.spec.ts
+  bun x playwright test --project=core e2e/core.spec.ts e2e/passkeys.spec.ts
 )
 ```
 
-Der Browserlauf prüft beide Musteraufträge über die zuvor gebaute Anwendung. Füge weitere UI-Prüfungen vor der schließenden Klammer ein, damit sie dieselbe Demo-Instanz verwenden. Der [Screenshot-Skill](../desk-pr-screenshots/SKILL.md) beschreibt, wie du Basis und Änderung vergleichst.
+Der Browserlauf prüft beide Musteraufträge sowie Passkey-Registrierung und Anmeldung über die zuvor gebaute Anwendung. Für eine gezielte Passkey-Prüfung gib nur `e2e/passkeys.spec.ts` an. Füge weitere UI-Prüfungen vor der schließenden Klammer ein, damit sie dieselbe Demo-Instanz verwenden. Der [Screenshot-Skill](../desk-pr-screenshots/SKILL.md) beschreibt, wie du Basis und Änderung vergleichst.
