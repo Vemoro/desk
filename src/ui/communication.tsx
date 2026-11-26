@@ -1,7 +1,7 @@
 import { useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { api, ApiError, downloadBlob, moment, type Row } from './client';
 import { Icon } from './icons';
-import { ConfirmationRequests, ConfirmDialog, Form, Panel, Table, type Confirmation, type Run } from './widgets';
+import { ConfirmationRequests, ConfirmDialog, Form, FormDialog, Panel, Table, type Confirmation, type Run } from './widgets';
 
 type Article = { id:number; subject?:string|null; from?:string|null; created_at?:string; content_type?:string;
   body:string; attachments?:{filename:string;id?:number}[]; kind?:keyof typeof articleKinds;
@@ -84,75 +84,6 @@ function ArticleAttachment({filename,status,download}:{filename:string;status?:D
   </div>;
 }
 
-function CommunicationDialog({title,trigger,dismiss,children}:{
-  title:string; trigger:HTMLButtonElement; dismiss:()=>void;
-  children:(save:(action:()=>Promise<boolean>)=>Promise<boolean>)=>ReactNode;
-}) {
-  const titleId=useId();
-  const dialog=useRef<HTMLDialogElement>(null);
-  const busy=useRef(false);
-  const [saving,setSaving]=useState(false);
-
-  useEffect(()=>{
-    const element=dialog.current;
-    element?.showModal();
-    element?.querySelector<HTMLElement>('input, textarea')?.focus();
-    return ()=>element?.close();
-  },[]);
-
-  function close() {
-    dialog.current?.close();
-    dismiss();
-    if(trigger.isConnected) trigger.focus();
-  }
-
-  useEffect(()=>{
-    if(saving) dialog.current?.querySelector<HTMLElement>('input, textarea')?.focus();
-  },[saving]);
-
-  async function save(action:()=>Promise<boolean>) {
-    if(busy.current) return false;
-    busy.current=true;
-    setSaving(true);
-    try {
-      const saved=await action();
-      if(saved && dialog.current) close();
-      return saved;
-    } finally {
-      busy.current=false;
-      setSaving(false);
-    }
-  }
-
-  return <dialog ref={dialog} className="confirm-dialog communication-dialog" aria-labelledby={titleId}
-    onCancel={event=>{event.preventDefault();if(!busy.current) close();}}
-    onKeyDown={event=>{
-      if(event.key!=='Tab') return;
-      const fields=event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea:not(:disabled)');
-      const first=fields[0];
-      const last=fields[fields.length-1];
-      const current=document.activeElement;
-      if(!Array.from(fields).some(field=>field===current)) {
-        event.preventDefault();
-        (event.shiftKey ? last : first)?.focus();
-        return;
-      }
-      if(event.shiftKey && current===first) {
-        event.preventDefault();
-        last?.focus();
-      } else if(!event.shiftKey && current===last) {
-        event.preventDefault();
-        first?.focus();
-      }
-    }}>
-    <header className="communication-dialog-head">
-      <h2 id={titleId}>{title}</h2>
-      <button type="button" disabled={saving} onClick={close}>Schließen</button>
-    </header>
-    {children(save)}
-  </dialog>;
-}
-
 function ExternalReference({project,run}:{project:Row;run:Run}) {
   const [trigger,setTrigger]=useState<HTMLButtonElement>();
   const stored=Boolean(project.external_link || project.communication_note);
@@ -164,12 +95,12 @@ function ExternalReference({project,run}:{project:Row;run:Run}) {
       {!stored && <p className="subtle">Kein externer Verweis hinterlegt.</p>}
       <button type="button" onClick={event=>setTrigger(event.currentTarget)}>{title}</button>
     </div>
-    {trigger && <CommunicationDialog title={title} trigger={trigger} dismiss={()=>setTrigger(undefined)}>{save=>
+    {trigger && <FormDialog title={title} trigger={trigger} dismiss={()=>setTrigger(undefined)}>{save=>
       <Form caption="Verweis speichern" fields={[
         {name:'external_link',label:'Vorgangslink',type:'url',value:project.external_link},
         {name:'communication_note',label:'Kommunikationsnotiz',type:'textarea',value:project.communication_note},
       ]} submit={input=>save(()=>run(()=>api('projects/'+project.id,'PATCH',input),'Verweis gespeichert.',{reportInlineError:true}))}/>
-    }</CommunicationDialog>}
+    }</FormDialog>}
   </Panel>;
 }
 
@@ -405,7 +336,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
               <button type="button" onClick={event=>setDialog({kind:'create',trigger:event.currentTarget})}>Ticket anlegen</button>
             </div>
           </div>
-          {dialog && <CommunicationDialog title={dialogTitle} trigger={dialog.trigger} dismiss={()=>setDialog(undefined)}>{save=>
+          {dialog && <FormDialog title={dialogTitle} trigger={dialog.trigger} dismiss={()=>setDialog(undefined)}>{save=>
             dialog.kind==='link' ? <>
               <p id={ticketIdHint} className="subtle communication-dialog-hint">Die Ticket-ID steht am Ende der Ticketadresse in Zammad.</p>
               <Form caption="Ticket verknüpfen" fields={[
@@ -416,7 +347,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
               {name:'title',label:'Betreff',required:true},{name:'customer',label:'Kunden-E-Mail',type:'email',required:true},
               {name:'note',label:'Interne Notiz',type:'textarea',required:true},
             ]} submit={v=>save(()=>run(()=>request('tickets',v),'Ticket angelegt.',{reportInlineError:true}))}/>
-          }</CommunicationDialog>}
+          }</FormDialog>}
         </> : !zammad ? <p className="subtle">Zammad ist nicht eingerichtet. Der Ticketverlauf kann gerade nicht geladen werden.</p> : <>
           <div className="communication-scroll" role="region" aria-label="Ticketaktivität" tabIndex={0}>
             {loading && <p role="status" className="subtle">Ticketverlauf wird geladen …</p>}
