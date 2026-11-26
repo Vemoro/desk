@@ -12,6 +12,12 @@ Nutze vorhandene Komponenten und Abläufe, wenn ihr Verhalten passt. Halte Ände
 
 Behandle gespeicherte Geldbeträge in ganzen Cent. Prüfe bei Schreibvorgängen Wiederholungen, mögliche Konkurrenz und den Zustand nach einem Fehler. Ergänze beim Ändern der Datenbank eine neue Migration. Bereits angewendete Migrationen bleiben stabil. Änderungen an gespeicherten Daten brauchen eine Probe mit repräsentativem Altbestand und belegtem Wiederanlauf. Für die Oberfläche gelten die [Gestaltungsregeln](../DESIGN.md).
 
+## Issue-Review vor der Planung
+
+Ein umsetzbares Issue erklärt das konkrete Problem, belegt den aktuellen Stand und begründet die Lösungswahl. Die Abnahme nennt beobachtbare Ergebnisse und die Randfälle, die für den betroffenen Ablauf relevant sind. Umfang und Länge richten sich nach der Aufgabe. [Issue schreiben](../.agents/skills/desk-issue-schreiben/SKILL.md)
+
+Ein frischer Agent ohne Entstehungsverlauf prüft die aktuelle Fassung vor „Geplant“. Bei der Wiederaufnahme älterer Aufgaben hole fehlende Begründung und Prüfung vor der Fortsetzung nach. Halte am veröffentlichten Issue das Urteil, die geprüfte Fassung, die Basis und etwaige Befunde fest. Wenn sich Ansatz, Umfang oder Abnahme wesentlich ändern, folgt eine neue unabhängige Prüfung. [Issue unabhängig prüfen](../.agents/skills/desk-issue-pruefen/SKILL.md)
+
 ## Pull Requests
 
 Nutze einen abgegrenzten Titel mit Bereich und betroffenen Issues. `Umgesetzt #…` kennzeichnet die vollständige Umsetzung, `Refs #…` einen Beitrag zu einem Teilumfang. Dokumentiere Ergebnis, Zielbasis, Prüfungen, betroffene Daten und Updatehinweise. Frage bei unklarem Abnahmekriterium nach der fachlichen Entscheidung. Kennzeichne wesentliche KI-Unterstützung im PR und nutze vorhandene Co-Autor-Trailer des Werkzeugs, wenn sie korrekt zuordenbar sind.
@@ -75,7 +81,7 @@ Doku, Oberfläche und Beiträge werden auf Deutsch geschrieben, Code-Bezeichner 
 
 Beginne mit dem höchsten belegten Nutzen für Desk. Prüfe vorhandene Issues, PRs und Abhängigkeiten, bevor du neue Arbeit anlegst. Bearbeite ein passendes bestehendes Issue weiter. Lege ein neues Issue an, wenn ein konkreter Bedarf einen eigenen Umfang und prüfbare Abnahmekriterien hat. Ein Umfang kann einen einzelnen PR oder mehrere fachlich begründete PRs brauchen.
 
-Lass die aktuelle Fassung eines Issues vor dem Einordnen unter „Geplant“ durch einen frischen Agenten auf Bestand, Abgrenzung, Abhängigkeiten und Akzeptanz prüfen. Übergib Issue, Zielbasis und Prüfauftrag ohne den Entstehungsverlauf. Nach wesentlichen Änderungen folgt eine neue Prüfung. Ein PR ist nach Selbstprüfung, unabhängigem Review und grüner erforderlicher CI auf seinem aktuellen Stand prüfbereit. Bei betroffener Oberfläche gehören Vergleichsbilder zur Abnahme.
+Wende für neue und wiederaufgenommene Aufgaben das [Issue-Review](#issue-review-vor-der-planung) an. Ein PR ist nach Selbstprüfung, unabhängigem Review und grüner erforderlicher CI auf seinem aktuellen Stand prüfbereit. Bei betroffener Oberfläche gehören Vergleichsbilder zur Abnahme.
 
 Die bisherige Viererfolge samt Startwert ist eine Orientierung für die Planung. Passe Aufgaben und Umfang an Priorität, Risiken, Abhängigkeiten und verfügbare Zeit für Tests und Reviews an. Kann ein geprüftes Issue sinnvoll umgesetzt werden, starte den PR direkt im vereinbarten Auftrag. Leert sich die umsetzbare Warteschlange, prüfe den Bestand und fülle sie mit geeigneten Aufgaben auf.
 
