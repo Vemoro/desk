@@ -75,9 +75,12 @@ export function Desk() {
   useEffect(()=>{
     const current=localStorage.getItem('desk-theme');
     if(current==='dark')setTheme(current);
-    function onHash() {
+    function onHash(event?:HashChangeEvent) {
       const [route,id,requestedView]=location.hash.slice(1).split('/');
       if(route==='desk-main') return;
+      if(event && new URL(event.oldURL).hash.slice(1).split('/')[0]!==route) {
+        setNotice({message:'',error:false});
+      }
       const next=Object.hasOwn(sections,route) ? route as Section : 'dashboard';
       setSection(next);
       setDetailId(next==='projects'||next==='contacts' ? id ?? '' : '');
@@ -307,6 +310,7 @@ function Contacts({data,run,haben,selected,selectContact,openProject}:{data:Data
   const contactDetail=useRef<HTMLElement>(null);
   const duplicateWarning=useRef<HTMLElement>(null);
   const isOpen=useRef(false);
+  const comparisonRequest=useRef(0);
   const contact=data.contacts.find((row)=>row.id===selected);
   const comparison=contactComparison?.contactId===selected ? contactComparison.result : undefined;
   const query=search.trim().toLowerCase();
@@ -357,10 +361,13 @@ function Contacts({data,run,haben,selected,selectContact,openProject}:{data:Data
 
   async function sync(input:unknown) {
     if(!contact)return;
+    const request=++comparisonRequest.current;
     return run(async(isCurrent)=>{
       const result=await api(`contacts/${contact.id}/haben`,'POST',input);
       if(result.action==='error')throw new Error(result.message);
-      if(isCurrent()) setComparison({contactId:contact.id,result});
+      if(isCurrent() && isOpen.current && request===comparisonRequest.current && location.hash==='#contacts/'+contact.id) {
+        setComparison({contactId:contact.id,result});
+      }
       if(result.action==='conflict') return noWrite;
     });
   }
