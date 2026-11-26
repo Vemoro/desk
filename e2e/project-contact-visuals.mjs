@@ -6,9 +6,10 @@ const { chromium } = createRequire(join(repo,"package.json"))("playwright");
 const browser = await chromium.launch();
 await mkdir(output,{recursive:true});
 try {
-  for(const variant of ["desktop","mobil"]) for(const theme of ["light","dark"]){
-    const mobile = variant === "mobil";
-    const page = await browser.newPage({viewport:mobile?{width:390,height:844}:{width:1440,height:950},
+  const variants=phase==="nachher"?["desktop","mobil","schmal-auswahl"]:["desktop","mobil"];
+  for(const variant of variants) for(const theme of ["light","dark"]){
+    const mobile = variant !== "desktop";
+    const page = await browser.newPage({viewport:mobile?{width:variant==="mobil"?390:320,height:844}:{width:1440,height:950},
       locale:"de-DE",timezoneId:"Europe/Berlin",deviceScaleFactor:1,serviceWorkers:"block"});
     await page.addInitScript(theme=>localStorage.setItem("desk-theme",theme),theme);
     await page.clock.setFixedTime(new Date("2028-05-18T11:00:00Z"));
@@ -22,7 +23,14 @@ try {
     const title = page.getByRole("heading",{name:"Projekte",exact:true,level:2});
     await title.waitFor();
     await page.getByRole("button",{name:"Büroinstallation Westflügel",exact:true}).waitFor();
-    if(phase.startsWith("nachher")) await page.getByRole("combobox",{name:"Kontakt",exact:true}).waitFor();
+    if(phase==="nachher") await page.getByRole("combobox",{name:"Kontakt",exact:true}).waitFor();
+    if(variant==="schmal-auswahl") {
+      const contact=page.getByRole("combobox",{name:"Kontakt",exact:true});
+      const sample=contact.locator("option").filter({hasText:"Kontor West"});
+      await contact.selectOption(await sample.getAttribute("value"));
+      await page.locator(".project-contact-selection").waitFor();
+      await page.getByText("1 Projekt gefunden.").waitFor();
+    }
     await page.evaluate(()=>document.fonts.ready);
     await title.evaluate(()=>{window.scrollTo(0,0);document.activeElement?.blur();});
     await page.screenshot({path:join(output,`${variant}-${theme}-${phase}.png`),animations:"disabled",fullPage:true});
