@@ -1,5 +1,6 @@
 name: Arbeitsgrundlage
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - 'AGENTS.md'
@@ -15,7 +16,7 @@ on:
       - '.github/workflows/arbeitsgrundlage.yml'
       - 'scripts/check-workflow-docs.py'
   push:
-    branches: [main]
+    branches: [main, review/ci-event-probe-200]
 permissions:
   contents: read
 jobs:
