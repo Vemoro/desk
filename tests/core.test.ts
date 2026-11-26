@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, test } from 'bun:test';
+import { required } from '../src/server/errors';
 
 const database = process.env.DATABASE_URL;
 if (!database || !new URL(database).pathname.endsWith('_test')) throw new Error('Tests benötigen eine isolierte DATABASE_URL mit Endung _test.');
@@ -583,15 +584,21 @@ describe('API und Integrationen',()=>{
       const id=crypto.randomUUID();
       const message={id,recipient:'muster@example.test',subject:'Musterangebot',body:'Angebot anbei',
         attachment:{name:'angebot.pdf',data:Buffer.from('%PDF-1.7').toString('base64')}};
+      const attemptedAt=(id:string)=>first<{value:string}>(db,'SELECT attempted_at::text AS value FROM outgoing WHERE id=$1',[id]);
       expect(await send(data.project,message)).toMatchObject({status:'unknown'});
+      const originalTime=required(await attemptedAt(id));
       expect(await reviewOutgoing(data.project,id,true)).toMatchObject({status:'sent'});
       expect(sends).toBe(1);
+      expect(await attemptedAt(id)).toEqual(originalTime);
       remoteMode='reject';
       const rejected={...message,id:crypto.randomUUID()};
       expect(await send(data.project,rejected)).toMatchObject({status:'failed'});
+      await db.unsafe("UPDATE outgoing SET attempted_at='2026-01-01T00:00:00Z' WHERE id=$1",[rejected.id]);
+      const failedTime=required(await attemptedAt(rejected.id));
       remoteMode='accept';
       expect(await reviewOutgoing(data.project,rejected.id,true)).toMatchObject({status:'sent'});
       expect(sends).toBe(3);
+      expect(required(await attemptedAt(rejected.id)).value).not.toBe(failedTime.value);
     } finally {
       if(priorUrl===undefined)delete process.env.ZAMMAD_URL; else process.env.ZAMMAD_URL=priorUrl;
       if(priorToken===undefined)delete process.env.ZAMMAD_TOKEN; else process.env.ZAMMAD_TOKEN=priorToken;
