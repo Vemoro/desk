@@ -1,5 +1,6 @@
 name: Prüfungen
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches: [main]
@@ -29,6 +30,9 @@ jobs:
       DESK_AUTH_SECRET: nur-fuer-die-isolierte-desk-testdatenbank
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: 5b10099dde361ba058efbcd11fdbfff98c0592ab
+      - run: test "$(git rev-parse HEAD)" = 5b10099dde361ba058efbcd11fdbfff98c0592ab
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: package.json
