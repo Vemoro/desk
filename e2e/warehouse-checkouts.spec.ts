@@ -36,7 +36,7 @@ test('Offene Ausgaben nach Projekt und Lagerort zeigen auch Teilrückgaben und a
   const differentProject=await reserve(second,main,item,1);
   const returned=await reserve(first,main,item,1);
   const consumable=await reserve(first,main,consumed,1);
-  for(const [reservation_id,quantity] of [[mainCheckout,3],[differentLocation,1],[differentProject,1],[returned,1]] as const){
+  for(const [reservation_id,quantity] of [[mainCheckout,2],[mainCheckout,1],[differentLocation,1],[differentProject,1],[returned,1]] as const){
     await write('movements',{action:'issue',reservation_id,quantity});
   }
   await write('movements',{action:'return',reservation_id:mainCheckout,quantity:1});
@@ -51,6 +51,8 @@ test('Offene Ausgaben nach Projekt und Lagerort zeigen auch Teilrückgaben und a
   const stock=page.locator('.panel').filter({has:page.getByRole('heading',{name:'Bestand je Lagerort'})});
   await expect(checkoutTable.getByText(first.name,{exact:true})).toHaveCount(2);
   await expect(checkoutTable.getByText(second.name,{exact:true})).toHaveCount(1);
+  const initialCount=await checkoutTable.locator('tbody tr').count();
+  await expect(open.getByText(`${initialCount} offene Ausgaben`,{exact:true})).toBeVisible();
   const stockBefore=await stock.getByRole('table').textContent();
   const projectFilter=open.getByRole('combobox',{name:'Projekt filtern'});
   const locationFilter=open.getByRole('combobox',{name:'Lagerort filtern'});
@@ -59,18 +61,33 @@ test('Offene Ausgaben nach Projekt und Lagerort zeigen auch Teilrückgaben und a
   const rows=open.getByRole('row').filter({has:page.getByText(first.name,{exact:true})});
   await expect(rows).toHaveCount(1);
   await expect(rows.first().getByRole('cell').last()).toHaveText('2');
+  await expect(open.getByText('1 offene Ausgabe',{exact:true})).toBeVisible();
   await expect(checkoutTable.getByText(second.name,{exact:true})).toHaveCount(0);
   expect(await stock.getByRole('table').textContent()).toBe(stockBefore);
+  await page.getByText('Ausgabe, Rückgabe oder Verbrauch',{exact:true}).click();
+  async function returnOne(){
+    await page.getByRole('combobox',{name:'Bewegungsart',exact:true}).selectOption('return');
+    await page.getByRole('combobox',{name:'Projektreservierung',exact:true}).selectOption(mainCheckout);
+    await page.getByRole('spinbutton',{name:'Menge',exact:true}).fill('1');
+    await page.getByRole('button',{name:'Bewegung buchen',exact:true}).click();
+  }
+  await returnOne();
+  await expect(rows.first().getByRole('cell').last()).toHaveText('1');
+  await expect(open.getByText('1 offene Ausgabe',{exact:true})).toBeVisible();
+  await returnOne();
+  await expect(open.getByText('0 offene Ausgaben',{exact:true})).toBeVisible();
   await locationFilter.selectOption(third.id);
   await expect(open.getByText('Keine offenen Ausgaben für diese Filter.')).toBeVisible();
   await open.getByRole('button',{name:'Filter zurücksetzen'}).press('Enter');
   await expect(projectFilter).toHaveValue('');
   await expect(locationFilter).toHaveValue('');
-  await expect(checkoutTable.getByText(first.name,{exact:true})).toHaveCount(2);
+  await expect(checkoutTable.getByText(first.name,{exact:true})).toHaveCount(1);
   await expect(checkoutTable.getByText(second.name,{exact:true})).toHaveCount(1);
+  await expect(open.getByText(`${initialCount-1} offene Ausgaben`,{exact:true})).toBeVisible();
   await page.route('**/api/v1/reservations?*',route=>route.fulfill({json:[]}));
   await page.reload();
   await expect(open.getByText('Es gibt keine offenen Ausgaben.')).toBeVisible();
+  await expect(open.getByText('0 offene Ausgaben',{exact:true})).toBeVisible();
 });
 
 async function warehouseReceipt(page:Page,quantity:number){
@@ -272,11 +289,14 @@ test('Offene Ausgaben nach Artikel filtern, ohne Bestand und Lagerbewegungen mit
 
   await articles.selectOption('kit-a');
   await expect(rows).toHaveCount(2);
+  await expect(target.getByText('2 offene Ausgaben',{exact:true})).toBeVisible();
   await articles.selectOption('kit-b');
   await expect(rows).toHaveCount(1);
+  await expect(target.getByText('1 offene Ausgabe',{exact:true})).toBeVisible();
   await expect(rows).toContainText('Musterbetreuung');
   await project.selectOption('office');
   await expect(target.getByText('Keine offenen Ausgaben für diese Filter.')).toBeVisible();
+  await expect(target.getByText('0 offene Ausgaben',{exact:true})).toBeVisible();
   await project.selectOption('events');
   await location.selectOption('ost');
   await expect(target.getByText('Keine offenen Ausgaben für diese Filter.')).toBeVisible();
@@ -287,6 +307,7 @@ test('Offene Ausgaben nach Artikel filtern, ohne Bestand und Lagerbewegungen mit
   await expect(project).toHaveValue('');
   await expect(location).toHaveValue('');
   await expect(rows).toHaveCount(4);
+  await expect(target.getByText('4 offene Ausgaben',{exact:true})).toBeVisible();
   await expect(reset).toBeDisabled();
   await expect(stock.getByLabel('Bestand suchen')).toHaveValue('MK-01');
   await expect(stockRows).toHaveCount(1);
