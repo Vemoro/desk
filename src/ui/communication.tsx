@@ -136,7 +136,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   const ticketId=project.zammad_ticket_id ? Number(project.zammad_ticket_id) : null;
   const [dialog,setDialog]=useState<DialogState>();
   const [confirmation,setConfirmation]=useState<Confirmation>();
-  const [conversation,setConversation]=useState<Conversation|null>(null);
+  const [loadedConversation,setConversation]=useState<Conversation|null>(null);
   const [problem,setProblem]=useState('');
   const [search,setSearch]=useState('');
   const [loading,setLoading]=useState(Boolean(zammad && ticketId));
@@ -254,7 +254,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   },[outgoingKey,ticketId,zammad,confirmationRequests]);
 
   const request=(suffix:string,input:unknown)=>api<{id?:string;status:AttemptStatus}>('projects/'+project.id+'/zammad/'+suffix,'POST',input);
-  async function deliver(current:MessageDraft,isCurrent:()=>boolean,replay=false) {
+  async function deliver(current:MessageDraft,isCurrent:()=>boolean) {
     setNeedsAttemptCheck(false);
     setMissingAttempt(false);
     setReplayError('');
@@ -264,10 +264,11 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
     } catch(error) {
       if(isCurrent() && draft.current?.id===current.id) {
         // A gateway error can arrive after Desk has already accepted the message.
-        if(!replay && error instanceof ApiError &&
+        if(error instanceof ApiError &&
           (error.code==='zammad_message_not_stored' || error.code==='invalid_input')) draft.current=undefined;
         else setNeedsAttemptCheck(true);
       }
+      if(error instanceof TypeError) throw new Error('Desk hat keine Bestätigung für den Sendeversuch erhalten.');
       throw error;
     }
     if(!isCurrent()) return;
@@ -325,7 +326,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
     setReplayError('');
     try {
       await run(async isCurrent=>{
-        if(replay) return deliver(current,isCurrent,true);
+        if(replay) return deliver(current,isCurrent);
         try {
           const result=await request(`outgoing/${current.id}`,{retry:false});
           if(!isCurrent() || draft.current?.id!==current.id) return;
@@ -345,7 +346,15 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
       setDraftActionRunning(false);
     }
   }
-  const currentAttempt=conversation?.outgoing.find(entry=>entry.id===draft.current?.id);
+  const draftAttempt=draft.current;
+  const listedAttempt=loadedConversation?.outgoing.find(entry=>entry.id===draftAttempt?.id);
+  const savedDraft=draftAttempt && draftStatus && !listedAttempt ? {
+    id:draftAttempt.id,subject:draftAttempt.note ? 'Interne Notiz' : String(draftAttempt.payload.subject),status:draftStatus,
+  } : undefined;
+  const currentAttempt=listedAttempt ?? savedDraft;
+  const conversation=loadedConversation && savedDraft ? {
+    ...loadedConversation,outgoing:[savedDraft,...loadedConversation.outgoing],
+  } : loadedConversation;
   const draftActions=<>
     {locked && draft.current && !currentAttempt && (needsAttemptCheck || draftStatus) && <div className="communication-replay">
       {missingAttempt ? <>
