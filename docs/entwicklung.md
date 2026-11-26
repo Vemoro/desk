@@ -16,7 +16,7 @@ Behandle gespeicherte Geldbeträge in ganzen Cent. Prüfe bei Schreibvorgängen 
 
 Ein umsetzbares Issue erklärt das konkrete Problem, belegt den aktuellen Stand und begründet die Lösungswahl. Die Abnahme nennt beobachtbare Ergebnisse und die Randfälle, die für den betroffenen Ablauf relevant sind. Umfang und Länge richten sich nach der Aufgabe. [Issue schreiben](../.agents/skills/desk-issue-schreiben/SKILL.md)
 
-Ein frischer Agent ohne Entstehungsverlauf prüft die aktuelle Fassung. Verschiebe das Issue erst mit dem Urteil **Bereit für Geplant** für diese Fassung nach „Geplant“. Bei der Wiederaufnahme älterer Aufgaben hole fehlende Begründung und Prüfung vor der Fortsetzung nach. Halte am veröffentlichten Issue das Urteil, die geprüfte Fassung, die Basis und etwaige Befunde fest. Wenn sich Ansatz, Umfang oder Abnahme wesentlich ändern, folgt eine neue unabhängige Prüfung. [Issue unabhängig prüfen](../.agents/skills/desk-issue-pruefen/SKILL.md)
+Ein frischer Agent ohne Entstehungsverlauf prüft die aktuelle Fassung. Plane ein Issue erst mit dem Urteil **Bereit für Geplant** für diese Fassung ein. Der Workflow zur Übernahme kann eine bereits zugewiesene Aufgabe nach „Geplant“ zurückgeben. Prüfe bei der Wiederaufnahme, ob der vorhandene Nachweis noch gilt, und hole fehlende Begründung und Prüfung vor der Fortsetzung nach. Halte am veröffentlichten Issue Urteil, Basis und Befunde fest. Identifiziere die geprüfte Fassung über eine eindeutige Revision oder den Fingerabdruck der Prüfdatei. Wenn sich Ansatz, Umfang oder Abnahme wesentlich ändern, folgt eine neue unabhängige Prüfung. [Issue unabhängig prüfen](../.agents/skills/desk-issue-pruefen/SKILL.md) · [Übernahme und Rückgabe](roadmap.md#issues-übernehmen-und-freigeben)
 
 ## Pull Requests
 

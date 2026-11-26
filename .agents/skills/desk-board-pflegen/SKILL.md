@@ -9,7 +9,7 @@ Lies die [Bedingungen der Board-Status](../../../docs/roadmap.md#board-zustände
 
 ```sh
 gh project item-list 2 --owner Vemoro --limit 250 --format json
-gh issue view <nummer> --repo Vemoro/desk --json title,state,projectItems
+gh issue view <nummer> --repo Vemoro/desk --json title,body,comments,state,projectItems
 ```
 
 Ermittle zunächst fehlende Karten, ungeprüfte Aufgaben und auffällige Diskrepanzen zu den zugehörigen PRs. Die Project-Ansicht und die Issue-Abfrage ergänzen sich. Prüfe bei Listenlimits weitere Seiten oder die Board-Suche. Gleiche vor „Geplant“ den [Issue-Prüfnachweis](../../../docs/entwicklung.md#issue-review-vor-der-planung) mit der aktuellen Fassung ab. Belege die übrige Einordnung durch Umfang, Review, PR, Release oder die konkrete externe Abhängigkeit. Ein vorhandener Desk-Adapter bleibt eine Desk-Aufgabe.
