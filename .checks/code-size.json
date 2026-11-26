@@ -1,0 +1,17 @@
+{
+  "files": {
+    "src/ui/communication.tsx": 604,
+    "src/ui/desk.tsx": 749
+  },
+  "functions": {
+    "src/ui/communication.tsx:ZammadCommunication": 422,
+    "src/ui/desk.tsx:Desk": 198,
+    "src/ui/desk.tsx:Contacts": 125,
+    "src/ui/desk.tsx:Warehouse": 173,
+    "src/ui/desk.tsx:Settings": 82,
+    "src/ui/project-kanban.tsx:ProjectKanban": 109,
+    "src/ui/projects.tsx:Projects": 88,
+    "src/ui/projects.tsx:Planning": 108,
+    "src/ui/widgets.tsx:Form": 92
+  }
+}
