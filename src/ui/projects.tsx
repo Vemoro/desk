@@ -1,3 +1,4 @@
+import { Field } from './field';
 import { useEffect, useId, useRef, useState, type FocusEvent } from 'react';
 import { missingStageReference } from '../project-references';
 import { api, calendarDate, downloadPositions, euros, inventoryLabel, inventoryName, moment, money, name, projectStages, reservationStages, type Row } from './client';
@@ -37,31 +38,31 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
       <div className="panel-body">
         <div className="project-filters">
           <div className="project-search-field">
-            <label><span>Projekte suchen</span><input ref={search} type="search" value={filters.query} aria-describedby={searchHelpId}
-              onChange={(event)=>onFilter({...filters,query:event.target.value})}/></label>
+            <Field label="Projekte suchen">{props=><input {...props} ref={search} type="search" value={filters.query} aria-describedby={searchHelpId}
+              onChange={(event)=>onFilter({...filters,query:event.target.value})}/>}</Field>
             <small id={searchHelpId} className="subtle">Name, Kontakt, Referenz oder Kostenstelle</small>
           </div>
-          <label><span>Status</span><select value={filters.stage} onChange={(event)=>onFilter({...filters,stage:event.target.value})}>
+          <Field label="Status">{props=><select {...props} value={filters.stage} onChange={(event)=>onFilter({...filters,stage:event.target.value})}>
             <option value="all">Alle</option><option value="open">Offen</option>
             {Object.entries(projectStages).map(([stage,label])=><option key={stage} value={stage}>{label}</option>)}
-          </select></label>
-          <label><span>Fälligkeit</span><select value={filters.due} onChange={(event)=>onFilter({...filters,due:event.target.value})}>
+          </select>}</Field>
+          <Field label="Fälligkeit">{props=><select {...props} value={filters.due} onChange={(event)=>onFilter({...filters,due:event.target.value})}>
             <option value="all">Alle</option><option value="overdue">Überfällig</option>
             <option value="today">Heute</option><option value="missing">Ohne Termin</option>
-          </select></label>
-          <label className="project-contact-filter"><span>Kontakt</span><select value={filters.contactId} onChange={(event)=>onFilter({...filters,contactId:event.target.value})}>
+          </select>}</Field>
+          <Field label="Kontakt" className="project-contact-filter">{props=><><select {...props} value={filters.contactId} onChange={(event)=>onFilter({...filters,contactId:event.target.value})}>
             <option value="">Alle Kontakte</option>
             {contacts.map(contact=><option key={contact.id} value={contact.id}>
               {contactOptionLabel(contact)}
             </option>)}
           </select>{selectedContact && <small className="project-contact-selection" aria-hidden="true">
             {contactOptionLabel(selectedContact)}
-          </small>}</label>
-          <label className="project-sort-field"><span>Projekte sortieren</span><select value={filters.sort}
+          </small>}</>}</Field>
+          <Field label="Projekte sortieren" className="project-sort-field">{props=><select {...props} value={filters.sort}
             onChange={(event)=>onFilter({...filters,sort:event.target.value==='due'?'due':'standard'})}>
             <option value="standard">Standard</option>
             <option value="due">Frühester Termin zuerst</option>
-          </select></label>
+          </select>}</Field>
         </div>
         <div className="actions">
           <span className="subtle" role="status">{projects.length===1?'1 Projekt gefunden.':`${projects.length} Projekte gefunden.`}</span>
@@ -238,13 +239,13 @@ function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) 
   return <Panel title="Ressourcenplanung">
       <div className="panel-body">
         <div className="form-grid">
-          <label><span>Ressourcentyp</span><select ref={resourceSelector} value={resourceFilter} onChange={(event)=>setResourceFilter(event.target.value)}>
+          <Field label="Ressourcentyp">{props=><select {...props} ref={resourceSelector} value={resourceFilter} onChange={(event)=>setResourceFilter(event.target.value)}>
             <option value="">Alle</option><option value="user">Personal</option><option value="item">Inventar</option>
-          </select></label>
-          <label><span>Status filtern</span><select value={statusFilter} onChange={(event)=>setStatusFilter(event.target.value)}>
+          </select>}</Field>
+          <Field label="Status filtern">{props=><select {...props} value={statusFilter} onChange={(event)=>setStatusFilter(event.target.value)}>
             <option value="">Alle</option>
             {Object.entries(reservationStages).map(([value,label])=><option key={value} value={value}>{label}</option>)}
-          </select></label>
+          </select>}</Field>
         </div>
         <div className="actions">
           <span className="subtle" role="status">{visibleReservations.length} {visibleReservations.length===1?'Reservierung':'Reservierungen'}</span>
@@ -269,7 +270,7 @@ function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) 
         <p id={inventoryTimeZoneId} className="subtle wide">{timeZoneHint}</p>
       </Form></Expand>
     </div>{filtered && !visibleReservations.length ? <p className="empty">Keine Reservierungen für diese Filter.</p>
-    : <Table headers={['Ressource','Zeitraum','Menge','Status','Aktion']} rows={visibleReservations.map((row)=>({
+    : <Table numeric={[2]} headers={['Ressource','Zeitraum','Menge','Status','Aktion']} rows={visibleReservations.map((row)=>({
       key:row.id,cells:[row.user_id ? name(data.users,row.user_id) : <><span>{inventoryName(data.items,row.item_id)}</span><small>{name(data.locations,row.location_id)}</small></>,
         <>{moment(row.starts_at)}<small>bis {moment(row.ends_at)}</small></>,row.quantity,
         <Pill label={reservationStages[row.status]} tone={row.status==='firm'?'accent':'neutral'}/>,
@@ -295,7 +296,7 @@ function ProjectCalculation({project,data,run}:Omit<ProjectPlanningProps,'accoun
         {name:'name',label:'Position',required:true},{name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},
         {name:'unit',label:'Einzelpreis netto in Euro',required:true},
       ]} submit={(v)=>run(()=>api('lines','POST',{project_id:project.id,kind:v.kind,name:v.name,quantity:Number(v.quantity),unit_cents:money(v.unit)}),'Position angelegt.')}/></Expand></div>
-      <Table headers={['Art','Position','Menge','Einzelpreis','Gesamt','Aktion']} rows={lines.map((row)=>({key:row.id,cells:[
+      <Table numeric={[2,3,4]} headers={['Art','Position','Menge','Einzelpreis','Gesamt','Aktion']} rows={lines.map((row)=>({key:row.id,cells:[
         row.kind==='buy'?'Einkauf':'Verkauf',row.name,row.quantity,euros(row.unit_cents),euros(row.unit_cents*row.quantity),
         <Expand title="Position bearbeiten"><Form caption="Position aktualisieren" fields={[
           {name:'kind',label:'Art',value:row.kind,choices:[{value:'buy',label:'Einkauf'},{value:'sell',label:'Verkauf'}],required:true},
@@ -303,11 +304,11 @@ function ProjectCalculation({project,data,run}:Omit<ProjectPlanningProps,'accoun
           {name:'quantity',label:'Menge',type:'number',min:1,value:row.quantity,required:true},
           {name:'unit',label:'Einzelpreis netto in Euro',value:(row.unit_cents/100).toFixed(2).replace('.',','),required:true},
         ]} submit={(v)=>run(()=>api(`lines/${row.id}`,'PATCH',{kind:v.kind,name:v.name,quantity:Number(v.quantity),unit_cents:money(v.unit)}),'Position aktualisiert.')}/>
-          <button onClick={event=>setConfirmation({
+          <button className="danger" onClick={event=>setConfirmation({
             actionKey:`lines:${row.id}`,
             title:'Kalkulationsposition entfernen',
             description:`„${row.name}“ wird aus der Kalkulation dieses Projekts entfernt.`,
-            actionLabel:'Position entfernen',
+            actionLabel:'Position entfernen',danger:true,
             trigger:event.currentTarget,
             submit:()=>api(`lines/${row.id}`,'DELETE'),
             feedback:'Position entfernt.',
@@ -331,7 +332,7 @@ export function Controlling({project,data,run}:{project:Row;data:Data;run:Run}) 
       <div className="panel-body"><Expand title="Ist-Kosten erfassen"><Form caption="Kosten speichern" fields={[
         {name:'reference',label:'Belegreferenz',required:true},{name:'name',label:'Bezeichnung',required:true},{name:'amount',label:'Netto in Euro',required:true},
       ]} submit={(fields)=>run(()=>api('costs','POST',{entries:[{project_id:project.id,source:'manual',reference:fields.reference,name:fields.name,cents:money(fields.amount)}]}),'Ist-Kosten gespeichert.')}/></Expand></div>
-      <Table headers={['Belegreferenz','Bezeichnung','Quelle','Netto']} rows={costs.map((row)=>({key:row.id,cells:[row.reference,row.name,row.source,euros(row.cents)]}))}/>
+      <Table numeric={[3]} headers={['Belegreferenz','Bezeichnung','Quelle','Netto']} rows={costs.map((row)=>({key:row.id,cells:[row.reference,row.name,row.source,euros(row.cents)]}))}/>
     </Panel>
   </>;
 }

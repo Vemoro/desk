@@ -1,7 +1,8 @@
+import { Field } from './field';
 import { useEffect, useRef, useState } from 'react';
 import { api, compileCsv, euros, money, type Row } from './client';
 import type { Data } from './projects';
-import { Expand, Form, noWrite, options, Panel, Pill, Table, type Run } from './widgets';
+import { Expand, Form, ConfirmDialog, noWrite, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
 
 export function Costs({data,run}:{data:Data;run:Run}) {
   return <Panel title="Belege und Zuordnung"><div className="panel-body">
@@ -12,16 +13,17 @@ export function Costs({data,run}:{data:Data;run:Run}) {
       {name:'reference',label:'Belegreferenz',required:true},{name:'name',label:'Bezeichnung',required:true},
       {name:'amount',label:'Netto in Euro',required:true},{name:'project_id',label:'Projekt',choices:options(data.projects)},
     ]} submit={(input)=>run(()=>api('costs','POST',{entries:[{reference:input.reference,name:input.name,cents:money(input.amount),source:'manual',project_id:input.project_id||null}]}),'Beleg gespeichert.')}/></Expand>
-  </div><Table headers={['Beleg','Bezeichnung','Netto','Projektzuordnung']} rows={data.costs.map((row)=>({key:row.id,cells:[
-    row.reference,row.name,euros(row.cents),<select aria-label={`Projekt für ${row.reference}`} value={row.project_id??''}
+  </div><Table numeric={[2]} headers={['Beleg','Bezeichnung','Netto','Projektzuordnung']} rows={data.costs.map((row)=>({key:row.id,cells:[
+    row.reference,row.name,euros(row.cents),<Field label={`Projekt für ${row.reference}`} visuallyHiddenLabel>{props=><select {...props} value={row.project_id??''}
       onChange={(event)=>run(()=>api(`costs/${row.id}`,'PATCH',{project_id:event.target.value||null}),'Zuordnung gespeichert.')}>
-      <option value="">Ohne Zuordnung</option>{data.projects.map((project)=><option value={project.id} key={project.id}>{project.name}</option>)}</select>,
+      <option value="">Ohne Zuordnung</option>{data.projects.map((project)=><option value={project.id} key={project.id}>{project.name}</option>)}</select>}</Field>,
   ]}))}/></Panel>;
 }
 
 export function Settings({data,run,flags,accountId}:{data:Data;run:Run;flags:{haben:boolean;zammad:boolean};accountId:string}) {
   const [tokenList,setTokenList]=useState<{status:'loading'|'failed'}|{status:'loaded';tokens:Row[]}>({status:'loading'});
   const [issued,setIssued]=useState('');
+  const [revocation,setRevocation]=useState<Confirmation>();
   const tokenRequest=useRef(0);
   const tokenPanel=useRef<HTMLElement>(null);
   const retryTokenButton=useRef<HTMLButtonElement>(null);
@@ -48,32 +50,15 @@ export function Settings({data,run,flags,accountId}:{data:Data;run:Run;flags:{ha
     }
   },[tokenList.status]);
   return <>
-    <Panel title="Team"><div className="panel-body"><Expand title="Konto anlegen"><Form caption="Konto speichern" fields={[
-      {name:'name',label:'Name',required:true},{name:'email',label:'E-Mail',type:'email',required:true},
-      {name:'password',label:'Passwort (mindestens 12 Zeichen)',type:'password',required:true,autoComplete:'new-password'},
-      {name:'role',label:'Rolle',choices:[{value:'member',label:'Mitarbeit'},{value:'admin',label:'Administration'}],required:true},
-    ]} submit={(input)=>run(()=>api('users','POST',input),'Konto angelegt.')}/></Expand></div>
-    <Table headers={['Name','Rolle','Zugang','Aktion']} rows={data.users.map((row)=>({key:row.id,cells:[
-      row.name,row.role==='admin'?'Administration':'Mitarbeit',row.blocked?'Gesperrt':'Aktiv',
-      <button onClick={()=>{
-        const blocked=!row.blocked;
-        const ownAccount=row.id===accountId;
-        const consequence=ownAccount?' Du wirst abgemeldet.':'';
-        if(blocked && !window.confirm(`Konto von ${row.name} sperren? Desk widerruft vorhandene Sitzungen und API-Tokens. Projektzuordnungen bleiben erhalten.${consequence}`)) return;
-        void run(async isCurrent=>{
-          await api(`users/${row.id}/access`,'PATCH',{blocked});
-          if(isCurrent()) {
-            setIssued('');
-            if(!ownAccount) await refresh();
-          }
-        },blocked?'Konto gesperrt.':'Konto freigegeben.');
-      }}>{row.blocked?'Konto freigeben':'Konto sperren'}</button>,
-    ]}))}/></Panel>
+    <TeamSettings users={data.users} run={run} accountId={accountId} onChange={async ownAccount=>{
+      setIssued('');
+      if(!ownAccount) await refresh();
+    }}/>
     <Panel title="API-Zugriff" focusRef={tokenPanel} action={<a href="/api/v1/openapi.json" target="_blank" rel="noreferrer">OpenAPI</a>}><div className="panel-body">
       <Expand title="API-Token erzeugen"><Form caption="Token erzeugen" fields={[
         {name:'label',label:'Name',required:true},{name:'scope',label:'Berechtigung',choices:[{value:'read',label:'Lesen'},{value:'write',label:'Lesen und schreiben'}],required:true},
       ]} submit={(input)=>run(async(isCurrent)=>{const result=await api('tokens','POST',input);if(isCurrent()) {setIssued(result.token);await refresh();}},'API-Token erzeugt.')}/></Expand>
-      {issued&&<label><span>Token jetzt kopieren</span><input value={issued} readOnly onFocus={(e)=>e.target.select()}/></label>}
+      {issued&&<Field label="Token jetzt kopieren">{props=><input {...props} value={issued} readOnly onFocus={(e)=>e.target.select()}/>}</Field>}
     </div>
     {tokenList.status==='loading'&&<p className="empty" role="status">API-Token werden geladen …</p>}
     {tokenList.status==='failed'&&<div className="panel-body">
@@ -85,11 +70,20 @@ export function Settings({data,run,flags,accountId}:{data:Data;run:Run;flags:{ha
     </div>}
     {tokenList.status==='loaded'&&(tokenList.tokens.length
       ? <Table headers={['Name','Berechtigung','Aktion']} rows={tokenList.tokens.map((row)=>({key:row.id,cells:[row.label,row.scope==='read'?'Lesen':'Lesen und schreiben',
-        <button onClick={()=>run(async(isCurrent)=>{await api(`tokens/${row.id}`,'DELETE');if(isCurrent()) {setIssued('');await refresh();}},'Token widerrufen.')}>Widerrufen</button>,
+        <button type="button" className="danger" onClick={event=>setRevocation({
+          actionKey:"token-revoke:"+row.id,title:"API-Token widerrufen",actionLabel:"Token widerrufen",danger:true,
+          description:"Der Token „"+row.label+"“ wird ungültig. Anbindungen mit diesem Token brauchen einen neuen Token.",
+          trigger:event.currentTarget,
+          submit:async isCurrent=>{
+            await api("tokens/"+row.id,"DELETE");
+            if(isCurrent()) {setIssued("");await refresh();}
+          },feedback:"Token widerrufen.",
+        })}>Widerrufen</button>,
       ]}))}/>
       : <p className="empty" role="status">Keine API-Token erstellt.</p>)}
     </Panel>
     <Integrations flags={flags} run={run}/>
+    {revocation && <ConfirmDialog confirmation={revocation} run={run} dismiss={()=>setRevocation(undefined)} fallbackFocus={tokenPanel}/>}
   </>;
 }
 
@@ -110,4 +104,38 @@ function Integrations({flags,run}:{flags:{haben:boolean;zammad:boolean};run:Run}
       },undefined,{kind:'read',reportInlineError:true})}/>
       {checkedTicket!==undefined && <p role="status">Ticket {checkedTicket} und sein Verlauf sind erreichbar.</p>}
     </div></Panel>;
+}
+
+function TeamSettings({users,run,accountId,onChange}:{users:Row[];run:Run;accountId:string;onChange:(own:boolean)=>Promise<void>}) {
+  const [confirmation,setConfirmation]=useState<Confirmation>();
+  const teamPanel=useRef<HTMLElement>(null);
+
+  async function saveAccess(row:Row,blocked:boolean,isCurrent:()=>boolean) {
+    await api("users/"+row.id+"/access","PATCH",{blocked});
+    if(isCurrent()) await onChange(row.id===accountId);
+  }
+
+  return <>
+    <Panel title="Team" focusRef={teamPanel}><div className="panel-body"><Expand title="Konto anlegen"><Form caption="Konto speichern" fields={[
+      {name:'name',label:'Name',required:true},{name:'email',label:'E-Mail',type:'email',required:true},
+      {name:'password',label:'Passwort (mindestens 12 Zeichen)',type:'password',required:true,autoComplete:'new-password'},
+      {name:'role',label:'Rolle',choices:[{value:'member',label:'Mitarbeit'},{value:'admin',label:'Administration'}],required:true},
+    ]} submit={(input)=>run(()=>api('users','POST',input),'Konto angelegt.')}/></Expand></div>
+    <Table headers={['Name','Rolle','Zugang','Aktion']} rows={users.map((row)=>({key:row.id,cells:[
+      row.name,row.role==='admin'?'Administration':'Mitarbeit',row.blocked?'Gesperrt':'Aktiv',
+      <button type="button" className={row.blocked?undefined:"danger"} onClick={event=>{
+        if(row.blocked) {
+          void run(isCurrent=>saveAccess(row,false,isCurrent),"Konto freigegeben.");
+          return;
+        }
+        setConfirmation({
+          actionKey:"access-block:"+row.id,title:"Konto sperren",actionLabel:"Konto sperren",danger:true,
+          description:"Desk widerruft die Sitzungen und API-Tokens für „"+row.name+"“. Projektzuordnungen bleiben erhalten."
+            +(row.id===accountId?" Du wirst abgemeldet.":""),
+          trigger:event.currentTarget,submit:isCurrent=>saveAccess(row,true,isCurrent),feedback:"Konto gesperrt.",
+        });
+      }}>{row.blocked?"Konto freigeben":"Konto sperren"}</button>,
+    ]}))}/></Panel>
+    {confirmation && <ConfirmDialog confirmation={confirmation} run={run} dismiss={()=>setConfirmation(undefined)} fallbackFocus={teamPanel}/>}
+  </>;
 }

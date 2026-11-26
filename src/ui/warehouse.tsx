@@ -1,3 +1,4 @@
+import { Field } from './field';
 import { useState } from 'react';
 import { api, inventoryLabel, inventoryName, moment, movementStages, name } from './client';
 import type { Data } from './projects';
@@ -58,11 +59,11 @@ function WarehouseStock({data,run,accountId,bookings}:WarehouseProps & {bookings
       </Form></Expand>
     </div>
     <div className="panel-body form-grid">
-      <label><span>Bestand suchen</span><input type="search" value={stockQuery} onChange={(event)=>setStockQuery(event.target.value)}/></label>
-      <label><span>Lagerort filtern</span><select value={stockLocation} onChange={(event)=>setStockLocation(event.target.value)}>
+      <Field label="Bestand suchen">{props=><input {...props} type="search" value={stockQuery} onChange={(event)=>setStockQuery(event.target.value)}/>}</Field>
+      <Field label="Lagerort filtern">{props=><select {...props} value={stockLocation} onChange={(event)=>setStockLocation(event.target.value)}>
         <option value="">Alle Lagerorte</option>
         {options(data.locations).map(({value,label})=><option key={value} value={value}>{label}</option>)}
-      </select></label>
+      </select>}</Field>
       <label className="checkbox-label">
         <input type="checkbox" checked={onlyAvailable} onChange={(event)=>setOnlyAvailable(event.target.checked)}/>
         <span>Nur mit freiem Bestand</span>
@@ -70,7 +71,7 @@ function WarehouseStock({data,run,accountId,bookings}:WarehouseProps & {bookings
       <button type="button" disabled={!stockQuery&&!stockLocation&&!onlyAvailable}
         onClick={()=>{setStockQuery('');setStockLocation('');setOnlyAvailable(false);}}>Filter zurücksetzen</button>
     </div>
-    {visibleStock.length || !stockFilterActive ? <Table headers={['Artikel','Lagerort','Physisch','Reserviert','Frei']} rows={visibleStock.map((row)=>({key:`${row.item_id}/${row.location_id}`,cells:[
+    {visibleStock.length || !stockFilterActive ? <Table numeric={[2,3,4]} headers={['Artikel','Lagerort','Physisch','Reserviert','Frei']} rows={visibleStock.map((row)=>({key:`${row.item_id}/${row.location_id}`,cells:[
       inventoryName(data.items,row.item_id),name(data.locations,row.location_id),row.physical,row.reserved,<strong>{row.free}</strong>,
     ]}))}/> : <p className="empty" role="status">Kein Bestand für diese Filter.</p>}</Panel>;
 }
@@ -88,20 +89,20 @@ function OpenCheckouts({data,bookings}:{data:Data;bookings:Bookings}) {
   return <Panel title="Offene Ausgaben">
       <div className="panel-body">
         <div className="form-grid">
-          <label><span>Projekt filtern</span><select value={projectFilter} onChange={(event)=>setProjectFilter(event.target.value)}>
+          <Field label="Projekt filtern">{props=><select {...props} value={projectFilter} onChange={(event)=>setProjectFilter(event.target.value)}>
             <option value="">Alle Projekte</option>
             {options(data.projects).map(({value,label})=><option key={value} value={value}>{label}</option>)}
-          </select></label>
-          <label><span>Lagerort filtern</span><select value={locationFilter} onChange={(event)=>setLocationFilter(event.target.value)}>
+          </select>}</Field>
+          <Field label="Lagerort filtern">{props=><select {...props} value={locationFilter} onChange={(event)=>setLocationFilter(event.target.value)}>
             <option value="">Alle Lagerorte</option>
             {options(data.locations).map(({value,label})=><option key={value} value={value}>{label}</option>)}
-          </select></label>
-          <label><span>Artikel filtern</span><select value={checkoutItem} onChange={(event)=>setCheckoutItem(event.target.value)}>
+          </select>}</Field>
+          <Field label="Artikel filtern">{props=><select {...props} value={checkoutItem} onChange={(event)=>setCheckoutItem(event.target.value)}>
             <option value="">Alle Artikel</option>
             {data.items.map((item)=><option key={item.id} value={item.id}>
               {inventoryLabel(item)}{item.code ? ` · ${item.code}` : ''}
             </option>)}
-          </select></label>
+          </select>}</Field>
         </div>
         <div className="actions">
           <button type="button" disabled={!projectFilter && !locationFilter && !checkoutItem}
@@ -111,7 +112,7 @@ function OpenCheckouts({data,bookings}:{data:Data;bookings:Bookings}) {
           </span>
         </div>
       </div>
-      {visibleCheckouts.length ? <Table headers={['Projekt','Artikel','Lagerort','Ausgegeben']} rows={visibleCheckouts.map((row)=>{
+      {visibleCheckouts.length ? <Table numeric={[3]} headers={['Projekt','Artikel','Lagerort','Ausgegeben']} rows={visibleCheckouts.map((row)=>{
         const project=projectsById.get(row.project_id);
         return {key:row.id,cells:[
           project ? <a href={`#projects/${project.id}`}>{project.name}</a> : 'Projekt nicht verfügbar',
@@ -142,15 +143,15 @@ function WarehouseMovements({data,run,accountId}:WarehouseProps) {
   return <Panel title="Lagerbewegungen">
       <div className="panel-body">
         <div className="form-grid">
-          <label><span>Bewegungsart filtern</span><select value={movementKind} onChange={event=>setMovementKind(event.target.value)}>
+          <Field label="Bewegungsart filtern">{props=><select {...props} value={movementKind} onChange={event=>setMovementKind(event.target.value)}>
             <option value="">Alle Bewegungsarten</option>
             {Object.entries(movementStages).map(([value,label])=><option key={value} value={value}>{label}</option>)}
-          </select></label>
-          <label><span>Projekt filtern</span><select value={movementProject} onChange={event=>setMovementProject(event.target.value)}>
+          </select>}</Field>
+          <Field label="Projekt filtern">{props=><select {...props} value={movementProject} onChange={event=>setMovementProject(event.target.value)}>
             <option value="">Alle Projekte</option>
             <option value="without-project">Ohne Projektbezug</option>
             {options(data.projects).map(({value,label})=><option key={value} value={value}>{label}</option>)}
-          </select></label>
+          </select>}</Field>
         </div>
         <div className="actions">
           <button type="button" disabled={!movementKind && !movementProject}
@@ -158,7 +159,7 @@ function WarehouseMovements({data,run,accountId}:WarehouseProps) {
           <span className="subtle" role="status">{visibleMovements.length} von {data.movements.length} Bewegungen</span>
         </div>
       </div>
-      {renderedMovements.length > 0 && <Table hidden={visibleMovements.length===0}
+      {renderedMovements.length > 0 && <Table numeric={[5]} hidden={visibleMovements.length===0}
       headers={['Zeitpunkt','Bewegung','Artikel','Lagerort','Projekt','Menge','Erfasst durch','Aktion']}
       rows={renderedMovements.map(row=>{
         const remaining=row.quantity-(corrected.get(row.id) ?? 0);

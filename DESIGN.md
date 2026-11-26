@@ -51,3 +51,9 @@ Die vollständige Bestandsabnahme vor 0.2.0.0 umfasst die Gestaltung und die Fel
 ## Oberfläche prüfen
 
 Prüfe die Änderung mit Tastatur sowie auf der betroffenen Bildschirmgröße. Bei Änderungen am Aussehen gehören reproduzierbare Vergleichsbilder ins Review. Der [Screenshot-Ablauf](.agents/skills/desk-pr-screenshots/SKILL.md) beschreibt die Aufnahme.
+
+Der Browserlauf prüft die automatisierbaren WCAG-AA-Kriterien in Hell und Dunkel. Ergänze die Ergebnisse um eine Tastaturprüfung und eine Sichtprüfung auf dem Smartphone. Teste bei Feldern den Zugang zum ersten Fehler, seine Behebung und den Tastaturfokus nach dem Schließen eines Dialogs.
+
+Textfelder, Auswahllisten und Texteingaben verwenden `Field`. `bun run check:fields` prüft die gemeinsame Komponente. Die bestehenden einzelnen Checkboxen für freie Lagerbestände und andere Browsersitzungen behalten direkt zugeordnete Labels.
+
+Eine geführte Aufgabe mit fester Reihenfolge zeigt eine geordnete Schrittliste, den aktuellen Schritt und erledigte Schritte. Projektzustände und Kanban-Spalten bleiben als solche erkennbar, weil sie auch bei wechselnder Reihenfolge den Arbeitsstand abbilden.

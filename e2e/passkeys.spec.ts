@@ -95,11 +95,13 @@ test('Passkeys gehören einem eigenen Konto und funktionieren neben dem Passwort
     await expect(page.getByRole('heading',{name:'Übersicht',exact:true})).toBeVisible();
     await page.getByRole('button',{name:'Einstellungen',exact:true}).click();
     const teamRow=page.getByRole('row').filter({has:page.getByText(memberName,{exact:true})});
-    page.once('dialog',dialog=>dialog.dismiss());
     await teamRow.getByRole('button',{name:'Konto sperren'}).click();
+    const block=page.getByRole('dialog',{name:'Konto sperren'});
+    await expect(block.getByRole('button',{name:'Abbrechen'})).toBeFocused();
+    await block.getByRole('button',{name:'Abbrechen'}).click();
     await expect(teamRow.getByRole('cell',{name:'Aktiv',exact:true})).toBeVisible();
-    page.once('dialog',dialog=>dialog.accept());
     await teamRow.getByRole('button',{name:'Konto sperren'}).click();
+    await block.getByRole('button',{name:'Konto sperren'}).click();
     await expect(teamRow.getByRole('cell',{name:'Gesperrt',exact:true})).toBeVisible();
     expect((await unauthorized.request.get('/api/v1/me')).status()).toBe(401);
 
@@ -136,6 +138,9 @@ test('Passkeys gehören einem eigenen Konto und funktionieren neben dem Passwort
   await page.getByRole('button',{name:'Mit Passkey anmelden'}).click();
   await expect(page.getByRole('heading',{name:'Mein Konto',exact:true})).toBeVisible();
   await page.getByRole('button',{name:`Passkey ${label} entfernen`}).click();
+  const remove=page.getByRole('dialog',{name:'Passkey entfernen'});
+  await expect(remove.getByRole('button',{name:'Abbrechen'})).toBeFocused();
+  await remove.getByRole('button',{name:'Passkey entfernen'}).click();
   await expect(page.getByRole('status')).toContainText('Passkey entfernt.');
   await expect(page.getByRole('button',{name:`Passkey ${label} entfernen`})).toHaveCount(0);
 
