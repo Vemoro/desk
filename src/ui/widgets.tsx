@@ -76,7 +76,7 @@ export function FormDialog({title,trigger,dismiss,children}:{
       <h2 id={titleId}>{title}</h2>
       <button type="button" disabled={saving} onClick={close}>Schließen</button>
     </header>
-    {children(save)}
+    <div className="dialog-content">{children(save)}</div>
   </dialog>;
 }
 
@@ -207,13 +207,15 @@ export function ConfirmDialog({confirmation,run,dismiss,fallbackFocus}:{
       }
     }}>
     <header className="confirm-dialog-title"><h2 id={titleId}>{confirmation.title}</h2></header>
-    <p id={descriptionId}>{confirmation.description}</p>
-    {message && <p className="inline-error" role="alert">{message}</p>}
-    <div className="actions">
-      <button type="button" ref={cancelRef} aria-disabled={pending || undefined} onClick={()=>close()}>{message?'Schließen':'Abbrechen'}</button>
-      <button type="button" ref={confirmRef} className={confirmation.danger?'primary destructive':'primary'} onClick={confirm} disabled={Boolean(request || problem)}>
-        {pending?'Wird ausgeführt …':confirmation.actionLabel}
-      </button>
+    <div className="dialog-content">
+      <p id={descriptionId}>{confirmation.description}</p>
+      {message && <p className="inline-error" role="alert">{message}</p>}
+      <div className="actions">
+        <button type="button" ref={cancelRef} aria-disabled={pending || undefined} onClick={()=>close()}>{message?'Schließen':'Abbrechen'}</button>
+        <button type="button" ref={confirmRef} className={confirmation.danger?'primary destructive':'primary'} onClick={confirm} disabled={Boolean(request || problem)}>
+          {pending?'Wird ausgeführt …':confirmation.actionLabel}
+        </button>
+      </div>
     </div>
   </dialog>;
 }
