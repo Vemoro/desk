@@ -63,6 +63,10 @@ test('Projektansichten bleiben im Direktlink und im Browserverlauf erhalten',asy
   await expect(tabs.getByRole('link',{name:'Überblick'})).toHaveAttribute('aria-current','page');
   await page.goForward();
   await expect(kanban).toHaveAttribute('aria-current','page');
+  await page.goForward();
+  await expect(page).toHaveURL(origin+detail+'/finance');
+  await expect(controlling).toHaveAttribute('aria-current','page');
+  await expect(page.getByRole('heading',{name:'Belegbezogene Ist-Kosten'})).toBeVisible();
 
   await page.goto(detail);
   await page.reload();
