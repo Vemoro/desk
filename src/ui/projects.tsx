@@ -20,8 +20,8 @@ function reservationTimes(values:Record<string,string>) {
   return {...values,starts_at:start.toISOString(),ends_at:end.toISOString()};
 }
 
-type ProjectFilters = { query:string; stage:string; due:string };
-export const defaultProjectFilters:ProjectFilters = {query:'',stage:'all',due:'all'};
+type ProjectFilters = { query:string; stage:string; due:string; contactId:string };
+export const defaultProjectFilters:ProjectFilters = {query:'',stage:'all',due:'all',contactId:''};
 
 export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;select:(id:string)=>void;
   filters:ProjectFilters;onFilter:(filters:ProjectFilters)=>void;
@@ -46,8 +46,19 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
   },[]);
   const today=[now.getFullYear(),now.getMonth()+1,now.getDate()].map(part=>String(part).padStart(2,'0')).join('-');
   const query=filters.query.trim().toLowerCase();
-  const filtered=filters.query!=='' || filters.stage!=='all' || filters.due!=='all';
+  const filtered=filters.query!=='' || filters.stage!=='all' || filters.due!=='all' || filters.contactId!=='';
+  const contactLabelCounts=new Map<string,number>();
+  const contacts=data.contacts.map(contact=>{
+    const label=[contact.name,contact.email].filter(Boolean).join(' · ').replace(/[\t\n\f\r ]+/g,' ').trim();
+    contactLabelCounts.set(label,(contactLabelCounts.get(label)??0)+1);
+    return {id:contact.id,label,phone:contact.phone};
+  });
+  function contactOptionLabel({label,phone}:typeof contacts[number]) {
+    return phone && (contactLabelCounts.get(label)??0)>1 ? `${label} · ${phone}` : label;
+  }
+  const selectedContact=contacts.find(contact=>contact.id===filters.contactId);
   const projects=data.projects.filter((project)=>{
+    if(filters.contactId && project.contact_id!==filters.contactId) return false;
     const matchesSearch=`${project.name} ${name(data.contacts,project.contact_id)}`.toLowerCase().includes(query)
       || [project.offer_ref,project.invoice_ref].some(reference=>reference?.toLowerCase().includes(query));
     const matchesStage=filters.stage==='all' || (filters.stage==='open'
@@ -74,6 +85,14 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
             <option value="all">Alle</option><option value="overdue">Überfällig</option>
             <option value="today">Heute</option><option value="missing">Ohne Termin</option>
           </select></label>
+          <label className="project-contact-filter"><span>Kontakt</span><select value={filters.contactId} onChange={(event)=>onFilter({...filters,contactId:event.target.value})}>
+            <option value="">Alle Kontakte</option>
+            {contacts.map(contact=><option key={contact.id} value={contact.id}>
+              {contactOptionLabel(contact)}
+            </option>)}
+          </select>{selectedContact && <small className="project-contact-selection" aria-hidden="true">
+            {contactOptionLabel(selectedContact)}
+          </small>}</label>
         </div>
         <div className="actions">
           <span className="subtle" role="status">{projects.length===1?'1 Projekt gefunden.':`${projects.length} Projekte gefunden.`}</span>
