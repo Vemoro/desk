@@ -1,14 +1,10 @@
-name: Doku-Screenshots erstellen
+name: Projektlistenvergleich des gemeinsamen Prüfstands
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - '.github/workflows/screenshots.yml'
-      - 'e2e/screenshots.spec.ts'
 permissions:
   contents: read
 jobs:
-  screenshots:
+  comparison:
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -16,29 +12,73 @@ jobs:
         env:
           POSTGRES_USER: desk
           POSTGRES_PASSWORD: desk
-          POSTGRES_DB: desk_demo
+          POSTGRES_DB: desk_before_demo
         ports:
           - 5438:5432
         options: >-
           --health-cmd "pg_isready -U desk"
           --health-interval 5s
           --health-timeout 5s
-          --health-retries 10
+          --health-retries 8
     env:
-      DATABASE_URL: postgres://desk:desk@127.0.0.1:5438/desk_demo
-      DESK_DEMO_PASSWORD: muster-test-passwort
-      DESK_ORIGIN: http://localhost:4173
-      DESK_AUTH_SECRET: nur-fuer-die-isolierte-desk-testdatenbank
+      DESK_DEMO_PASSWORD: muster-vergleich-test
+      DESK_AUTH_SECRET: nur-fuer-die-isolierten-vergleichsinstanzen
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: 00d01308b16c4d7d975f7c2224b1e213a6697d5e
+          path: before
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: 83fb4861f8ecb7f1131590040cdf9de7f08460f8
+          path: after
+          persist-credentials: false
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version-file: package.json
-      - run: bun install --frozen-lockfile
-      - run: bunx playwright install --with-deps chromium
-      - run: bun run migrate && bun run demo && bun run docs:screenshots
+          bun-version-file: after/package.json
+      - name: Synthetische Testinstanzen starten und vergleichen
+        env:
+          DESK_DEMO_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          docker exec "$DESK_DEMO_CONTAINER" createdb -U desk desk_after_demo
+          prepare() (
+            cd "$1"
+            export DATABASE_URL="postgres://desk:desk@127.0.0.1:5438/desk_${1}_demo"
+            export DESK_ORIGIN="http://localhost:$2"
+            bun install --frozen-lockfile
+            bun run migrate
+            bun run demo
+          )
+          serve() (
+            cd "$1"
+            export DATABASE_URL="postgres://desk:desk@127.0.0.1:5438/desk_${1}_demo"
+            export DESK_ORIGIN="http://localhost:$2"
+            exec bun run dev --port "$2" --strictPort
+          )
+          prepare before 4193
+          prepare after 4194
+          (cd after && bunx playwright install --with-deps chromium)
+          serve before 4193 > before.log 2>&1 &
+          before_pid=$!
+          serve after 4194 > after.log 2>&1 &
+          after_pid=$!
+          trap 'kill "$before_pid" "$after_pid" 2>/dev/null || true' EXIT
+          for port in 4193 4194; do
+            for attempt in {1..30}; do
+              if curl -fsS "http://localhost:$port/api/v1/ready" >/dev/null; then break; fi
+              sleep 1
+            done
+            curl -fsS "http://localhost:$port/api/v1/ready" >/dev/null
+          done
+          cd after
+          bun run review:screenshots http://localhost:4193 http://localhost:4194
+          test "$(find build/screenshots -name '*.png' | wc -l)" -eq 8
+          bun run review:screenshots --nur-nachher http://localhost:4194
+          test "$(find build/screenshots -name '*.png' | wc -l)" -eq 12
       - uses: actions/upload-artifact@v6
         with:
-          name: Desk-Doku-Screenshots
-          path: build/screenshots/
+          name: Desk-Projektliste-Gemeinsamer-Pruefstand
+          path: after/build/screenshots/
           if-no-files-found: error
