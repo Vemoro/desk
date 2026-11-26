@@ -33,12 +33,12 @@ Veröffentliche **Unabhängiges Code-Review** und **Unabhängige Doku-Prüfung**
 
 Verlinke die Kommentare in der PR-Beschreibung. Prüfe diese Links und den abgedeckten Stand vor „Ready for review“, vor Übergabe auf dem Freigabeboard und vor dem Merge. Fehlt ein erforderlicher Kommentar oder belegt er nur einen älteren Stand, hole die Prüfung und den Nachweis vor dem jeweiligen Schritt nach.
 
-Für die fiktive „Büroinstallation Westflügel“ verbessert ein PR die Projektsuche und passt ihre Anleitung an. Jede Zeile steht für einen eigenen Kommentar, den die PR-Beschreibung verlinkt.
+Für die fiktive „Büroinstallation Westflügel“ verbessert ein PR die Projektsuche und passt ihre Anleitung an. Die Tabelle zeigt Auszüge aus den erforderlichen Prüfkommentaren. Die PR-Beschreibung verlinkt jeden dieser Kommentare.
 
 | Kommentar | Beispiel für Code und Doku | Beispiel für einen reinen Doku-PR |
 | --- | --- | --- |
 | Selbstprüfung | Die Suche findet das Projekt über die Kostenstelle wie im Issue verlangt. | Die Anleitung erklärt den bereits vorhandenen Suchweg. |
-| Unabhängiges Code-Review | Der Browserfall findet die Kostenstelle und erhält die übrigen Filter. | Entfällt. |
+| Unabhängiges Code-Review | Der Browserfall findet das Projekt über die Kostenstelle und erhält die übrigen Filter. | Entfällt. |
 | Unabhängige Doku-Prüfung | Die Anleitung stimmt mit Feldbeschriftung, Suchverhalten und verlinkter Projektliste überein. | Feldbeschriftung, Schritte und Link stimmen. |
 
 [Habens Selbstprüfung](https://github.com/Speicherstadt/haben/blob/4dd9603df8ecc2f08ac790897b627afe5a0619cd/.claude/skills/beitrag-pruefen/references/selbstpruefung.md) · [Habens Code-Review im PR](https://github.com/Speicherstadt/haben/pull/1945) · [Habens Doku-Prüfung im PR](https://github.com/Speicherstadt/haben/pull/1942)
