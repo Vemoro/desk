@@ -180,9 +180,11 @@ Die Probe ergänzt ausschließlich in der temporären Kopie zwei SQL-Dateien. Na
 
 ### Kanban-Reihenfolge über die REST-API
 
-`GET /api/v1/tasks` gibt Aufgaben weiterhin nach Name und ID aus. Mit `include_kanban_position=true` enthält jeder Eintrag zusätzlich `kanban_position`. Sortiere für das Board je Projekt und Status nach dieser Position. Einträge ohne Position folgen nach Name und ID. Solche Einträge können beim Betrieb einer älteren Programmversion nach einer Migration entstehen.
+`GET /api/v1/tasks` gibt Aufgaben wie bisher paginiert nach Name und ID aus. `GET /api/v1/tasks/kanban` liefert alle Aufgaben mit ihren Kanban-Positionen in einem Datenstand. `kanban_position` ist eine positive Ganzzahl oder `null`. Sortiere das Board je Projekt und Status nach der Position. Karten ohne Position folgen nach Name und ID.
 
-`PATCH /api/v1/projects/{id}/kanban/{taskId}` verschiebt eine Karte in den angegebenen `status`. Übergib in `before_task_id` die Karte in der Zielspalte, vor der sie stehen soll, oder `null` für das Spaltenende. Die Zielkarte muss zum selben Projekt und zur Zielspalte gehören. Ist sie dort inzwischen nicht mehr verfügbar, antwortet Desk mit HTTP 409. Bestehende Aufrufe zum Anlegen oder Ändern von Aufgaben bleiben gültig. Neue Karten und tatsächliche Statuswechsel ohne Positionsangabe gehen ans Spaltenende.
+`PATCH /api/v1/projects/{id}/kanban/{taskId}` verschiebt eine Karte in den angegebenen `status`. Übergib in `before_task_id` die Karte in der Zielspalte, vor der sie stehen soll, oder `null` für das Spaltenende. Die Zielkarte muss eine andere Karte desselben Projekts in der Zielspalte sein. Ist sie dort inzwischen nicht mehr verfügbar, antwortet Desk mit HTTP 409. Eine erfolgreiche Antwort enthält Karten-ID, Status und gespeicherte Position. Bestehende Aufrufe zum Anlegen oder Ändern von Aufgaben bleiben gültig. Neue Karten und tatsächliche Statuswechsel ohne Positionsangabe gehen ans Spaltenende.
+
+Wende `010_kanban_order.sql` vor dem Start an. Die Migration übernimmt die bisher sichtbare Reihenfolge je Projekt und Status nach Name und ID. Die Positionen liegen in einer eigenen Tabelle. Ein Rückwechsel auf einen älteren Anwendungsstand erhält die Positionen von Karten mit unverändertem Status. Karten, die dort neu angelegt werden oder den Status wechseln, stehen nach der Rückkehr am Ende ihrer Spalte.
 ### Seitennavigation der REST-API
 
 `limit` bestimmt die Höchstzahl der Einträge pro Seite (1 bis 200, Standard 100). `offset` überspringt Einträge am Anfang der aktuellen sortierten Liste (0 bis 1.000.000, Standard 0). Diese Parameter gelten für die folgenden GET-Listen:

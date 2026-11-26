@@ -19,13 +19,14 @@ test('Ziehen speichert Positionen innerhalb und zwischen Kanban-Spalten',async({
   const handoverCard=open.locator('article').filter({hasText:'Übergabe dokumentieren'});
   const appointmentCard=open.locator('article').filter({hasText:'Termin rückbestätigen'});
   const targetBounds=(await handoverCard.boundingBox())!;
+  const columnBounds=(await open.boundingBox())!;
   const dataTransfer=await page.evaluateHandle(()=>new DataTransfer());
   await appointmentCard.dispatchEvent('dragstart',{dataTransfer});
-  await handoverCard.dispatchEvent('dragover',{dataTransfer,clientY:targetBounds.y+5});
+  await open.dispatchEvent('dragover',{dataTransfer,clientY:targetBounds.y-4});
   await expect(handoverCard).toHaveAttribute('data-drop-before','');
   await appointmentCard.dispatchEvent('dragend',{dataTransfer});
   await expect(handoverCard).not.toHaveAttribute('data-drop-before','');
-  await appointment.dragTo(handover,{targetPosition:{x:12,y:5}});
+  await appointment.dragTo(open,{targetPosition:{x:targetBounds.x-columnBounds.x+12,y:targetBounds.y-columnBounds.y-4}});
   await expect(titles).toHaveText(['Termin rückbestätigen','Übergabe dokumentieren']);
   await review.getByRole('button',{name:/Materialliste prüfen/}).dragTo(handover,{targetPosition:{x:12,y:5}});
   await expect(titles).toHaveText(['Termin rückbestätigen','Materialliste prüfen','Übergabe dokumentieren']);
@@ -185,4 +186,11 @@ test('Tastatur-Verschieben aktualisiert das Board bei einer veralteten Zielposit
   await expect(doing.locator('.task-card')).toHaveCount(0);
   await expect(board.getByRole('region',{name:'Prüfung',exact:true}).getByRole('button',{name:/Einsatz vorbereiten/})).toBeVisible();
   await expect(card).toBeVisible();
+
+  await button.press('Enter');
+  await dialog.getByRole('combobox',{name:'Zielspalte'}).selectOption('doing');
+  await dialog.getByRole('button',{name:'Karte verschieben'}).press('Enter');
+  await expect(dialog).toHaveCount(0);
+  const moved=doing.locator('article').filter({hasText:'Übergabe dokumentieren'});
+  await expect(moved.getByRole('button',{name:'Verschieben',exact:true})).toBeFocused();
 });

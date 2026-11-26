@@ -13,7 +13,12 @@ const link = z.union([z.url({ protocol: /^https?$/ }).max(500), z.literal('')]);
 const taskStatus = z.enum(['todo','doing','review','done']);
 export type TaskStatus = z.infer<typeof taskStatus>;
 export const kanbanMove = z.strictObject({status:taskStatus,before_task_id:id.nullable()});
-export const kanbanPositionQuery = z.object({include_kanban_position:z.literal('true').optional()});
+const kanbanPosition=z.number().int().positive();
+export const kanbanMoveResponse=z.strictObject({id,status:taskStatus,kanban_position:kanbanPosition});
+export const kanbanTaskResponse=kanbanMoveResponse.extend({
+  name:z.string(),project_id:id,assignee_id:id.nullable(),due:z.iso.datetime().nullable(),
+  kanban_position:kanbanPosition.nullable(),
+});
 
 export const schemas = {
   contacts: z.strictObject({ name: title, email: email.optional(), phone: short.optional(), notes: memo.optional() }),

@@ -22,7 +22,7 @@ function MoveCardForm({task,columns,submit}:{task:Row;columns:Record<string,Row[
     }},
     {name:'before',label:'Zielposition',choices:[
       {value:columnEnd,label:'Ans Spaltenende'},...targets.map((card,index)=>({value:card.id,label:`${index+1}. Vor ${card.name}`})),
-    ],required:true,value:before,onChange:setBefore},
+    ],required:true,value:before===columnEnd || targets.some(card=>card.id===before) ? before : '',onChange:setBefore},
   ]} submit={({status,before})=>submit({status,beforeTaskId:before===columnEnd?null:before})}/>;
 }
 
@@ -51,7 +51,7 @@ export function ProjectKanban({projectId,tasks:allTasks,users,run}:{projectId:st
   const columns=Object.fromEntries(statusChoices.map(({value})=>[value,tasks.filter(task=>task.status===value)
     .sort((left,right)=>(left.kanban_position ?? Infinity)-(right.kanban_position ?? Infinity))]));
   const board=useRef<HTMLDivElement>(null);
-  const restoreFocus=useRef<{taskId:string;trigger:HTMLButtonElement}|undefined>(undefined);
+  const restoreFocus=useRef<{taskId:string;trigger:HTMLButtonElement;move?:boolean}|undefined>(undefined);
   const [editor,setEditor]=useState<{task:Row;trigger:HTMLButtonElement;move?:boolean}>();
   const dragging=useRef<string|undefined>(undefined);
   const [dropPosition,setDropPosition]=useState<DropPosition>();
@@ -59,8 +59,10 @@ export function ProjectKanban({projectId,tasks:allTasks,users,run}:{projectId:st
 
   useLayoutEffect(()=>{
     if(editor || !restoreFocus.current) return;
-    const {taskId,trigger}=restoreFocus.current;
-    const card=trigger.isConnected ? trigger : board.current?.querySelector<HTMLButtonElement>(`[data-task-id="${CSS.escape(taskId)}"]`);
+    const {taskId,trigger,move:wasMove}=restoreFocus.current;
+    const id=CSS.escape(taskId);
+    const selector=wasMove ? `[data-kanban-card="${id}"] .task-move` : `[data-task-id="${id}"]`;
+    const card=trigger.isConnected ? trigger : board.current?.querySelector<HTMLButtonElement>(selector);
     restoreFocus.current=undefined;
     (card ?? board.current)?.focus();
   },[editor]);
@@ -72,7 +74,7 @@ export function ProjectKanban({projectId,tasks:allTasks,users,run}:{projectId:st
 
   function dismiss() {
     if(!editor) return;
-    restoreFocus.current={taskId:editor.task.id,trigger:editor.trigger};
+    restoreFocus.current={taskId:editor.task.id,trigger:editor.trigger,move:editor.move};
     setEditor(undefined);
   }
 
@@ -89,12 +91,14 @@ export function ProjectKanban({projectId,tasks:allTasks,users,run}:{projectId:st
     },'Karte verschoben.',{reportInlineError:inlineError});
   }
 
-  function cardDrop(event:DragEvent<HTMLElement>,status:string,cardId:string):DropPosition {
-    const bounds=event.currentTarget.getBoundingClientRect();
-    const cards=columns[status];
-    const index=cards.findIndex(card=>card.id===cardId);
-    const start=event.clientY<bounds.top+bounds.height/2 ? index : index+1;
-    return {status,beforeTaskId:cards.slice(start).find(card=>card.id!==dragging.current)?.id ?? null};
+  function positionAtPointer(event:DragEvent<HTMLElement>,status:string):DropPosition {
+    for(const card of event.currentTarget.querySelectorAll<HTMLElement>(':scope > article[data-kanban-card]')) {
+      const id=card.dataset.kanbanCard;
+      if(!id || id===dragging.current) continue;
+      const bounds=card.getBoundingClientRect();
+      if(event.clientY<bounds.top+bounds.height/2) return {status,beforeTaskId:id};
+    }
+    return {status,beforeTaskId:null};
   }
 
   function markDrop(event:DragEvent,position:DropPosition) {
@@ -126,21 +130,19 @@ export function ProjectKanban({projectId,tasks:allTasks,users,run}:{projectId:st
         const cards=columns[status];
         return <section key={status} className="board-column" aria-label={label}
           data-drop-end={dropPosition?.status===status && dropPosition.beforeTaskId===null ? '' : undefined}
-          onDragOver={event=>markDrop(event,{status,beforeTaskId:null})}
+          onDragOver={event=>{ if(dragging.current) markDrop(event,positionAtPointer(event,status)); }}
           onDragLeave={event=>{
             if(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return;
             setDropPosition(current=>current?.status===status?undefined:current);
-          }} onDrop={event=>drop(event,{status,beforeTaskId:null})}>
+          }} onDrop={event=>{ if(dragging.current) drop(event,positionAtPointer(event,status)); }}>
           <h3>{label} <span>{cards.length}</span></h3>
-          {cards.map(task=><article key={task.id} className="task" draggable
+          {cards.map(task=><article key={task.id} className="task" data-kanban-card={task.id} draggable
             data-drop-before={dropPosition?.beforeTaskId===task.id?'':undefined}
             onDragStart={event=>{
               dragging.current=task.id;
               event.dataTransfer.effectAllowed='move';
               event.dataTransfer.setData('text/plain',task.id);
-            }} onDragEnd={clearDrop}
-            onDragOver={event=>markDrop(event,cardDrop(event,status,task.id))}
-            onDrop={event=>drop(event,cardDrop(event,status,task.id))}>
+            }} onDragEnd={clearDrop}>
             <button type="button" className="task-card" data-task-id={task.id} onClick={event=>setEditor({task,trigger:event.currentTarget})}>
               <strong id={`kanban-title-${task.id}`}>{task.name}</strong>
               {task.assignee_id && <span className="subtle">{name(users,task.assignee_id)}</span>}

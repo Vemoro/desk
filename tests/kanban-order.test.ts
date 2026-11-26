@@ -9,6 +9,7 @@ const { handle }=await import('../src/server/api');
 const { createAccount,createToken }=await import('../src/server/auth');
 const { saveCore }=await import('../src/server/core');
 const { db,rows }=await import('../src/server/db');
+const { kanbanMoveResponse,kanbanTaskResponse }=await import('../src/server/contracts');
 const { fixture }=await import('./fixture');
 
 type Card = {id:string;project_id:string;name:string;status:string;kanban_position:number};
@@ -39,7 +40,7 @@ async function createTask(projectId:string,name:string,status='todo') {
 }
 
 async function column(projectId:string,status:string) {
-  const response=await request('/tasks?include_kanban_position=true');
+  const response=await request('/tasks/kanban');
   expect(response.status).toBe(200);
   const tasks=await response.json() as Card[];
   const cards=tasks.filter(task=>task.project_id===projectId && task.status===status);
@@ -67,7 +68,7 @@ test('Die Migration übernimmt die bisher sichtbare Reihenfolge aus dem Altbesta
     `).simple();
     await transaction.unsafe(await Bun.file(new URL('../migrations/010_kanban_order.sql',import.meta.url)).text()).simple();
     const migrated=await rows<{name:string;due:string|null;kanban_position:number}>(transaction,
-      'SELECT name,due::text,kanban_position FROM tasks ORDER BY id');
+      'SELECT t.name,t.due::text,p.position AS kanban_position FROM tasks t JOIN kanban_positions p ON p.task_id=t.id ORDER BY t.id');
     expect(migrated).toEqual([
       {name:'Alpha',due:null,kanban_position:1},
       {name:'Alpha',due:null,kanban_position:2},
@@ -84,6 +85,11 @@ test('Kanban-Positionen bleiben getrennt von der bisherigen Aufgabenliste',async
   const earlier=await createTask(project,'Zulu');
   const later=await createTask(project,'Alpha');
   const review=await createTask(project,'Geprüft','review');
+  expect((await request(`/tasks/${earlier.id}`,'PATCH',{due:'2030-01-02'})).status).toBe(200);
+
+  const missingProject=await request('/tasks','POST',{project_id:crypto.randomUUID(),name:'Ohne Projekt'});
+  expect(missingProject.status).toBe(409);
+  expect(await missingProject.json()).toEqual({error:'Unzulässige Zuordnung oder ungültiger Wert.'});
 
   const legacy=await request('/tasks');
   expect(legacy.status).toBe(200);
@@ -91,11 +97,14 @@ test('Kanban-Positionen bleiben getrennt von der bisherigen Aufgabenliste',async
   expect(oldItems.map(task=>task.name)).toEqual(['Alpha','Geprüft','Zulu']);
   for(const card of oldItems) expect(card).not.toHaveProperty('kanban_position');
   expect(await column(project,'todo')).toEqual([earlier.id,later.id]);
+  const snapshot=await request('/tasks/kanban');
+  expect(kanbanTaskResponse.array().safeParse(await snapshot.json()).success).toBe(true);
 
   const moved=await request(`/projects/${project}/kanban/${later.id}`,'PATCH',{
     status:'todo',before_task_id:earlier.id,
   });
   expect(moved.status).toBe(200);
+  expect(kanbanMoveResponse.parse(await moved.json())).toEqual({id:later.id,status:'todo',kanban_position:1});
   expect(await column(project,'todo')).toEqual([later.id,earlier.id]);
 
   const renamed=await request(`/tasks/${later.id}`,'PATCH',{name:'Zuletzt',status:'todo'});
@@ -128,4 +137,40 @@ test('Gleichzeitige Neuanlagen und Verschiebungen lassen keine Karten aus',async
   expect(await column(project,'todo')).toEqual([]);
   expect(await column(project,'doing')).toEqual([card.id,anchor.id,created.id]);
   expect(await column(other,'doing')).toEqual([foreign.id]);
+});
+
+test('Ein Statuswechsel im älteren Stand übernimmt keine fremde Spaltenposition',async()=>{
+  const {project}=await fixture(saveCore,'Muster Kanban Wiederanlauf');
+  const previous=await createTask(project,'Alter Vorgang');
+  const target=await createTask(project,'Bereits in Arbeit','doing');
+  const [legacy]=await rows<Record<string,unknown>>(db,"UPDATE tasks SET status='doing' WHERE id=$1 RETURNING *",[previous.id]);
+  expect(legacy).not.toHaveProperty('kanban_position');
+
+  const response=await request('/tasks/kanban');
+  const cards=await response.json() as (Omit<Card,'kanban_position'>&{kanban_position:number|null})[];
+  expect(cards.find(card=>card.id===previous.id)?.kanban_position).toBeNull();
+  const appended=await createTask(project,'Neuer Vorgang','doing');
+  expect(await column(project,'doing')).toEqual([target.id,previous.id,appended.id]);
+
+  await db.unsafe("UPDATE tasks SET status='todo' WHERE id=$1",[previous.id]);
+  await db.unsafe("UPDATE tasks SET status='doing' WHERE id=$1",[previous.id]);
+  const returned=await request('/tasks/kanban');
+  const restarted=await returned.json() as (Omit<Card,'kanban_position'>&{kanban_position:number|null})[];
+  expect(restarted.find(card=>card.id===previous.id)?.kanban_position).toBeNull();
+});
+
+test('Die Kanban-Liste liefert auch über einer Standardseite einen vollständigen Stand',async()=>{
+  const {project}=await fixture(saveCore,'Muster großes Kanban');
+  await db.unsafe(`WITH inserted AS (
+    INSERT INTO tasks (project_id,name) SELECT $1,'Karte '||lpad(row::text,3,'0') FROM generate_series(1,201) row
+    RETURNING id,name
+  ) INSERT INTO kanban_positions (task_id,position)
+    SELECT id,row_number() OVER(ORDER BY name)::integer FROM inserted`,[project]);
+  const initial=await column(project,'todo');
+  expect(initial).toHaveLength(201);
+  const moved=await request(`/projects/${project}/kanban/${initial[200]}`,'PATCH',{
+    status:'todo',before_task_id:initial[0],
+  });
+  expect(moved.status).toBe(200);
+  expect(await column(project,'todo')).toEqual([initial[200],...initial.slice(0,200)]);
 });

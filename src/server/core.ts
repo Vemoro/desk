@@ -3,7 +3,7 @@ import { db, first, rows, type Query } from './db';
 import { DeskError, required } from './errors';
 import { requireAvailableAssignee } from './accounts';
 import { schemas, type costInput, type projectStage, type stages, type TaskStatus } from './contracts';
-import { appendKanbanPosition, lockKanban } from './kanban-order';
+import { appendKanbanPosition, lockKanban, setKanbanPosition } from './kanban-order';
 import { recordStage, releaseProjectReservations } from './project-history';
 
 export type Collection = keyof typeof schemas;
@@ -14,16 +14,15 @@ export type Project = {
 };
 const selected: Record<Collection, string> = {
   contacts: 'id,name,email,phone,notes,haben_id',
-  projects: '*', tasks: 'id,project_id,name,status,assignee_id,due', lines: '*', locations: '*', items: '*',
+  projects: '*', tasks: '*', lines: '*', locations: '*', items: '*',
 };
 
 export async function getProject(id: string, query: Query = db) {
   return required(await first<Project>(query, 'SELECT * FROM projects WHERE id=$1', [id]), 'Projekt nicht gefunden.');
 }
 
-export async function listCore(table: Collection, limit: number, offset: number, includeKanbanPosition=false) {
-  const fields=table==='tasks' && includeKanbanPosition ? `${selected.tasks},kanban_position` : selected[table];
-  return rows(db, `SELECT ${fields} FROM ${table} ORDER BY ${table === 'lines' ? 'kind,name' : 'name'},id LIMIT $1 OFFSET $2`, [limit, offset]);
+export async function listCore(table: Collection, limit: number, offset: number) {
+  return rows(db, `SELECT ${selected[table]} FROM ${table} ORDER BY ${table === 'lines' ? 'kind,name' : 'name'},id LIMIT $1 OFFSET $2`, [limit, offset]);
 }
 
 export async function getCore(table: Collection, id: string) {
@@ -57,7 +56,7 @@ export async function saveCore(table: Collection, data: Record<string, unknown>,
     // The project never changes after task creation. Lock it before reading or writing card state.
     const projectId=id ? required(await first<{project_id:string}>(transaction,
       'SELECT project_id FROM tasks WHERE id=$1',[id])).project_id : data.project_id as string;
-    await lockKanban(transaction,projectId);
+    if(!(await lockKanban(transaction,projectId))) throw new DeskError(409,'Unzulässige Zuordnung oder ungültiger Wert.');
     const prior=id ? required(await first<{assignee_id:string|null;status:TaskStatus}>(transaction,
       'SELECT assignee_id,status FROM tasks WHERE id=$1 FOR UPDATE',[id])) : undefined;
     const assignee=data.assignee_id;
@@ -67,7 +66,9 @@ export async function saveCore(table: Collection, data: Record<string, unknown>,
     const status=(data.status ?? prior?.status ?? 'todo') as TaskStatus;
     if(!prior || status!==prior.status) {
       const position=await appendKanbanPosition(transaction,projectId,status);
-      return save(transaction,{...data,kanban_position:position});
+      const task=await save(transaction,data);
+      await setKanbanPosition(transaction,task.id,position);
+      return task;
     }
     return save(transaction,data);
   });
