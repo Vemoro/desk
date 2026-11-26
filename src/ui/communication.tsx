@@ -14,6 +14,11 @@ const attemptLabels:Record<AttemptStatus,string>={
 type DialogState = { kind:'link'|'create'; trigger:HTMLButtonElement };
 type ReplyTarget = {id:number; originalSubject:string; recipient:string; subject:string; trigger:HTMLButtonElement; forwardBody?:string};
 type MessageDraft = {id:string;note:boolean;reply?:ReplyTarget;payload:Record<string,unknown>};
+
+function draftAttemptRow(draft:MessageDraft,status:AttemptStatus) {
+  return {id:draft.id,subject:draft.note ? 'Interne Notiz' : String(draft.payload.subject),status};
+}
+
 const articleKinds = {
   'incoming-email':'Eingehende E-Mail',
   'outgoing-email':'Ausgehende E-Mail',
@@ -305,10 +310,16 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
 
   function applyAttemptResult(id:string,confirmed:AttemptStatus,refreshed?:Conversation) {
     const status=confirmed==='sent' ? confirmed : refreshed?.outgoing.find(entry=>entry.id===id)?.status ?? confirmed;
-    setConversation(current=>current && {...current,
-      outgoing:current.outgoing.map(entry=>entry.id===id && entry.status!=='sent' ? {...entry,status} : entry),
+    const matchingDraft=draft.current?.id===id ? draft.current : undefined;
+    setConversation(current=>{
+      if(!current) return current;
+      const containsAttempt=current.outgoing.some(entry=>entry.id===id);
+      if(containsAttempt) return {...current,
+        outgoing:current.outgoing.map(entry=>entry.id===id && entry.status!=='sent' ? {...entry,status} : entry),
+      };
+      return matchingDraft ? {...current,outgoing:[draftAttemptRow(matchingDraft,status),...current.outgoing]} : current;
     });
-    if(draft.current?.id!==id) return;
+    if(!matchingDraft) return;
     setMissingAttempt(false);
     if(status==='sent') resetDraft();
     else {
@@ -348,9 +359,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   }
   const draftAttempt=draft.current;
   const listedAttempt=loadedConversation?.outgoing.find(entry=>entry.id===draftAttempt?.id);
-  const savedDraft=draftAttempt && draftStatus && !listedAttempt ? {
-    id:draftAttempt.id,subject:draftAttempt.note ? 'Interne Notiz' : String(draftAttempt.payload.subject),status:draftStatus,
-  } : undefined;
+  const savedDraft=draftAttempt && draftStatus && !listedAttempt ? draftAttemptRow(draftAttempt,draftStatus) : undefined;
   const currentAttempt=listedAttempt ?? savedDraft;
   const conversation=loadedConversation && savedDraft ? {
     ...loadedConversation,outgoing:[savedDraft,...loadedConversation.outgoing],
