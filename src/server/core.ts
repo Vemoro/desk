@@ -1,4 +1,5 @@
 import type { z } from 'zod';
+import { missingStageReference } from '../project-references';
 import { db, first, rows, type Query } from './db';
 import { DeskError, required } from './errors';
 import { requireAvailableAssignee } from './accounts';
@@ -94,10 +95,8 @@ export async function changeStage(id: string, stage: z.infer<typeof projectStage
     const existing = await getProject(id, transaction);
     if (stage === existing.stage) return existing;
     if (!transitions[existing.stage].includes(stage)) throw new DeskError(409, 'Dieser Projektstatus folgt auf eine andere Phase.');
-    if (stage === 'offered' && !existing.offer_ref && !existing.haben_offer_id) {
-      throw new DeskError(409, 'Zuerst eine Angebotsreferenz erfassen.');
-    }
-    if (stage === 'complete' && !existing.invoice_ref) throw new DeskError(409, 'Zuerst eine Rechnungsreferenz erfassen.');
+    const reference=missingStageReference(stage,existing);
+    if(reference) throw new DeskError(409, `Zuerst eine ${reference} erfassen.`);
     const project = await first(transaction, 'UPDATE projects SET stage=$1 WHERE id=$2 RETURNING *', [stage, id]);
     await recordStage(transaction,id,actorId,existing.stage,stage,'desk');
     if (stage === 'cancelled' || stage === 'complete') await releaseProjectReservations(transaction,id,actorId);
