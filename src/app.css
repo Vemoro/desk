@@ -101,6 +101,10 @@ tr:nth-last-child(1 of :not([hidden])) td { border-bottom:0; }
 .project-filters { display:flex; flex-wrap:wrap; gap:12px; }
 .project-filters > label { flex:1 1 180px; min-width:0; }
 .project-filters > .project-contact-filter { flex-basis:264px; }
+.project-contact-selection { display:none; }
+@media(max-width:520px) {
+  .project-contact-selection { display:block; overflow-wrap:anywhere; color:var(--muted); }
+}
 .actions,.tabs { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .tabs { border-bottom:1px solid var(--border); }
 .tabs a { display:inline-flex; align-items:center; min-height:40px; padding:8px 12px; color:var(--muted); text-decoration:none; margin-bottom:-1px; }

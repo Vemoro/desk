@@ -98,14 +98,28 @@ test('Die Projektliste kombiniert exakte Kontaktwahl mit Suche, Status und Fäll
   await expect(rows).toHaveCount(8);
 });
 
-test('Die unterscheidende Telefonnummer passt ins ausgewählte Kontaktfeld',async({page})=>{
+test('Die unterscheidende Telefonnummer bleibt auf kleinen und großen Ansichten lesbar',async({page})=>{
   const panel=await openTarget(page);
   const contact=panel.getByRole('combobox',{name:'Kontakt',exact:true});
   await contact.selectOption({label:'Kulturhaus am Park · 030 555 0101'});
   await page.evaluate(()=>document.fonts.ready);
 
-  for (const width of [320,480,900,1150,1440]) {
+  const preview=panel.locator('.project-contact-selection');
+  for (const width of [320,390,480]) {
     await page.setViewportSize({width,height:850});
+    await expect(preview).toBeVisible();
+    await expect(preview).toHaveText('Kulturhaus am Park · 030 555 0101');
+    expect(await preview.evaluate(element=>element.scrollWidth-element.clientWidth)).toBe(0);
+  }
+  await contact.selectOption({label:'Kulturhaus am Park · 030 555 0102'});
+  await expect(preview).toHaveText('Kulturhaus am Park · 030 555 0102');
+  await contact.selectOption('');
+  await expect(preview).toHaveCount(0);
+  await contact.selectOption({label:'Kulturhaus am Park · 030 555 0101'});
+
+  for (const width of [900,1150,1440]) {
+    await page.setViewportSize({width,height:850});
+    await expect(preview).toBeHidden();
     const room=await contact.evaluate((select:HTMLSelectElement)=>{
       const style=getComputedStyle(select);
       const text=select.selectedOptions[0].label;

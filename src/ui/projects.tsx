@@ -52,6 +52,10 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
     contactLabelCounts.set(label,(contactLabelCounts.get(label)??0)+1);
     return {id:contact.id,label,phone:contact.phone};
   });
+  function contactOptionLabel({label,phone}:typeof contacts[number]) {
+    return phone && (contactLabelCounts.get(label)??0)>1 ? `${label} · ${phone}` : label;
+  }
+  const selectedContact=contacts.find(contact=>contact.id===filters.contactId);
   const projects=data.projects.filter((project)=>{
     if(filters.contactId && project.contact_id!==filters.contactId) return false;
     const matchesSearch=`${project.name} ${name(data.contacts,project.contact_id)}`.toLowerCase().includes(query)
@@ -82,10 +86,12 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
           </select></label>
           <label className="project-contact-filter"><span>Kontakt</span><select value={filters.contactId} onChange={(event)=>onFilter({...filters,contactId:event.target.value})}>
             <option value="">Alle Kontakte</option>
-            {contacts.map(({id,label,phone})=><option key={id} value={id}>
-              {phone && (contactLabelCounts.get(label)??0)>1 ? `${label} · ${phone}` : label}
+            {contacts.map(contact=><option key={contact.id} value={contact.id}>
+              {contactOptionLabel(contact)}
             </option>)}
-          </select></label>
+          </select>{selectedContact && <small className="project-contact-selection" aria-hidden="true">
+            {contactOptionLabel(selectedContact)}
+          </small>}</label>
         </div>
         <div className="actions">
           <span className="subtle" role="status">{projects.length===1?'1 Projekt gefunden.':`${projects.length} Projekte gefunden.`}</span>
