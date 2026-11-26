@@ -610,11 +610,34 @@ function Costs({data,run}:{data:Data;run:Run}) {
 }
 
 function Settings({data,run,flags,accountId}:{data:Data;run:Run;flags:{haben:boolean;zammad:boolean};accountId:string}) {
-  const [tokens,setTokens]=useState<Row[]>([]);
+  const [tokenList,setTokenList]=useState<{status:'loading'|'failed'}|{status:'loaded';tokens:Row[]}>({status:'loading'});
   const [issued,setIssued]=useState('');
   const [checkedTicket,setCheckedTicket]=useState<number>();
-  async function refresh(){setTokens(await api('tokens'));}
-  useEffect(()=>{void refresh().catch(()=>{});},[]);
+  const tokenRequest=useRef(0);
+  const tokenPanel=useRef<HTMLElement>(null);
+  const retryTokenButton=useRef<HTMLButtonElement>(null);
+  const returnTokenFocus=useRef(false);
+  async function refresh(){
+    const request=++tokenRequest.current;
+    setTokenList({status:'loading'});
+    try {
+      const tokens=await api<Row[]>('tokens');
+      if(request===tokenRequest.current) setTokenList({status:'loaded',tokens});
+    } catch {
+      if(request===tokenRequest.current) setTokenList({status:'failed'});
+    }
+  }
+  useEffect(()=>{
+    void refresh();
+    return ()=>{tokenRequest.current++;};
+  },[]);
+  useEffect(()=>{
+    if(tokenList.status==='loading' || !returnTokenFocus.current) return;
+    returnTokenFocus.current=false;
+    if(document.activeElement===document.body) {
+      (tokenList.status==='failed'?retryTokenButton.current:tokenPanel.current)?.focus();
+    }
+  },[tokenList.status]);
   return <>
     <Panel title="Team"><div className="panel-body"><Expand title="Konto anlegen"><Form caption="Konto speichern" fields={[
       {name:'name',label:'Name',required:true},{name:'email',label:'E-Mail',type:'email',required:true},
@@ -632,19 +655,31 @@ function Settings({data,run,flags,accountId}:{data:Data;run:Run;flags:{haben:boo
           await api(`users/${row.id}/access`,'PATCH',{blocked});
           if(isCurrent()) {
             setIssued('');
-            if(!ownAccount) await refresh().catch(()=>{});
+            if(!ownAccount) await refresh();
           }
         },blocked?'Konto gesperrt.':'Konto freigegeben.');
       }}>{row.blocked?'Konto freigeben':'Konto sperren'}</button>,
     ]}))}/></Panel>
-    <Panel title="API-Zugriff" action={<a href="/api/v1/openapi.json" target="_blank" rel="noreferrer">OpenAPI</a>}><div className="panel-body">
+    <Panel title="API-Zugriff" focusRef={tokenPanel} action={<a href="/api/v1/openapi.json" target="_blank" rel="noreferrer">OpenAPI</a>}><div className="panel-body">
       <Expand title="API-Token erzeugen"><Form caption="Token erzeugen" fields={[
         {name:'label',label:'Name',required:true},{name:'scope',label:'Berechtigung',choices:[{value:'read',label:'Lesen'},{value:'write',label:'Lesen und schreiben'}],required:true},
       ]} submit={(input)=>run(async(isCurrent)=>{const result=await api('tokens','POST',input);if(isCurrent()) {setIssued(result.token);await refresh();}},'API-Token erzeugt.')}/></Expand>
       {issued&&<label><span>Token jetzt kopieren</span><input value={issued} readOnly onFocus={(e)=>e.target.select()}/></label>}
-    </div><Table headers={['Name','Berechtigung','Aktion']} rows={tokens.map((row)=>({key:row.id,cells:[row.label,row.scope==='read'?'Lesen':'Lesen und schreiben',
-      <button onClick={()=>run(async(isCurrent)=>{await api(`tokens/${row.id}`,'DELETE');if(isCurrent()) {setIssued('');await refresh();}},'Token widerrufen.')}>Widerrufen</button>,
-    ]}))}/></Panel>
+    </div>
+    {tokenList.status==='loading'&&<p className="empty" role="status">API-Token werden geladen …</p>}
+    {tokenList.status==='failed'&&<div className="panel-body">
+      <p className="inline-error" role="alert">Die API-Token konnten nicht geladen werden.</p>
+      <button type="button" ref={retryTokenButton} onClick={(event)=>{
+        returnTokenFocus.current=document.activeElement===event.currentTarget;
+        void refresh();
+      }}>Erneut laden</button>
+    </div>}
+    {tokenList.status==='loaded'&&(tokenList.tokens.length
+      ? <Table headers={['Name','Berechtigung','Aktion']} rows={tokenList.tokens.map((row)=>({key:row.id,cells:[row.label,row.scope==='read'?'Lesen':'Lesen und schreiben',
+        <button onClick={()=>run(async(isCurrent)=>{await api(`tokens/${row.id}`,'DELETE');if(isCurrent()) {setIssued('');await refresh();}},'Token widerrufen.')}>Widerrufen</button>,
+      ]}))}/>
+      : <p className="empty" role="status">Keine API-Token erstellt.</p>)}
+    </Panel>
     <Panel title="Integrationen"><div className="panel-body actions">
       <Pill label={flags.haben?'Haben eingerichtet':'Haben optional'} tone={flags.haben?'accent':'neutral'}/>
       <Pill label={flags.zammad?'Zammad eingerichtet':'Zammad optional'} tone={flags.zammad?'accent':'neutral'}/>
