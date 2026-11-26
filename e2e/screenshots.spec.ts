@@ -32,7 +32,11 @@ for(const theme of ['hell','dunkel']){
     await mkdir(output,{recursive:true});
     for(const [name,width,height] of [['desktop',1440,950],['smartphone',375,812]] as const){
       await page.setViewportSize({width,height});
-      await heading.evaluate(element=>element.scrollIntoView({block:'start'}));
+      if(name==='smartphone') await heading.evaluate(element=>element.scrollIntoView({block:'start'}));
+      else await heading.evaluate(element=>{
+        window.scrollTo(0,0);
+        element.closest('.communication-scroll')?.scrollTo(0,0);
+      });
       await page.screenshot({path:join(output,[name,theme].join('-')+'.png'),animations:'disabled'});
     }
   });
