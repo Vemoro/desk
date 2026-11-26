@@ -30,31 +30,40 @@ function fieldRenderer(node:ts.Node) {
   }
 }
 
-function receivesFieldProps(node:ts.JsxOpeningLikeElement) {
+function receivesFieldProps(node:ts.JsxOpeningLikeElement,checker:ts.TypeChecker) {
   const renderer=fieldRenderer(node);
   const parameter=renderer?.parameters[0]?.name;
   if(!renderer || !parameter || !ts.isIdentifier(parameter)) return false;
-  const names=new Set([parameter.text]);
+  const binding=checker.getSymbolAtLocation(parameter);
+  if(!binding) return false;
+  const bindings=new Set([binding]);
+  const comesFromField=(expression:ts.Expression)=>{
+    const symbol=ts.isIdentifier(expression) && checker.getSymbolAtLocation(expression);
+    return Boolean(symbol && bindings.has(symbol));
+  };
   if(ts.isBlock(renderer.body)) {
     for(const statement of renderer.body.statements) {
       if(!ts.isVariableStatement(statement)) continue;
       for(const {name,initializer} of statement.declarationList.declarations) {
-        if(ts.isIdentifier(name) && initializer && ts.isObjectLiteralExpression(initializer) &&
-          initializer.properties.some(property=>ts.isSpreadAssignment(property) && ts.isIdentifier(property.expression) &&
-            names.has(property.expression.text))) names.add(name.text);
+        const alias=ts.isIdentifier(name) && checker.getSymbolAtLocation(name);
+        if(alias && initializer && ts.isObjectLiteralExpression(initializer) &&
+          initializer.properties.some(property=>ts.isSpreadAssignment(property) && comesFromField(property.expression))) bindings.add(alias);
       }
     }
   }
-  return node.attributes.properties.some(attribute=>ts.isJsxSpreadAttribute(attribute) &&
-    ts.isIdentifier(attribute.expression) && names.has(attribute.expression.text));
+  return node.attributes.properties.some(attribute=>ts.isJsxSpreadAttribute(attribute) && comesFromField(attribute.expression));
 }
 
 export function inspectFields(file:string,text:string) {
   const source=ts.createSourceFile(file,text,ts.ScriptTarget.Latest,true);
+  const options={jsx:ts.JsxEmit.Preserve,noResolve:true,noLib:true};
+  const host=ts.createCompilerHost(options);
+  host.getSourceFile=name=>name===file?source:undefined;
+  const checker=ts.createProgram([file],options,host).getTypeChecker();
   const failures:string[]=[];
   function visit(node:ts.Node) {
     if((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && controls.has(node.tagName.getText()) &&
-      !isAllowedCheckbox(node,file) && !receivesFieldProps(node)) {
+      !isAllowedCheckbox(node,file) && !receivesFieldProps(node,checker)) {
       const {line}=source.getLineAndCharacterOfPosition(node.getStart());
       failures.push(`${file}:${line+1}: ${node.tagName.getText()} braucht ein gemeinsames Field.`);
     }
