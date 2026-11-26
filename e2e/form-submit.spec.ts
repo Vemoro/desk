@@ -1,6 +1,42 @@
 import { expect, test } from '@playwright/test';
 import { signIn } from './session';
 
+test('Leere Lagerort-Eingabe zeigt einen Feldfehler, fokussiert das Feld und schreibt nichts',async({page})=>{
+  let writes=0;
+  await page.route('**/api/v1/locations**',route=>{
+    if(route.request().method()==='POST') writes++;
+    return route.continue();
+  });
+  await signIn(page);
+  await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Projektlager',exact:true}).click();
+  await page.getByText('Lagerort anlegen',{exact:true}).click();
+  const field=page.getByLabel('Lagerort',{exact:true}).first();
+  const save=page.getByRole('button',{name:'Lagerort speichern',exact:true});
+  await expect(save).toBeEnabled();
+  await save.click();
+  await expect(field).toBeFocused();
+  await expect(field).toHaveAttribute('aria-invalid','true');
+  await expect(field).toHaveAccessibleDescription('Fülle dieses Feld aus.');
+  expect(writes).toBe(0);
+  await field.fill('Muster Lager '+crypto.randomUUID().slice(0,8));
+  await expect(field).not.toHaveAttribute('aria-invalid','true');
+  await save.click();
+  await expect(page.getByRole('status').getByText('Lagerort angelegt.')).toBeVisible();
+  expect(writes).toBe(1);
+});
+
+test('Ungültige Zahl in der Lagerbuchung erhält einen passenden Feldfehler',async({page})=>{
+  await signIn(page);
+  await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Projektlager',exact:true}).click();
+  await page.getByText('Wareneingang',{exact:true}).first().click();
+  const form=page.locator('form').filter({has:page.getByRole('button',{name:'Wareneingang buchen',exact:true})});
+  const quantity=form.getByLabel('Menge',{exact:true});
+  await quantity.fill('');
+  await quantity.press('e');
+  await form.getByRole('button',{name:'Wareneingang buchen',exact:true}).click();
+  await expect(quantity).toHaveAccessibleDescription('Gib eine Zahl ein.');
+});
+
 test('Formular sperrt synchrone Doppelauslösung bis zum Abschluss des gesamten Vorgangs',async({page})=>{
   let writes=0;
   let freePost:()=>void=()=>{};
