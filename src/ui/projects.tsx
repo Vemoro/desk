@@ -18,11 +18,67 @@ function reservationTimes(values:Record<string,string>) {
   return {...values,starts_at:start.toISOString(),ends_at:end.toISOString()};
 }
 
-export function Projects({data,run,select}:{data:Data;run:Run;select:(id:string)=>void}) {
-  const [filter,setFilter]=useState('');
+type ProjectFilters = { query:string; stage:string; due:string };
+export const defaultProjectFilters:ProjectFilters = {query:'',stage:'all',due:'all'};
+
+export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;select:(id:string)=>void;
+  filters:ProjectFilters;onFilter:(filters:ProjectFilters)=>void;
+}) {
+  const search=useRef<HTMLInputElement>(null);
+  const [now,setNow]=useState(()=>new Date());
+  useEffect(()=>{
+    let timer:number;
+    function updateDay() {
+      window.clearTimeout(timer);
+      const current=new Date();
+      setNow(current);
+      const nextDay=new Date(current.getFullYear(),current.getMonth(),current.getDate()+1);
+      timer=window.setTimeout(updateDay,nextDay.getTime()-current.getTime());
+    }
+    updateDay();
+    window.addEventListener('focus',updateDay);
+    return ()=>{
+      window.clearTimeout(timer);
+      window.removeEventListener('focus',updateDay);
+    };
+  },[]);
+  const today=[now.getFullYear(),now.getMonth()+1,now.getDate()].map(part=>String(part).padStart(2,'0')).join('-');
+  const query=filters.query.trim().toLowerCase();
+  const filtered=filters.query!=='' || filters.stage!=='all' || filters.due!=='all';
+  const projects=data.projects.filter((project)=>{
+    const matchesSearch=`${project.name} ${name(data.contacts,project.contact_id)}`.toLowerCase().includes(query);
+    const matchesStage=filters.stage==='all' || (filters.stage==='open'
+      ? !['complete','cancelled'].includes(project.stage)
+      : project.stage===filters.stage);
+    const dueDate=project.due?.slice(0,10);
+    const matchesDue=filters.due==='all'
+      || (filters.due==='overdue' && Boolean(dueDate) && dueDate<today)
+      || (filters.due==='today' && dueDate===today)
+      || (filters.due==='missing' && !dueDate);
+    return matchesSearch && matchesStage && matchesDue;
+  });
   return <>
     <Panel title="Projekte">
-      <div className="panel-body"><label className="filter"><span>Projekte suchen</span><input type="search" value={filter} onChange={(event)=>setFilter(event.target.value)}/></label>
+      <div className="panel-body">
+        <div className="project-filters">
+          <label><span>Projekte suchen</span><input ref={search} type="search" value={filters.query}
+            onChange={(event)=>onFilter({...filters,query:event.target.value})}/></label>
+          <label><span>Status</span><select value={filters.stage} onChange={(event)=>onFilter({...filters,stage:event.target.value})}>
+            <option value="all">Alle</option><option value="open">Offen</option>
+            {Object.entries(projectStages).map(([stage,label])=><option key={stage} value={stage}>{label}</option>)}
+          </select></label>
+          <label><span>Fälligkeit</span><select value={filters.due} onChange={(event)=>onFilter({...filters,due:event.target.value})}>
+            <option value="all">Alle</option><option value="overdue">Überfällig</option>
+            <option value="today">Heute</option><option value="missing">Ohne Termin</option>
+          </select></label>
+        </div>
+        <div className="actions">
+          <span className="subtle" role="status">{projects.length===1?'1 Projekt gefunden.':`${projects.length} Projekte gefunden.`}</span>
+          <button type="button" disabled={!filtered} onClick={()=>{
+            onFilter(defaultProjectFilters);
+            search.current?.focus();
+          }}>Filter zurücksetzen</button>
+        </div>
         <Expand title="Projekt anlegen">
           <Form caption="Projekt speichern" fields={[
             { name:'name',label:'Projektname',required:true },
@@ -35,10 +91,10 @@ export function Projects({data,run,select}:{data:Data;run:Run;select:(id:string)
           },'Projekt angelegt.')}/>
         </Expand>
       </div>
-      <Table headers={['Projekt','Kontakt','Status','Termin']} rows={data.projects
-        .filter((project)=>`${project.name} ${name(data.contacts,project.contact_id)}`.toLowerCase().includes(filter.toLowerCase()))
+      {filtered && !projects.length ? <p className="empty">Keine Projekte entsprechen den Filtern.</p>
+      : <Table headers={['Projekt','Kontakt','Status','Termin']} rows={projects
         .map((project)=>({key:project.id,cells:[<button className="text-button" onClick={()=>select(project.id)}>{project.name}</button>,
-          name(data.contacts,project.contact_id),<Pill label={projectStages[project.stage]} tone={project.stage==='confirmed'?'accent':'neutral'}/>,calendarDate(project.due)]}))}/>
+          name(data.contacts,project.contact_id),<Pill label={projectStages[project.stage]} tone={project.stage==='confirmed'?'accent':'neutral'}/>,calendarDate(project.due)]}))}/>}
     </Panel>
   </>;
 }

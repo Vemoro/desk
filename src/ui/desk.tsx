@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { all, api, ApiError, calendarDate, compileCsv, euros, inventoryLabel, inventoryName, moment, money, movementStages, name, projectStages, type Row } from './client';
-import { Project, Projects, type Data } from './projects';
+import { defaultProjectFilters, Project, Projects, type Data } from './projects';
 import { PasskeyLogin, PasskeySettings } from './passkeys';
 import { AccountPassword } from './account-password';
 import { WeeklyPlanning } from './weekly-planning';
@@ -17,6 +17,7 @@ export function Desk() {
   const [flags,setFlags]=useState({haben:false,zammad:false});
   const [section,setSection]=useState<Section>('dashboard');
   const [projectId,setProjectId]=useState('');
+  const [projectFilters,setProjectFilters]=useState(defaultProjectFilters);
   const [planningWeek,setPlanningWeek]=useState<string>();
   const [theme,setTheme]=useState('light');
   const [notice,setNotice]=useState({message:'',error:false});
@@ -58,6 +59,7 @@ export function Desk() {
     displayedSavedVersion.current=savedVersion.current;
     setPerson(null);
     setData(initialData);
+    setProjectFilters(defaultProjectFilters);
     setPlanningWeek(undefined);
     setFlags({haben:false,zammad:false});
     setRefreshRequired(false);
@@ -209,7 +211,7 @@ export function Desk() {
       </div>}
       {section==='dashboard' && <Dashboard data={data} select={(id)=>navigate('projects',id)} open={()=>navigate('projects')}/>}
       {section==='projects' && (project?<Project key={project.id} project={project} data={data} run={run} flags={flags} accountId={person.id} back={()=>navigate('projects')}/>
-        :<Projects data={data} run={run} select={(id)=>navigate('projects',id)}/>)}
+        :<Projects data={data} run={run} filters={projectFilters} onFilter={setProjectFilters} select={(id)=>navigate('projects',id)}/>)}
       {section==='planning' && <WeeklyPlanning selectedWeek={planningWeek} onWeek={setPlanningWeek} onSessionExpired={()=>{
         endSession();
         setNotice({message:'Bitte erneut anmelden, um die Wochenplanung zu öffnen.',error:false});

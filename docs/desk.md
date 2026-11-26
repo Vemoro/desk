@@ -19,6 +19,8 @@ Unter **Kontakte → Kontakt anlegen** prüft Desk beim Speichern, ob der Name o
 
 Unter **Kontakte suchen** findest du Namen, E-Mail-Adressen und Rufnummern. Für die Rufnummernsuche kannst du einen Teil der Nummer eingeben. Desk vergleicht die Ziffern unabhängig von Leerzeichen, Pluszeichen, Klammern und Bindestrichen. Leerzeichen vor und nach dem Suchbegriff kannst du beim Einfügen stehen lassen.
 
+Unter **Projekte** kannst du die Suche mit **Status** und **Fälligkeit** kombinieren. **Offen** zeigt alle Projekte außer abgerechneten und abgesagten. **Heute** und **Überfällig** beziehen sich auf den lokalen Kalendertag deines Browsers. **Ohne Termin** zeigt Projekte mit leerem Termin. Bei der Rückkehr über **Projekte** in der Projektansicht oder über die Zurück-Funktion des Browsers bleiben Suche und Filter erhalten. Beim Neuladen oder Abmelden werden sie zurückgesetzt. **Filter zurücksetzen** zeigt wieder alle Projekte.
+
 Wähle unter **Kontakte** den Namen eines Kontakts. Unter **Zugehörige Projekte** stehen seine Projekte mit Status und Termin. Wähle den Projektnamen, um das Projekt zu öffnen. Gleichnamige Kontakte zeigen jeweils ihre eigenen Projekte.
 
 Wenn Desk meldet, dass eine Änderung gespeichert wurde und die Ansicht nicht aktualisiert werden konnte, wähle **Ansicht aktualisieren**. Desk ruft die Daten erneut ab. Der Schreibvorgang wird dabei nicht wiederholt. Ist deine Sitzung abgelaufen, meldet Desk die erfolgreiche Speicherung in der Anmeldemaske. Nach der Anmeldung lädt Desk die aktuelle Ansicht.
