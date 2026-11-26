@@ -13,7 +13,7 @@ jobs:
           - label: vorher
             commit: 00d01308b16c4d7d975f7c2224b1e213a6697d5e
           - label: nachher
-            commit: 76b0346bb5a5b7a1623de46fe503e000413277ff
+            commit: 232afba4671f7392435db646a0a560c00b60345e
     services:
       postgres:
         image: postgres:17

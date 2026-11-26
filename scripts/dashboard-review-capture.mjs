@@ -27,6 +27,7 @@ try {
           if(mode==='handy') await menu.click();
           await page.locator('html[data-theme="dark"]').waitFor();
         }
+        await page.mouse.move(0,0);
         await panel.screenshot({path:join(output,label+'-'+mode+'-'+theme+'.png'),animations:'disabled'});
       } finally {
         await context.close();
