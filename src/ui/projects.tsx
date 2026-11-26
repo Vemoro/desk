@@ -298,13 +298,8 @@ function ProjectCalculation({project,data,run}:Omit<ProjectPlanningProps,'accoun
       ]} submit={(v)=>run(()=>api('lines','POST',{project_id:project.id,kind:v.kind,name:v.name,quantity:Number(v.quantity),unit_cents:money(v.unit)}),'Position angelegt.')}/></Expand></div>
       <Table numeric={[2,3,4]} headers={['Art','Position','Menge','Einzelpreis','Gesamt','Aktion']} rows={lines.map((row)=>({key:row.id,cells:[
         row.kind==='buy'?'Einkauf':'Verkauf',row.name,row.quantity,euros(row.unit_cents),euros(row.unit_cents*row.quantity),
-        <Expand title="Position bearbeiten"><Form caption="Position aktualisieren" fields={[
-          {name:'kind',label:'Art',value:row.kind,choices:[{value:'buy',label:'Einkauf'},{value:'sell',label:'Verkauf'}],required:true},
-          {name:'name',label:'Position',value:row.name,required:true},
-          {name:'quantity',label:'Menge',type:'number',min:1,value:row.quantity,required:true},
-          {name:'unit',label:'Einzelpreis netto in Euro',value:(row.unit_cents/100).toFixed(2).replace('.',','),required:true},
-        ]} submit={(v)=>run(()=>api(`lines/${row.id}`,'PATCH',{kind:v.kind,name:v.name,quantity:Number(v.quantity),unit_cents:money(v.unit)}),'Position aktualisiert.')}/>
-          <button className="danger" onClick={event=>setConfirmation({
+        <Expand title="Position bearbeiten">
+          <div className="actions"><button type="button" className="danger" onClick={event=>setConfirmation({
             actionKey:`lines:${row.id}`,
             title:'Kalkulationsposition entfernen',
             description:`„${row.name}“ wird aus der Kalkulation dieses Projekts entfernt.`,
@@ -312,7 +307,13 @@ function ProjectCalculation({project,data,run}:Omit<ProjectPlanningProps,'accoun
             trigger:event.currentTarget,
             submit:()=>api(`lines/${row.id}`,'DELETE'),
             feedback:'Position entfernt.',
-          })}>Position entfernen</button>
+          })}>Position entfernen</button></div>
+          <Form caption="Position aktualisieren" fields={[
+            {name:'kind',label:'Art',value:row.kind,choices:[{value:'buy',label:'Einkauf'},{value:'sell',label:'Verkauf'}],required:true},
+            {name:'name',label:'Position',value:row.name,required:true},
+            {name:'quantity',label:'Menge',type:'number',min:1,value:row.quantity,required:true},
+            {name:'unit',label:'Einzelpreis netto in Euro',value:(row.unit_cents/100).toFixed(2).replace('.',','),required:true},
+          ]} submit={(v)=>run(()=>api(`lines/${row.id}`,'PATCH',{kind:v.kind,name:v.name,quantity:Number(v.quantity),unit_cents:money(v.unit)}),'Position aktualisiert.')}/>
         </Expand>,
       ]}))}/></Panel>
     {confirmation&&<ConfirmDialog confirmation={confirmation} run={run} dismiss={()=>setConfirmation(undefined)} fallbackFocus={calculationPanel}/>}

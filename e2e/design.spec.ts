@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 import { signIn } from './session';
 
 function contrast(first:string,second:string) {
@@ -10,6 +10,12 @@ function contrast(first:string,second:string) {
   }
   const levels=[luminance(first),luminance(second)].sort((a,b)=>b-a);
   return (levels[0]+.05)/(levels[1]+.05);
+}
+
+async function expectTouchTarget(target:Locator) {
+  const box=await target.boundingBox();
+  expect(box?.width).toBeGreaterThanOrEqual(44);
+  expect(box?.height).toBeGreaterThanOrEqual(44);
 }
 
 test('Abstände und Schriftgrößen verwenden die gemeinsamen Rasterwerte',async({page})=>{
@@ -54,11 +60,12 @@ for(const theme of ['light','dark'] as const) {
       return {text:style.color,background:style.backgroundColor};
     });
     expect(contrast(colors.text,colors.background)).toBeGreaterThanOrEqual(4.5);
-    expect((await menu.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    await expectTouchTarget(menu);
     await menu.click();
     const warehouse=page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Projektlager',exact:true});
     await warehouse.click();
     const checkbox=page.getByRole('checkbox',{name:'Nur mit freiem Bestand'});
+    await expectTouchTarget(checkbox.locator('..'));
     await checkbox.check();
     await page.keyboard.press('Shift+Tab');
     await page.keyboard.press('Tab');
@@ -73,5 +80,9 @@ for(const theme of ['light','dark'] as const) {
     expect(focus.width).toBe('2px');
     expect(focus.style).toBe('solid');
     expect(contrast(focus.ring,focus.background)).toBeGreaterThanOrEqual(3);
+    const receive=page.locator('summary').filter({hasText:/^Wareneingang$/});
+    await expectTouchTarget(receive);
+    await receive.click();
+    await expectTouchTarget(page.getByRole('button',{name:'Wareneingang buchen',exact:true}));
   });
 }

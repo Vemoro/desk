@@ -90,15 +90,6 @@ export function PasskeySettings({run}:{run:Run}) {
 
   return <Panel title="Passkeys" focusRef={panel}><div className="panel-body">
     <p>Mit einem Passkey kannst du dich bei Desk anmelden. Dein Passwort bleibt verfügbar.</p>
-    <form className="form-grid passkey-form" onSubmit={add} noValidate>
-      <Field label="Name für den Passkey" error={labelError}>{props=><input {...props} ref={labelField} value={label}
-        onChange={event=>{
-          setLabel(event.currentTarget.value);
-          if(event.currentTarget.value.trim()) setLabelError('');
-        }} maxLength={80} required disabled={busy}/>}</Field>
-      <button className="primary" disabled={busy}>{busy?'Bitte warten …':'Passkey hinzufügen'}</button>
-    </form>
-    {notice.message && <p role={notice.error?'alert':'status'} className={notice.error?'inline-error':'subtle'}>{notice.message}</p>}
     {passkeys?.length ? <ul className="passkey-list">{passkeys.map((key)=><li key={key.id}>
       <span>{key.name || 'Passkey'}</span><button type="button" className="danger" disabled={busy} aria-label={`Passkey ${key.name || ''} entfernen`.replace('  ',' ')}
         onClick={event=>confirmRemove(key,event.currentTarget)}>Entfernen</button>
@@ -109,6 +100,15 @@ export function PasskeySettings({run}:{run:Run}) {
       <p className="inline-error" role="alert">Passkeys konnten nicht geladen werden.</p>
       <button type="button" onClick={()=>void load()}>Erneut laden</button>
     </div>}
+    <form className="form-grid passkey-form" onSubmit={add} noValidate>
+      <Field label="Name für den Passkey" error={labelError}>{props=><input {...props} ref={labelField} value={label}
+        onChange={event=>{
+          setLabel(event.currentTarget.value);
+          if(event.currentTarget.value.trim()) setLabelError('');
+        }} maxLength={80} required disabled={busy}/>}</Field>
+      <button className="primary" disabled={busy}>{busy?'Bitte warten …':'Passkey hinzufügen'}</button>
+    </form>
+    {notice.message && <p role={notice.error?'alert':'status'} className={notice.error?'inline-error':'subtle'}>{notice.message}</p>}
     {confirmation && <ConfirmDialog confirmation={confirmation} run={run} dismiss={()=>setConfirmation(undefined)} fallbackFocus={panel}/>}
   </div></Panel>;
 }
