@@ -1,22 +1,26 @@
-name: Doku-Screenshots erstellen
+name: API-Token-Liste Vergleich für PR 163
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - '.github/workflows/screenshots.yml'
-      - 'e2e/screenshots.spec.ts'
 permissions:
   contents: read
 jobs:
-  screenshots:
+  comparison:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - state: vorher
+            commit: 19791d1cc4c0df313cecb55edfb22d8be7952bd7
+          - state: nachher
+            commit: 8affd80f87d2ca4ec01e552fceb76d1d4fa0db19
     services:
       postgres:
         image: postgres:17
         env:
           POSTGRES_USER: desk
           POSTGRES_PASSWORD: desk
-          POSTGRES_DB: desk_demo
+          POSTGRES_DB: desk_token_demo
         ports:
           - 5438:5432
         options: >-
@@ -25,20 +29,42 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      DATABASE_URL: postgres://desk:desk@127.0.0.1:5438/desk_demo
-      DESK_DEMO_PASSWORD: muster-test-passwort
-      DESK_ORIGIN: http://localhost:4173
-      DESK_AUTH_SECRET: nur-fuer-die-isolierte-desk-testdatenbank
+      DATABASE_URL: postgres://desk:desk@127.0.0.1:5438/desk_token_demo
+      DESK_DEMO_PASSWORD: muster-token-pruefung
+      DESK_ORIGIN: http://127.0.0.1:4173
+      DESK_AUTH_SECRET: nur-fuer-die-isolierte-token-bildprobe
     steps:
       - uses: actions/checkout@v6
+        with:
+          path: review
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          path: desk
+          ref: ${{ matrix.commit }}
+          persist-credentials: false
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version-file: package.json
-      - run: bun install --frozen-lockfile
-      - run: bunx playwright install --with-deps chromium
-      - run: bun run migrate && bun run demo && bun run docs:screenshots
+          bun-version-file: desk/package.json
+      - name: Aufnahme auf dem ausgewählten Commit
+        working-directory: desk
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ matrix.commit }}"
+          bun install --frozen-lockfile
+          bunx playwright install --with-deps chromium
+          bun run migrate
+          bun run demo
+          bun run dev --port 4173 --strictPort &
+          desk_server=$!
+          trap 'kill "$desk_server" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if curl -fsS "$DESK_ORIGIN/api/v1/ready" >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS "$DESK_ORIGIN/api/v1/ready" >/dev/null
+          bun ../review/e2e/token-list-visuals.mjs "$PWD" "$DESK_ORIGIN" build/token-visuals "${{ matrix.state }}"
       - uses: actions/upload-artifact@v6
         with:
-          name: Desk-Doku-Screenshots
-          path: build/screenshots/
+          name: desk-api-token-${{ matrix.state }}
+          path: desk/build/token-visuals/
           if-no-files-found: error
