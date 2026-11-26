@@ -83,6 +83,8 @@ test('Die Projektliste kombiniert exakte Kontaktwahl mit Suche, Status und Fäll
   await page.keyboard.press('ArrowDown');
   await expect(contact).toHaveValue('first');
   await page.keyboard.press('Tab');
+  await expect(panel.getByRole('combobox',{name:'Projekte sortieren',exact:true})).toBeFocused();
+  await page.keyboard.press('Tab');
   await expect(reset).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(contact).toHaveValue('');
