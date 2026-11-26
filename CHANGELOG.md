@@ -2,6 +2,25 @@
 
 Jeder veröffentlichte Eintrag nennt Version und Datum. Er fasst Änderungen für Nutzende, Schritte für die Aktualisierung und bekannte Einschränkungen zusammen.
 
+## 0.2.0.0
+
+Desk 0.2.0.0 verbessert die tägliche Arbeit in der Projektliste, im Kanban und in der Projektkommunikation. Die Oberfläche verwendet ein einheitliches Raster, verständliche Feldmeldungen und nachprüfbare Tastaturführung in Hell und Dunkel.
+
+### Highlights
+
+- Karten im Kanban mit Maus, Touch oder Tastatur umordnen. Desk speichert die Reihenfolge je Projekt und Spalte. Karten lassen sich aus der Spalte anlegen und im Dialog bearbeiten.
+- Projekte nach Kontakt, Status und Fälligkeit filtern, nach anstehenden Terminen sortieren und über Angebotsreferenz, Rechnungsreferenz oder Kostenstelle suchen. Projektansichten können direkt verlinkt werden.
+- Freie Lagerbestände und offene Ausgaben gezielt finden. Lagerbewegungen lassen sich nach Bewegungsart und Projektbezug filtern. Fehlende Referenzen sind vor einem Projektstatuswechsel sichtbar.
+- In Zammad den Zeitpunkt des letzten Sendeversuchs sehen und bei unklarem Ausgang zuerst den gespeicherten Versuch prüfen. Der Entwurf bleibt erhalten. Die PDF-Auswahl zeigt den vollständigen Dateinamen.
+- Optional per OpenID Connect mit einem vorhandenen Desk-Konto anmelden. Passwort und Passkey bleiben verfügbar. Die gemeinsame Anmeldung mit Zammad setzt einen passend konfigurierten Identitätsanbieter voraus.
+- Eingabefehler stehen direkt am Feld und die Tastatur springt zum ersten Fehler. Projektstatus sind mit Text und Farbpunkt gekennzeichnet. Widerruf und dauerhafte Kontoaktionen zeigen eine Bestätigung mit konkreter Auswirkung.
+
+### Aktualisierung
+
+Sichere die Desk-Datenbank und die Laufzeitkonfiguration. Migriere vor dem ersten Start auf den neuen Stand. Die Migration `010_kanban_order.sql` ergänzt die gespeicherte Reihenfolge der Kanban-Karten. [Installation](docs/installation.md) · [Sicherung und Wiederanlauf](docs/sicherung.md)
+
+Die separat offene PWA-Geräteabnahme auf einem echten iPhone bleibt in [#85](https://github.com/Vemoro/desk/issues/85) dokumentiert. Desk läuft für den allgemeinen Projektablauf mit optionalen Haben- und Zammad-Anbindungen.
+
 ## 0.1.0.0 (2026-11-26)
 
 Desk ist eine selbst gehostete Projektverwaltung für kleine Teams. Die erste Version begleitet einen Auftrag von der Kundenanfrage über Planung, Kalkulation und Projektlager bis zur dokumentierten Rechnungsreferenz. Quellarchiv und Prüfsumme stehen im [GitHub-Release](https://github.com/Vemoro/desk/releases/tag/v0.1.0.0) bereit. [Abnahmeprotokoll](https://github.com/Vemoro/desk/issues/65)
