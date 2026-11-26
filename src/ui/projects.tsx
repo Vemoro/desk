@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type FocusEvent } from 'react';
 import { api, calendarDate, downloadPositions, euros, inventoryLabel, inventoryName, moment, money, name, projectStages, reservationStages, type Row } from './client';
 import { ConfirmDialog, Expand, Form, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
 import { ProjectHistory } from './project-history';
@@ -188,10 +188,14 @@ function Planning({project,data,run,accountId}:{project:Row;data:Data;run:Run;ac
     }
   },[data.reservations]);
 
-  async function updateReservation(button:HTMLButtonElement,id:string,status:'firm'|'released',feedback:string) {
-    if(document.activeElement===button) focusedStatusAction.current=button;
-    const saved=await run(()=>api(`reservations/${id}`,'PATCH',{status}),feedback);
-    if(!saved && focusedStatusAction.current===button) focusedStatusAction.current=null;
+  function rememberStatusFocus(event:FocusEvent<HTMLButtonElement>) {
+    focusedStatusAction.current=event.currentTarget;
+  }
+
+  function forgetStatusFocus(event:FocusEvent<HTMLButtonElement>) {
+    if(event.relatedTarget && focusedStatusAction.current===event.currentTarget) {
+      focusedStatusAction.current=null;
+    }
   }
 
   const lines=data.lines.filter((row)=>row.project_id===project.id);
@@ -247,9 +251,9 @@ function Planning({project,data,run,accountId}:{project:Row;data:Data;run:Run;ac
         <Pill label={reservationStages[row.status]} tone={row.status==='firm'?'accent':'neutral'}/>,
         <div className="actions">{row.status==='tentative' && ['confirmed','running'].includes(project.stage) && (
           blockedPeople.has(row.user_id) ? <span className="subtle">Konto gesperrt</span>
-            : <button type="button" onClick={(event)=>void updateReservation(event.currentTarget,row.id,'firm','Fest reserviert.')}>Fest reservieren</button>
+            : <button type="button" onFocus={rememberStatusFocus} onBlur={forgetStatusFocus} onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'firm'}),'Fest reserviert.')}>Fest reservieren</button>
         )}
-          {row.status!=='released' && <button type="button" onClick={(event)=>void updateReservation(event.currentTarget,row.id,'released','Reservierung freigegeben.')}>Freigeben</button>}</div>],
+          {row.status!=='released' && <button type="button" onFocus={rememberStatusFocus} onBlur={forgetStatusFocus} onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'released'}),'Reservierung freigegeben.')}>Freigeben</button>}</div>],
     }))}/>}</Panel>
     <Panel title="Kalkulation" focusRef={calculationPanel} action={<button onClick={()=>run(async(isCurrent)=>{
       const positions=await api(`projects/${project.id}/offer-positions`);

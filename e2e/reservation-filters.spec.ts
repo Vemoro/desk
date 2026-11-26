@@ -113,3 +113,51 @@ test('Statusaktion erhält Fokus nach überlappender Aktualisierung',async({page
   await expect(releaseButton).toBeHidden();
   await expect(type).toBeFocused({timeout:2000});
 });
+
+test('Fokus bleibt nach Erfolg eines wiederholten Tastendrucks erhalten',async({page})=>{
+  const {panel,reservation}=await planning(page);
+  const type=panel.getByLabel('Ressourcentyp');
+  const status=panel.getByLabel('Status filtern');
+  await type.selectOption('user');
+  await status.selectOption('tentative');
+  const first=holdRoute(),second=holdRoute();
+  let requestCount=0;
+  await page.route('**/api/v1/reservations/r1',route=>
+    (requestCount++===0 ? first : second).resolve(route));
+  const button=panel.getByRole('button',{name:'Freigeben',exact:true});
+  await button.press('Enter');
+  const failed=await first.request;
+  await page.keyboard.press('Enter');
+  const saved=await second.request;
+  await settleResponse(page,failed,{error:'Kurzzeitig nicht erreichbar.'},503);
+  await expect(page.getByText('Kurzzeitig nicht erreichbar.',{exact:true})).toBeVisible();
+  await expect(button).toBeFocused();
+  reservation.status='released';
+  await settleResponse(page,saved,reservation);
+  await expect(panel.getByText('Keine Reservierungen für diese Filter.',{exact:true})).toBeVisible();
+  await expect(type).toBeFocused({timeout:2000});
+});
+
+test('Fokus bleibt nach früher ausgelöster Aktion mit späterer Antwort erhalten',async({page})=>{
+  const {panel,reservation}=await planning(page);
+  const type=panel.getByLabel('Ressourcentyp');
+  const status=panel.getByLabel('Status filtern');
+  await type.selectOption('user');
+  await status.selectOption('tentative');
+  const first=holdRoute(),second=holdRoute();
+  let requestCount=0;
+  await page.route('**/api/v1/reservations/r1',route=>
+    (requestCount++===0 ? first : second).resolve(route));
+  const button=panel.getByRole('button',{name:'Freigeben',exact:true});
+  await button.press('Enter');
+  const saved=await first.request;
+  await page.keyboard.press('Enter');
+  const failed=await second.request;
+  await settleResponse(page,failed,{error:'Kurzzeitig nicht erreichbar.'},503);
+  await expect(page.getByText('Kurzzeitig nicht erreichbar.',{exact:true})).toBeVisible();
+  await expect(button).toBeFocused();
+  reservation.status='released';
+  await settleResponse(page,saved,reservation);
+  await expect(panel.getByText('Keine Reservierungen für diese Filter.',{exact:true})).toBeVisible();
+  await expect(type).toBeFocused({timeout:2000});
+});
