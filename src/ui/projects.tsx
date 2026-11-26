@@ -5,6 +5,7 @@ import { ProjectHistory } from './project-history';
 import { Communication } from './communication';
 import { ProjectKanban } from './project-kanban';
 import { projectHash, projectViews, type ProjectView } from './project-views';
+import { useLocalDay } from './local-day';
 
 export type Data = Record<'contacts'|'projects'|'tasks'|'users'|'lines'|'reservations'|'locations'|'items'|'movements'|'costs'|'stock',Row[]>;
 type Flags = { haben:boolean; zammad:boolean };
@@ -28,24 +29,7 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
 }) {
   const search=useRef<HTMLInputElement>(null);
   const searchHelpId=useId();
-  const [now,setNow]=useState(()=>new Date());
-  useEffect(()=>{
-    let timer:number;
-    function updateDay() {
-      window.clearTimeout(timer);
-      const current=new Date();
-      setNow(current);
-      const nextDay=new Date(current.getFullYear(),current.getMonth(),current.getDate()+1);
-      timer=window.setTimeout(updateDay,nextDay.getTime()-current.getTime());
-    }
-    updateDay();
-    window.addEventListener('focus',updateDay);
-    return ()=>{
-      window.clearTimeout(timer);
-      window.removeEventListener('focus',updateDay);
-    };
-  },[]);
-  const today=[now.getFullYear(),now.getMonth()+1,now.getDate()].map(part=>String(part).padStart(2,'0')).join('-');
+  const today=useLocalDay();
   const query=filters.query.trim().toLowerCase();
   const filtered=filters.query!=='' || filters.stage!=='all' || filters.due!=='all' || filters.contactId!=='';
   const contactLabelCounts=new Map<string,number>();
