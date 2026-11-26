@@ -270,7 +270,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
       if(isCurrent() && draft.current?.id===current.id) {
         // A gateway error can arrive after Desk has already accepted the message.
         if(error instanceof ApiError &&
-          (error.code==='zammad_message_not_stored' || error.code==='invalid_input')) draft.current=undefined;
+          (error.code==='zammad_message_not_stored' || error.code==='invalid_input')) clearDraft();
         else setNeedsAttemptCheck(true);
       }
       if(error instanceof TypeError) throw new Error('Desk hat keine Bestätigung für den Sendeversuch erhalten.');
