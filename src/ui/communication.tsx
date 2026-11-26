@@ -407,8 +407,9 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
               {term && articles.length>0 && visibleArticles.length===0 && <p className="subtle" role="status">Keine Nachrichten für diese Suche.</p>}
               {conversation && articles.length===0 && !loading && !problem && <p className="subtle">Dieses Ticket enthält noch keine Nachrichten.</p>}
             </section>
-            {(conversation?.outgoing.length ?? 0) > 0 && <div className="communication-outgoing"><h3>Sendeversuche</h3><Table headers={['Sendeversuch','Status','Aktion']} rows={(conversation?.outgoing ?? []).map((entry:Row)=>({
+            {(conversation?.outgoing.length ?? 0) > 0 && <div className="communication-outgoing"><h3>Sendeversuche</h3><Table headers={['Sendeversuch','Status','Letzter Versuch','Aktion']} rows={(conversation?.outgoing ?? []).map((entry:Row)=>({
                 key:entry.id,cells:[entry.subject,({sent:'An Zammad übergeben',pending:'Ausstehend',failed:'Abgelehnt',unknown:'Ausgang unklar'} as Record<string,string>)[entry.status],
+                    entry.attempted_at ? <time dateTime={entry.attempted_at}>{moment(entry.attempted_at)}</time> : '–',
                   entry.status==='sent' ? '–' : <div className="actions">
                     <button onClick={()=>run(async(isCurrent)=>{
                       const version=retryVersion.current;
