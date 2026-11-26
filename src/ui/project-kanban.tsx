@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { api, calendarDate, name, taskStages, type Row } from './client';
 import { Form, FormDialog, options, type Run } from './widgets';
 
@@ -19,7 +19,7 @@ function AddCard({projectId,status,run}:{projectId:string;status:string;run:Run}
       const details=disclosure.current;
       const title=details?.querySelector('input');
       if(title?.value===name) title.value='';
-      if(details?.open) title?.focus();
+      if(details?.open && (details.contains(document.activeElement) || document.activeElement===document.body)) title?.focus();
     }}/>
   </details>;
 }
@@ -27,8 +27,16 @@ function AddCard({projectId,status,run}:{projectId:string;status:string;run:Run}
 export function ProjectKanban({projectId,tasks:allTasks,users,run}:{projectId:string;tasks:Row[];users:Row[];run:Run}) {
   const tasks=allTasks.filter(task=>task.project_id===projectId);
   const board=useRef<HTMLDivElement>(null);
+  const focusCardId=useRef<string|undefined>(undefined);
   const [editor,setEditor]=useState<{task:Row;trigger:HTMLButtonElement}>();
   const activePeople=options(users.filter(person=>!person.blocked));
+
+  useLayoutEffect(()=>{
+    if(editor || !focusCardId.current) return;
+    const card=board.current?.querySelector<HTMLButtonElement>(`[data-task-id="${CSS.escape(focusCardId.current)}"]`);
+    focusCardId.current=undefined;
+    (card ?? board.current)?.focus();
+  },[editor]);
 
   function assigneeChoices(id:string | null) {
     const previous=users.find(person=>person.id===id && person.blocked);
@@ -37,14 +45,8 @@ export function ProjectKanban({projectId,tasks:allTasks,users,run}:{projectId:st
 
   function dismiss() {
     if(!editor) return;
-    const {task,trigger}=editor;
+    focusCardId.current=editor.task.id;
     setEditor(undefined);
-    requestAnimationFrame(()=>{
-      if(!trigger.isConnected) {
-        const movedCard=board.current?.querySelector<HTMLButtonElement>(`[data-task-id="${CSS.escape(task.id)}"]`);
-        (movedCard ?? board.current)?.focus();
-      }
-    });
   }
 
   return <section className="project-kanban">

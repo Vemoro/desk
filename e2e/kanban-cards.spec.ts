@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { project, signIn } from './session';
+import { holdRoute, project, signIn } from './session';
 
 async function openKanban(page:Page) {
   await signIn(page);
@@ -79,6 +79,32 @@ test('Kartendialog hält Fokus und Eingaben und zeigt eine gespeicherte Statusä
   const moved=board.getByRole('region',{name:'Erledigt',exact:true}).getByRole('button',{name:/Termin beim Kunden bestätigt/});
   await expect(moved).toContainText('27.05.2028');
   await expect(moved).toBeFocused();
+});
+
+test('Eine späte Speicherantwort lässt den Fokus bei der nächsten Spalte',async({page})=>{
+  const board=await openKanban(page);
+  const open=board.getByRole('region',{name:'Offen',exact:true});
+  const review=board.getByRole('region',{name:'Prüfung',exact:true});
+  const pending=holdRoute();
+  await page.route('**/api/v1/tasks',route=>{pending.resolve(route);});
+  const from=open.getByRole('textbox',{name:'Kartentitel'});
+  const next=review.getByRole('textbox',{name:'Kartentitel'});
+  const cardName=`Einweisung ${crypto.randomUUID().slice(0,8)}`;
+
+  await open.getByText('Karte hinzufügen',{exact:true}).click();
+  await from.fill(cardName);
+  await from.press('Enter');
+  const request=await pending.request;
+  try {
+    await review.getByText('Karte hinzufügen',{exact:true}).click();
+    await expect(next).toBeFocused();
+    await next.fill('Materialliste mitbringen');
+  } finally {
+    await request.continue();
+  }
+  await expect(open.getByRole('button',{name:cardName})).toBeVisible();
+  await expect(next).toHaveValue('Materialliste mitbringen');
+  await expect(next).toBeFocused();
 });
 
 test.describe('Kanban mit Touch',()=>{
