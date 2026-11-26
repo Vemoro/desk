@@ -9,11 +9,11 @@ Desk 0.2.0.0 verbessert die tägliche Arbeit in der Projektliste, im Kanban und 
 ### Highlights
 
 - Karten im Kanban mit Maus, Touch oder Tastatur umordnen. Desk speichert die Reihenfolge je Projekt und Spalte. Karten lassen sich aus der Spalte anlegen und im Dialog bearbeiten.
-- Projekte nach Kontakt, Status und Fälligkeit filtern, nach anstehenden Terminen sortieren und über Angebotsreferenz, Rechnungsreferenz oder Kostenstelle suchen. Projektansichten können direkt verlinkt werden.
-- Freie Lagerbestände und offene Ausgaben gezielt finden. Lagerbewegungen lassen sich nach Bewegungsart und Projektbezug filtern. Fehlende Referenzen sind vor einem Projektstatuswechsel sichtbar.
-- In Zammad den Zeitpunkt des letzten Sendeversuchs sehen und bei unklarem Ausgang zuerst den gespeicherten Versuch prüfen. Der Entwurf bleibt erhalten. Die PDF-Auswahl zeigt den vollständigen Dateinamen.
-- Optional per OpenID Connect mit einem vorhandenen Desk-Konto anmelden. Passwort und Passkey bleiben verfügbar. Die gemeinsame Anmeldung mit Zammad setzt einen passend konfigurierten Identitätsanbieter voraus.
-- Eingabefehler stehen direkt am Feld und die Tastatur springt zum ersten Fehler. Projektstatus sind mit Text und Farbpunkt gekennzeichnet. Widerruf und dauerhafte Kontoaktionen zeigen eine Bestätigung mit konkreter Auswirkung.
+- Projekte nach Kontakt, Status und Fälligkeit filtern, nach Projekttermin sortieren und über Angebotsreferenz, Rechnungsreferenz oder Kostenstelle suchen. Projektansichten können direkt verlinkt werden.
+- Offene Ausgaben nach Artikel filtern, die Trefferzahl sehen und direkt zum zugehörigen Projekt wechseln. Lagerbewegungen lassen sich nach Bewegungsart und Projektbezug filtern. Fehlende Referenzen sind vor einem Projektstatuswechsel sichtbar.
+- Im Projekt unter **Kommunikation** den Zeitpunkt des letzten Zammad-Sendeversuchs sehen und bei unklarem Ausgang zuerst den gespeicherten Versuch prüfen. Der Entwurf bleibt erhalten. Die PDF-Auswahl zeigt den vollständigen Dateinamen.
+- Optional per OpenID Connect mit einem vorhandenen Desk-Konto anmelden. Passwort und Passkey bleiben verfügbar. Für die gemeinsame Anmeldung registrierst du Desk und Zammad als eigene Clients am selben Identitätsanbieter. [OpenID Connect einrichten](docs/desk.md#openid-connect-für-vorhandene-konten-vorbereiten)
+- Eingabefehler stehen direkt am Feld und die Tastatur springt zum ersten Fehler. Projektstatus sind mit Text und Farbpunkt gekennzeichnet. Beim Widerruf eines API-Tokens, Entfernen eines Passkeys und Sperren eines Teamkontos zeigt Desk vorab die Auswirkungen.
 
 ### Aktualisierung
 
