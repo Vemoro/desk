@@ -146,7 +146,7 @@ for(const scenario of [
       });
       async function openConfirmation() {
         await project(page,projectRow.name);
-        await page.getByRole('button',{name:scenario.tab,exact:true}).click();
+        await page.getByRole('link',{name:scenario.tab,exact:true}).click();
         if(scenario.name==='Kalkulation') await page.getByText('Position bearbeiten',{exact:true}).click();
         await page.getByRole('button',{name:scenario.action,exact:true}).click();
       }
