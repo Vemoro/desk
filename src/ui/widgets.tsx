@@ -156,6 +156,75 @@ export function Form({fields,caption,submit,children,className='form-grid',retry
   </form>;
 }
 
+export function FormDialog({title,trigger,dismiss,children}:{
+  title:string; trigger:HTMLButtonElement; dismiss:()=>void;
+  children:(save:(action:()=>Promise<boolean>)=>Promise<boolean>)=>ReactNode;
+}) {
+  const titleId=useId();
+  const dialog=useRef<HTMLDialogElement>(null);
+  const busy=useRef(false);
+  const [saving,setSaving]=useState(false);
+
+  useEffect(()=>{
+    const element=dialog.current;
+    element?.showModal();
+    element?.querySelector<HTMLElement>('input, textarea, select')?.focus();
+    return ()=>element?.close();
+  },[]);
+
+  function close() {
+    dialog.current?.close();
+    dismiss();
+    if(trigger.isConnected) trigger.focus();
+  }
+
+  useEffect(()=>{
+    if(saving) dialog.current?.querySelector<HTMLElement>('input, textarea, select')?.focus();
+  },[saving]);
+
+  async function save(action:()=>Promise<boolean>) {
+    if(busy.current) return false;
+    busy.current=true;
+    setSaving(true);
+    try {
+      const saved=await action();
+      if(saved && dialog.current) close();
+      return saved;
+    } finally {
+      busy.current=false;
+      setSaving(false);
+    }
+  }
+
+  return <dialog ref={dialog} className="confirm-dialog form-dialog" aria-labelledby={titleId}
+    onCancel={event=>{event.preventDefault();if(!busy.current) close();}}
+    onKeyDown={event=>{
+      if(event.key!=='Tab') return;
+      const fields=event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled)');
+      const first=fields[0];
+      const last=fields[fields.length-1];
+      const current=document.activeElement;
+      if(!Array.from(fields).some(field=>field===current)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first)?.focus();
+        return;
+      }
+      if(event.shiftKey && current===first) {
+        event.preventDefault();
+        last?.focus();
+      } else if(!event.shiftKey && current===last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    }}>
+    <header className="form-dialog-head">
+      <h2 id={titleId}>{title}</h2>
+      <button type="button" disabled={saving} onClick={close}>Schließen</button>
+    </header>
+    {children(save)}
+  </dialog>;
+}
+
 export function Panel({title,subtitle,headingIcon,children,action,focusRef}:{title:string;subtitle?:string;headingIcon?:ReactNode;children:ReactNode;action?:ReactNode;focusRef?:RefObject<HTMLElement|null>}) {
   const titleId=useId();
   return <section className="panel" ref={focusRef} tabIndex={focusRef?-1:undefined} aria-labelledby={focusRef?titleId:undefined}>
