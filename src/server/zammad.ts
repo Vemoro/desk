@@ -251,7 +251,8 @@ export async function send(projectId: string, input: z.infer<typeof zammadMessag
 export async function reviewOutgoing(projectId: string, id: string, retry: boolean, expectedNote?:boolean) {
   const select=(note:boolean)=>`SELECT *,attempted_at::text AS attempt_key FROM ${attemptTable(note)} WHERE id=$1 AND project_id=$2`;
   const query=expectedNote===undefined ? `${select(false)} UNION ALL ${select(true)}` : select(expectedNote);
-  const current = required(await first<Outgoing>(db,query,[id,projectId]));
+  const current = await first<Outgoing>(db,query,[id,projectId]);
+  if (!current) throw new DeskError(404,'Der Sendeversuch wurde nicht gefunden.','zammad_attempt_not_found');
   const note=current.recipient===null;
   const project = await getProject(projectId);
   if (project.zammad_ticket_id !== current.ticket_id) throw new DeskError(409, 'Der Sendeversuch gehört zu einem anderen Ticket.');
