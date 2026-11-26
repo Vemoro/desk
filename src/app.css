@@ -100,10 +100,10 @@ tr:nth-last-child(1 of :not([hidden])) td { border-bottom:0; }
 .filter { max-width:380px; }
 .project-filters { display:flex; flex-wrap:wrap; gap:12px; }
 .project-filters > label { flex:1 1 180px; min-width:0; }
-.project-filters > .project-contact-filter { flex-basis:264px; }
-.project-contact-selection { display:none; }
-@media(max-width:520px) {
-  .project-contact-selection { display:block; overflow-wrap:anywhere; color:var(--muted); }
+.project-filters > .project-contact-filter { flex-basis:264px; container-type:inline-size; }
+.project-contact-selection { display:block; overflow-wrap:anywhere; color:var(--muted); }
+@container(min-width:320px) {
+  .project-contact-selection { display:none; }
 }
 .actions,.tabs { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .tabs { border-bottom:1px solid var(--border); }
