@@ -65,6 +65,8 @@ Sobald die manuell startbaren Workflows auf `main` liegen, können Beitragende m
 
 Nutze die Befehle der jeweiligen Zielbasis. Wenn auf dieser Basis die Desk-Anwendung vorhanden ist, gehören je nach Änderung `bun run build`, `bun run check`, `bun run migrate`, `bun run test` und bei betroffener Bedienung `bun run e2e` dazu. Integration und Browser verwenden getrennte PostgreSQL-Datenbanken mit `_test` beziehungsweise `_demo` und isolierte Testinstanzen. Setze für Anmelde- und Browserprüfungen ein eigenes `DESK_AUTH_SECRET` und die Testadresse in `DESK_ORIGIN`.
 
+Neue Browserfälle unter `e2e` mit der Endung `.spec.ts` werden von `bun run e2e` automatisch im Projekt `core` erfasst. `screenshots.spec.ts` und `runtime-image.spec.ts` laufen in ihren eigenen Playwright-Projekten. Bei einem Basiswechsel älterer PRs prüfe die neuen Tests mit `bun x playwright test --list --project core` und übernimm die automatische Auswahl aus `main`.
+
 Die Anwendung erzeugt die TanStack-Routendatei beim ersten Build oder Entwicklungsstart. Für Browserfälle und Doku-Bilder lädt `bun run demo` mit `DESK_DEMO_PASSWORD` die synthetischen Beispieldaten des Muster Auftragsservice. `bunx playwright install chromium` installiert den Browser. Mit `DESK_E2E_URL` kann eine bereits gestartete isolierte Instanz verwendet werden.
 
 `bun run docs:screenshots` schreibt Doku-Bilder nach `build/screenshots/`. In `veranstaltungsbetreuung/` und `bueroinstallation/` liegen pro Musterauftrag `kanban-<theme>.png`, `ressourcenplanung-<theme>.png` und `controlling-<theme>.png`. Die projektübergreifenden Aufnahmen `projektlager-<theme>.png`, `projektlager-<theme>-handy.png` und `navigation-<theme>-handy-offen.png` liegen direkt im Ausgabeordner. `<theme>` steht für `hell` oder `dunkel`.
