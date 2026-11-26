@@ -18,12 +18,12 @@ Die [Betriebsdoku](desk.md#betrieb) beschreibt Start, Migration und Sicherung. D
 
 ## Quellpaket des Kandidaten
 
-Wähle den vollständigen Commit aus dem Abnahmeprotokoll. Starte mit Repository-Schreibzugriff den Actions-Workflow **Desk-Quellpaket prüfen** auf `main` und gib den Commit ein. Im privaten Repository erzeugt der Workflow ein internes Artefakt für Commits aus der Historie von `main`. Mit Repository-Lesezugriff kannst du **Desk-Quellpaket** aus diesem Lauf herunterladen. Das Archiv und `SHA256SUMS` liegen zusammen im Ordner `desk-<Version>-<Commit>`.
+Für Desk 0.1.0.0 stehen das geprüfte Quellarchiv und `SHA256SUMS` unter **Assets** bereit. Erzeuge neue Kandidaten im öffentlichen Repository lokal wie unten beschrieben. Der Workflow **Desk-Quellpaket prüfen** ist auf private Repositories und Commits aus der Historie von `main` beschränkt. [Desk 0.1.0.0](https://github.com/Vemoro/desk/releases/tag/v0.1.0.0)
 
 Mit Git und Python 3.11 oder neuer kannst du das Paket lokal erzeugen. Führe die Befehle in Bash vom Stamm eines Checkouts aus, der das Paketierungsskript und den Kandidatencommit enthält. Setze `commit` auf die vollständige ID des Kandidaten.
 
 ```sh
-commit=3a9d8659b5a0304f7a281b9e682ea5fca317d4b7
+commit=5b10099dde361ba058efbcd11fdbfff98c0592ab
 output=$(mktemp -d)
 python3 scripts/package-release-source.py "$commit" "$output"
 (cd "$output"/desk-*-"$commit" && sha256sum -c SHA256SUMS)

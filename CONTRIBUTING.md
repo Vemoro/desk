@@ -1,6 +1,6 @@
 # An Desk mitwirken
 
-Du kannst Abläufe mit Beispieldaten testen, Fehler melden, die Doku verbessern oder an einer Funktion mitarbeiten. Desk ist derzeit ein privates Repository. Mit Repository-Zugriff kannst du Issues melden. Für einen Pull Request brauchst du Schreibzugriff auf einen Branch, von dem aus du die Änderung einreichst.
+Du kannst Abläufe mit Beispieldaten testen, Fehler melden, die Doku verbessern oder an einer Funktion mitarbeiten.
 
 ## Fehler und Vorschläge
 
@@ -21,7 +21,7 @@ Der fiktive Bericht „Kommunikationsnotiz fehlt nach dem Neuladen“ lässt sic
 ## Beiträge vorbereiten
 
 1. Kläre bei einer freien Aufgabe aus „Geplant“ mit dem Maintainer, welchen Teil du übernehmen willst. Schreibe Rückmeldungen zur Sache und belege sie mit dem betroffenen Stand oder der einschlägigen Regel.
-2. Arbeite auf einem eigenen Branch und führe die passenden Prüfungen mit synthetischen Daten aus. Bei Änderungen an der Oberfläche gehören vergleichbare Vorher- und Nachher-Bilder zum PR. [Prüfbefehle und Screenshot-Workflow](docs/entwicklung.md#befehle-und-screenshot-workflow)
+2. Erstelle für deinen Beitrag einen Branch in deinem Fork. Wenn du Schreibzugriff auf Desk hast, kannst du auch einen Branch im Desk-Repository verwenden. Führe die passenden Prüfungen mit synthetischen Daten aus. Bei Änderungen an der Oberfläche gehören vergleichbare Vorher- und Nachher-Bilder zum PR. [Prüfbefehle und Screenshot-Workflow](docs/entwicklung.md#befehle-und-screenshot-workflow)
 3. Nutze die PR-Vorlage für Ergebnis, Issue, Prüfnachweise und Updatehinweise. Kennzeichne wesentliche KI-Unterstützung. Die Entwicklungsdoku beschreibt den Ablauf für Entwurf, Selbstprüfung, unabhängiges Review, CI und Freigabe. [Pull Requests](docs/entwicklung.md#pull-requests) · [Review und Freigabe](docs/entwicklung.md#änderungen-prüfen)
 
 Für den Einsatz von Coding-Agenten gilt [AGENTS.md](AGENTS.md).
