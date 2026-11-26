@@ -12,7 +12,7 @@ jobs:
           - name: vorher
             sha: 00d01308b16c4d7d975f7c2224b1e213a6697d5e
           - name: nachher
-            sha: a73ada537eb8c58fa311a8147f2037b970ca85cb
+            sha: fbc4a588452477b5b1977a3e5ae89af8680ab611
     services:
       postgres:
         image: postgres:17
@@ -56,7 +56,7 @@ jobs:
             sleep 1
           done
           curl -fsS http://127.0.0.1:4173/api/v1/ready >/dev/null
-          bunx playwright test --project core e2e/zammad-draft-evidence.spec.ts
+          bunx playwright test --project=core e2e/zammad-draft-evidence.spec.ts
       - uses: actions/upload-artifact@v6
         with:
           name: Desk-93-${{ matrix.stand.name }}
