@@ -54,7 +54,7 @@ Sichere die Testdaten auf dem Ausgangsstand. Stelle dasselbe Vorab-Archiv in zwe
 
 ### Erste Probe am 24. November 2026
 
-Die Quelle war Desk-Kern [`b7a69f4`](https://github.com/Vemoro/desk/commit/b7a69f4b644c74296bca895f1c6c4f6babff9b42). Das Upgrade-Ziel war [`f7f865a`](https://github.com/Vemoro/desk/commit/f7f865a96325df1e0c25d391c7b2c4fbc2ce3167). Die Sicherung und beide Wiederherstellungen liefen mit PostgreSQL 17.12 in einer lokalen Testumgebung. Das Archiv wurde im Custom-Format erstellt und mit `--single-transaction --exit-on-error --no-owner --no-privileges` wiederhergestellt.
+Die Quelle war Desk-Kern [`43586fc`](https://github.com/Vemoro/desk/commit/43586fcc950894d15b72e34c9f55ad89550ad6ce). Das Upgrade-Ziel war [`76521f8`](https://github.com/Vemoro/desk/commit/76521f8883a8c4127bcafa1d22cd1bd9adea1fa8). Die Sicherung und beide Wiederherstellungen liefen mit PostgreSQL 17.12 in einer lokalen Testumgebung. Das Archiv wurde im Custom-Format erstellt und mit `--single-transaction --exit-on-error --no-owner --no-privileges` wiederhergestellt.
 
 | Pr체fung | Ergebnis |
 | --- | --- |
@@ -70,9 +70,9 @@ Wiederhole die Upgrade- und Wiederanlaufprobe mit einem Stand, der Vorgangsschl�
 2. Sichere diese aktualisierte Datenbank und stelle sie in einer weiteren neuen Testdatenbank wieder her. Starte dieselbe Zielversion mit dieser Datenbank. Melde dasselbe synthetische Konto an.
 3. Sende die beiden Anfragen mit denselben Angaben und Schl체sseln erneut. Beide Antworten sollen HTTP 201 mit den urspr체nglichen IDs liefern. Vergleiche die gespeicherten Bewegungen und Vormerkungen sowie die Bestandszahlen mit dem Stand nach der ersten Buchung.
 
-#### Probe auf `4f77d81`
+#### Probe auf `2058573`
 
-Quelle war [`b7a69f4`](https://github.com/Vemoro/desk/commit/b7a69f4b644c74296bca895f1c6c4f6babff9b42), Ziel war [`4f77d81`](https://github.com/Vemoro/desk/commit/4f77d81b874ceeeaec9decc35a3d1438076ad6bc) mit den Vorgangsschl체sseln f체r Lagerbewegungen und Vormerkungen. Beide Desk-St채nde liefen mit Bun 1.4.5. Alle Wiederherstellungen liefen mit PostgreSQL 17.12, getrennten lokalen Instanzen und deaktivierten Anbindungen. Die Archive wurden im Custom-Format erstellt und mit den oben dokumentierten Restore-Optionen eingespielt.
+Quelle war [`43586fc`](https://github.com/Vemoro/desk/commit/43586fcc950894d15b72e34c9f55ad89550ad6ce), Ziel war [`2058573`](https://github.com/Vemoro/desk/commit/205857396ad094447fee5f8305a84073462ef089) mit den Vorgangsschl체sseln f체r Lagerbewegungen und Vormerkungen. Beide Desk-St채nde liefen mit Bun 1.4.5. Alle Wiederherstellungen liefen mit PostgreSQL 17.12, getrennten lokalen Instanzen und deaktivierten Anbindungen. Die Archive wurden im Custom-Format erstellt und mit den oben dokumentierten Restore-Optionen eingespielt.
 
 | Schritt | Soll | Ist |
 | --- | --- | --- |

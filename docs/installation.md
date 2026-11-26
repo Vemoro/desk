@@ -132,6 +132,6 @@ Vor der Freigabe einer wiederhergestellten Desk-Datenbank alle vorhandenen Desk-
 
 ## Abnahme und Folgearbeiten
 
-- **A.** Installation, Ticketanlage, Verknüpfung und PDF-Zustellung an ein lokales SMTP-Testpostfach wurden mit dem geprüften Compose-Stand abgenommen. Nach dem Restore in einer getrennten Zammad-Instanz konnte Desk beide Ticketverläufe erneut lesen. Die Prüfsumme des Zammad-Anhangs stimmte mit dem versendeten PDF überein. [Abnahmeprotokoll](https://github.com/Vemoro/desk/issues/204)
-- **B.** Auf der vorgesehenen Testinstanz wurden Ticketanlage, Verknüpfung und Verlauf geprüft. Der bestätigte PDF-Empfang in einem separaten Postfach über deren eingerichteten Mailkanal steht aus. [Abnahmeprotokoll](https://github.com/Vemoro/desk/issues/204)
-- **C.** Aufbau mit leerer PostgreSQL-Datenbank, Anmeldung und deaktivierte Integrationen wurden geprüft. Vorgangslink und Kommunikationsnotiz blieben nach einem Neustart von Desk und PostgreSQL erhalten. [Abnahmeprotokoll](https://github.com/Vemoro/desk/issues/204)
+- **A.** Installation, Ticketanlage, Verknüpfung und PDF-Zustellung an ein lokales SMTP-Testpostfach wurden mit dem geprüften Compose-Stand abgenommen. Nach dem Restore in einer getrennten Zammad-Instanz konnte Desk beide Ticketverläufe erneut lesen. Die Prüfsumme des Zammad-Anhangs stimmte mit dem versendeten PDF überein. [Abnahmeprotokoll](https://github.com/Vemoro/desk/issues/65)
+- **B.** Auf der vorgesehenen Testinstanz wurden Ticketanlage, Verknüpfung und Verlauf geprüft. Der PDF-Empfang über deren eingerichteten Mailkanal wurde in einem separaten Postfach bestätigt. [Abnahmeprotokoll](https://github.com/Vemoro/desk/issues/65)
+- **C.** Aufbau mit leerer PostgreSQL-Datenbank, Anmeldung und deaktivierte Integrationen wurden geprüft. Vorgangslink und Kommunikationsnotiz blieben nach einem Neustart von Desk und PostgreSQL erhalten. [Abnahmeprotokoll](https://github.com/Vemoro/desk/issues/65)

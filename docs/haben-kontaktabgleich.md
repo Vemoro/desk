@@ -4,7 +4,7 @@ Der erste Desk-Kern kann aktive Kontakte aus Haben importieren und einzelne verk
 
 ## Schnittstelle und Rechte
 
-Die vorgesehene Instanz lieferte am 25. November 2026 unter `/api/v1/openapi.json` Haben REST-API `1.0.0` aus. Der Abruf der Beschreibung gelang ohne Token. Eine Anfrage an die Kontaktliste ohne Token lieferte HTTP 401. Die API-Version bezeichnet die Schnittstelle. Die Anwendungsversion und die Rechte eines konkreten Tokens sind damit nicht festgestellt. Lese- und Schreibfälle wurden mit einem simulierten Haben-Dienst geprüft. Die Abnahme mit Testkontakten an der vorgesehenen Haben-Instanz wird über Issue #204 geführt. [OpenAPI der vorgesehenen Instanz](https://haben.app/api.html) · [Issue #204](https://github.com/Vemoro/desk/issues/204)
+Die vorgesehene Instanz lieferte am 25. November 2026 unter `/api/v1/openapi.json` Haben REST-API `1.0.0` aus. Der Abruf der Beschreibung gelang ohne Token. Eine Anfrage an die Kontaktliste ohne Token lieferte HTTP 401. Die API-Version bezeichnet die Schnittstelle. Die Anwendungsversion und die Rechte eines konkreten Tokens sind damit nicht festgestellt. Lese- und Schreibfälle wurden mit einem simulierten Haben-Dienst geprüft. Die Abnahme mit Testkontakten an der vorgesehenen Haben-Instanz wird über Issue #65 geführt. [Haben-API-Dokumentation](https://haben.app/api.html) · [Issue #65](https://github.com/Vemoro/desk/issues/65)
 
 | Aufgabe in Desk | Haben-Route unter `/api/v1` | Recht |
 | --- | --- | --- |
