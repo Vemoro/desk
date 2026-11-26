@@ -11,6 +11,8 @@
 
 Unter **Lagerbewegungen** lassen sich Bewegungsart und Projekt gemeinsam filtern. **Ohne Projektbezug** findet zum Beispiel Wareneingänge ohne Zuordnung.
 
+Unter **Bestand je Lagerort** kannst du nach Name, Artikelnummer oder Inventarnummer suchen und die Ergebnisse auf einen Lagerort und freie Mengen eingrenzen. Unter **Offene Ausgaben** lässt sich zusätzlich zu Projekt und Lagerort ein Artikel auswählen. Der Projektname öffnet das zugehörige Projekt. Die Filter dieser drei Bereiche lassen sich getrennt setzen und zurücksetzen.
+
 ## Haben
 
 `HABEN_URL` und `HABEN_TOKEN` auf dem Desk-Server setzen. Angebote benötigen Leserechte für Angebote. Ein Kontaktabgleich benötigt passend zum gewählten Vorgang Lese- oder Schreibrechte für Kontakte. Gemeinsam gepflegt werden Name, E-Mail und Telefon. Der Import legt neue Kontakte an, deren Namen und E-Mail-Adresse keinem unverknüpften Desk-Kontakt entsprechen. Bestehende Verknüpfungen werden einzeln abgeglichen. Bei abweichenden Änderungen auf beiden Seiten bleibt die Wahl beim Team.
