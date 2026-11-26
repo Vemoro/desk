@@ -25,6 +25,18 @@ test('Leere Lagerort-Eingabe zeigt einen Feldfehler, fokussiert das Feld und sch
   expect(writes).toBe(1);
 });
 
+test('Ungültige Zahl in der Lagerbuchung erhält einen passenden Feldfehler',async({page})=>{
+  await signIn(page);
+  await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Projektlager',exact:true}).click();
+  await page.getByText('Wareneingang',{exact:true}).first().click();
+  const form=page.locator('form').filter({has:page.getByRole('button',{name:'Wareneingang buchen',exact:true})});
+  const quantity=form.getByLabel('Menge',{exact:true});
+  await quantity.fill('');
+  await quantity.press('e');
+  await form.getByRole('button',{name:'Wareneingang buchen',exact:true}).click();
+  await expect(quantity).toHaveAccessibleDescription('Gib eine Zahl ein.');
+});
+
 test('Formular sperrt synchrone Doppelauslösung bis zum Abschluss des gesamten Vorgangs',async({page})=>{
   let writes=0;
   let freePost:()=>void=()=>{};

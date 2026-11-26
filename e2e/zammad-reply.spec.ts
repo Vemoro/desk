@@ -39,12 +39,22 @@ test('Interne Notiz bleibt geöffnet und kann einen Beitrag zitieren',async({pag
   await expect(note).toBeFocused();
   await expect(note).toHaveAccessibleDescription('Schreibe zuerst eine interne Notiz.');
   expect(notesWritten).toBe(0);
+  await page.getByRole('button',{name:'In Notiz zitieren'}).click();
+  await expect(note).not.toHaveAttribute('aria-invalid','true');
   await note.fill('Abstimmen');
   await expect(note).not.toHaveAttribute('aria-invalid','true');
   await page.setViewportSize({width:390,height:844});
   const compose=page.getByRole('button',{name:'Antwort schreiben',exact:true});
-  const freeMessage=page.getByRole('region',{name:'Neue E-Mail'}).getByRole('textbox',{name:'Nachricht'});
+  const freeEditor=page.getByRole('region',{name:'Neue E-Mail'});
+  const freeMessage=freeEditor.getByRole('textbox',{name:'Nachricht'});
   await compose.click();
+  const longName='m'.repeat(180)+'.pdf';
+  await freeEditor.getByLabel('PDF-Anhang').setInputFiles({name:longName,mimeType:'application/pdf',buffer:Buffer.from('%PDF-Muster')});
+  expect(await freeEditor.getByText(longName,{exact:true}).evaluate(element=>{
+    const range=document.createRange();
+    range.selectNodeContents(element);
+    return Array.from(range.getClientRects()).every(rect=>rect.right<=window.innerWidth);
+  })).toBe(true);
   await freeMessage.fill('Separater E-Mail-Entwurf');
   await page.getByRole('button',{name:'In Notiz zitieren'}).click();
   await expect(note).toBeFocused();
@@ -154,6 +164,7 @@ test('Zammad beantwortet die gewählte E-Mail mit nachvollziehbarem Empfänger u
   });
   await expect(editor.getByText('Muster.pdf',{exact:true})).toBeVisible();
   await expect(editor.getByLabel('PDF-Anhang')).toHaveAccessibleDescription('Muster.pdf');
+  await expect(editor.getByLabel('PDF-Anhang')).toHaveAccessibleName('PDF-Anhang Andere PDF-Datei auswählen');
   await editor.getByRole('button',{name:'E-Mail über Zammad senden'}).click();
   await expect(editor.getByRole('alert')).toHaveText('Die Antwortadresse kann gerade nicht geprüft werden.');
   await expect(editor.getByLabel('Nachricht',{exact:true})).toHaveValue('Bitte am Haupteingang melden.');

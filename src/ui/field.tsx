@@ -44,6 +44,10 @@ function dateMessage(input:HTMLInputElement,kind:'min'|'max') {
 export function fieldError(field:NativeField) {
   if(!field.willValidate) return undefined;
   const validity=field.validity;
+  if(validity.badInput && field instanceof HTMLInputElement) {
+    if(field.type==='number') return 'Gib eine Zahl ein.';
+    if(['date','datetime-local','month'].includes(field.type)) return 'Gib ein vollständiges Datum ein.';
+  }
   if(validity.valueMissing) return field instanceof HTMLSelectElement ? 'Wähle einen Eintrag.' : 'Fülle dieses Feld aus.';
   if(validity.typeMismatch && field instanceof HTMLInputElement) {
     return field.type==='email' ? 'Gib eine gültige E-Mail-Adresse ein.' : 'Gib einen vollständigen Link ein.';
@@ -56,7 +60,6 @@ export function fieldError(field:NativeField) {
     const date=field.type==='date' || field.type==='month';
     if(validity.rangeUnderflow) return date ? dateMessage(field,'min') : `Gib mindestens ${field.min} ein.`;
     if(validity.rangeOverflow) return date ? dateMessage(field,'max') : `Gib höchstens ${field.max} ein.`;
-    if(validity.badInput) return 'Gib eine Zahl ein.';
     if(validity.stepMismatch) return 'Gib eine Zahl in der vorgegebenen Schrittweite ein.';
   }
   return validity.valid ? undefined : 'Prüfe die Eingabe.';

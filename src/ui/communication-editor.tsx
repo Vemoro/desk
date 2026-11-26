@@ -91,10 +91,11 @@ export function useNoteFocusAfterSave({focusNoteAfterSave,noteText,noteField}:Re
 }
 
 function PdfField({file,disabled,setFile}:{file?:File;disabled:boolean;setFile:(file:File|undefined)=>void}) {
-  return <Field label="PDF-Anhang" className="wide communication-file" hint={file?.name}>{props=><>
+  const caption=file?'Andere PDF-Datei auswählen':'PDF-Datei auswählen';
+  return <Field label={<>PDF-Anhang <span className="sr-only">{caption}</span></>} className="wide communication-file" hint={file?.name}>{props=><>
     <input {...props} className="sr-only" type="file" disabled={disabled} accept="application/pdf,.pdf"
       onChange={event=>setFile(event.currentTarget.files?.[0])}/>
-    <span className="communication-file-picker" aria-hidden="true">{file?'Andere PDF-Datei auswählen':'PDF-Datei auswählen'}</span>
+    <span className="communication-file-picker" aria-hidden="true">{caption}</span>
   </>}</Field>;
 }
 
@@ -103,6 +104,7 @@ function TicketNote({composer,locked,draftActions,sendMessage}:{
 }) {
   const {composing,setComposing,composeButton,reply,noteField,noteText,setNoteText,noteError,setNoteError}=composer;
   const [validation,setValidation]=useState('');
+  useEffect(()=>{if(noteText.trim()) setValidation('');},[noteText]);
   return <form className="communication-note" hidden={composing || Boolean(reply)} noValidate onSubmit={event=>{
     event.preventDefault();
     if(locked) return;
@@ -118,10 +120,7 @@ function TicketNote({composer,locked,draftActions,sendMessage}:{
   }}>
     <Field label={<><Icon name="lock"/> Interne Notiz</>} error={validation}>{props=><textarea {...props}
       ref={noteField} value={noteText} maxLength={5000} required disabled={locked} placeholder="Notiz für das Team schreiben …"
-      onChange={event=>{
-        setNoteText(event.currentTarget.value);
-        if(event.currentTarget.value.trim()) setValidation('');
-      }}/>}</Field>
+      onChange={event=>setNoteText(event.currentTarget.value)}/>}</Field>
     {noteError && <p className="inline-error" role="alert">{noteError}</p>}
     {draftActions}
     <div className="communication-note-actions">

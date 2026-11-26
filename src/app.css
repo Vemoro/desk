@@ -286,6 +286,7 @@ tr:nth-last-child(1 of :not([hidden])) td { border-bottom:0; }
 .communication-reply .form-action { justify-self:end; }
 .communication-file-picker { width:fit-content; display:inline-flex; align-items:center; min-height:44px; padding:8px 12px;
   border:1px solid var(--control-border,var(--border)); border-radius:8px; background:var(--paper); color:var(--ink); cursor:pointer; }
+.communication-file small { overflow-wrap:anywhere; }
 .communication-file:has(input:focus-visible) .communication-file-picker { outline:2px solid var(--focus,var(--accent-ink)); outline-offset:2px; }
 .communication-file:has(input:disabled) .communication-file-picker { opacity:.65; cursor:not-allowed; }
 .communication-attachment { display:inline-block; padding:4px 8px; border-radius:4px; background:var(--soft); margin:8px 8px 0 0; overflow-wrap:anywhere; }
