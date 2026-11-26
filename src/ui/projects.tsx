@@ -6,6 +6,7 @@ import { ProjectHistory } from './project-history';
 import { Communication } from './communication';
 import { ProjectKanban } from './project-kanban';
 import { projectHash, projectViews, type ProjectView } from './project-views';
+import { useLocalDay } from './local-day';
 
 export type Data = Record<'contacts'|'projects'|'tasks'|'users'|'lines'|'reservations'|'locations'|'items'|'movements'|'costs'|'stock',Row[]>;
 type Flags = { haben:boolean; zammad:boolean };
@@ -21,32 +22,15 @@ function reservationTimes(values:Record<string,string>) {
   return {...values,starts_at:start.toISOString(),ends_at:end.toISOString()};
 }
 
-type ProjectFilters = { query:string; stage:string; due:string; contactId:string };
-export const defaultProjectFilters:ProjectFilters = {query:'',stage:'all',due:'all',contactId:''};
+type ProjectFilters = { query:string; stage:string; due:string; contactId:string; sort:'standard'|'due' };
+export const defaultProjectFilters:ProjectFilters = {query:'',stage:'all',due:'all',contactId:'',sort:'standard'};
 
 export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;select:(id:string)=>void;
   filters:ProjectFilters;onFilter:(filters:ProjectFilters)=>void;
 }) {
   const search=useRef<HTMLInputElement>(null);
   const searchHelpId=useId();
-  const [now,setNow]=useState(()=>new Date());
-  useEffect(()=>{
-    let timer:number;
-    function updateDay() {
-      window.clearTimeout(timer);
-      const current=new Date();
-      setNow(current);
-      const nextDay=new Date(current.getFullYear(),current.getMonth(),current.getDate()+1);
-      timer=window.setTimeout(updateDay,nextDay.getTime()-current.getTime());
-    }
-    updateDay();
-    window.addEventListener('focus',updateDay);
-    return ()=>{
-      window.clearTimeout(timer);
-      window.removeEventListener('focus',updateDay);
-    };
-  },[]);
-  const today=[now.getFullYear(),now.getMonth()+1,now.getDate()].map(part=>String(part).padStart(2,'0')).join('-');
+  const today=useLocalDay();
   const query=filters.query.trim().toLowerCase();
   const filtered=filters.query!=='' || filters.stage!=='all' || filters.due!=='all' || filters.contactId!=='';
   const contactLabelCounts=new Map<string,number>();
@@ -63,16 +47,24 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
     if(filters.contactId && project.contact_id!==filters.contactId) return false;
     const matchesSearch=`${project.name} ${name(data.contacts,project.contact_id)}`.toLowerCase().includes(query)
       || [project.offer_ref,project.invoice_ref,project.cost_center].some(value=>value?.toLowerCase().includes(query));
-    const matchesStage=filters.stage==='all' || (filters.stage==='open'
-      ? !['complete','cancelled'].includes(project.stage)
-      : project.stage===filters.stage);
+    const active=!['complete','cancelled'].includes(project.stage);
+    const matchesStage=filters.stage==='all' || (filters.stage==='open'?active:project.stage===filters.stage);
     const dueDate=project.due?.slice(0,10);
     const matchesDue=filters.due==='all'
-      || (filters.due==='overdue' && Boolean(dueDate) && dueDate<today)
+      || (filters.due==='overdue' && active && Boolean(dueDate) && dueDate<today)
       || (filters.due==='today' && dueDate===today)
       || (filters.due==='missing' && !dueDate);
     return matchesSearch && matchesStage && matchesDue;
   });
+  if(filters.sort==='due') {
+    projects.sort((left,right)=>{
+      const leftDue=left.due?.slice(0,10);
+      const rightDue=right.due?.slice(0,10);
+      if(!leftDue) return rightDue?1:0;
+      if(!rightDue) return -1;
+      return leftDue.localeCompare(rightDue);
+    });
+  }
   return <>
     <Panel title="Projekte">
       <div className="panel-body">
@@ -98,11 +90,16 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
           </select>{selectedContact && <small className="project-contact-selection" aria-hidden="true">
             {contactOptionLabel(selectedContact)}
           </small>}</label>
+          <label className="project-sort-field"><span>Projekte sortieren</span><select value={filters.sort}
+            onChange={(event)=>onFilter({...filters,sort:event.target.value==='due'?'due':'standard'})}>
+            <option value="standard">Standard</option>
+            <option value="due">Frühester Termin zuerst</option>
+          </select></label>
         </div>
         <div className="actions">
           <span className="subtle" role="status">{projects.length===1?'1 Projekt gefunden.':`${projects.length} Projekte gefunden.`}</span>
           <button type="button" disabled={!filtered} onClick={()=>{
-            onFilter(defaultProjectFilters);
+            onFilter({...defaultProjectFilters,sort:filters.sort});
             search.current?.focus();
           }}>Filter zurücksetzen</button>
         </div>
@@ -145,6 +142,7 @@ export function Project({project,data,run,flags,accountId,back,tab}:{project:Row
 }
 
 function Overview({project,data,run,haben}:{project:Row;data:Data;run:Run;haben:boolean}) {
+  const contact=data.contacts.find((row)=>row.id===project.contact_id);
   const hintId=useId();
   const stages=(transitions[project.stage]??[]).map(stage=>({
     stage,reference:missingStageReference(stage,{
@@ -153,6 +151,9 @@ function Overview({project,data,run,haben}:{project:Row;data:Data;run:Run;haben:
   }));
   return <div className="two-col">
     <Panel title="Projektdaten"><div className="panel-body">
+      <p className="subtle">{contact
+        ? <>Zugeordneter Kontakt <a href={'#contacts/'+contact.id}>{contact.name}</a></>
+        : 'Kontakt nicht verfügbar'}</p>
       <Form key={JSON.stringify([project.name,project.contact_id,project.due,project.notes,project.cost_center])} caption="Projektdaten speichern" fields={[
         { name:'name',label:'Projektname',value:project.name,required:true },
         { name:'contact_id',label:'Kontakt',choices:options(data.contacts),value:project.contact_id,required:true },

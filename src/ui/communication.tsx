@@ -6,10 +6,19 @@ import { ConfirmationRequests, ConfirmDialog, Form, FormDialog, Panel, Table, ty
 type Article = { id:number; subject?:string|null; from?:string|null; created_at?:string; content_type?:string;
   body:string; attachments?:{filename:string;id?:number}[]; kind?:keyof typeof articleKinds;
   reply?:{recipient:string;subject:string} };
-type Conversation = { ticket:{number:string;title?:string;url:string}; articles:Article[]; outgoing:Row[] };
+type AttemptStatus = 'pending'|'unknown'|'failed'|'sent';
+type Conversation = { ticket?:{number:string;title?:string;url:string}; articles:Article[]; outgoing:(Row & {status:AttemptStatus})[] };
+const attemptLabels:Record<AttemptStatus,string>={
+  sent:'An Zammad übergeben',pending:'Ausstehend',failed:'Abgelehnt',unknown:'Ausgang unklar',
+};
 type DialogState = { kind:'link'|'create'; trigger:HTMLButtonElement };
 type ReplyTarget = {id:number; originalSubject:string; recipient:string; subject:string; trigger:HTMLButtonElement; forwardBody?:string};
 type MessageDraft = {id:string;note:boolean;reply?:ReplyTarget;payload:Record<string,unknown>};
+
+function draftAttemptRow(draft:MessageDraft,status:AttemptStatus) {
+  return {id:draft.id,subject:draft.note ? 'Interne Notiz' : String(draft.payload.subject),status};
+}
+
 const articleKinds = {
   'incoming-email':'Eingehende E-Mail',
   'outgoing-email':'Ausgehende E-Mail',
@@ -132,7 +141,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   const ticketId=project.zammad_ticket_id ? Number(project.zammad_ticket_id) : null;
   const [dialog,setDialog]=useState<DialogState>();
   const [confirmation,setConfirmation]=useState<Confirmation>();
-  const [conversation,setConversation]=useState<Conversation|null>(null);
+  const [loadedConversation,setConversation]=useState<Conversation|null>(null);
   const [problem,setProblem]=useState('');
   const [search,setSearch]=useState('');
   const [loading,setLoading]=useState(Boolean(zammad && ticketId));
@@ -151,11 +160,19 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   const [noteError,setNoteError]=useState('');
   const draft=useRef<MessageDraft|undefined>(undefined);
   const [locked,setLocked]=useState(false);
-  const [canReplay,setCanReplay]=useState(false);
+  const [needsAttemptCheck,setNeedsAttemptCheck]=useState(false);
+  const [missingAttempt,setMissingAttempt]=useState(false);
+  const [draftStatus,setDraftStatus]=useState<AttemptStatus>();
+  const [draftActionRunning,setDraftActionRunning]=useState(false);
+  const draftAction=useRef(false);
+  const replayButton=useRef<HTMLButtonElement>(null);
   const [replayError,setReplayError]=useState('');
   const [unresolvedRetry,setUnresolvedRetry]=useState<string>();
   const retryVersion=useRef(0);
   const retryInProgress=useRef<string|undefined>(undefined);
+  useEffect(()=>{
+    if(missingAttempt && !draftActionRunning) replayButton.current?.focus();
+  },[missingAttempt,draftActionRunning]);
   useEffect(()=>{
     if(reply) replyComposer.current?.querySelector<HTMLElement>(reply.forwardBody===undefined?'textarea':'input[type=email]')?.focus();
   },[reply]);
@@ -184,7 +201,9 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   function clearDraft() {
     draft.current=undefined;
     setLocked(false);
-    setCanReplay(false);
+    setNeedsAttemptCheck(false);
+    setMissingAttempt(false);
+    setDraftStatus(undefined);
     setReplayError('');
     setUnresolvedRetry(undefined);
   }
@@ -216,6 +235,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
       if(version!==refreshVersion.current) return;
       if (draft.current && current.outgoing.some(entry=>entry.id===draft.current?.id && entry.status==='sent')) resetDraft();
       setConversation(current);
+      return current;
     }
     catch(error) {
       if(version===refreshVersion.current) setProblem(error instanceof Error ? error.message : 'Verlauf nicht verfügbar.');
@@ -238,9 +258,10 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
     return ()=>{visible=false;refreshVersion.current++;};
   },[outgoingKey,ticketId,zammad,confirmationRequests]);
 
-  const request=(suffix:string,input:unknown)=>api('projects/'+project.id+'/zammad/'+suffix,'POST',input);
-  async function deliver(current:MessageDraft,isCurrent:()=>boolean,replay=false) {
-    setCanReplay(false);
+  const request=(suffix:string,input:unknown)=>api<{id?:string;status:AttemptStatus}>('projects/'+project.id+'/zammad/'+suffix,'POST',input);
+  async function deliver(current:MessageDraft,isCurrent:()=>boolean) {
+    setNeedsAttemptCheck(false);
+    setMissingAttempt(false);
     setReplayError('');
     let result;
     try {
@@ -248,16 +269,17 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
     } catch(error) {
       if(isCurrent() && draft.current?.id===current.id) {
         // A gateway error can arrive after Desk has already accepted the message.
-        if(!replay && error instanceof ApiError &&
-          (error.code==='zammad_message_not_stored' || error.code==='invalid_input')) draft.current=undefined;
-        else setCanReplay(true);
+        if(error instanceof ApiError &&
+          (error.code==='zammad_message_not_stored' || error.code==='invalid_input')) clearDraft();
+        else setNeedsAttemptCheck(true);
       }
+      if(error instanceof TypeError) throw new Error('Desk hat keine Bestätigung für den Sendeversuch erhalten.');
       throw error;
     }
     if(!isCurrent()) return;
-    await refresh();
+    const refreshed=await refresh();
+    if(isCurrent()) applyAttemptResult(current.id,result.status,refreshed);
     if(result.status!=='sent') throw new Error('Sendezustand prüfen. Der Versuch steht im Projektverlauf.');
-    if(isCurrent() && draft.current?.id===current.id) resetDraft();
   }
 
   async function sendMessage(values:Record<string,string>,file:File|undefined,target?:ReplyTarget,note=false) {
@@ -286,39 +308,92 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
     },note?'Interne Notiz gespeichert.':'Nachricht an Zammad übergeben.',{reportInlineError:true});
   }
 
-  async function replayMessage() {
-    const current=draft.current;
-    if(!current || !canReplay) return;
-    try {
-      await run(isCurrent=>deliver(current,isCurrent,true),current.note?'Interne Notiz gespeichert.':'Nachricht an Zammad übergeben.',{reportInlineError:true});
-    } catch(error) {
-      setReplayError(error instanceof Error ? error.message : 'Der Sendeversuch konnte nicht geprüft werden.');
+  function applyAttemptResult(id:string,confirmed:AttemptStatus,refreshed?:Conversation) {
+    const status=confirmed==='sent' ? confirmed : refreshed?.outgoing.find(entry=>entry.id===id)?.status ?? confirmed;
+    const matchingDraft=draft.current?.id===id ? draft.current : undefined;
+    setConversation(current=>{
+      if(!current) return matchingDraft ? {articles:[],outgoing:[draftAttemptRow(matchingDraft,status)]} : null;
+      const containsAttempt=current.outgoing.some(entry=>entry.id===id);
+      if(containsAttempt) return {...current,
+        outgoing:current.outgoing.map(entry=>entry.id===id && entry.status!=='sent' ? {...entry,status} : entry),
+      };
+      return matchingDraft ? {...current,outgoing:[draftAttemptRow(matchingDraft,status),...current.outgoing]} : current;
+    });
+    if(!matchingDraft) return;
+    setMissingAttempt(false);
+    if(status==='sent') resetDraft();
+    else {
+      setDraftStatus(status);
+      if(status==='failed') setUnresolvedRetry(undefined);
     }
   }
-  const currentAttempt=conversation?.outgoing.find(entry=>entry.id===draft.current?.id);
+
+  async function recoverDraft(replay:boolean) {
+    const current=draft.current;
+    if(!current || draftAction.current || retryInProgress.current===current.id) return;
+    if(replay ? !missingAttempt : !needsAttemptCheck && !draftStatus) return;
+    draftAction.current=true;
+    setDraftActionRunning(true);
+    setReplayError('');
+    try {
+      await run(async isCurrent=>{
+        if(replay) return deliver(current,isCurrent);
+        try {
+          const result=await request(`outgoing/${current.id}`,{retry:false});
+          if(!isCurrent() || draft.current?.id!==current.id) return;
+          const refreshed=await refresh();
+          if(isCurrent() && retryInProgress.current!==current.id) applyAttemptResult(current.id,result.status,refreshed);
+          return;
+        } catch(error) {
+          if(!(error instanceof ApiError && error.status===404 && error.code==='zammad_attempt_not_found')) throw error;
+          if(isCurrent() && draft.current?.id===current.id) setMissingAttempt(true);
+        }
+        await refresh();
+      },undefined,{reportInlineError:true});
+    } catch(error) {
+      setReplayError(error instanceof Error ? error.message : 'Der Sendeversuch konnte nicht geprüft werden.');
+    } finally {
+      draftAction.current=false;
+      setDraftActionRunning(false);
+    }
+  }
+  const draftAttempt=draft.current;
+  const listedAttempt=loadedConversation?.outgoing.find(entry=>entry.id===draftAttempt?.id);
+  const savedDraft=draftAttempt && draftStatus && !listedAttempt ? draftAttemptRow(draftAttempt,draftStatus) : undefined;
+  const currentAttempt=listedAttempt ?? savedDraft;
+  const conversation=savedDraft ? {
+    ...loadedConversation,outgoing:[savedDraft,...(loadedConversation?.outgoing ?? [])],
+  } : loadedConversation;
   const draftActions=<>
-    {canReplay && !currentAttempt && <div className="communication-replay">
-      <p className="subtle">Desk hat keine Bestätigung erhalten. Du kannst dieselben Angaben erneut an Desk übergeben.</p>
-      <button type="button" onClick={()=>void replayMessage()}>Mit denselben Angaben fortfahren</button>
+    {locked && draft.current && !currentAttempt && (needsAttemptCheck || draftStatus) && <div className="communication-replay">
+      {missingAttempt ? <>
+        <p className="subtle">Desk hat keinen gespeicherten Sendeversuch gefunden. Du kannst dieselben Angaben erneut übermitteln.</p>
+        <button ref={replayButton} type="button" disabled={draftActionRunning} onClick={()=>void recoverDraft(true)}>Mit denselben Angaben fortfahren</button>
+      </> : <>
+        <p className="subtle" role="status">{draftStatus
+          ? 'Sendeversuch: '+attemptLabels[draftStatus]
+          : 'Prüfe den gespeicherten Sendeversuch anhand dieses Entwurfs.'}</p>
+        <button type="button" disabled={draftActionRunning} onClick={()=>void recoverDraft(false)}>Sendeversuch prüfen</button>
+      </>}
     </div>}
     {replayError && <p className="inline-error" role="alert">{replayError}</p>}
-    {currentAttempt?.status==='failed' && currentAttempt.id!==unresolvedRetry && <div className="communication-replay">
+    {draft.current && (currentAttempt?.status ?? draftStatus)==='failed' && draft.current.id!==unresolvedRetry && <div className="communication-replay">
       <p className="subtle">Zammad hat den Versuch abgelehnt. Du kannst hier eine neue Nachricht vorbereiten.</p>
       <button type="button" onClick={clearDraft}>Neuen Entwurf beginnen</button>
     </div>}
   </>;
-  const articles=useMemo(()=>(conversation?.articles ?? []).map(article=>({
+  const articles=useMemo(()=>(loadedConversation?.articles ?? []).map(article=>({
     ...article,
     subject:article.subject || 'Nachricht',
     body:article.content_type==='text/html' ? plainText(article.body) : article.body,
-  })),[conversation]);
+  })),[loadedConversation]);
   const term=search.trim().toLowerCase();
   const visibleArticles=term ? articles.filter(article=>
     article.subject.toLowerCase().includes(term) || article.body.toLowerCase().includes(term)) : articles;
   const updatedReply=reply && articles.find(article=>article.id===reply.id)?.reply;
   const forwarding=reply?.forwardBody!==undefined;
-  const replyChanged=Boolean(reply && !forwarding && conversation && (!updatedReply || updatedReply.recipient!==reply.recipient));
-  const ticket=conversation?.ticket;
+  const replyChanged=Boolean(reply && !forwarding && loadedConversation?.ticket && (!updatedReply || updatedReply.recipient!==reply.recipient));
+  const ticket=loadedConversation?.ticket;
   const requester=articles.find(article=>article.kind==='incoming-email' && article.from)?.from;
   const ticketIdHint=useId();
   const dialogTitle=dialog?.kind==='link'?'Ticket verknüpfen':'Ticket anlegen';
@@ -326,7 +401,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   return <div className={ticketId && zammad ? 'communication-layout communication-ticket' : 'communication-layout'}>
     <Panel title={ticket?.title || 'Kommunikation'} subtitle={ticket ? 'Zammad-Ticket #'+ticket.number : undefined} focusRef={zammadPanel}
       headingIcon={requester ? <span className="communication-avatar communication-requester" aria-hidden="true">{articleInitials(requester)}</span> : undefined}
-      action={ticketId && zammad ? <button type="button" onClick={()=>void refresh()} disabled={loading}>Verlauf aktualisieren</button> : undefined}>
+      action={ticketId && zammad ? <button type="button" onClick={()=>void refresh()}>Verlauf aktualisieren</button> : undefined}>
       <div className="panel-body communication-workspace">
         {!ticketId ? <>
           <div className="communication-empty">
@@ -405,19 +480,20 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
                 </article>
               </li>)}</ol>}
               {term && articles.length>0 && visibleArticles.length===0 && <p className="subtle" role="status">Keine Nachrichten für diese Suche.</p>}
-              {conversation && articles.length===0 && !loading && !problem && <p className="subtle">Dieses Ticket enthält noch keine Nachrichten.</p>}
+              {loadedConversation?.ticket && articles.length===0 && !loading && !problem && <p className="subtle">Dieses Ticket enthält noch keine Nachrichten.</p>}
             </section>
-            {(conversation?.outgoing.length ?? 0) > 0 && <div className="communication-outgoing"><h3>Sendeversuche</h3><Table headers={['Sendeversuch','Status','Aktion']} rows={(conversation?.outgoing ?? []).map((entry:Row)=>({
+            {(conversation?.outgoing.length ?? 0) > 0 && <div className="communication-outgoing"><h3>Sendeversuche</h3><Table headers={['Sendeversuch','Status','Letzter Versuch','Aktion']} rows={(conversation?.outgoing ?? []).map((entry:Row)=>({
                 key:entry.id,cells:[entry.subject,({sent:'An Zammad übergeben',pending:'Ausstehend',failed:'Abgelehnt',unknown:'Ausgang unklar'} as Record<string,string>)[entry.status],
+                    entry.attempted_at ? <time dateTime={entry.attempted_at}>{moment(entry.attempted_at)}</time> : '–',
                   entry.status==='sent' ? '–' : <div className="actions">
                     <button onClick={()=>run(async(isCurrent)=>{
                       const version=retryVersion.current;
                       const result=await request(`outgoing/${entry.id}`,{retry:false});
                       if(!isCurrent()) return;
-                      if(result.status==='failed' && retryVersion.current===version && retryInProgress.current!==entry.id) {
-                        setUnresolvedRetry(current=>current===entry.id ? undefined : current);
+                      const refreshed=await refresh();
+                      if(isCurrent() && retryVersion.current===version && retryInProgress.current!==entry.id) {
+                        applyAttemptResult(entry.id,result.status,refreshed);
                       }
-                      await refresh();
                     })}>Prüfen</button>
                     <button onClick={event=>setConfirmation({
                       actionKey:`${outgoingKey}${entry.id}`,
@@ -435,11 +511,9 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
                         try {
                           const result=await request(`outgoing/${entry.id}`,{retry:true});
                           if(!isCurrent()) return;
-                          await refresh();
-                          if(result.status==='failed') {
-                            if(protectsDraft) setUnresolvedRetry(undefined);
-                            throw new Error('Zammad hat den Sendeversuch abgelehnt.');
-                          }
+                          const refreshed=await refresh();
+                          if(isCurrent()) applyAttemptResult(entry.id,result.status,refreshed);
+                          if(result.status==='failed') throw new Error('Zammad hat den Sendeversuch abgelehnt.');
                           if(result.status!=='sent') throw new Error('Der Ausgang des Sendeversuchs ist weiterhin unklar.');
                         } finally {
                           if(protectsDraft) {
