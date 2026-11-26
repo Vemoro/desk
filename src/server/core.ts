@@ -2,7 +2,8 @@ import type { z } from 'zod';
 import { db, first, rows, type Query } from './db';
 import { DeskError, required } from './errors';
 import { requireAvailableAssignee } from './accounts';
-import { schemas, type costInput, type projectStage, type stages } from './contracts';
+import { schemas, type costInput, type projectStage, type stages, type TaskStatus } from './contracts';
+import { appendKanbanPosition, lockKanban, setKanbanPosition } from './kanban-order';
 import { recordStage, releaseProjectReservations } from './project-history';
 
 export type Collection = keyof typeof schemas;
@@ -39,22 +40,37 @@ export async function saveCore(table: Collection, data: Record<string, unknown>,
   if (id && ['tasks', 'lines'].includes(table) && 'project_id' in data) {
     throw new DeskError(400, 'Die Projektzuordnung ist nach der Anlage fest.');
   }
-  const keys = Object.keys(data);
-  if (!keys.length && id) return getCore(table, id);
-  const values = keys.map((key) => data[key]);
-  const placeholders = keys.map((_, index) => `$${index + 1}`);
-  const statement = id
-    ? `UPDATE ${table} SET ${keys.map((key, index) => `${key}=${placeholders[index]}`).join(',')} WHERE id=$${keys.length + 1}`
-    : `INSERT INTO ${table}(${keys.join(',')}) VALUES (${placeholders.join(',')})`;
-  const save = async (query: Query) =>
-    required(await first<{id:string} & Record<string,unknown>>(query, `${statement} RETURNING ${selected[table]}`, id ? [...values, id] : values));
-  const assignee = data.assignee_id;
-  if (table !== 'tasks' || typeof assignee !== 'string') return save(db);
+  if (!Object.keys(data).length && id) return getCore(table, id);
+  const save=async (query:Query,fields:Record<string,unknown>)=>{
+    const keys=Object.keys(fields);
+    const values=keys.map(key=>fields[key]);
+    const placeholders=keys.map((_,index)=>`$${index+1}`);
+    const statement=id
+      ? `UPDATE ${table} SET ${keys.map((key,index)=>`${key}=${placeholders[index]}`).join(',')} WHERE id=$${keys.length+1}`
+      : `INSERT INTO ${table}(${keys.join(',')}) VALUES (${placeholders.join(',')})`;
+    return required(await first<{id:string} & Record<string,unknown>>(query,`${statement} RETURNING ${selected[table]}`,
+      id ? [...values,id] : values));
+  };
+  if (table !== 'tasks') return save(db,data);
   return db.begin(async transaction=>{
-    const prior = id ? required(await first<{ assignee_id: string | null }>(transaction,
-      'SELECT assignee_id FROM tasks WHERE id=$1 FOR UPDATE',[id])) : undefined;
-    if (prior?.assignee_id !== assignee.toLowerCase()) await requireAvailableAssignee(transaction,assignee);
-    return save(transaction);
+    // The project never changes after task creation. Lock it before reading or writing card state.
+    const projectId=id ? required(await first<{project_id:string}>(transaction,
+      'SELECT project_id FROM tasks WHERE id=$1',[id])).project_id : data.project_id as string;
+    if(!(await lockKanban(transaction,projectId))) throw new DeskError(409,'Unzulässige Zuordnung oder ungültiger Wert.');
+    const prior=id ? required(await first<{assignee_id:string|null;status:TaskStatus}>(transaction,
+      'SELECT assignee_id,status FROM tasks WHERE id=$1 FOR UPDATE',[id])) : undefined;
+    const assignee=data.assignee_id;
+    if(typeof assignee==='string' && prior?.assignee_id!==assignee.toLowerCase()) {
+      await requireAvailableAssignee(transaction,assignee);
+    }
+    const status=(data.status ?? prior?.status ?? 'todo') as TaskStatus;
+    if(!prior || status!==prior.status) {
+      const position=await appendKanbanPosition(transaction,projectId,status);
+      const task=await save(transaction,data);
+      await setKanbanPosition(transaction,task.id,position);
+      return task;
+    }
+    return save(transaction,data);
   });
 }
 
