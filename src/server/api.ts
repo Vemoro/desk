@@ -5,7 +5,9 @@ import { accountInput, authenticate, changePassword, createAccount, createToken,
 import { accountAccessInput, changeAccountAccess, withAccountAccess } from './accounts';
 import { schemas, id, planningRange, planningResponse, projectHistoryResponse, projectResponse, projectStage, reservationInput, reservationStatus, movementInput, movementCorrection, costBatch, costAssignment, habenOfferInput, habenContactInput, zammadLinkInput, zammadCreateInput, zammadMessage } from './contracts';
 import { zammadNoteInput } from './contracts';
+import { kanbanMove, kanbanPositionQuery } from './contracts';
 import { assignCost, changeStage, controlling, getCore, getProject, importCosts, listCore, listCosts, saveCore, type Collection } from './core';
+import { moveKanbanTask } from './kanban-order';
 import { correctMovement, createMovement, createReservation, listMovements, listPlanningReservations, listReservations, listStock, setReservation } from './stock';
 import { pullContacts, syncContact, syncOffer } from './haben';
 import { checkZammadConnection, conversations, downloadAttachment, linkTicket, reviewOutgoing, send, unlinkTicket } from './zammad';
@@ -44,8 +46,11 @@ function action<T>(method: 'POST'|'PATCH', path: string, summary: string, input:
 for (const name of Object.keys(schemas) as Collection[]) {
   const schema = schemas[name];
   const path = `/${name}`;
-  get(path,'Einträge auflisten',({limit,offset})=>listCore(name,limit,offset),
-    {pageOrder:name==='lines' ? 'Art, Name, ID' : 'Name, ID',response:name==='projects' ? z.array(projectResponse) : undefined});
+  get(path,'Einträge auflisten',({limit,offset,searchParams})=>listCore(name,limit,offset,
+    name==='tasks' && kanbanPositionQuery.parse(Object.fromEntries(searchParams)).include_kanban_position==='true'),{
+    pageOrder:name==='lines' ? 'Art, Name, ID' : 'Name, ID',response:name==='projects' ? z.array(projectResponse) : undefined,
+    queryParameters:name==='tasks' ? kanbanPositionQuery.shape : undefined,
+  });
   get(`${path}/{id}`,'Eintrag lesen',({path})=>getCore(name,path[1]),
     {response:name==='projects' ? projectResponse : undefined});
   action('POST',path,'Eintrag anlegen',schema,(context,input)=>saveCore(name,input));
@@ -86,6 +91,8 @@ operations.push({ method:'DELETE', path:'/tokens/{id}', summary:'API-Token wider
   return required(await first(db,'DELETE FROM api_tokens WHERE id=$1 RETURNING id',[path[1]]));
 }});
 action('PATCH','/projects/{id}/stage','Projektstatus ändern',projectStage,({actor,path},input)=>changeStage(path[1],input.stage,actor.id));
+action('PATCH','/projects/{id}/kanban/{taskId}','Kanban-Karte vor eine Zielkarte oder ans Spaltenende verschieben',kanbanMove,
+  ({path},input)=>moveKanbanTask(path[1],path[3],input.status,input.before_task_id));
 get('/projects/{id}/history','Projektverlauf abrufen',async ({path,limit,offset})=>{
   await getProject(path[1]);
   return listProjectHistory(path[1],limit,offset);
@@ -216,7 +223,7 @@ function openApi() {
       parameters:[
         ...pathParameters,
         ...Object.entries(op.queryParameters ?? {}).map(([name,schema])=>({
-          name,in:'query',required:true,schema:z.toJSONSchema(schema,{target:'draft-2020-12'}),
+          name,in:'query',required:!schema.safeParse(undefined).success,schema:z.toJSONSchema(schema,{target:'draft-2020-12'}),
         })),
         ...pageParameters,
         ...(op.keyed ? [{name:requestKeyHeader,in:'header',required:false,schema:z.toJSONSchema(requestKeySchema.unwrap()),

@@ -66,8 +66,12 @@ test('Der API-Vertrag beschreibt Seitennavigation nur für paginierte Listen',as
       expect(byPath.get(operationPath+'/description')).toMatch(/Reihenfolge.*Änderungen zwischen Seiten/);
       const interval=operation[1]==='planning~1reservations' ? ['from','to'].map(name=>
         expect.objectContaining({name,required:true,schema:expect.objectContaining({type:'string',format:'date-time'})})) : [];
+      const taskOptions=operation[1]==='tasks' ? [expect.objectContaining({
+        name:'include_kanban_position',required:false,schema:expect.objectContaining({const:'true'}),
+      })] : [];
       expect(parameters).toEqual([
         ...interval,
+        ...taskOptions,
         expect.objectContaining({name:'limit',schema:{type:'integer',minimum:1,maximum:200,default:100}}),
         expect.objectContaining({name:'offset',schema:{type:'integer',minimum:0,maximum:1_000_000,default:0}}),
       ]);

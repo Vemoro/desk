@@ -2,7 +2,8 @@ import type { z } from 'zod';
 import { db, first, rows, type Query } from './db';
 import { DeskError, required } from './errors';
 import { requireAvailableAssignee } from './accounts';
-import { schemas, type costInput, type projectStage, type stages } from './contracts';
+import { schemas, type costInput, type projectStage, type stages, type TaskStatus } from './contracts';
+import { appendKanbanPosition, lockKanban } from './kanban-order';
 import { recordStage, releaseProjectReservations } from './project-history';
 
 export type Collection = keyof typeof schemas;
@@ -13,15 +14,16 @@ export type Project = {
 };
 const selected: Record<Collection, string> = {
   contacts: 'id,name,email,phone,notes,haben_id',
-  projects: '*', tasks: '*', lines: '*', locations: '*', items: '*',
+  projects: '*', tasks: 'id,project_id,name,status,assignee_id,due', lines: '*', locations: '*', items: '*',
 };
 
 export async function getProject(id: string, query: Query = db) {
   return required(await first<Project>(query, 'SELECT * FROM projects WHERE id=$1', [id]), 'Projekt nicht gefunden.');
 }
 
-export async function listCore(table: Collection, limit: number, offset: number) {
-  return rows(db, `SELECT ${selected[table]} FROM ${table} ORDER BY ${table === 'lines' ? 'kind,name' : 'name'},id LIMIT $1 OFFSET $2`, [limit, offset]);
+export async function listCore(table: Collection, limit: number, offset: number, includeKanbanPosition=false) {
+  const fields=table==='tasks' && includeKanbanPosition ? `${selected.tasks},kanban_position` : selected[table];
+  return rows(db, `SELECT ${fields} FROM ${table} ORDER BY ${table === 'lines' ? 'kind,name' : 'name'},id LIMIT $1 OFFSET $2`, [limit, offset]);
 }
 
 export async function getCore(table: Collection, id: string) {
@@ -39,22 +41,35 @@ export async function saveCore(table: Collection, data: Record<string, unknown>,
   if (id && ['tasks', 'lines'].includes(table) && 'project_id' in data) {
     throw new DeskError(400, 'Die Projektzuordnung ist nach der Anlage fest.');
   }
-  const keys = Object.keys(data);
-  if (!keys.length && id) return getCore(table, id);
-  const values = keys.map((key) => data[key]);
-  const placeholders = keys.map((_, index) => `$${index + 1}`);
-  const statement = id
-    ? `UPDATE ${table} SET ${keys.map((key, index) => `${key}=${placeholders[index]}`).join(',')} WHERE id=$${keys.length + 1}`
-    : `INSERT INTO ${table}(${keys.join(',')}) VALUES (${placeholders.join(',')})`;
-  const save = async (query: Query) =>
-    required(await first<{id:string} & Record<string,unknown>>(query, `${statement} RETURNING ${selected[table]}`, id ? [...values, id] : values));
-  const assignee = data.assignee_id;
-  if (table !== 'tasks' || typeof assignee !== 'string') return save(db);
+  if (!Object.keys(data).length && id) return getCore(table, id);
+  const save=async (query:Query,fields:Record<string,unknown>)=>{
+    const keys=Object.keys(fields);
+    const values=keys.map(key=>fields[key]);
+    const placeholders=keys.map((_,index)=>`$${index+1}`);
+    const statement=id
+      ? `UPDATE ${table} SET ${keys.map((key,index)=>`${key}=${placeholders[index]}`).join(',')} WHERE id=$${keys.length+1}`
+      : `INSERT INTO ${table}(${keys.join(',')}) VALUES (${placeholders.join(',')})`;
+    return required(await first<{id:string} & Record<string,unknown>>(query,`${statement} RETURNING ${selected[table]}`,
+      id ? [...values,id] : values));
+  };
+  if (table !== 'tasks') return save(db,data);
   return db.begin(async transaction=>{
-    const prior = id ? required(await first<{ assignee_id: string | null }>(transaction,
-      'SELECT assignee_id FROM tasks WHERE id=$1 FOR UPDATE',[id])) : undefined;
-    if (prior?.assignee_id !== assignee.toLowerCase()) await requireAvailableAssignee(transaction,assignee);
-    return save(transaction);
+    // The project never changes after task creation. Lock it before reading or writing card state.
+    const projectId=id ? required(await first<{project_id:string}>(transaction,
+      'SELECT project_id FROM tasks WHERE id=$1',[id])).project_id : data.project_id as string;
+    await lockKanban(transaction,projectId);
+    const prior=id ? required(await first<{assignee_id:string|null;status:TaskStatus}>(transaction,
+      'SELECT assignee_id,status FROM tasks WHERE id=$1 FOR UPDATE',[id])) : undefined;
+    const assignee=data.assignee_id;
+    if(typeof assignee==='string' && prior?.assignee_id!==assignee.toLowerCase()) {
+      await requireAvailableAssignee(transaction,assignee);
+    }
+    const status=(data.status ?? prior?.status ?? 'todo') as TaskStatus;
+    if(!prior || status!==prior.status) {
+      const position=await appendKanbanPosition(transaction,projectId,status);
+      return save(transaction,{...data,kanban_position:position});
+    }
+    return save(transaction,data);
   });
 }
 

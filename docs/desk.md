@@ -178,6 +178,11 @@ Führe `bun scripts/rehearse-migration-rollback.ts` im Git-Checkout aus. Die Pro
 
 Die Probe ergänzt ausschließlich in der temporären Kopie zwei SQL-Dateien. Nach einem Fehler in der zweiten Datei prüft sie beide Testtabellen, das Migrationsprotokoll, den Bereitschaftsstatus und ein bereits gespeichertes Musterprojekt. Nach der Korrektur derselben Testdatei werden die Migrationen auf derselben Testdatenbank angewendet und alle vier Ergebnisse erneut geprüft. Kann die Probe ihre Testressourcen nicht vollständig entfernen, meldet sie die betroffenen Ressourcen und endet mit einem Fehlerstatus.
 
+### Kanban-Reihenfolge über die REST-API
+
+`GET /api/v1/tasks` gibt Aufgaben weiterhin nach Name und ID aus. Mit `include_kanban_position=true` enthält jeder Eintrag zusätzlich `kanban_position`. Sortiere für das Board je Projekt und Status nach dieser Position. Einträge ohne Position folgen nach Name und ID. Solche Einträge können beim Betrieb einer älteren Programmversion nach einer Migration entstehen.
+
+`PATCH /api/v1/projects/{id}/kanban/{taskId}` verschiebt eine Karte in den angegebenen `status`. Übergib in `before_task_id` die Karte in der Zielspalte, vor der sie stehen soll, oder `null` für das Spaltenende. Die Zielkarte muss zum selben Projekt und zur Zielspalte gehören. Ist sie dort inzwischen nicht mehr verfügbar, antwortet Desk mit HTTP 409. Bestehende Aufrufe zum Anlegen oder Ändern von Aufgaben bleiben gültig. Neue Karten und tatsächliche Statuswechsel ohne Positionsangabe gehen ans Spaltenende.
 ### Seitennavigation der REST-API
 
 `limit` bestimmt die Höchstzahl der Einträge pro Seite (1 bis 200, Standard 100). `offset` überspringt Einträge am Anfang der aktuellen sortierten Liste (0 bis 1.000.000, Standard 0). Diese Parameter gelten für die folgenden GET-Listen:

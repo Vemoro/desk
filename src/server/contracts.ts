@@ -10,6 +10,10 @@ const cents = z.number().int().min(-100_000_000).max(100_000_000);
 const optionalDate = z.iso.date().nullable();
 const email = z.union([z.email().max(254), z.literal('')]);
 const link = z.union([z.url({ protocol: /^https?$/ }).max(500), z.literal('')]);
+const taskStatus = z.enum(['todo','doing','review','done']);
+export type TaskStatus = z.infer<typeof taskStatus>;
+export const kanbanMove = z.strictObject({status:taskStatus,before_task_id:id.nullable()});
+export const kanbanPositionQuery = z.object({include_kanban_position:z.literal('true').optional()});
 
 export const schemas = {
   contacts: z.strictObject({ name: title, email: email.optional(), phone: short.optional(), notes: memo.optional() }),
@@ -18,7 +22,7 @@ export const schemas = {
     offer_ref: short.optional(), invoice_ref: short.optional(), external_link: link.optional(), communication_note: memo.optional(),
   }),
   tasks: z.strictObject({
-    project_id: id, name: title, status: z.enum(['todo', 'doing', 'review', 'done']).optional(),
+    project_id: id, name: title, status: taskStatus.optional(),
     assignee_id: id.nullable().optional(), due: optionalDate.optional(),
   }),
   lines: z.strictObject({ project_id: id, kind: z.enum(['buy','sell']), name: title, quantity, unit_cents: cents.nonnegative() }),
