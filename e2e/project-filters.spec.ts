@@ -50,6 +50,20 @@ test('Projektfilter kombinieren sich und bleiben bei der Rückkehr erhalten',asy
   await expect(page.getByText('Keine Projekte entsprechen den Filtern.')).toBeVisible();
   await page.getByRole('button',{name:'Filter zurücksetzen'}).click();
   await expect(page.getByText('6 Projekte gefunden.')).toBeVisible();
+  await expect(search).toBeFocused();
+
+  await search.fill('Muster');
+  await stage.selectOption('open');
+  await due.selectOption('overdue');
+  await page.getByRole('button',{name:'Abmelden',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Anmelden',exact:true})).toBeVisible();
+  await page.getByLabel('E-Mail').fill('mira@example.test');
+  await page.getByLabel('Passwort').fill(process.env.DESK_DEMO_PASSWORD!);
+  await page.getByRole('button',{name:'Anmelden',exact:true}).click();
+  await expect(page.getByText('6 Projekte gefunden.')).toBeVisible();
+  await expect(search).toHaveValue('');
+  await expect(stage).toHaveValue('all');
+  await expect(due).toHaveValue('all');
 });
 
 

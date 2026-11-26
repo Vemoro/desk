@@ -1,6 +1,6 @@
 import { defineConfig,devices } from '@playwright/test';
 
-const baseURL=process.env.DESK_E2E_URL ?? 'http://127.0.0.1:4173';
+const baseURL=process.env.DESK_E2E_URL ?? 'http://localhost:4173';
 export default defineConfig({
   testDir:'./e2e',
   use:{baseURL,locale:'de-DE',timezoneId:'Europe/Berlin',trace:'retain-on-failure'},
@@ -10,7 +10,8 @@ export default defineConfig({
     env:{DESK_ORIGIN:baseURL},reuseExistingServer:!process.env.CI,
   },
   projects:[
-    {name:'core',testMatch:['core.spec.ts','project-filters.spec.ts'],use:{...devices['Desktop Chrome']}},
+    {name:'core',testMatch:['core.spec.ts','form-submit.spec.ts','cost-center-conflict.spec.ts','movement-retry.spec.ts','reservation-retry.spec.ts','warehouse-checkouts.spec.ts','movement-location.spec.ts','booking-labels.spec.ts','warehouse-location-acceptance.spec.ts','stock-search.spec.ts','available-stock-filter.spec.ts','navigation.spec.ts','refresh-after-save.spec.ts','load-order.spec.ts','passkeys.spec.ts','account-password.spec.ts','project-history.spec.ts','weekly-planning.spec.ts','zammad-connection-check.spec.ts','zammad-unlink.spec.ts','zammad-thread-search.spec.ts','zammad-reply.spec.ts','zammad-attachment.spec.ts','zammad-search-count.spec.ts','zammad-empty-thread.spec.ts','confirmation-dialogs.spec.ts','contact-duplicates.spec.ts','contact-projects.spec.ts','contact-phone.spec.ts','api-response.spec.ts','planning-interval.spec.ts','project-filters.spec.ts'],use:{...devices['Desktop Chrome']}},
     {name:'screenshots',testMatch:'screenshots.spec.ts',use:{...devices['Desktop Chrome']}},
+    {name:'runtime-image',testMatch:'runtime-image.spec.ts',outputDir:'test-results/runtime-image',use:{...devices['Desktop Chrome'],trace:'off'}},
   ],
 });

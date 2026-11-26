@@ -1,7 +1,9 @@
 import type { z } from 'zod';
 import { db, first, rows, type Query } from './db';
 import { DeskError, required } from './errors';
+import { requireAvailableAssignee } from './accounts';
 import { schemas, type costInput, type projectStage, type stages } from './contracts';
+import { recordStage, releaseProjectReservations } from './project-history';
 
 export type Collection = keyof typeof schemas;
 type Stage = typeof stages[number];
@@ -44,7 +46,16 @@ export async function saveCore(table: Collection, data: Record<string, unknown>,
   const statement = id
     ? `UPDATE ${table} SET ${keys.map((key, index) => `${key}=${placeholders[index]}`).join(',')} WHERE id=$${keys.length + 1}`
     : `INSERT INTO ${table}(${keys.join(',')}) VALUES (${placeholders.join(',')})`;
-  return required(await first<{id:string} & Record<string,unknown>>(db, `${statement} RETURNING ${selected[table]}`, id ? [...values, id] : values));
+  const save = async (query: Query) =>
+    required(await first<{id:string} & Record<string,unknown>>(query, `${statement} RETURNING ${selected[table]}`, id ? [...values, id] : values));
+  const assignee = data.assignee_id;
+  if (table !== 'tasks' || typeof assignee !== 'string') return save(db);
+  return db.begin(async transaction=>{
+    const prior = id ? required(await first<{ assignee_id: string | null }>(transaction,
+      'SELECT assignee_id FROM tasks WHERE id=$1 FOR UPDATE',[id])) : undefined;
+    if (prior?.assignee_id !== assignee.toLowerCase()) await requireAvailableAssignee(transaction,assignee);
+    return save(transaction);
+  });
 }
 
 const transitions: Record<Stage, Stage[]> = {
@@ -61,7 +72,7 @@ export async function lockPlanning(query: Query) {
   await query.unsafe('SELECT pg_advisory_xact_lock(61274)');
 }
 
-export async function changeStage(id: string, stage: z.infer<typeof projectStage>['stage']) {
+export async function changeStage(id: string, stage: z.infer<typeof projectStage>['stage'], actorId?: string) {
   return db.begin(async (transaction) => {
     await lockPlanning(transaction);
     const existing = await getProject(id, transaction);
@@ -71,10 +82,10 @@ export async function changeStage(id: string, stage: z.infer<typeof projectStage
       throw new DeskError(409, 'Zuerst eine Angebotsreferenz erfassen.');
     }
     if (stage === 'complete' && !existing.invoice_ref) throw new DeskError(409, 'Zuerst eine Rechnungsreferenz erfassen.');
-    if (stage === 'cancelled' || stage === 'complete') {
-      await transaction.unsafe("UPDATE reservations SET status='released' WHERE project_id=$1 AND status<>'released'", [id]);
-    }
-    return first(transaction, 'UPDATE projects SET stage=$1 WHERE id=$2 RETURNING *', [stage, id]);
+    const project = await first(transaction, 'UPDATE projects SET stage=$1 WHERE id=$2 RETURNING *', [stage, id]);
+    await recordStage(transaction,id,actorId,existing.stage,stage,'desk');
+    if (stage === 'cancelled' || stage === 'complete') await releaseProjectReservations(transaction,id,actorId);
+    return project;
   });
 }
 

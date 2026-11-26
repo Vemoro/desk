@@ -1,5 +1,5 @@
 import { db } from '../src/server/db';
-import { createAccount } from '../src/server/auth';
+import { createAccount } from '../src/server/accounts';
 
 try {
   const [, , email, name] = process.argv;
