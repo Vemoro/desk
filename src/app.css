@@ -19,6 +19,7 @@ a, .text-button { color: var(--accent-ink); }
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; min-height: 40px; border-radius: 7px; padding: 7px 13px; border: 1px solid var(--border); background: var(--paper); color: var(--ink); }
 button:disabled { opacity: .65; cursor: wait; }
+.stage-actions button:disabled { cursor: not-allowed; }
 button:hover, summary:hover { background: var(--soft); }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
 button.primary:hover { background: #1d4586; }
