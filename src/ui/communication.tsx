@@ -326,7 +326,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   return <div className={ticketId && zammad ? 'communication-layout communication-ticket' : 'communication-layout'}>
     <Panel title={ticket?.title || 'Kommunikation'} subtitle={ticket ? 'Zammad-Ticket #'+ticket.number : undefined} focusRef={zammadPanel}
       headingIcon={requester ? <span className="communication-avatar communication-requester" aria-hidden="true">{articleInitials(requester)}</span> : undefined}
-      action={ticketId && zammad ? <button type="button" onClick={()=>void refresh()} disabled={loading}>Verlauf aktualisieren</button> : undefined}>
+      action={ticketId && zammad ? <button type="button" onClick={()=>void refresh()}>Verlauf aktualisieren</button> : undefined}>
       <div className="panel-body communication-workspace">
         {!ticketId ? <>
           <div className="communication-empty">
