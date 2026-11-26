@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { TicketEntry, type TicketArticle, type useAttachmentDownloads } from './communication-articles';
 import { attemptLabels, type Conversation, type RequestZammad, type useSendingAttempt } from './communication-delivery';
 import { moment } from './client';
+import { Field } from './field';
 import { Table, type Confirmation, type Run } from './widgets';
 
 type ArticleAction = (article:TicketArticle,trigger:HTMLButtonElement)=>void;
@@ -20,9 +21,8 @@ export function TicketActivity({loading,problem,articles,hasTicket,search,setSea
     <section className="communication-history" aria-label="Ticketverlauf" aria-busy={loading}>
       {problem && <p role="alert" className="inline-error">{problem}</p>}
       {(articles.length>0 || search) && <div className="communication-search">
-        <label className="filter"><span>Ticketverlauf durchsuchen</span>
-          <input type="search" value={search} onChange={event=>setSearch(event.target.value)}/>
-        </label>
+        <Field label="Ticketverlauf durchsuchen" className="filter">{props=><input {...props} type="search"
+          value={search} onChange={event=>setSearch(event.target.value)}/>}</Field>
         {term && visibleArticles.length>0 && <p className="subtle" role="status">{visibleArticles.length} von {articles.length} Nachrichten</p>}
       </div>}
       {visibleArticles.length>0 && <ol className="thread">{visibleArticles.map(article=><TicketEntry key={article.id}
