@@ -56,6 +56,7 @@ async function capture(browser:Browser, target:Target, password:string) {
       const context=await browser.newContext({
         viewport:{width,height},locale:'de-DE',timezoneId:'Europe/Berlin',serviceWorkers:'block',
       });
+      let step='Demo-Anmeldung';
       try {
         await context.route('**/*',async route=>{
           try {
@@ -78,22 +79,31 @@ async function capture(browser:Browser, target:Target, password:string) {
         });
         if(!login.ok()) throw new Error('Die Demo-Anmeldung ist fehlgeschlagen.');
 
+        step='Muster-Projektliste';
         await page.goto(`${target.origin}/#projects`);
         await page.reload();
         await page.getByRole('heading',{name:'Projekte',exact:true,level:1}).waitFor();
         for(const project of ['Büroinstallation Westflügel','Veranstaltungsbetreuung im Kulturhaus']) {
           await page.getByRole('button',{name:project,exact:true}).waitFor();
         }
+        step='Farbschema und Aufnahme';
         if(theme==='dunkel') {
+          const menu=page.getByRole('button',{name:'Menü',exact:true});
+          const compact=await menu.isVisible();
+          if(compact) await menu.click();
           await page.getByRole('button',{name:'Dunkles Design'}).click();
-          await page.locator('html[data-theme="dark"]').waitFor();
+          if(compact) {
+            await menu.click();
+            await page.getByRole('navigation',{name:'Hauptnavigation'}).waitFor({state:'hidden'});
+          }
         }
+        await page.locator(`html[data-theme="${theme==='hell'?'light':'dark'}"]`).waitFor();
         captures.push({
           filename:`${target.label}-${name}-${theme}.png`,
           bytes:await page.screenshot({animations:'disabled',fullPage:true}),
         });
       } catch {
-        throw new Error(`${target.label}, ${name}, ${theme}: Demo-Anmeldung oder Muster-Projektliste fehlt.`);
+        throw new Error(`${target.label}, ${name}, ${theme}: ${step} fehlgeschlagen.`);
       } finally {
         await context.close();
       }
