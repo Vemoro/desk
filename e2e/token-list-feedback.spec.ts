@@ -4,12 +4,13 @@ import { signIn } from './session';
 test('API-Token-Liste unterscheidet Laden, Fehler und echte Leerantwort',async({page})=>{
   let requests=0;
   let writes=0;
+  let signedIn=false;
   let response:'error'|'list'|'empty'='error';
   let release!:()=>void;
   const first=new Promise<void>((resolve)=>{release=resolve;});
   page.on('request',(request)=>{
     const path=new URL(request.url()).pathname;
-    if(request.method()!=='GET' && (path==='/api/v1/tokens' || path.startsWith('/api/v1/tokens/'))) writes++;
+    if(signedIn && request.method()!=='GET' && path.startsWith('/api/v1/')) writes++;
   });
   await page.route('**/api/v1/tokens',async(route)=>{
     requests++;
@@ -20,6 +21,7 @@ test('API-Token-Liste unterscheidet Laden, Fehler und echte Leerantwort',async({
     return route.fulfill({json:response==='list'?[{id:'a',label:'Muster-Token',scope:'read'}]:[]});
   });
   await signIn(page);
+  signedIn=true;
   const nav=page.getByRole('navigation',{name:'Hauptnavigation'});
   const settings=nav.getByRole('button',{name:'Einstellungen',exact:true});
   await settings.click();
@@ -29,12 +31,17 @@ test('API-Token-Liste unterscheidet Laden, Fehler und echte Leerantwort',async({
   release();
   await expect(panel.getByRole('alert')).toHaveText('Die API-Token konnten nicht geladen werden.');
   await expect(panel.getByText('Keine API-Token erstellt.')).toHaveCount(0);
-  const previousRequests=requests;
-  response='list';
   const retry=panel.getByRole('button',{name:'Erneut laden',exact:true});
   await retry.focus();
+  const failedRetry=page.waitForResponse(result=>new URL(result.url()).pathname==='/api/v1/tokens');
+  await retry.press('Enter');
+  expect((await failedRetry).status()).toBe(503);
+  await expect(retry).toBeFocused();
+  const previousRequests=requests;
+  response='list';
   await retry.press('Enter');
   await expect(panel.getByRole('cell',{name:'Muster-Token',exact:true})).toBeVisible();
+  await expect(panel).toBeFocused();
   await expect(panel.getByRole('alert')).toHaveCount(0);
   expect(requests).toBeGreaterThan(previousRequests);
   response='empty';

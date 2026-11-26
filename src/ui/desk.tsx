@@ -614,6 +614,9 @@ function Settings({data,run,flags,accountId}:{data:Data;run:Run;flags:{haben:boo
   const [issued,setIssued]=useState('');
   const [checkedTicket,setCheckedTicket]=useState<number>();
   const tokenRequest=useRef(0);
+  const tokenPanel=useRef<HTMLElement>(null);
+  const retryTokenButton=useRef<HTMLButtonElement>(null);
+  const returnTokenFocus=useRef(false);
   async function refresh(){
     const request=++tokenRequest.current;
     setTokenList({status:'loading'});
@@ -628,6 +631,13 @@ function Settings({data,run,flags,accountId}:{data:Data;run:Run;flags:{haben:boo
     void refresh();
     return ()=>{tokenRequest.current++;};
   },[]);
+  useEffect(()=>{
+    if(tokenList.status==='loading' || !returnTokenFocus.current) return;
+    returnTokenFocus.current=false;
+    if(document.activeElement===document.body) {
+      (tokenList.status==='failed'?retryTokenButton.current:tokenPanel.current)?.focus();
+    }
+  },[tokenList.status]);
   return <>
     <Panel title="Team"><div className="panel-body"><Expand title="Konto anlegen"><Form caption="Konto speichern" fields={[
       {name:'name',label:'Name',required:true},{name:'email',label:'E-Mail',type:'email',required:true},
@@ -650,7 +660,7 @@ function Settings({data,run,flags,accountId}:{data:Data;run:Run;flags:{haben:boo
         },blocked?'Konto gesperrt.':'Konto freigegeben.');
       }}>{row.blocked?'Konto freigeben':'Konto sperren'}</button>,
     ]}))}/></Panel>
-    <Panel title="API-Zugriff" action={<a href="/api/v1/openapi.json" target="_blank" rel="noreferrer">OpenAPI</a>}><div className="panel-body">
+    <Panel title="API-Zugriff" focusRef={tokenPanel} action={<a href="/api/v1/openapi.json" target="_blank" rel="noreferrer">OpenAPI</a>}><div className="panel-body">
       <Expand title="API-Token erzeugen"><Form caption="Token erzeugen" fields={[
         {name:'label',label:'Name',required:true},{name:'scope',label:'Berechtigung',choices:[{value:'read',label:'Lesen'},{value:'write',label:'Lesen und schreiben'}],required:true},
       ]} submit={(input)=>run(async(isCurrent)=>{const result=await api('tokens','POST',input);if(isCurrent()) {setIssued(result.token);await refresh();}},'API-Token erzeugt.')}/></Expand>
@@ -659,7 +669,10 @@ function Settings({data,run,flags,accountId}:{data:Data;run:Run;flags:{haben:boo
     {tokenList.status==='loading'&&<p className="empty" role="status">API-Token werden geladen …</p>}
     {tokenList.status==='failed'&&<div className="panel-body">
       <p className="inline-error" role="alert">Die API-Token konnten nicht geladen werden.</p>
-      <button type="button" onClick={()=>void refresh()}>Erneut laden</button>
+      <button type="button" ref={retryTokenButton} onClick={(event)=>{
+        returnTokenFocus.current=document.activeElement===event.currentTarget;
+        void refresh();
+      }}>Erneut laden</button>
     </div>}
     {tokenList.status==='loaded'&&(tokenList.tokens.length
       ? <Table headers={['Name','Berechtigung','Aktion']} rows={tokenList.tokens.map((row)=>({key:row.id,cells:[row.label,row.scope==='read'?'Lesen':'Lesen und schreiben',
