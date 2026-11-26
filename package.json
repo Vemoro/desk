@@ -16,7 +16,8 @@
     "admin": "bun scripts/admin.ts",
     "demo": "bun scripts/demo.ts",
     "e2e": "playwright test --project core",
-    "docs:screenshots": "playwright test --project screenshots"
+    "docs:screenshots": "playwright test --project screenshots",
+    "review:screenshots": "bun scripts/review-screenshots.ts"
   },
   "dependencies": {
     "@better-auth/passkey": "1.7.16",
