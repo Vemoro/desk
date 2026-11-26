@@ -77,6 +77,7 @@ tr:nth-last-child(1 of :not([hidden])) td { border-bottom:0; }
 .pill.accent { background:var(--tint); color:var(--accent-ink); }
 .empty { color:var(--muted); padding:22px 20px; }
 .booking-details { overflow-wrap:anywhere; }
+.delivery-reference { overflow-wrap:anywhere; }
 .week-controls { display:flex; align-items:end; flex-wrap:wrap; gap:14px; }
 .week-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); padding:8px; }
 .week-day { min-width:0; padding:6px; overflow-wrap:anywhere; }

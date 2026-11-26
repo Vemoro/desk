@@ -82,7 +82,8 @@ export const planningResponse = z.array(z.strictObject({
 }));
 export type PlanningBooking = z.infer<typeof planningResponse>[number];
 export const movementInput = z.discriminatedUnion('action', [
-  z.strictObject({ action: z.literal('receive'), item_id: id, location_id: id, project_id: id.optional(), quantity }),
+  z.strictObject({ action: z.literal('receive'), item_id: id, location_id: id, project_id: id.optional(), quantity,
+    delivery_reference: z.string().trim().max(160).optional() }),
   z.strictObject({ action: z.enum(['issue','return','consume']), reservation_id: id, quantity }),
 ]);
 export const movementCorrection = z.strictObject({ quantity, reason: memo.min(1) });
