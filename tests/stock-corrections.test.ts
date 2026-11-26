@@ -224,6 +224,14 @@ test('Wareneingang speichert optionale Lieferscheinreferenzen normalisiert und w
   const receive=(reference?:string,key?:string)=>request('/movements','POST',
     {...original,delivery_reference:reference},key);
   try {
+    const openApi=await (await request('/openapi.json')).json();
+    const receiveSchema=openApi.paths['/movements'].post.requestBody.content['application/json'].schema.oneOf
+      .find((schema:{properties:{action:{const?:string}}})=>schema.properties.action.const==='receive');
+    expect(receiveSchema.properties.delivery_reference).toEqual({
+      type:'string',description:'Optionaler Freitext. Desk entfernt äußere Leerzeichen und akzeptiert danach bis zu 160 Zeichen.',
+    });
+    expect(receiveSchema.required).not.toContain('delivery_reference');
+
     const legacyKey=crypto.randomUUID();
     const legacy=await receive(undefined,legacyKey);
     expect(legacy.status).toBe(201);
@@ -255,9 +263,16 @@ test('Wareneingang speichert optionale Lieferscheinreferenzen normalisiert und w
       const accepted=await receive(' '+limit+' ');
       expect(accepted.status).toBe(201);
       expect(await accepted.json()).toMatchObject({delivery_reference:limit});
-      expect((await receive(limit+character)).status).toBe(400);
+      const tooLong=await receive(limit+character);
+      expect(tooLong.status).toBe(400);
+      expect(await tooLong.json()).toMatchObject({
+        code:'invalid_input',error:expect.stringContaining('Die Lieferscheinreferenz darf höchstens 160 Zeichen haben.'),
+      });
     }
 
+    const invalid=await receive('LS\0-2028-42');
+    expect(invalid.status).toBe(400);
+    expect(await invalid.json()).toMatchObject({code:'invalid_input',error:expect.stringContaining('delivery_reference')});
     const correction=await request(`/movements/${row.id}/corrections`,'POST',{quantity:1,reason:'Teilkorrektur'});
     expect(correction.status).toBe(201);
     expect(await correction.json()).toMatchObject({action:'correct_receive',delivery_reference:null});
