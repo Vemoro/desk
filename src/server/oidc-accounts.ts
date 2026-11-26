@@ -1,18 +1,47 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { withAccountAccess } from './accounts';
-import { db, first } from './db';
+import { first, type Query } from './db';
 import { DeskError, required } from './errors';
 
 export const oidcProviderId = 'desk-oidc';
+const callbackAccess = new AsyncLocalStorage<() => Promise<Query>>();
 
 export function oidcAccountKey(issuer: string, subject: string) {
   return JSON.stringify([issuer, subject]);
 }
 
-export function getOidcProfile(issuer: string, subject: string) {
-  return first<{ email: string; name: string }>(db, `
+export async function getOidcProfile(issuer: string, subject: string) {
+  const acquire = callbackAccess.getStore();
+  if (!acquire) return;
+  return first<{ email: string; name: string }>(await acquire(), `
     SELECT u.email, u.name FROM auth_accounts a JOIN users u ON u.id = a."userId"
     WHERE a."providerId" = $1 AND a."accountId" = $2 AND NOT u.blocked
   `, [oidcProviderId, oidcAccountKey(issuer, subject)]);
+}
+
+export async function withOidcCallbackAccess<T>(callback: () => Promise<T>) {
+  const complete = Promise.withResolvers<void>();
+  let acquireQuery: Promise<Query> | undefined;
+  let lock: Promise<void> | undefined;
+  function acquire() {
+    if (acquireQuery) return acquireQuery;
+    const query = Promise.withResolvers<Query>();
+    acquireQuery = query.promise;
+    // The provider is contacted before the verified subject needs a DB lookup.
+    // Keep the same transaction through local profile lookup and session creation.
+    lock = withAccountAccess('shared', async transaction => {
+      query.resolve(transaction);
+      await complete.promise;
+    });
+    void lock.catch(error => query.reject(error));
+    return acquireQuery;
+  }
+  try {
+    return await callbackAccess.run(acquire, callback);
+  } finally {
+    complete.resolve();
+    await lock;
+  }
 }
 
 export function bindOidcAccount(email: string, issuer: string, subject: string) {

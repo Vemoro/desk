@@ -3,7 +3,7 @@ import { createAccount, createToken } from '../src/server/auth';
 import { handle } from '../src/server/api';
 import { db } from '../src/server/db';
 import { required } from '../src/server/errors';
-import { bindOidcAccount, getOidcProfile, removeOidcAccount } from '../src/server/oidc-accounts';
+import { bindOidcAccount, getOidcProfile, removeOidcAccount, withOidcCallbackAccess } from '../src/server/oidc-accounts';
 
 const database = process.env.DATABASE_URL;
 if (!database || !new URL(database).pathname.endsWith('_test')) throw new Error('Isolierte Testdatenbank erforderlich.');
@@ -11,6 +11,7 @@ if (!database || !new URL(database).pathname.endsWith('_test')) throw new Error(
 const origin = process.env.DESK_ORIGIN ?? 'http://127.0.0.1';
 const issuer = 'https://id.example.test/realms/muster';
 const password = 'muster-test-passwort';
+const profile = (provider: string, subject: string) => withOidcCallbackAccess(() => getOidcProfile(provider, subject));
 
 function createPerson(role: 'admin' | 'member' = 'member') {
   return createAccount({ email: `${crypto.randomUUID()}@example.test`, name: 'Musterperson', role, password });
@@ -39,8 +40,8 @@ test('OIDC-Zuordnung ist wiederholbar und dieselbe Identität kann nur ein Konto
     expect(outcomes.map(result => result.status).sort()).toEqual(['fulfilled', 'rejected']);
     const owner = outcomes[0].status === 'fulfilled' ? first : second;
     expect(await bindOidcAccount(owner.email, issuer, subject)).toBe(false);
-    expect(await getOidcProfile(issuer, subject)).toEqual({ email: owner.email, name: owner.name });
-    expect(await getOidcProfile(issuer + '/zweiter', subject)).toBeUndefined();
+    expect(await profile(issuer, subject)).toEqual({ email: owner.email, name: owner.name });
+    expect(await profile(issuer + '/zweiter', subject)).toBeUndefined();
     await expect(bindOidcAccount(owner.email, issuer, 'anderes-subject')).rejects.toThrow('bereits eine Zuordnung');
   } finally {
     await db.unsafe('DELETE FROM users WHERE id = ANY($1::uuid[])', [[first.id, second.id]]);
@@ -61,13 +62,32 @@ test('OIDC-Entkopplung beendet beide Browser-Sitzungen und erhält lokale Anmeld
     expect(await removeOidcAccount(user.email)).toBe(true);
     expect(await profileStatus(first)).toBe(401);
     expect(await profileStatus(second)).toBe(401);
-    expect(await getOidcProfile(issuer, subject)).toBeUndefined();
+    expect(await profile(issuer, subject)).toBeUndefined();
     expect(await profileStatus(bearer)).toBe(200);
     const local = { Cookie: await login(user.email) };
     expect(await removeOidcAccount(user.email)).toBe(false);
     expect(await profileStatus(local)).toBe(200);
   } finally {
     await db.unsafe('DELETE FROM api_tokens WHERE user_id = $1', [user.id]);
+    await db.unsafe('DELETE FROM users WHERE id = $1', [user.id]);
+  }
+});
+
+test('OIDC wartet bei der Anbieterprüfung ohne Kontosperre und prüft die aktuelle Zuordnung', async () => {
+  const user = required(await createPerson());
+  const subject = crypto.randomUUID();
+  const provider = Promise.withResolvers<void>();
+  try {
+    await bindOidcAccount(user.email, issuer, subject);
+    const callback = withOidcCallbackAccess(async () => {
+      await provider.promise;
+      return getOidcProfile(issuer, subject);
+    });
+    expect(await removeOidcAccount(user.email)).toBe(true);
+    provider.resolve();
+    expect(await callback).toBeUndefined();
+  } finally {
+    provider.resolve();
     await db.unsafe('DELETE FROM users WHERE id = $1', [user.id]);
   }
 });

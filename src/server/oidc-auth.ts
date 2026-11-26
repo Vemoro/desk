@@ -1,6 +1,5 @@
-import { withAccountAccess } from './accounts';
 import { deskOidcAuth } from './desk-auth';
-import { oidcProviderId } from './oidc-accounts';
+import { oidcProviderId, withOidcCallbackAccess } from './oidc-accounts';
 import { configuredOidc } from './oidc-discovery';
 import { oidcCallbackPath, oidcStartPath } from './oidc-provider';
 import { configuredOrigin } from './origin';
@@ -37,7 +36,7 @@ export async function handleOidc(request: Request) {
     }
     const auth = await deskOidcAuth(config);
     if (!start) {
-      const result = await withAccountAccess('shared', () => auth.handler(request));
+      const result = await withOidcCallbackAccess(() => auth.handler(request));
       const location = result.headers.get('location');
       // Provider errors can contain parameters Desk should never forward.
       const success = result.status === 302 && location && new URL(location, origin).href === `${origin}/`;
