@@ -46,12 +46,11 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
     if(filters.contactId && project.contact_id!==filters.contactId) return false;
     const matchesSearch=`${project.name} ${name(data.contacts,project.contact_id)}`.toLowerCase().includes(query)
       || [project.offer_ref,project.invoice_ref,project.cost_center].some(value=>value?.toLowerCase().includes(query));
-    const matchesStage=filters.stage==='all' || (filters.stage==='open'
-      ? !['complete','cancelled'].includes(project.stage)
-      : project.stage===filters.stage);
+    const active=!['complete','cancelled'].includes(project.stage);
+    const matchesStage=filters.stage==='all' || (filters.stage==='open'?active:project.stage===filters.stage);
     const dueDate=project.due?.slice(0,10);
     const matchesDue=filters.due==='all'
-      || (filters.due==='overdue' && Boolean(dueDate) && dueDate<today)
+      || (filters.due==='overdue' && active && Boolean(dueDate) && dueDate<today)
       || (filters.due==='today' && dueDate===today)
       || (filters.due==='missing' && !dueDate);
     return matchesSearch && matchesStage && matchesDue;
