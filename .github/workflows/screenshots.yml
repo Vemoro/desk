@@ -11,9 +11,9 @@ jobs:
       matrix:
         include:
           - state: vorher
-            commit: cc6b8b114b9152ab020cd9f35b7663672aa402dc
+            commit: 46a7ad2ebb701cb12ff8ff7b69ac14b3d55502d4
           - state: nachher
-            commit: f98de7d4e7a8881add2c7ae32c4ee705ed089a4f
+            commit: 80f5bca78547a6063a3a5752dc912767b8bb79ef
     services:
       postgres:
         image: postgres:17
@@ -46,7 +46,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           path: seed
-          ref: cc6b8b114b9152ab020cd9f35b7663672aa402dc
+          ref: 46a7ad2ebb701cb12ff8ff7b69ac14b3d55502d4
           persist-credentials: false
       - uses: oven-sh/setup-bun@v2
         with:
