@@ -3,6 +3,7 @@ import { all, api, ApiError, calendarDate, compileCsv, euros, inventoryLabel, in
 import { defaultProjectFilters, Project, Projects, type Data } from './projects';
 import { projectHash, projectView, type ProjectView } from './project-views';
 import { PasskeyLogin, PasskeySettings } from './passkeys';
+import { OidcLogin } from './oidc-login';
 import { AccountPassword } from './account-password';
 import { WeeklyPlanning } from './weekly-planning';
 import { ConfirmationRequests, ConfirmDialog, Expand, Form, hasPendingWrite, noWrite, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
@@ -187,6 +188,7 @@ export function Desk() {
         {name:'password',label:'Passwort',type:'password',required:true,autoComplete:'current-password'},
       ]} submit={(input)=>signIn(()=>api('login','POST',input))}/>
       <PasskeyLogin onSignIn={signIn}/>
+      <OidcLogin/>
       <SourceLink/>
     </div></main>;
 
