@@ -1,0 +1,48 @@
+name: Übernehmen
+
+on:
+  issue_comment:
+    types: [created]
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+    inputs:
+      probe:
+        description: Nur anzeigen, welche Tickets erinnert oder zurückgegeben würden
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desk-roadmap-zuweisungen
+  queue: max
+
+jobs:
+  roadmap:
+    if: >-
+      github.repository == 'Vemoro/desk' && github.ref == 'refs/heads/main' &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+        (!github.event.issue.pull_request && github.event.comment.user.type == 'User' &&
+          (contains(github.event.comment.body, '/übernehmen') ||
+           contains(github.event.comment.body, '/uebernehmen') ||
+           contains(github.event.comment.body, '/freigeben'))))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - run: bun scripts/roadmap/run.ts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ROADMAP_TOKEN: ${{ secrets.DESK_ROADMAP_TOKEN }}
+          ROADMAP_PROBE: ${{ github.event_name == 'workflow_dispatch' && inputs.probe }}

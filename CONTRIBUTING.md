@@ -20,7 +20,7 @@ Der fiktive Bericht „Kommunikationsnotiz fehlt nach dem Neuladen“ lässt sic
 
 ## Beiträge vorbereiten
 
-1. Kläre bei einer freien Aufgabe aus „Geplant“ mit dem Maintainer, welchen Teil du übernehmen willst. Schreibe Rückmeldungen zur Sache und belege sie mit dem betroffenen Stand oder der einschlägigen Regel.
+1. Such dir eine freie Aufgabe unter „Geplant“. Sobald die Roadmap-Automatik eingerichtet ist, kannst du `/übernehmen` (oder `/uebernehmen`) als Kommentar im Issue schreiben. Der Bot bestätigt die Zuweisung, falls GitHub sie erlaubt. Mit `/freigeben` gibst du die Aufgabe zurück. Wenn die Automatik noch nicht eingerichtet ist oder GitHub die Zuweisung ablehnt, wende dich im Issue an die Maintainer. [Regeln zur Übernahme](docs/roadmap.md#issues-übernehmen-und-freigeben)
 2. Erstelle für deinen Beitrag einen Branch in deinem Fork. Wenn du Schreibzugriff auf Desk hast, kannst du auch einen Branch im Desk-Repository verwenden. Führe die passenden Prüfungen mit synthetischen Daten aus. Bei Änderungen an der Oberfläche gehören vergleichbare Vorher- und Nachher-Bilder zum PR. [Prüfbefehle und Screenshot-Workflow](docs/entwicklung.md#befehle-und-screenshot-workflow)
 3. Nutze die PR-Vorlage für Ergebnis, Issue, Prüfnachweise und Updatehinweise. Kennzeichne wesentliche KI-Unterstützung. Die Entwicklungsdoku beschreibt den Ablauf für Entwurf, Selbstprüfung, unabhängiges Review, CI und Freigabe. [Pull Requests](docs/entwicklung.md#pull-requests) · [Review und Freigabe](docs/entwicklung.md#änderungen-prüfen)
 
