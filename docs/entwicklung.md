@@ -29,11 +29,19 @@ Verwende für laufende Arbeit einen Entwurf. Vor der Freigabe zur Prüfung müss
 
 Veröffentliche die **Selbstprüfung** als eigenen Kommentar. Halte darin Passung, Akzeptanzkriterien mit Belegen, fachliche Quellen, Einfachheit, Regelverstöße und offene Entscheidungen fest. Bei agentischer Umsetzung erfolgt diese Prüfung in einer frischen Session ohne Entstehungsverlauf. Für jedes anschließende unabhängige Review erhält eine weitere frische Session oder eine andere Person den Auftrag nach Schritt 2.
 
-Veröffentliche **Unabhängiges Code-Review** und **Unabhängige Doku-Prüfung** jeweils als eigenen Kommentar, auch bei einem Ergebnis ohne Befunde. Nenne in jedem Prüfkommentar Zielbasis, geprüften Head, Umfang, Befunde, gelaufene und ausgelassene Checks mit Grund sowie offene Punkte. Belege einen behobenen Befund mit Fix-Commit und Nachprüfung. Bei einem neuen Head ergänze den Kommentar mit dem neuen Stand und dem Nachweis, der ihn abdeckt. Ergebnisse eines frischen Agenten können unter demselben GitHub-Konto erscheinen. Kennzeichne, wer geprüft hat und ob du dessen Bericht zusammenfasst.
+Veröffentliche **Unabhängiges Code-Review** und **Unabhängige Doku-Prüfung** jeweils als eigenen Kommentar, auch bei einem Ergebnis ohne Befunde. Nenne in jedem Prüfkommentar Zielbasis, geprüften Head, Umfang, Befunde, gelaufene und ausgelassene Checks mit Grund sowie offene Punkte. Belege einen behobenen Befund mit Fix-Commit und Nachprüfung. Bei einem neuen Head oder einer neuen Zielbasis ergänze den Kommentar mit einem belegten Nachtrag oder einem erneuten Review. Ergebnisse eines frischen Agenten können unter demselben GitHub-Konto erscheinen. Kennzeichne, wer geprüft hat und ob du dessen Bericht zusammenfasst.
 
 Verlinke die Kommentare in der PR-Beschreibung. Prüfe diese Links und den abgedeckten Stand vor „Ready for review“, vor Übergabe auf dem Freigabeboard und vor dem Merge. Fehlt ein erforderlicher Kommentar oder belegt er nur einen älteren Stand, hole die Prüfung und den Nachweis vor dem jeweiligen Schritt nach.
 
-Beim fiktiven Muster Auftragsservice ändert ein PR für die Büroinstallation sowohl die Projektsuche als auch deren Anleitung. Die Beschreibung verlinkt Selbstprüfung, Code-Review und Doku-Prüfung, alle mit der geprüften Basis und dem Head. Ändert der PR nur die Anleitung, genügen die Selbstprüfung und die separate Doku-Prüfung mit den Doku-Checks. [Habens Selbstprüfung](https://github.com/Speicherstadt/haben/blob/4dd9603df8ecc2f08ac790897b627afe5a0619cd/.claude/skills/beitrag-pruefen/references/selbstpruefung.md) · [Habens Code-Review im PR](https://github.com/Speicherstadt/haben/pull/1945) · [Habens Doku-Prüfung im PR](https://github.com/Speicherstadt/haben/pull/1942)
+Für die fiktive „Büroinstallation Westflügel“ verbessert ein PR die Projektsuche und passt ihre Anleitung an. Jede Zeile steht für einen eigenen Kommentar, den die PR-Beschreibung verlinkt.
+
+| Kommentar | Beispiel für Code und Doku | Beispiel für einen reinen Doku-PR |
+| --- | --- | --- |
+| Selbstprüfung | Die Suche findet das Projekt über die Kostenstelle wie im Issue verlangt. | Die Anleitung erklärt den bereits vorhandenen Suchweg. |
+| Unabhängiges Code-Review | Der Browserfall findet die Kostenstelle und erhält die übrigen Filter. | Entfällt. |
+| Unabhängige Doku-Prüfung | Die Anleitung stimmt mit Feldbeschriftung, Suchverhalten und verlinkter Projektliste überein. | Feldbeschriftung, Schritte und Link stimmen. |
+
+[Habens Selbstprüfung](https://github.com/Speicherstadt/haben/blob/4dd9603df8ecc2f08ac790897b627afe5a0619cd/.claude/skills/beitrag-pruefen/references/selbstpruefung.md) · [Habens Code-Review im PR](https://github.com/Speicherstadt/haben/pull/1945) · [Habens Doku-Prüfung im PR](https://github.com/Speicherstadt/haben/pull/1942)
 
 ### Überlappende Änderungen
 
