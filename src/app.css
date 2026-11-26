@@ -102,6 +102,7 @@ tr:nth-last-child(1 of :not([hidden])) td { border-bottom:0; }
 .project-filters > label,.project-search-field { flex:1 1 180px; min-width:0; }
 .project-search-field small { display:block; margin-top:4px; }
 .project-filters > .project-contact-filter { flex-basis:264px; }
+.project-filters > .project-sort-field { flex-basis:210px; }
 .project-contact-selection { display:block; overflow-wrap:anywhere; color:var(--muted); }
 .actions,.tabs { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .tabs { border-bottom:1px solid var(--border); }

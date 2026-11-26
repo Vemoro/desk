@@ -21,8 +21,8 @@ function reservationTimes(values:Record<string,string>) {
   return {...values,starts_at:start.toISOString(),ends_at:end.toISOString()};
 }
 
-type ProjectFilters = { query:string; stage:string; due:string; contactId:string };
-export const defaultProjectFilters:ProjectFilters = {query:'',stage:'all',due:'all',contactId:''};
+type ProjectFilters = { query:string; stage:string; due:string; contactId:string; sort:'standard'|'due' };
+export const defaultProjectFilters:ProjectFilters = {query:'',stage:'all',due:'all',contactId:'',sort:'standard'};
 
 export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;select:(id:string)=>void;
   filters:ProjectFilters;onFilter:(filters:ProjectFilters)=>void;
@@ -56,6 +56,15 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
       || (filters.due==='missing' && !dueDate);
     return matchesSearch && matchesStage && matchesDue;
   });
+  if(filters.sort==='due') {
+    projects.sort((left,right)=>{
+      const leftDue=left.due?.slice(0,10);
+      const rightDue=right.due?.slice(0,10);
+      if(!leftDue) return rightDue?1:0;
+      if(!rightDue) return -1;
+      return leftDue.localeCompare(rightDue);
+    });
+  }
   return <>
     <Panel title="Projekte">
       <div className="panel-body">
@@ -81,11 +90,16 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
           </select>{selectedContact && <small className="project-contact-selection" aria-hidden="true">
             {contactOptionLabel(selectedContact)}
           </small>}</label>
+          <label className="project-sort-field"><span>Projekte sortieren</span><select value={filters.sort}
+            onChange={(event)=>onFilter({...filters,sort:event.target.value==='due'?'due':'standard'})}>
+            <option value="standard">Standard</option>
+            <option value="due">Frühester Termin zuerst</option>
+          </select></label>
         </div>
         <div className="actions">
           <span className="subtle" role="status">{projects.length===1?'1 Projekt gefunden.':`${projects.length} Projekte gefunden.`}</span>
           <button type="button" disabled={!filtered} onClick={()=>{
-            onFilter(defaultProjectFilters);
+            onFilter({...defaultProjectFilters,sort:filters.sort});
             search.current?.focus();
           }}>Filter zurücksetzen</button>
         </div>
