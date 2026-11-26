@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="141" height="24" viewBox="0 0 141 24" role="img" aria-label="Lizenz AGPL-3.0-only">
+  <clipPath id="shape"><rect width="141" height="24" rx="5"/></clipPath>
+  <g clip-path="url(#shape)"><rect width="141" height="24" fill="#182842"/><rect x="45" width="96" height="24" fill="#2758A4"/></g>
+  <g fill="#fff" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="12" text-anchor="middle">
+    <text x="22.5" y="16">Lizenz</text><text x="93" y="16">AGPL-3.0-only</text>
+  </g>
+</svg>

@@ -31,7 +31,9 @@ test('API-Token-Liste unterscheidet Laden, Fehler und echte Leerantwort',async({
   await expect(panel.getByText('Keine API-Token erstellt.')).toHaveCount(0);
   const previousRequests=requests;
   response='list';
-  await panel.getByRole('button',{name:'Erneut laden',exact:true}).click();
+  const retry=panel.getByRole('button',{name:'Erneut laden',exact:true});
+  await retry.focus();
+  await retry.press('Enter');
   await expect(panel.getByRole('cell',{name:'Muster-Token',exact:true})).toBeVisible();
   await expect(panel.getByRole('alert')).toHaveCount(0);
   expect(requests).toBeGreaterThan(previousRequests);
