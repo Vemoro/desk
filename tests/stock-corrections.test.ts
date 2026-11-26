@@ -270,9 +270,15 @@ test('Wareneingang speichert optionale Lieferscheinreferenzen normalisiert und w
       });
     }
 
-    const invalid=await receive('LS\0-2028-42');
-    expect(invalid.status).toBe(400);
-    expect(await invalid.json()).toMatchObject({code:'invalid_input',error:expect.stringContaining('delivery_reference')});
+    for(const invalidReference of ['LS\0-2028-42','LS\uD800-2028-42']) {
+      for(const key of [undefined,crypto.randomUUID()]) {
+        const invalid=await receive(invalidReference,key);
+        expect(invalid.status).toBe(400);
+        expect(await invalid.json()).toMatchObject({
+          code:'invalid_input',error:expect.stringContaining('Die Lieferscheinreferenz enthält ungültige Zeichen.'),
+        });
+      }
+    }
     const correction=await request(`/movements/${row.id}/corrections`,'POST',{quantity:1,reason:'Teilkorrektur'});
     expect(correction.status).toBe(201);
     expect(await correction.json()).toMatchObject({action:'correct_receive',delivery_reference:null});

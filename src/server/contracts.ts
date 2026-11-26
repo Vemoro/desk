@@ -84,7 +84,8 @@ export type PlanningBooking = z.infer<typeof planningResponse>[number];
 export const movementInput = z.discriminatedUnion('action', [
   z.strictObject({ action: z.literal('receive'), item_id: id, location_id: id, project_id: id.optional(), quantity,
     delivery_reference: z.string().trim().pipe(
-      z.string().max(160,'Die Lieferscheinreferenz darf höchstens 160 Zeichen haben.').refine(value=>!value.includes('\0'),'Die Lieferscheinreferenz darf kein Nullzeichen enthalten.'),
+      z.string().max(160,'Die Lieferscheinreferenz darf höchstens 160 Zeichen haben.')
+        .refine(value=>value.isWellFormed() && !value.includes('\0'),'Die Lieferscheinreferenz enthält ungültige Zeichen.'),
     ).describe('Optionaler Freitext. Desk entfernt äußere Leerzeichen und akzeptiert danach bis zu 160 Zeichen.').optional() }),
   z.strictObject({ action: z.enum(['issue','return','consume']), reservation_id: id, quantity }),
 ]);
