@@ -106,7 +106,7 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
           </select>{selectedContact && <small className="project-contact-selection" aria-hidden="true">
             {contactOptionLabel(selectedContact)}
           </small>}</label>
-          <label><span>Projekte sortieren</span><select value={filters.sort}
+          <label className="project-sort-field"><span>Projekte sortieren</span><select value={filters.sort}
             onChange={(event)=>onFilter({...filters,sort:event.target.value==='due'?'due':'standard'})}>
             <option value="standard">Standard</option>
             <option value="due">Frühester Termin zuerst</option>
