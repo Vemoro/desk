@@ -8,6 +8,8 @@ Starte Desk danach über das blaue Desk-Symbol im Startmenü oder auf dem Home-B
 
 ## Ein Auftrag
 
+In der **Übersicht** zeigt **Fällige Aufgaben** bis zu zehn offene Aufgaben mit Termin aus aktiven Projekten. Die ältesten Termine stehen zuerst. **Überfällig** und **Heute** richten sich nach dem Kalendertag des Browsers. Wähle den Projektnamen in einer Zeile, um den Projektüberblick zu öffnen.
+
 1. Einen Kontakt und ein Projekt anlegen. Aufgaben im Kanban verteilen und den Projektstatus auf Planung setzen.
 2. Personal und Inventar vormerken. Das Ende einer Vormerkung muss nach dem Beginn liegen. Bei **Von** und **Bis** zeigt das Formular die Browser-Zeitzone für neue Eingaben. Geplante Einkaufskosten und Verkaufspositionen erfassen. Die Verkaufspositionen können als CSV exportiert werden. Beim Entfernen einer Kalkulationsposition zeigt Desk ihren Namen zur Bestätigung.
 3. Eine Angebotsreferenz ergänzen. Bei eingerichteter Haben-Verbindung die ID des vorhandenen Angebots eintragen und abgleichen. Desk zeigt den Status des Angebots an und kann die Bestätigung übernehmen. Ohne Haben wird der Projektstatus von Hand gesetzt.
