@@ -278,7 +278,7 @@ tr:nth-last-child(1 of :not([hidden])) td { border-bottom:0; }
 .communication-note .icon { width:16px; height:16px; }
 .communication-note textarea { font-weight:400; }
 .communication-note-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:space-between; }
-.communication-note-actions button { min-height:36px; }
+.communication-note-actions button { min-height:var(--control-h); }
 .communication-reply { display:grid; gap:12px; padding:12px; background:var(--paper); border:1px solid var(--border); border-radius:7px; }
 .communication-reply header { display:flex; align-items:start; justify-content:space-between; gap:8px 16px; flex-wrap:wrap; }
 .communication-reply h3,.communication-reply p { margin:0; overflow-wrap:anywhere; }
@@ -355,7 +355,6 @@ tr:nth-last-child(1 of :not([hidden])) td { border-bottom:0; }
   .communication-note-actions button { padding-inline:8px; }
   .communication-message { width:calc(100% - 50px); }
   .communication-article-actions button { min-height:44px; }
-  .communication-note-actions button { min-height:var(--control-h); }
   .communication-bubble { padding:12px 12px; }
   .communication-workspace .thread li { gap:8px; }
   .communication-avatar { width:26px; height:26px; font-size: var(--text-12); }

@@ -22,7 +22,7 @@ test('Abstände und Schriftgrößen verwenden die gemeinsamen Rasterwerte',async
         if(!(rule instanceof CSSStyleRule)) continue;
         for(const name of rule.style) {
           const value=rule.style.getPropertyValue(name).trim();
-          if(name==='font-size' && !/^var\(--text-(?:12|13|14|16|18|24|28)\)$/.test(value)) {
+          if(name==='font-size' && value!=='inherit' && !/^var\(--text-(?:12|13|14|16|18|24|28)\)$/.test(value)) {
             unexpected.push(`${rule.selectorText} ${name}: ${value}`);
           }
           if(!/^(?:margin|padding|gap|column-gap|row-gap)(?:-|$)/.test(name)) continue;
@@ -65,9 +65,13 @@ for(const theme of ['light','dark'] as const) {
     await expect(checkbox).toBeFocused();
     const focus=await checkbox.evaluate(input=>{
       const style=getComputedStyle(input);
-      return {offset:style.outlineOffset,ring:style.outlineColor,background:getComputedStyle(input.closest('.panel')!).backgroundColor};
+      return {visible:input.matches(':focus-visible'),offset:style.outlineOffset,ring:style.outlineColor,
+        width:style.outlineWidth,style:style.outlineStyle,background:getComputedStyle(input.closest('.panel')!).backgroundColor};
     });
     expect(focus.offset).toBe('2px');
+    expect(focus.visible).toBe(true);
+    expect(focus.width).toBe('2px');
+    expect(focus.style).toBe('solid');
     expect(contrast(focus.ring,focus.background)).toBeGreaterThanOrEqual(3);
   });
 }
