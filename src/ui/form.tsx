@@ -5,6 +5,7 @@ import { Field, fieldError, invalidFormFields } from './field';
 type FormFieldDefinition = {
   name:string; label:string; type?:string; placeholder?:string; value?:string|number;
   required?:boolean; choices?:{value:string;label:string}[]; min?:number; max?:number; autoComplete?:string; onChange?:(value:string)=>void; describedBy?:string;
+  minLength?:number; maxLength?:number; hint?:string;
 };
 
 type Fields = Record<string,string>;
@@ -33,7 +34,7 @@ function FormField({field,disabled,error,recheck}:{
   field:FormFieldDefinition; disabled:boolean; error?:string;
   recheck:(control:HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement)=>void;
 }) {
-  return <Field label={field.label} describedBy={field.describedBy} error={error} className={field.type==='textarea'?'wide':undefined}>
+  return <Field label={field.label} describedBy={field.describedBy} hint={field.hint} error={error} className={field.type==='textarea'?'wide':undefined}>
     {labels=>{
       const common={...labels,name:field.name,disabled,required:field.required};
       if(field.choices) return <select {...common} value={field.onChange ? field.value ?? '' : undefined}
@@ -45,9 +46,10 @@ function FormField({field,disabled,error,recheck}:{
         {field.choices.map(choice=><option value={choice.value} key={choice.value}>{choice.label}</option>)}
       </select>;
       if(field.type==='textarea') return <textarea {...common} defaultValue={field.value}
-        placeholder={field.placeholder} onChange={event=>recheck(event.currentTarget)}/>;
+        minLength={field.minLength} maxLength={field.maxLength} placeholder={field.placeholder} onChange={event=>recheck(event.currentTarget)}/>;
       return <input {...common} type={field.type ?? 'text'} defaultValue={field.value} placeholder={field.placeholder}
-        min={field.min} max={field.max} autoComplete={field.autoComplete} onChange={event=>recheck(event.currentTarget)}/>;
+        min={field.min} max={field.max} minLength={field.minLength} maxLength={field.maxLength}
+        autoComplete={field.autoComplete} onChange={event=>recheck(event.currentTarget)}/>;
     }}
   </Field>;
 }

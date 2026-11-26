@@ -1,6 +1,26 @@
 import { expect, test } from '@playwright/test';
 import { signIn } from './session';
 
+test('Zu kurzes Teampasswort wird am Feld erklärt und löst keinen Schreibzugriff aus',async({page})=>{
+  let writes=0;
+  await page.route('**/api/v1/users',route=>{
+    if(route.request().method()==='POST') writes++;
+    return route.continue();
+  });
+  await signIn(page);
+  await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Einstellungen',exact:true}).click();
+  await page.getByText('Konto anlegen',{exact:true}).click();
+  await page.getByLabel('Name',{exact:true}).fill('Muster Team');
+  await page.getByLabel('E-Mail',{exact:true}).fill('muster-team@example.test');
+  await page.getByLabel('Rolle',{exact:true}).selectOption('member');
+  const password=page.getByLabel('Passwort',{exact:true});
+  await password.pressSequentially('kurz');
+  await page.getByRole('button',{name:'Konto speichern',exact:true}).click();
+  await expect(password).toBeFocused();
+  await expect(password).toHaveAccessibleDescription('Mindestens 12 Zeichen Gib mindestens 12 Zeichen ein.');
+  expect(writes).toBe(0);
+});
+
 test('Leere Lagerort-Eingabe zeigt einen Feldfehler, fokussiert das Feld und schreibt nichts',async({page})=>{
   let writes=0;
   await page.route('**/api/v1/locations**',route=>{

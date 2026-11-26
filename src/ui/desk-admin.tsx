@@ -118,7 +118,7 @@ function TeamSettings({users,run,accountId,onChange}:{users:Row[];run:Run;accoun
   return <>
     <Panel title="Team" focusRef={teamPanel}><div className="panel-body"><Expand title="Konto anlegen"><Form caption="Konto speichern" fields={[
       {name:'name',label:'Name',required:true},{name:'email',label:'E-Mail',type:'email',required:true},
-      {name:'password',label:'Passwort (mindestens 12 Zeichen)',type:'password',required:true,autoComplete:'new-password'},
+      {name:'password',label:'Passwort',hint:'Mindestens 12 Zeichen',minLength:12,maxLength:200,type:'password',required:true,autoComplete:'new-password'},
       {name:'role',label:'Rolle',choices:[{value:'member',label:'Mitarbeit'},{value:'admin',label:'Administration'}],required:true},
     ]} submit={(input)=>run(()=>api('users','POST',input),'Konto angelegt.')}/></Expand></div>
     <Table headers={['Name','Rolle','Zugang','Aktion']} rows={users.map((row)=>({key:row.id,cells:[

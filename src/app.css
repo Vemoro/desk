@@ -309,6 +309,7 @@ tr:nth-last-child(1 of :not([hidden])) td { border-bottom:0; }
 th[data-numeric],td[data-numeric] > div { text-align:right; font-variant-numeric:tabular-nums; }
 .danger { color:var(--danger); }
 button.destructive,button.destructive:not(:disabled):hover { background:var(--danger); border-color:var(--danger); color:var(--paper); }
+@media(max-width:700px) { .expand summary,.kanban-add summary { min-height:44px; } }
 @media(min-width:1001px) and (min-height:720px) {
   .main:has(.communication-ticket) { height:100dvh; gap:12px; padding-block:20px 16px; }
   .main:has(.communication-ticket) > :not(.communication-ticket) { flex:none; }

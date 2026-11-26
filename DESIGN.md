@@ -52,8 +52,8 @@ Die vollständige Bestandsabnahme vor 0.2.0.0 umfasst die Gestaltung und die Fel
 
 Prüfe die Änderung mit Tastatur sowie auf der betroffenen Bildschirmgröße. Bei Änderungen am Aussehen gehören reproduzierbare Vergleichsbilder ins Review. Der [Screenshot-Ablauf](.agents/skills/desk-pr-screenshots/SKILL.md) beschreibt die Aufnahme.
 
-Der Browserlauf prüft die automatisierbaren WCAG-AA-Kriterien in Hell und Dunkel. Ergänze die Ergebnisse um eine Tastaturprüfung und eine Sichtprüfung auf dem Smartphone. Teste bei Feldern den Zugang zum ersten Fehler, seine Behebung und den Tastaturfokus nach dem Schließen eines Dialogs.
+Der Axe-Lauf prüft ausgewählte Zustände in Chromium auf automatisierbare WCAG-AA-Kriterien. Er erfasst Anmeldung, Übersicht, Projektliste, Musterprojekt mit Kanban, Ressourcen, Controlling und Zammad-Editor sowie Lager, Woche, Kontakte, Konto, Einstellungen, Ist-Kosten und den Sperrdialog. Er läuft für Hell und Dunkel auf Desktop und Smartphone. Ergänze die Ergebnisse um eine Tastatur- und Sichtprüfung. Teste bei Feldern den Zugang zum ersten Fehler, seine Behebung und den Tastaturfokus nach dem Schließen eines Dialogs.
 
-Textfelder, Auswahllisten und Texteingaben verwenden `Field`. `bun run check:fields` prüft die gemeinsame Komponente. Die bestehenden einzelnen Checkboxen für freie Lagerbestände und andere Browsersitzungen behalten direkt zugeordnete Labels.
+Textfelder, Auswahllisten und mehrzeilige Eingaben verwenden `Field`. `bun run check:fields` prüft, dass native Feld-Tags innerhalb von `Field` stehen und Feldattribute per Spread erhalten. Die beiden einzeln zugelassenen Checkboxen für freie Lagerbestände und andere Browsersitzungen behalten direkt zugeordnete Labels.
 
-Eine geführte Aufgabe mit fester Reihenfolge zeigt eine geordnete Schrittliste, den aktuellen Schritt und erledigte Schritte. Projektzustände und Kanban-Spalten bleiben als solche erkennbar, weil sie auch bei wechselnder Reihenfolge den Arbeitsstand abbilden.
+Eine geführte Aufgabe mit fester Reihenfolge zeigt eine geordnete Liste. `aria-current="step"` kennzeichnet den aktuellen Schritt und ein Textlabel die erledigten Schritte. Projektzustände und Kanban-Spalten bleiben als solche erkennbar, weil sie auch bei wechselnder Reihenfolge den Arbeitsstand abbilden.

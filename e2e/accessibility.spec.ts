@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { project, signIn } from './session';
+import { signIn } from './session';
 
 async function check(page:Page,view:string) {
   const {violations}=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa']).analyze();
@@ -24,8 +24,15 @@ async function setupTicket(page:Page) {
   }}));
 }
 
+async function navigate(page:Page,width:number,title:string) {
+  if(width<700) await page.getByRole('button',{name:'Menü',exact:true}).click();
+  await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:title,exact:true}).click();
+  await expect(page.getByRole('heading',{name:title,level:1,exact:true})).toBeVisible();
+}
+
 for(const [theme,width] of [['light',1280],['dark',1280],['light',390],['dark',390]] as const) {
   test(`Desk erfüllt die automatisierbaren AA-Prüfungen in ${theme} bei ${width} Pixeln`,async({page})=>{
+    test.setTimeout(60_000);
     await page.setViewportSize({width,height:900});
     await page.addInitScript(value=>localStorage.setItem('desk-theme',value),theme);
     await page.goto('/');
@@ -34,8 +41,10 @@ for(const [theme,width] of [['light',1280],['dark',1280],['light',390],['dark',3
     await setupTicket(page);
     await signIn(page);
     await check(page,'Übersicht');
-    if(width<700) await page.getByRole('button',{name:'Menü',exact:true}).click();
-    await project(page,'Büroinstallation Westflügel');
+    await navigate(page,width,'Projekte');
+    await check(page,'Projektliste');
+    await page.getByRole('button',{name:'Büroinstallation Westflügel',exact:true}).click();
+    await expect(page.getByRole('heading',{name:'Büroinstallation Westflügel',level:1,exact:true})).toBeVisible();
     await check(page,'Projektübersicht');
     for(const tab of ['Kanban','Ressourcen & Kalkulation','Controlling','Kommunikation']) {
       await page.getByRole('link',{name:tab,exact:true}).click();
@@ -45,9 +54,12 @@ for(const [theme,width] of [['light',1280],['dark',1280],['light',390],['dark',3
     await page.getByRole('button',{name:'Antworten',exact:true}).click();
     await expect(page.getByRole('region',{name:'E-Mail-Antwort'})).toBeVisible();
     await check(page,'Zammad-Antworteditor');
-    if(width<700) await page.getByRole('button',{name:'Menü',exact:true}).click();
-    await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Projektlager',exact:true}).click();
-    await expect(page.getByRole('heading',{name:'Projektlager',exact:true})).toBeVisible();
-    await check(page,'Projektlager');
+    for(const title of ['Projektlager','Wochenplanung','Kontakte','Mein Konto','Einstellungen','Ist-Kosten']) {
+      await navigate(page,width,title);
+      await check(page,title);
+    }
+    await navigate(page,width,'Einstellungen');
+    await page.getByRole('button',{name:'Konto sperren',exact:true}).first().click();
+    await check(page,'Sperrdialog');
   });
 }

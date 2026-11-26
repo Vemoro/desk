@@ -4,12 +4,16 @@ import ts from 'typescript';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const controls=new Set(['input','select','textarea']);
-const checkboxExceptions=new Set(['src/ui/account-password.tsx','src/ui/warehouse.tsx']);
-
 function isAllowedCheckbox(node:ts.JsxOpeningLikeElement,file:string) {
-  if(!checkboxExceptions.has(file) || node.tagName.getText()!=='input') return false;
-  return node.attributes.properties.some(attribute=>ts.isJsxAttribute(attribute) && attribute.name.getText()==='type' &&
-    attribute.initializer && ts.isStringLiteral(attribute.initializer) && attribute.initializer.text==='checkbox');
+  if(node.tagName.getText()!=='input') return false;
+  const attributes=new Map(node.attributes.properties.filter(ts.isJsxAttribute)
+    .map(attribute=>[attribute.name.getText(),attribute.initializer]));
+  const type=attributes.get('type');
+  if(!type || !ts.isStringLiteral(type) || type.text!=='checkbox') return false;
+  const name=attributes.get('name');
+  const checked=attributes.get('checked');
+  return (file==='src/ui/account-password.tsx' && name && ts.isStringLiteral(name) && name.text==='revokeOtherSessions') ||
+    (file==='src/ui/warehouse.tsx' && checked && ts.isJsxExpression(checked) && checked.expression?.getText()==='onlyAvailable');
 }
 
 function belongsToField(node:ts.Node) {
@@ -19,12 +23,16 @@ function belongsToField(node:ts.Node) {
   return false;
 }
 
+function receivesFieldProps(node:ts.JsxOpeningLikeElement) {
+  return node.attributes.properties.some(ts.isJsxSpreadAttribute);
+}
+
 function inspect(file:string,text:string) {
   const source=ts.createSourceFile(file,text,ts.ScriptTarget.Latest,true);
   const failures:string[]=[];
   function visit(node:ts.Node) {
     if((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && controls.has(node.tagName.getText()) &&
-      !isAllowedCheckbox(node,file) && !belongsToField(node)) {
+      !isAllowedCheckbox(node,file) && (!belongsToField(node) || !receivesFieldProps(node))) {
       const {line}=source.getLineAndCharacterOfPosition(node.getStart());
       failures.push(`${file}:${line+1}: ${node.tagName.getText()} braucht ein gemeinsames Field.`);
     }
