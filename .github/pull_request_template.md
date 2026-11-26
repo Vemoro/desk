@@ -4,8 +4,8 @@ Welches Problem löst der PR? Nenne das Issue als `Umgesetzt #…` oder `Refs #�
 
 ## Prüfungen
 
-- Selbstprüfung für Basis und Head
-- Unabhängiges Code- und/oder Doku-Review für den geprüften Stand
+- Basis und Head, dazu der Link zum Kommentar der Selbstprüfung
+- Links zu den eigenständigen Kommentaren für unabhängiges Code-Review und unabhängige Doku-Prüfung, soweit sie anfallen
 - Lokale Prüfungen, CI und begründete Auslassungen
 - Vorher- und Nachher-Bilder bei betroffener Oberfläche
 
