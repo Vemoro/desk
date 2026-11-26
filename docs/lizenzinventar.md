@@ -8,6 +8,8 @@ Am 25. November 2026 wurde [`21813b3377ccebcf90b653b499e6eef6876a666a`](https://
 
 Ein zweiter Build zeichnete über den Rolldown-Hook `generateBundle` je Umgebung die Module mit positivem Ausgabeumfang auf. Die Paketnamen und Versionen stammen aus den zugehörigen installierten Manifesten. Unter den 40 verglichenen Browser- und Serverdateien außerhalb von `node_modules` hatten 39 identische Hashes. Im Server-Einstieg unterschieden sich ausschließlich drei Änderungszeitpunkte der statischen Dateien. Die acht von Nitro kopierten Moduldateien stimmten bytegenau überein. [Rolldown-Hook `generateBundle`](https://rolldown.rs/reference/Interface.FunctionPluginHooks#generatebundle)
 
+Für die Aktualisierung von Better Auth und Better Call wurde der Lizenzwortlaut der sieben geänderten Paketversionen erneut mit den installierten Paketen abgeglichen. [OIDC-Änderung](https://github.com/Vemoro/desk/pull/215)
+
 ## Paketversionen in der Anwendungsausgabe
 
 Das Verzeichnis der installierten Abhängigkeiten ist größer als die Auslieferung. Die Tabelle enthält 78 unterschiedliche Paketversionen aus den Build-Ausgaben und Kopierschritten. Die Spalte „Quelle für den Lizenztext“ bezeichnet die Datei im ursprünglichen Installationspaket oder die dort belegte Alternative. Die Spalte sagt nichts über die Vollständigkeit der Hinweise im Laufzeit-Image aus.
@@ -16,11 +18,11 @@ Das Verzeichnis der installierten Abhängigkeiten ist größer als die Ausliefer
 
 | Paket | Version | Lizenz laut Paket | Ausgabe | Quelle für den Lizenztext |
 | --- | --- | --- | --- | --- |
-| `@better-auth/core` | 1.7.14 | MIT | Browser, Server | `LICENSE.md` |
-| `@better-auth/kysely-adapter` | 1.7.14 | MIT | Server | `LICENSE.md` |
-| `@better-auth/memory-adapter` | 1.7.14 | MIT | Server | `LICENSE.md` |
-| `@better-auth/passkey` | 1.7.14 | MIT | Browser, Server | `LICENSE.md` |
-| `@better-auth/telemetry` | 1.7.14 | MIT | Server | `LICENSE.md` |
+| `@better-auth/core` | 1.7.16 | MIT | Browser, Server | `LICENSE.md` |
+| `@better-auth/kysely-adapter` | 1.7.16 | MIT | Server | `LICENSE.md` |
+| `@better-auth/memory-adapter` | 1.7.16 | MIT | Server | `LICENSE.md` |
+| `@better-auth/passkey` | 1.7.16 | MIT | Browser, Server | `LICENSE.md` |
+| `@better-auth/telemetry` | 1.7.16 | MIT | Server | `LICENSE.md` |
 | `@better-auth/utils` | 0.5.1 | MIT | Server | `LICENSE` |
 | `@better-fetch/fetch` | 1.3.3 | MIT | Browser, Server | `LICENSE` |
 | `@hexagon/base64` | 1.1.28 | MIT | Server | `LICENSE` |
@@ -54,8 +56,8 @@ Das Verzeichnis der installierten Abhängigkeiten ist größer als die Ausliefer
 | `@tanstack/start-storage-context` | 1.167.41 | MIT | SSR | `LICENSE` |
 | `@tanstack/store` | 0.11.3 | MIT | Browser, Server | `LICENSE` |
 | `asn1js` | 3.1.0 | BSD-3-Clause | Server | `LICENSE` |
-| `better-auth` | 1.7.14 | MIT | Browser, Server, SSR | `LICENSE.md` |
-| `better-call` | 1.4.4 | MIT | Browser, Server | `LICENSE` |
+| `better-auth` | 1.7.16 | MIT | Browser, Server, SSR | `LICENSE.md` |
+| `better-call` | 1.4.5 | MIT | Browser, Server | `LICENSE` |
 | `cookie-es` | 3.1.1 | MIT | Server | `LICENSE` |
 | `defu` | 6.1.7 | MIT | Browser, Server | `LICENSE` |
 | `h3` | 2.0.8 | MIT | Server | `LICENSE` |

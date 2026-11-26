@@ -3,17 +3,23 @@ import { APIError, betterAuth } from 'better-auth';
 import { passkey } from '@better-auth/passkey';
 import { Pool } from 'pg';
 import { configuredOrigin } from './origin';
+import { configuredOidc } from './oidc-discovery';
+import { createOidcProvider } from './oidc-provider';
 
 const sessionSeconds = 43_200;
 
-function createDeskAuth() {
+let pool: Pool | undefined;
+
+function createDeskAuth(oidc?: Awaited<ReturnType<typeof createOidcProvider>>) {
   const baseURL = configuredOrigin();
   if (!baseURL) throw new Error('DESK_ORIGIN fehlt.');
   const secret = process.env.DESK_AUTH_SECRET;
   if (!secret || secret.length < 32) throw new Error('DESK_AUTH_SECRET fehlt oder ist zu kurz.');
 
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 5, allowExitOnIdle: true });
-  pool.on('error', () => console.error('Desk-Anmeldung: Eine inaktive Datenbankverbindung wurde getrennt.'));
+  if (!pool) {
+    pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 5, allowExitOnIdle: true });
+    pool.on('error', () => console.error('Desk-Anmeldung: Eine inaktive Datenbankverbindung wurde getrennt.'));
+  }
 
   return betterAuth({
     baseURL,
@@ -31,7 +37,11 @@ function createDeskAuth() {
       },
     },
     user: { modelName: 'auth_users' },
-    account: { modelName: 'auth_accounts', accountLinking: { enabled: false } },
+    account: {
+      modelName: 'auth_accounts',
+      accountLinking: { enabled: false },
+      ...(oidc && { updateAccountOnSignIn: false, storeAccountCookie: false }),
+    },
     session: { modelName: 'auth_sessions', expiresIn: sessionSeconds, disableSessionRefresh: true },
     verification: { modelName: 'auth_verifications' },
     plugins: [passkey({
@@ -57,7 +67,7 @@ function createDeskAuth() {
           }
         },
       },
-    })],
+    }), ...(oidc ? [oidc] : [])],
     telemetry: { enabled: false },
     logger: { disabled: true },
     onAPIError: { throw: true },
@@ -67,4 +77,14 @@ function createDeskAuth() {
 let instance: ReturnType<typeof createDeskAuth> | undefined;
 export function deskAuth() {
   return instance ??= createDeskAuth();
+}
+
+let oidcInstance: Promise<ReturnType<typeof createDeskAuth>> | undefined;
+
+export function deskOidcAuth(config: NonNullable<ReturnType<typeof configuredOidc>>) {
+  // Local authentication never waits for the optional provider or its metadata.
+  return oidcInstance ??= createOidcProvider(config).then(createDeskAuth).catch(error => {
+    oidcInstance = undefined;
+    throw error;
+  });
 }

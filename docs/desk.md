@@ -147,9 +147,30 @@ Passkeys gelten für den Host in `DESK_ORIGIN`. In Produktion ist eine HTTPS-Adr
 
 Wende `004_passkeys.sql` vor dem Start der neuen Version mit dem unter [Betrieb](#betrieb) beschriebenen Migrationsbefehl für deinen Installationsweg an.
 
+### OpenID Connect für vorhandene Konten vorbereiten
+
+Desk unterstützt einen festen OpenID-Connect-Anbieter. Wenn die Einrichtung aktiv ist, erscheint auf der Anmeldeseite **Mit Organisationskonto anmelden**. Die Anmeldung per Passwort und Passkey bleibt verfügbar. [Umfang und Abnahme](https://github.com/Vemoro/desk/issues/214)
+
+1. Richte beim Anbieter einen vertraulichen Desk-Client für Authorization Code mit PKCE S256 ein. Registriere genau die externe `DESK_ORIGIN` mit dem Pfad `/api/auth/callback/desk-oidc`, etwa `https://desk.example.test/api/auth/callback/desk-oidc`.
+2. Setze im Desk-Dienst `DESK_OIDC_ISSUER` auf den vollständigen HTTPS-Issuer, einschließlich eines vom Anbieter ausgegebenen Pfads. Hinterlege `DESK_OIDC_CLIENT_ID` und `DESK_OIDC_CLIENT_SECRET` in der Laufzeitkonfiguration. Desk prüft Discovery und verwendet nur HTTPS-Endpunkte. Beim [Selfhosting mit Compose](installation.md#eigenständiger-start-mit-docker-compose) setze die Variablen in `.env.selfhost` und aktualisiere den Dienst mit `desk_compose up -d desk`.
+3. Bestätige das Subject in der Administration des Anbieters für genau diesen Desk-Client. Bei paarweisen Subjects kann derselbe Mensch in verschiedenen Clients verschiedene Werte haben. In Pocket ID öffne **Administration → OIDC Clients → Desk-Client → OIDC Data Preview**, wähle die Person und übernimm `sub` aus dem angezeigten ID-Token. Ordne das Subject einem bereits vorhandenen Desk-Konto zu. [Pocket-ID-Client einrichten](https://pocket-id.org/docs/setup/connect-an-app) · [Subjects in OpenID Connect](https://openid.net/specs/openid-connect-core-1_0.html#SubjectIDTypes)
+
+```sh
+bun scripts/oidc.ts bind mira@example.test 'synthetisches-client-subject'
+bun scripts/oidc.ts remove mira@example.test
+```
+
+Führe die Befehle mit der Desk-Laufzeitkonfiguration aus. Beim Desk-Selfhosting verwende `desk_compose exec desk bun scripts/oidc.ts` mit denselben Argumenten. Erneutes Zuordnen derselben Identität zum selben Konto ist möglich. Eine andere Zuordnung benötigt zuerst `remove`. Beim Entfernen beendet Desk sämtliche Browsersitzungen dieses Kontos. Passwort, Passkeys und API-Tokens bleiben verwendbar.
+
+Zum Deaktivieren entferne die drei OIDC-Variablen. Aktualisiere anschließend den Desk-Dienst mit seiner neuen Konfiguration. Bei Compose verwende `desk_compose up -d desk`. Bestehende Desk-Browsersitzungen behalten dabei ihre Laufzeit.
+
+Richte für Zammad einen getrennten OIDC-Client beim selben Anbieter ein und verknüpfe das bestehende Zammad-Agentenkonto mit den passenden Gruppenrechten. Wenn der Ticketlink aus Desk ohne Zammad-Sitzung geöffnet wird, wähle in Zammad die OIDC-Aktion. Bei geteilter Anbietersitzung landet das Konto danach wieder im verknüpften Ticket. Öffnet der Tab in einem anderen Profil, meldet sich die Person beim Anbieter an. Das Verhalten ist für Pocket ID 2.19.3, Zammad 7.2.3-0015 und eine installierte Windows-PWA im geteilten Chromium-Profil belegt. Der mobile Wechsel bleibt Teil der Abnahme vor produktiver Aktivierung. [Desk-Ticketwechsel](https://github.com/Vemoro/desk/issues/87#issuecomment-7196080222) · [Windows-PWA](https://github.com/Vemoro/desk/issues/87#issuecomment-7196406607)
+
+Zammad verwaltet seine Sitzungen und Gruppenrechte selbst. Beim getesteten Widerruf der Zammad-Clientfreigabe blieben bestehende Zammad-Sitzungen aktiv. Entziehe sie bei Bedarf direkt in Zammad. [Widerrufsprobe](https://github.com/Vemoro/desk/issues/87#issuecomment-7196639385)
+
 ### Teamkonten sperren und freigeben
 
-Unter **Einstellungen → Team** kann die Administration ein Konto sperren. Desk widerruft dabei alle vorhandenen Sitzungen und API-Tokens dieses Kontos. Während der Sperre lehnt Desk Anmeldungen per Passwort und Passkey ab. Nach der Freigabe kann sich die Person mit dem bisherigen Passwort oder Passkey neu anmelden. API-Tokens müssen neu ausgestellt werden. Mindestens ein Administrationskonto bleibt aktiv.
+Unter **Einstellungen → Team** kann die Administration ein Konto sperren. Desk widerruft dabei alle vorhandenen Sitzungen und API-Tokens dieses Kontos. Während der Sperre lehnt Desk Anmeldungen per Passwort, Passkey und OpenID Connect ab. Nach der Freigabe gelten die bisherigen Anmeldewege wieder, einschließlich einer vorhandenen OIDC-Zuordnung. API-Tokens müssen neu ausgestellt werden. Mindestens ein Administrationskonto bleibt aktiv.
 
 Der Name bleibt bei vorhandenen Aufgaben und Reservierungen sichtbar. Eine Aufgabe lässt sich mit ihrer bisherigen Zuordnung weiter bearbeiten. Bei neuen Zuordnungen und Vormerkungen zeigt Desk nur aktive Konten an. Eine bestehende vorläufige Reservierung lässt sich freigeben. Verbindlich buchen lässt sie sich wieder nach Freigabe des Kontos.
 

@@ -19,10 +19,11 @@
     "docs:screenshots": "playwright test --project screenshots"
   },
   "dependencies": {
-    "@better-auth/passkey": "1.7.14",
+    "@better-auth/passkey": "1.7.16",
     "@tanstack/react-router": "^1.169.7",
     "@tanstack/react-start": "^1.169.7",
-    "better-auth": "1.7.14",
+    "better-auth": "1.7.16",
+    "jose": "6.2.18",
     "pg": "8.23.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
