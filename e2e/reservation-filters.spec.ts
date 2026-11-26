@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
-import { project, signIn } from './session';
+import { holdRoute, project, settleResponse, signIn } from './session';
 
-async function planning(page:Page) {
+async function planning(page:Page, holdStatus=false) {
   const window={starts_at:'2028-04-15T08:00:00Z',ends_at:'2028-04-15T09:00:00Z',quantity:1};
   const reservations=[
     {...window,id:'r1',project_id:'montage',user_id:'mira',status:'tentative'},
@@ -24,7 +24,9 @@ async function planning(page:Page) {
     {id:'mira',name:'Mira Muster'},
     {id:'other',name:'Noah Beispiel'},
   ]}));
+  const firm=holdRoute(), released=holdRoute();
   await page.route('**/api/v1/reservations/r1',route=>{
+    if(holdStatus) return (route.request().postDataJSON().status==='firm' ? firm : released).resolve(route);
     reservations[0].status=route.request().postDataJSON().status;
     return route.fulfill({json:reservations[0]});
   });
@@ -32,11 +34,12 @@ async function planning(page:Page) {
   await signIn(page);
   await project(page,'Musterinstallation');
   await page.getByRole('link',{name:'Ressourcen & Kalkulation',exact:true}).click();
-  return page.locator('section').filter({has:page.getByRole('heading',{name:'Ressourcenplanung',exact:true})});
+  const panel=page.locator('section').filter({has:page.getByRole('heading',{name:'Ressourcenplanung',exact:true})});
+  return {panel,firm,released,reservation:reservations[0]};
 }
 
 test('Ressourcenfilter kombinieren, nach Freigabe behalten und zurücksetzen',async({page})=>{
-  const panel=await planning(page);
+  const {panel}=await planning(page);
   const type=panel.getByLabel('Ressourcentyp');
   const status=panel.getByLabel('Status filtern');
   await expect(panel.getByText('3 Reservierungen',{exact:true})).toBeVisible();
@@ -70,7 +73,7 @@ test('Ressourcenfilter kombinieren, nach Freigabe behalten und zurücksetzen',as
 });
 
 test('Fest reservieren erhält Auswahl und Tastaturfokus bei gefilterter Tabelle',async({page})=>{
-  const panel=await planning(page);
+  const {panel}=await planning(page);
   const type=panel.getByLabel('Ressourcentyp');
   const status=panel.getByLabel('Status filtern');
   await type.selectOption('user');
@@ -83,4 +86,30 @@ test('Fest reservieren erhält Auswahl und Tastaturfokus bei gefilterter Tabelle
   await status.selectOption('firm');
   await expect(panel.getByText('2 Reservierungen',{exact:true})).toBeVisible();
   await expect(panel.getByRole('row').filter({hasText:'Mira Muster'}).getByText('Fest reserviert',{exact:true})).toBeVisible();
+});
+
+test('Statusaktion erhält Fokus nach überlappender Aktualisierung',async({page})=>{
+  const {panel,firm,released,reservation}=await planning(page,true);
+  const type=panel.getByLabel('Ressourcentyp');
+  const row=panel.getByRole('row').filter({hasText:'Mira Muster'});
+  await type.selectOption('user');
+  const firmButton=row.getByRole('button',{name:'Fest reservieren',exact:true});
+  const releaseButton=row.getByRole('button',{name:'Freigeben',exact:true});
+  await firmButton.press('Enter');
+  const first=await firm.request;
+  await page.keyboard.press('Tab');
+  await expect(releaseButton).toBeFocused();
+  await page.keyboard.press('Enter');
+  const second=await released.request;
+
+  reservation.status='firm';
+  await settleResponse(page,first,reservation);
+  await expect(row.getByText('Fest reserviert',{exact:true})).toBeVisible();
+  await expect(releaseButton).toBeFocused();
+
+  reservation.status='released';
+  await settleResponse(page,second,reservation);
+  await expect(row.getByText('Freigegeben',{exact:true})).toBeVisible();
+  await expect(releaseButton).toBeHidden();
+  await expect(type).toBeFocused({timeout:2000});
 });

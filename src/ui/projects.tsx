@@ -181,8 +181,9 @@ function Planning({project,data,run,accountId}:{project:Row;data:Data;run:Run;ac
 
   useEffect(()=>{
     const button=focusedStatusAction.current;
+    if(!button || button.isConnected) return;
     focusedStatusAction.current=null;
-    if(button && !button.isConnected && document.activeElement===document.body) {
+    if(document.activeElement===document.body) {
       resourceSelector.current?.focus();
     }
   },[data.reservations]);

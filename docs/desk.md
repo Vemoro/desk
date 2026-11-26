@@ -31,6 +31,10 @@ Wenn Desk meldet, dass eine Änderung gespeichert wurde und die Ansicht nicht ak
 
 In der Ressourcenplanung und im Projektlager steht die Inventarnummer eines Einzelgeräts neben seinem Namen. Unter **Ausgabe, Rückgabe oder Verbrauch** zeigt Desk nach der Wahl der **Projektreservierung** die vollständige Beschreibung mit Inventarnummer im Formular. Bei Artikeln ohne Inventarnummer zeigt Desk den Artikelnamen.
 
+### Reservierungen im Projekt filtern
+
+Öffne im Projekt **Ressourcen & Kalkulation**. Unter **Ressourcenplanung** lassen sich **Ressourcentyp** und **Status filtern** kombinieren. Die Trefferzahl zählt nur die angezeigten Reservierungen. Nach einer Freigabe oder festen Reservierung bleiben die Filter aktiv. Mit **Filter zurücksetzen** siehst du wieder alle Reservierungen des Projekts.
+
 ### Wochenplanung öffnen
 
 Unter **Wochenplanung** siehst du offene Reservierungen aus allen Projekten. Wähle ein Datum oder blättere wochenweise. Eine Woche reicht von Montag 00:00 Uhr bis zum folgenden Montag 00:00 Uhr in der angezeigten Browser-Zeitzone. Personal steht je Person, Inventar je Artikel und Lagerort mit Menge. **Vorgemerkt** und **Fest reserviert** sind direkt am Eintrag beschriftet. Eine Buchung über Mitternacht erscheint an beiden betroffenen Tagen, beim Wochenwechsel jeweils in der zugehörigen Woche. Am Tag der Herbstumstellung machen UTC-Offsets die wiederholte Stunde unterscheidbar. Offene Geräteausgaben findest du im **Projektlager**.
@@ -60,8 +64,6 @@ War die Antwort auf eine bereits gespeicherte Vollkorrektur unklar, öffne an de
 ### Bestand filtern
 
 Unter **Bestand je Lagerort** sucht **Bestand suchen** nach Teilen des Artikelnamens, der Artikelnummer oder der Inventarnummer. Groß- und Kleinschreibung spielen dabei keine Rolle. Eine Bestandszeile muss alle aktiven Filter erfüllen. **Nur mit freiem Bestand** zeigt Zeilen mit einem Wert größer als null in der Spalte **Frei**. Ergibt die Filterung keine Treffer, erscheint „Kein Bestand für diese Filter.“ **Filter zurücksetzen** leert Suche und Lagerortwahl und deaktiviert die Option. **Offene Ausgaben** und **Lagerbewegungen** bleiben separat sichtbar.
-
-Öffne im Projekt **Ressourcen & Kalkulation**. Unter **Ressourcenplanung** kannst du die Vormerkungen des geöffneten Projekts nach **Ressourcentyp** und **Status filtern**. Die Trefferzahl folgt der aktuellen Auswahl. Nach einer Freigabe oder festen Reservierung bleiben die Filter aktiv. Mit **Filter zurücksetzen** siehst du wieder alle Vormerkungen des Projekts.
 
 ## Haben
 
