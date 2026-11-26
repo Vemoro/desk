@@ -1,22 +1,26 @@
-name: Doku-Screenshots erstellen
+name: Projekt-Kostenstellensuche Vergleich für PR 190
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - '.github/workflows/screenshots.yml'
-      - 'e2e/screenshots.spec.ts'
 permissions:
   contents: read
 jobs:
-  screenshots:
+  comparison:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - state: vorher
+            commit: 46a7ad2ebb701cb12ff8ff7b69ac14b3d55502d4
+          - state: nachher
+            commit: c36fd32a5a82b41976494635ead220c7189e8510
     services:
       postgres:
         image: postgres:17
         env:
           POSTGRES_USER: desk
           POSTGRES_PASSWORD: desk
-          POSTGRES_DB: desk_demo
+          POSTGRES_DB: desk_cost_center_demo
         ports:
           - 5438:5432
         options: >-
@@ -25,20 +29,53 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      DATABASE_URL: postgres://desk:desk@127.0.0.1:5438/desk_demo
-      DESK_DEMO_PASSWORD: muster-test-passwort
-      DESK_ORIGIN: http://localhost:4173
-      DESK_AUTH_SECRET: nur-fuer-die-isolierte-desk-testdatenbank
+      DATABASE_URL: postgres://desk:desk@127.0.0.1:5438/desk_cost_center_demo
+      DESK_DEMO_PASSWORD: muster-kostenstelle-pruefung
+      DESK_ORIGIN: http://127.0.0.1:4173
+      DESK_AUTH_SECRET: nur-fuer-die-isolierte-kostenstelle-bildprobe
     steps:
       - uses: actions/checkout@v6
+        with:
+          path: review
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          path: desk
+          ref: ${{ matrix.commit }}
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          path: seed
+          ref: 46a7ad2ebb701cb12ff8ff7b69ac14b3d55502d4
+          persist-credentials: false
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version-file: package.json
-      - run: bun install --frozen-lockfile
-      - run: bunx playwright install --with-deps chromium
-      - run: bun run migrate && bun run demo && bun run docs:screenshots
+          bun-version-file: desk/package.json
+      - name: Gleichen Altbestand für beide Stände anlegen
+        working-directory: seed
+        run: |
+          bun install --frozen-lockfile
+          bun run migrate
+          bun run demo
+      - name: Aufnahme auf dem ausgewählten Commit
+        working-directory: desk
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ matrix.commit }}"
+          bun install --frozen-lockfile
+          bunx playwright install --with-deps chromium
+          bun run migrate
+          bun run dev --port 4173 --strictPort &
+          desk_server=$!
+          trap 'kill "$desk_server" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if curl -fsS "$DESK_ORIGIN/api/v1/ready" >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS "$DESK_ORIGIN/api/v1/ready" >/dev/null
+          cp ../review/e2e/cost-center-comparison-local.spec.ts e2e/cost-center-comparison-local.spec.ts
+          DESK_E2E_URL="$DESK_ORIGIN" DESK_FILTER_SCREENSHOTS=build/kostenstellensuche bunx playwright test --project=core e2e/cost-center-comparison-local.spec.ts
       - uses: actions/upload-artifact@v6
         with:
-          name: Desk-Doku-Screenshots
-          path: build/screenshots/
+          name: desk-kostenstellensuche-${{ matrix.state }}
+          path: desk/build/kostenstellensuche/
           if-no-files-found: error
