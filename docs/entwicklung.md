@@ -33,9 +33,9 @@ Prüfe bekannte Überschneidungen zunächst mit Git, etwa mit `git merge-tree --
 
 Ergebnis, Fehlschläge und Auslassungen mit Grund gehören in den PR. Eine Wiederholung des CI-Laufs braucht einen erkannten Grund. Behebe die Ursache eines Fehlers, erhalte Umfang und Strenge der Prüfungen und wiederhole die betroffene Prüfung.
 
-Die Anwendungs-CI **Prüfungen** läuft für Pull Requests und Pushes auf `main`. **Arbeitsgrundlage** ergänzt die Doku-Prüfung bei passenden Pfaden im Pull Request und bei Pushes auf `main`. Wird ein Entwurf zur Prüfung freigegeben, gelten dieselben Kriterien wie beim Öffnen eines PRs.
+Der Workflow **Prüfungen** meldet den Check `desk` bei Pull Requests und Pushes auf `main`. **Arbeitsgrundlage** meldet den Check `doku` bei passenden Pfaden im Pull Request und bei Pushes auf `main`. Wird ein Entwurf zur Prüfung freigegeben, gelten dieselben Kriterien wie beim Öffnen eines PRs.
 
-Bei fehlendem automatischem Lauf können Beitragende mit Repository-Schreibzugriff beide Workflows unter **Actions → Run workflow** für einen Branch mit dem aktuellen Prüfkandidaten starten. Halte den geprüften Commit und den Lauf im PR fest. Der manuelle Doku-Lauf prüft Leerzeichen gegen den direkten Vorgänger. Prüfe bei mehreren Commits den gesamten PR-Diff zusätzlich mit `git diff --check <Basis> HEAD`. Die GitHub-Freigabe für Workflow-Läufe aus Forks gilt auch weiterhin für automatische PR-Läufe.
+Sobald die manuell startbaren Workflows auf `main` liegen, können Beitragende mit Repository-Schreibzugriff bei fehlendem automatischem Lauf **Actions → Run workflow** verwenden. Wähle den Branch mit dem aktuellen Prüfkandidaten und der manuell startbaren Workflow-Version. Halte den geprüften Commit und den Lauf im PR fest. Der manuelle Doku-Lauf prüft Leerzeichen gegen den direkten Vorgänger. Prüfe bei mehreren Commits den gesamten PR-Diff zusätzlich mit `git diff --check <Basis> HEAD`. Die GitHub-Freigabe für Workflow-Läufe aus Forks gilt auch weiterhin für automatische PR-Läufe.
 
 ### Befehle und Screenshot-Workflow
 
