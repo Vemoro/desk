@@ -9,12 +9,12 @@ for(const theme of ['hell','dunkel']){
     const record={id:'muster',name:'Büroinstallation Westflügel',stage:'planning',zammad_ticket_id:42};
     const conversation={ticket,articles:[{id:1,kind:'internal-note',from:'Mira Muster',subject:'Termin zur Montage',body:'Die Installation ist für Dienstag vorgemerkt.',created_at:'2028-05-17T09:00:00Z'}],
       outgoing:[{id:'attempt',subject:'Bestätigung für das Musterbüro',status:'sent'}]};
-    let reads=0;
+    let pauseRefresh=false;
     let held:Route|undefined;
     await page.route('**/api/v1/projects?*',route=>route.fulfill({json:[record]}));
     await page.route('**/api/v1/integrations',route=>route.fulfill({json:{zammad:true,haben:false}}));
     await page.route('**/api/v1/projects/muster/zammad',route=>{
-      if(++reads===1) return route.fulfill({json:conversation});
+      if(!pauseRefresh) return route.fulfill({json:conversation});
       held=route;
     });
     await page.setViewportSize({width:1440,height:950});
@@ -24,6 +24,7 @@ for(const theme of ['hell','dunkel']){
     await page.getByRole('link',{name:'Kommunikation',exact:true}).click();
     const refresh=page.getByRole('button',{name:'Verlauf aktualisieren',exact:true});
     await expect(page.getByText('Termin zur Montage',{exact:true})).toBeVisible();
+    pauseRefresh=true;
     await refresh.click();
     try {
       await expect(page.getByRole('status').filter({hasText:'Ticketverlauf wird geladen'})).toBeVisible();
