@@ -7,6 +7,7 @@ Prüfe Auftrag und Zielbasis vor der Arbeit. Schütze fremde Änderungen und nut
 | Aufgabe | Skill |
 | --- | --- |
 | Issues schreiben und zum Review übergeben | [desk-issue-schreiben](.agents/skills/desk-issue-schreiben/SKILL.md) |
+| Problem, Lösungswahl und Abnahme eines Issues unabhängig prüfen | [desk-issue-pruefen](.agents/skills/desk-issue-pruefen/SKILL.md) |
 | Roadmap prüfen und Karten pflegen | [desk-board-pflegen](.agents/skills/desk-board-pflegen/SKILL.md) |
 | PR vorbereiten und einreichen | [desk-beitrag](.agents/skills/desk-beitrag/SKILL.md) |
 | Selbstprüfung und fachliche Beitragsprüfung | [desk-beitrag-pruefen](.agents/skills/desk-beitrag-pruefen/SKILL.md) |
