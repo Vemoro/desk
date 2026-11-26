@@ -7,7 +7,7 @@ type Article = { id:number; subject?:string|null; from?:string|null; created_at?
   body:string; attachments?:{filename:string;id?:number}[]; kind?:keyof typeof articleKinds;
   reply?:{recipient:string;subject:string} };
 type AttemptStatus = 'pending'|'unknown'|'failed'|'sent';
-type Conversation = { ticket:{number:string;title?:string;url:string}; articles:Article[]; outgoing:(Row & {status:AttemptStatus})[] };
+type Conversation = { ticket?:{number:string;title?:string;url:string}; articles:Article[]; outgoing:(Row & {status:AttemptStatus})[] };
 const attemptLabels:Record<AttemptStatus,string>={
   sent:'An Zammad übergeben',pending:'Ausstehend',failed:'Abgelehnt',unknown:'Ausgang unklar',
 };
@@ -312,7 +312,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
     const status=confirmed==='sent' ? confirmed : refreshed?.outgoing.find(entry=>entry.id===id)?.status ?? confirmed;
     const matchingDraft=draft.current?.id===id ? draft.current : undefined;
     setConversation(current=>{
-      if(!current) return current;
+      if(!current) return matchingDraft ? {articles:[],outgoing:[draftAttemptRow(matchingDraft,status)]} : null;
       const containsAttempt=current.outgoing.some(entry=>entry.id===id);
       if(containsAttempt) return {...current,
         outgoing:current.outgoing.map(entry=>entry.id===id && entry.status!=='sent' ? {...entry,status} : entry),
@@ -361,8 +361,8 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
   const listedAttempt=loadedConversation?.outgoing.find(entry=>entry.id===draftAttempt?.id);
   const savedDraft=draftAttempt && draftStatus && !listedAttempt ? draftAttemptRow(draftAttempt,draftStatus) : undefined;
   const currentAttempt=listedAttempt ?? savedDraft;
-  const conversation=loadedConversation && savedDraft ? {
-    ...loadedConversation,outgoing:[savedDraft,...loadedConversation.outgoing],
+  const conversation=savedDraft ? {
+    ...loadedConversation,outgoing:[savedDraft,...(loadedConversation?.outgoing ?? [])],
   } : loadedConversation;
   const draftActions=<>
     {locked && draft.current && !currentAttempt && (needsAttemptCheck || draftStatus) && <div className="communication-replay">
@@ -382,18 +382,18 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
       <button type="button" onClick={clearDraft}>Neuen Entwurf beginnen</button>
     </div>}
   </>;
-  const articles=useMemo(()=>(conversation?.articles ?? []).map(article=>({
+  const articles=useMemo(()=>(loadedConversation?.articles ?? []).map(article=>({
     ...article,
     subject:article.subject || 'Nachricht',
     body:article.content_type==='text/html' ? plainText(article.body) : article.body,
-  })),[conversation]);
+  })),[loadedConversation]);
   const term=search.trim().toLowerCase();
   const visibleArticles=term ? articles.filter(article=>
     article.subject.toLowerCase().includes(term) || article.body.toLowerCase().includes(term)) : articles;
   const updatedReply=reply && articles.find(article=>article.id===reply.id)?.reply;
   const forwarding=reply?.forwardBody!==undefined;
-  const replyChanged=Boolean(reply && !forwarding && conversation && (!updatedReply || updatedReply.recipient!==reply.recipient));
-  const ticket=conversation?.ticket;
+  const replyChanged=Boolean(reply && !forwarding && loadedConversation?.ticket && (!updatedReply || updatedReply.recipient!==reply.recipient));
+  const ticket=loadedConversation?.ticket;
   const requester=articles.find(article=>article.kind==='incoming-email' && article.from)?.from;
   const ticketIdHint=useId();
   const dialogTitle=dialog?.kind==='link'?'Ticket verknüpfen':'Ticket anlegen';
@@ -480,7 +480,7 @@ function ZammadCommunication({project,zammad,run,reference,zammadPanel}:{
                 </article>
               </li>)}</ol>}
               {term && articles.length>0 && visibleArticles.length===0 && <p className="subtle" role="status">Keine Nachrichten für diese Suche.</p>}
-              {conversation && articles.length===0 && !loading && !problem && <p className="subtle">Dieses Ticket enthält noch keine Nachrichten.</p>}
+              {loadedConversation?.ticket && articles.length===0 && !loading && !problem && <p className="subtle">Dieses Ticket enthält noch keine Nachrichten.</p>}
             </section>
             {(conversation?.outgoing.length ?? 0) > 0 && <div className="communication-outgoing"><h3>Sendeversuche</h3><Table headers={['Sendeversuch','Status','Aktion']} rows={(conversation?.outgoing ?? []).map((entry:Row)=>({
                 key:entry.id,cells:[entry.subject,({sent:'An Zammad übergeben',pending:'Ausstehend',failed:'Abgelehnt',unknown:'Ausgang unklar'} as Record<string,string>)[entry.status],

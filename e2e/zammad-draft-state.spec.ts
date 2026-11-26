@@ -98,13 +98,13 @@ for (const rejected of [false,true]) {
   });
 }
 
-for (const status of ['pending','unknown'] as const) {
-  test(`Ein gespeicherter Versuch mit Status ${status} bleibt bis zur Bestätigung gesperrt`, async ({page}) => {
+for (const [status,history] of [['pending','loaded'],['unknown','outside-list'],['unknown','unavailable']] as const) {
+  test(`Ein gespeicherter Versuch bleibt bis zur Bestätigung gesperrt (${status}, ${history})`, async ({page}) => {
     const name = 'Montage Musterbüro';
     const path = '**/api/v1/projects/draft-probe/zammad';
     let draftId = '';
     let sends = 0;
-    let historyUnavailable = false;
+    let historyUnavailable = history==='unavailable';
     let checks = 0;
     await page.route('**/api/v1/projects?*', route => route.fulfill({json:[
       {id:'draft-probe',name,stage:'planning',zammad_ticket_id:42},
@@ -114,19 +114,19 @@ for (const status of ['pending','unknown'] as const) {
       ? route.fulfill({status:502,json:{error:'Verlauf vorübergehend nicht verfügbar.'}})
       : route.fulfill({json:{
         ticket:{number:'42',title:name,url:'https://zammad.example.test/#ticket/zoom/42'},articles:[],
-        outgoing:draftId && status==='pending' ? [{id:draftId,subject:'Termin für die Installation',status}] : [],
+        outgoing:draftId && history==='loaded' ? [{id:draftId,subject:'Termin für die Installation',status}] : [],
       }}));
     await page.route(path+'/messages', route => {
       sends++;
       draftId=String(route.request().postDataJSON().id);
-      if(status==='unknown') return route.abort();
+      if(history==='outside-list') return route.abort();
       return route.fulfill({status:201,json:{id:draftId,status}});
     });
     await page.route(path+'/outgoing/*', route => {
       expect(route.request().url().split('/').at(-1)).toBe(draftId);
       expect(route.request().postDataJSON()).toEqual({retry:false});
       checks++;
-      if(status==='unknown' && checks===1) return route.fulfill({status:201,json:{id:draftId,status}});
+      if(history==='outside-list' && checks===1) return route.fulfill({status:201,json:{id:draftId,status}});
       historyUnavailable=true;
       return route.fulfill({status:201,json:{id:draftId,status:'sent'}});
     });
@@ -145,7 +145,7 @@ for (const status of ['pending','unknown'] as const) {
     await expect(body).toBeDisabled();
     await expect(body).toHaveValue('Bitte den Termin am Montag bestätigen.');
     const attempt = page.getByRole('row',{name:/Termin für die Installation/});
-    if(status==='unknown') {
+    if(history==='outside-list') {
       await expect(attempt).toHaveCount(0);
       await editor.getByRole('button',{name:'Sendeversuch prüfen',exact:true}).click();
     }
