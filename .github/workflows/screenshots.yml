@@ -11,9 +11,9 @@ jobs:
       matrix:
         include:
           - state: vorher
-            commit: 865197eaf76b37a024930a72a083984b4ee0eb36
+            commit: 22040bb402849b952aed83e7037194c0ca623d82
           - state: nachher
-            commit: a4e678e45901f7e259686e13f4f351631ba7ed44
+            commit: 75b322aa18b14d5fb064209a6aa540779baac1f8
     services:
       postgres:
         image: postgres:17

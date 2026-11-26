@@ -27,6 +27,7 @@ try {
     await controlling.focus();
     await controlling.press("Enter");
     await page.getByRole("heading",{name:"Belegbezogene Ist-Kosten",exact:true}).waitFor();
+    if (!await controlling.evaluate(node=>node.matches(":focus-visible"))) throw new Error("Der Tastaturfokus fehlt am ausgewählten Bereich.");
     await page.evaluate(()=>document.fonts.ready);
     await title.evaluate(el=>{window.scrollTo(0,0);});
     await page.screenshot({path:join(output,`${variant}-${theme}-${phase}.png`),animations:"disabled",fullPage:true});
