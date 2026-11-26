@@ -19,7 +19,10 @@ function isAllowedCheckbox(node:ts.JsxOpeningLikeElement,file:string) {
 function fieldRenderer(node:ts.Node) {
   let renderer:ts.ArrowFunction|undefined;
   for(let parent=node.parent;parent;parent=parent.parent) {
-    if(ts.isArrowFunction(parent)) renderer=parent;
+    if(ts.isFunctionLike(parent)) {
+      if(renderer || !ts.isArrowFunction(parent)) return undefined;
+      renderer=parent;
+    }
     if(ts.isJsxElement(parent) && parent.openingElement.tagName.getText()==='Field') {
       if(renderer && ts.isJsxExpression(renderer.parent) && renderer.parent.parent===parent) return renderer;
       return undefined;
