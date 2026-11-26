@@ -1,39 +1,44 @@
-import { mkdir } from 'node:fs/promises';
-import { expect, test } from '@playwright/test';
-import { project,signIn } from './session';
+import {mkdir} from 'node:fs/promises';
+import {join} from 'node:path';
+import {expect,test,type Route} from '@playwright/test';
+import {project,signIn} from './session';
 
-const output='build/screenshots';
-const examples=[
-  {directory:'veranstaltungsbetreuung',name:'Veranstaltungsbetreuung im Kulturhaus'},
-  {directory:'bueroinstallation',name:'Büroinstallation Westflügel'},
-];
-for(const theme of ['hell','dunkel']) {
-  test(`Doku-Bilder ${theme}`,async({page})=>{
+for(const theme of ['hell','dunkel']){
+  test(theme,async({page})=>{
+    const ticket={id:42,number:'42',title:'Anfrage des Musterbüros',url:'https://zammad.example.test/'};
+    const record={id:'muster',name:'Büroinstallation Westflügel',stage:'planning',zammad_ticket_id:42};
+    const conversation={ticket,articles:[{id:1,kind:'internal-note',from:'Mira Muster',subject:'Termin zur Montage',body:'Die Installation ist für Dienstag vorgemerkt.',created_at:'2028-05-17T09:00:00Z'}],
+      outgoing:[{id:'attempt',subject:'Bestätigung für das Musterbüro',status:'sent'}]};
+    let reads=0;
+    let held:Route|undefined;
+    await page.route('**/api/v1/projects?*',route=>route.fulfill({json:[record]}));
+    await page.route('**/api/v1/integrations',route=>route.fulfill({json:{zammad:true,haben:false}}));
+    await page.route('**/api/v1/projects/muster/zammad',route=>{
+      if(++reads===1) return route.fulfill({json:conversation});
+      held=route;
+    });
     await page.setViewportSize({width:1440,height:950});
     await signIn(page);
     if(theme==='dunkel') await page.getByRole('button',{name:'Dunkles Design'}).click();
-    await expect(page.locator('html')).toHaveAttribute('data-theme',theme==='hell'?'light':'dark');
-    for(const {directory,name} of examples) {
-      const projectOutput=`${output}/${directory}`;
-      await mkdir(projectOutput,{recursive:true});
-      await project(page,name);
-      await expect(page.getByRole('heading',{name,level:1,exact:true})).toBeVisible();
-      for(const [tab,image,label] of [
-        ['Kanban','kanban','Aufgaben'],['Ressourcen & Kalkulation','ressourcenplanung','Ressourcenplanung'],
-        ['Controlling','controlling','Belegbezogene Ist-Kosten'],
-      ]) {
-        await page.getByRole('link',{name:tab,exact:true}).click();
-        await expect(page.getByRole('heading',{name:label,exact:true})).toBeVisible();
-        await page.screenshot({path:`${projectOutput}/${image}-${theme}.png`,animations:'disabled',fullPage:true});
+    await project(page,record.name);
+    await page.getByRole('link',{name:'Kommunikation',exact:true}).click();
+    const refresh=page.getByRole('button',{name:'Verlauf aktualisieren',exact:true});
+    await expect(page.getByText('Termin zur Montage',{exact:true})).toBeVisible();
+    await refresh.click();
+    try {
+      await expect(page.getByRole('status').filter({hasText:'Ticketverlauf wird geladen'})).toBeVisible();
+      const after=false;
+      if(after) await expect(refresh).toBeEnabled();
+      else await expect(refresh).toBeDisabled();
+      const output='build/screenshots';
+      await mkdir(output,{recursive:true});
+      for(const [name,width,height] of [['desktop',1440,950],['smartphone',375,812]] as const){
+        await page.setViewportSize({width,height});
+        await page.evaluate(()=>window.scrollTo(0,0));
+        await page.screenshot({path:join(output,[name,theme].join('-')+'.png'),animations:'disabled'});
       }
+    }finally{
+      await held?.abort().catch(()=>{});
     }
-    await page.getByRole('button',{name:'Projektlager',exact:true}).click();
-    await expect(page.getByRole('heading',{name:'Bestand je Lagerort'})).toBeVisible();
-    await page.screenshot({path:`${output}/projektlager-${theme}.png`,animations:'disabled',fullPage:true});
-    await page.setViewportSize({width:375,height:812});
-    await page.screenshot({path:`${output}/projektlager-${theme}-handy.png`,animations:'disabled',fullPage:true});
-    await page.getByRole('button',{name:'Menü',exact:true}).click();
-    await expect(page.getByRole('navigation',{name:'Hauptnavigation'})).toBeVisible();
-    await page.screenshot({path:`${output}/navigation-${theme}-handy-offen.png`,animations:'disabled',fullPage:true});
   });
 }
