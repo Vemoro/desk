@@ -1,44 +1,77 @@
-name: Doku-Screenshots erstellen
+name: Aufgabenübersicht für PR 153 vergleichen
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - '.github/workflows/screenshots.yml'
-      - 'e2e/screenshots.spec.ts'
 permissions:
   contents: read
 jobs:
-  screenshots:
+  comparison:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: vorher
+            commit: 00d01308b16c4d7d975f7c2224b1e213a6697d5e
+          - label: nachher
+            commit: 76b0346bb5a5b7a1623de46fe503e000413277ff
     services:
       postgres:
         image: postgres:17
         env:
           POSTGRES_USER: desk
           POSTGRES_PASSWORD: desk
-          POSTGRES_DB: desk_demo
+          POSTGRES_DB: desk_comparison_demo
         ports:
           - 5438:5432
         options: >-
           --health-cmd "pg_isready -U desk"
           --health-interval 5s
           --health-timeout 5s
-          --health-retries 10
+          --health-retries 8
     env:
-      DATABASE_URL: postgres://desk:desk@127.0.0.1:5438/desk_demo
-      DESK_DEMO_PASSWORD: muster-test-passwort
-      DESK_ORIGIN: http://localhost:4173
-      DESK_AUTH_SECRET: nur-fuer-die-isolierte-desk-testdatenbank
+      DATABASE_URL: postgres://desk:desk@127.0.0.1:5438/desk_comparison_demo
+      DESK_ORIGIN: http://localhost:4195
+      DESK_DEMO_PASSWORD: muster-vergleich-153
+      DESK_AUTH_SECRET: nur-fuer-die-isolierte-aufgaben-ansicht
     steps:
       - uses: actions/checkout@v6
+        with:
+          path: review
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ matrix.commit }}
+          path: app
+          persist-credentials: false
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version-file: package.json
-      - run: bun install --frozen-lockfile
-      - run: bunx playwright install --with-deps chromium
-      - run: bun run migrate && bun run demo && bun run docs:screenshots
+          bun-version-file: app/package.json
+      - name: Aufgaben aus identischen Demo-Daten aufnehmen
+        working-directory: app
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+          CAPTURE_LABEL: ${{ matrix.label }}
+          CAPTURE_COMMIT: ${{ matrix.commit }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CAPTURE_COMMIT"
+          bun install --frozen-lockfile
+          bunx playwright install --with-deps chromium
+          bun run migrate
+          bun run demo
+          docker exec "$POSTGRES_CONTAINER" psql -v ON_ERROR_STOP=1 -U desk -d desk_comparison_demo \
+            -c "update tasks set due='2028-05-17' where name='Einsatz vorbereiten' and project_id=(select id from projects where name='Veranstaltungsbetreuung im Kulturhaus')"
+          bun run dev --port 4195 --strictPort &
+          desk_server=$!
+          trap 'kill "$desk_server" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if curl -fsS "$DESK_ORIGIN/api/v1/ready" >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS "$DESK_ORIGIN/api/v1/ready" >/dev/null
+          node ../review/scripts/dashboard-review-capture.mjs "$CAPTURE_LABEL" build/dashboard-review
       - uses: actions/upload-artifact@v6
         with:
-          name: Desk-Doku-Screenshots
-          path: build/screenshots/
+          name: Desk-Aufgabenuebersicht-${{ matrix.label }}
+          path: app/build/dashboard-review/
           if-no-files-found: error
