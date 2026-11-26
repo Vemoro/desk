@@ -97,3 +97,23 @@ test('Die Projektliste kombiniert exakte Kontaktwahl mit Suche, Status und Fäll
   await expect(contact).toHaveValue('');
   await expect(rows).toHaveCount(8);
 });
+
+test('Die unterscheidende Telefonnummer passt ins ausgewählte Kontaktfeld',async({page})=>{
+  const panel=await openTarget(page);
+  const contact=panel.getByRole('combobox',{name:'Kontakt',exact:true});
+  await contact.selectOption({label:'Kulturhaus am Park · 030 555 0101'});
+  await page.evaluate(()=>document.fonts.ready);
+
+  for (const width of [320,480,900,1150,1440]) {
+    await page.setViewportSize({width,height:850});
+    const room=await contact.evaluate((select:HTMLSelectElement)=>{
+      const style=getComputedStyle(select);
+      const text=select.selectedOptions[0].label;
+      const canvas=document.createElement('canvas').getContext('2d')!;
+      canvas.font=style.font;
+      const available=select.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight);
+      return available-canvas.measureText(text).width;
+    });
+    expect(room,`Textbreite bei ${width} Pixeln`).toBeGreaterThanOrEqual(0);
+  }
+});

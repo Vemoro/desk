@@ -79,7 +79,7 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
             <option value="all">Alle</option><option value="overdue">Überfällig</option>
             <option value="today">Heute</option><option value="missing">Ohne Termin</option>
           </select></label>
-          <label><span>Kontakt</span><select value={filters.contactId} onChange={(event)=>onFilter({...filters,contactId:event.target.value})}>
+          <label className="project-contact-filter"><span>Kontakt</span><select value={filters.contactId} onChange={(event)=>onFilter({...filters,contactId:event.target.value})}>
             <option value="">Alle Kontakte</option>
             {contacts.map(({id,label,phone})=><option key={id} value={id}>
               {phone && (contactLabelCounts.get(label)??0)>1 ? `${label} · ${phone}` : label}
