@@ -6,7 +6,7 @@ async function openTarget(page:Page){
   await page.route('**/api/v1/contacts?*',route=>route.fulfill({json:[
     {id:'first',name:'Kontor Muster',email:'eins@example.test'},
     {id:'second',name:'Kontor Muster',email:'zwei@example.test'},
-    {id:'third',name:'Kulturhaus am Park',phone:'030 555 0101'},
+    {id:'third',name:'Kulturhaus  am Park',phone:'030 555 0101'},
     {id:'fourth',name:'Kulturhaus am Park',phone:'030 555 0102'},
     {id:'fifth',name:'Muster Servicebüro'},
   ]}));

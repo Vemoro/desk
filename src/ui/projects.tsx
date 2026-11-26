@@ -47,7 +47,7 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
   const filtered=filters.query!=='' || filters.stage!=='all' || filters.due!=='all' || filters.contactId!=='';
   const contactLabelCounts=new Map<string,number>();
   const contacts=data.contacts.map(contact=>{
-    const label=[contact.name,contact.email].filter(Boolean).join(' · ');
+    const label=[contact.name,contact.email].filter(Boolean).join(' · ').replace(/[\t\n\f\r ]+/g,' ').trim();
     contactLabelCounts.set(label,(contactLabelCounts.get(label)??0)+1);
     return {id:contact.id,label,phone:contact.phone};
   });
