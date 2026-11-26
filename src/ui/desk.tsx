@@ -534,6 +534,9 @@ function Warehouse({data,run,accountId}:{data:Data;run:Run;accountId:string}) {
         <div className="actions">
           <button type="button" disabled={!projectFilter && !locationFilter && !checkoutItem}
             onClick={()=>{setProjectFilter('');setLocationFilter('');setCheckoutItem('');}}>Filter zurücksetzen</button>
+          <span className="subtle" role="status">
+            {visibleCheckouts.length===1 ? '1 offene Ausgabe' : `${visibleCheckouts.length} offene Ausgaben`}
+          </span>
         </div>
       </div>
       {visibleCheckouts.length ? <Table headers={['Projekt','Artikel','Lagerort','Ausgegeben']} rows={visibleCheckouts.map((row)=>{
