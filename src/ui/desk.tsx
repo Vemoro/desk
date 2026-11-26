@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { all, api, ApiError, calendarDate, compileCsv, euros, inventoryLabel, inventoryName, moment, money, movementStages, name, projectStages, type Row } from './client';
 import { defaultProjectFilters, Project, Projects, type Data } from './projects';
 import { projectHash, projectView, type ProjectView } from './project-views';
+import { useLocalDay } from './local-day';
 import { PasskeyLogin, PasskeySettings } from './passkeys';
 import { OidcLogin } from './oidc-login';
 import { AccountPassword } from './account-password';
@@ -278,6 +279,15 @@ function SourceLink() {
 
 function Dashboard({data,select,open}:{data:Data;select:(id:string)=>void;open:()=>void}) {
   const active=data.projects.filter((project)=>!['complete','cancelled'].includes(project.stage));
+  const today=useLocalDay();
+  const activeIds=new Set(active.map((project)=>project.id));
+  const dueTasks=data.tasks
+    .filter((task)=>task.status!=='done' && task.due && activeIds.has(task.project_id))
+    .map((task)=>({task,due:task.due.slice(0,10)}))
+    .sort((first,second)=>first.due.localeCompare(second.due)
+      || first.task.name.localeCompare(second.task.name,'de')
+      || first.task.id.localeCompare(second.task.id))
+    .slice(0,10);
   const metrics=[
     ['Aktive Projekte',active.length],['Offene Aufgaben',data.tasks.filter((task)=>task.status!=='done').length],
     ['Feste Reservierungen',data.reservations.filter((entry)=>entry.status==='firm').length],['Kosten ohne Zuordnung',data.costs.filter((entry)=>!entry.project_id).length],
@@ -289,9 +299,14 @@ function Dashboard({data,select,open}:{data:Data;select:(id:string)=>void;open:(
         <button className="text-button" onClick={()=>select(row.id)}>{row.name}</button>,name(data.contacts,row.contact_id),<Pill label={projectStages[row.stage]} tone="accent"/>,calendarDate(row.due),
       ]}))}/>
     </Panel>
-    <Panel title="Fällige Aufgaben"><Table headers={['Aufgabe','Projekt','Verantwortlich','Termin']} rows={data.tasks.filter((task)=>task.status!=='done'&&task.due)
-      .sort((a,b)=>String(a.due).localeCompare(String(b.due))).slice(0,10)
-      .map((task)=>({key:task.id,cells:[task.name,<button className="text-button" onClick={()=>select(task.project_id)}>{name(data.projects,task.project_id)}</button>,name(data.users,task.assignee_id),calendarDate(task.due)]}))}/></Panel>
+    <Panel title="Fällige Aufgaben">
+      {dueTasks.length ? <Table headers={['Aufgabe','Projekt','Verantwortlich','Termin']} rows={dueTasks.map(({task,due})=>({
+        key:task.id,cells:[task.name,<button className="text-button" onClick={()=>select(task.project_id)}>{name(data.projects,task.project_id)}</button>,
+          name(data.users,task.assignee_id),<div className="actions">{calendarDate(due)}
+            {due<=today && <Pill label={due<today?'Überfällig':'Heute'} tone="accent"/>}
+          </div>],
+      }))}/> : <p className="empty">Keine offenen Aufgaben mit Termin.</p>}
+    </Panel>
   </>;
 }
 
