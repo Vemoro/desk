@@ -33,6 +33,10 @@ Prüfe bekannte Überschneidungen zunächst mit Git, etwa mit `git merge-tree --
 
 Ergebnis, Fehlschläge und Auslassungen mit Grund gehören in den PR. Eine Wiederholung des CI-Laufs braucht einen erkannten Grund. Behebe die Ursache eines Fehlers, erhalte Umfang und Strenge der Prüfungen und wiederhole die betroffene Prüfung.
 
+Der Workflow **Prüfungen** meldet den Check `desk` bei Pull Requests und Pushes auf `main`. **Arbeitsgrundlage** meldet den Check `doku` bei passenden Pfaden im Pull Request und bei Pushes auf `main`. Wird ein Entwurf zur Prüfung freigegeben, gelten dieselben Kriterien wie beim Öffnen eines PRs.
+
+Sobald die manuell startbaren Workflows auf `main` liegen, können Beitragende mit Repository-Schreibzugriff bei fehlendem automatischem Lauf **Actions → Run workflow** verwenden. Wähle den Branch mit dem aktuellen Prüfkandidaten und der manuell startbaren Workflow-Version. Halte den geprüften Commit und den Lauf im PR fest. Der manuelle Doku-Lauf prüft Leerzeichen gegen den direkten Vorgänger. Prüfe bei mehreren Commits den gesamten PR-Diff zusätzlich mit `git diff --check <Zielbranch>...HEAD`. Verwende den aktuellen Remote-Ref des Zielbranches, beispielsweise `origin/main`. Die GitHub-Freigabe für Workflow-Läufe aus Forks gilt auch weiterhin für automatische PR-Läufe.
+
 ### Befehle und Screenshot-Workflow
 
 Nutze die Befehle der jeweiligen Zielbasis. Wenn auf dieser Basis die Desk-Anwendung vorhanden ist, gehören je nach Änderung `bun run build`, `bun run check`, `bun run migrate`, `bun run test` und bei betroffener Bedienung `bun run e2e` dazu. Integration und Browser verwenden getrennte PostgreSQL-Datenbanken mit `_test` beziehungsweise `_demo` und isolierte Testinstanzen. Setze für Anmelde- und Browserprüfungen ein eigenes `DESK_AUTH_SECRET` und die Testadresse in `DESK_ORIGIN`.
