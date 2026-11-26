@@ -6,8 +6,8 @@ async function openTarget(page:Page){
   await page.route('**/api/v1/contacts?*',route=>route.fulfill({json:[
     {id:'first',name:'Kontor Muster',email:'eins@example.test'},
     {id:'second',name:'Kontor Muster',email:'zwei@example.test'},
-    {id:'third',name:'Kulturhaus  am Park',phone:'030 555 0101'},
-    {id:'fourth',name:'Kulturhaus am Park',phone:'030 555 0102'},
+    {id:'third',name:'Kulturhaus  am Friedrichspark',phone:'030 555 0101'},
+    {id:'fourth',name:'Kulturhaus am Friedrichspark',phone:'030 555 0102'},
     {id:'fifth',name:'Muster Servicebüro'},
   ]}));
   await page.route('**/api/v1/projects?*',route=>route.fulfill({json:[
@@ -33,7 +33,7 @@ test('Die Projektliste kombiniert exakte Kontaktwahl mit Suche, Status und Fäll
   const due=panel.getByRole('combobox',{name:'Fälligkeit',exact:true});
   const rows=panel.locator('tbody tr');
   const reset=panel.getByRole('button',{name:'Filter zurücksetzen'});
-  await expect(contact.locator('option')).toHaveText(['Alle Kontakte','Kontor Muster · eins@example.test','Kontor Muster · zwei@example.test','Kulturhaus am Park · 030 555 0101','Kulturhaus am Park · 030 555 0102','Muster Servicebüro']);
+  await expect(contact.locator('option')).toHaveText(['Alle Kontakte','Kontor Muster · eins@example.test','Kontor Muster · zwei@example.test','Kulturhaus am Friedrichspark · 030 555 0101','Kulturhaus am Friedrichspark · 030 555 0102','Muster Servicebüro']);
   await expect(rows).toHaveCount(8);
   await expect(reset).toBeDisabled();
   await contact.selectOption('second');
@@ -44,10 +44,10 @@ test('Die Projektliste kombiniert exakte Kontaktwahl mit Suche, Status und Fäll
   await expect(rows).toHaveCount(8);
   await expect(rows.filter({hasText:'Montage ohne Kontakt'})).toHaveCount(1);
 
-  await contact.selectOption({label:'Kulturhaus am Park · 030 555 0101'});
+  await contact.selectOption({label:'Kulturhaus am Friedrichspark · 030 555 0101'});
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText('Tonprobe Bühne');
-  await contact.selectOption({label:'Kulturhaus am Park · 030 555 0102'});
+  await contact.selectOption({label:'Kulturhaus am Friedrichspark · 030 555 0102'});
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText('Tontechnik Foyer');
 
@@ -98,37 +98,24 @@ test('Die Projektliste kombiniert exakte Kontaktwahl mit Suche, Status und Fäll
   await expect(rows).toHaveCount(8);
 });
 
-test('Die unterscheidende Telefonnummer bleibt auf kleinen und großen Ansichten lesbar',async({page})=>{
+test('Die vollständige Kontaktwahl bleibt in verschiedenen Fensterbreiten lesbar',async({page})=>{
   const panel=await openTarget(page);
   const contact=panel.getByRole('combobox',{name:'Kontakt',exact:true});
-  await contact.selectOption({label:'Kulturhaus am Park · 030 555 0101'});
-  await page.evaluate(()=>document.fonts.ready);
-
+  await contact.selectOption({label:'Kulturhaus am Friedrichspark · 030 555 0101'});
   const preview=panel.locator('.project-contact-selection');
   await page.setViewportSize({width:320,height:850});
   await expect(preview).toBeVisible();
-  await expect(preview).toHaveText('Kulturhaus am Park · 030 555 0101');
-  await contact.selectOption({label:'Kulturhaus am Park · 030 555 0102'});
-  await expect(preview).toHaveText('Kulturhaus am Park · 030 555 0102');
+  await expect(preview).toHaveText('Kulturhaus am Friedrichspark · 030 555 0101');
+  await contact.selectOption({label:'Kulturhaus am Friedrichspark · 030 555 0102'});
+  await expect(preview).toHaveText('Kulturhaus am Friedrichspark · 030 555 0102');
   await contact.selectOption('');
   await expect(preview).toHaveCount(0);
-  await contact.selectOption({label:'Kulturhaus am Park · 030 555 0101'});
+  await contact.selectOption({label:'Kulturhaus am Friedrichspark · 030 555 0101'});
 
   for (const width of [320,390,480,521,600,701,740,800,900,1150,1440]) {
     await page.setViewportSize({width,height:850});
-    if (await preview.isVisible()) {
-      await expect(preview).toHaveText('Kulturhaus am Park · 030 555 0101');
-      expect(await preview.evaluate(element=>element.scrollWidth-element.clientWidth)).toBe(0);
-      continue;
-    }
-    const room=await contact.evaluate((select:HTMLSelectElement)=>{
-      const style=getComputedStyle(select);
-      const text=select.selectedOptions[0].label;
-      const canvas=document.createElement('canvas').getContext('2d')!;
-      canvas.font=style.font;
-      const available=select.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight);
-      return available-canvas.measureText(text).width;
-    });
-    expect(room,`Textbreite bei ${width} Pixeln`).toBeGreaterThanOrEqual(0);
+    await expect(preview).toBeVisible();
+    await expect(preview).toHaveText('Kulturhaus am Friedrichspark · 030 555 0101');
+    expect(await preview.evaluate(element=>element.scrollWidth-element.clientWidth),`Überlauf bei ${width} Pixeln`).toBe(0);
   }
 });
