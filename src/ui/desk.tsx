@@ -18,7 +18,7 @@ export function Desk() {
   const [data,setData]=useState<Data>(initialData);
   const [flags,setFlags]=useState({haben:false,zammad:false});
   const [section,setSection]=useState<Section>('dashboard');
-  const [projectId,setProjectId]=useState('');
+  const [detailId,setDetailId]=useState('');
   const [view,setView]=useState<ProjectView>('overview');
   const [projectFilters,setProjectFilters]=useState(defaultProjectFilters);
   const [planningWeek,setPlanningWeek]=useState<string>();
@@ -33,6 +33,7 @@ export function Desk() {
   const signInPending=useRef(false);
   const logoutPending=useRef(false);
   const confirmationRequests=useRef(new Map<string,Promise<boolean>>());
+  const projectId=section==='projects'?detailId:'';
   const project=data.projects.find((row)=>row.id===projectId);
 
   async function load(session:number) {
@@ -79,7 +80,7 @@ export function Desk() {
       if(route==='desk-main') return;
       const next=Object.hasOwn(sections,route) ? route as Section : 'dashboard';
       setSection(next);
-      setProjectId(next==='projects' ? id ?? '' : '');
+      setDetailId(next==='projects'||next==='contacts' ? id ?? '' : '');
       setView(projectView(next==='projects' && id ? requestedView : undefined));
     }
     onHash();
@@ -154,9 +155,9 @@ export function Desk() {
   function navigate(to:Section,id='') {
     setNotice({message:'',error:false});
     setSection(to);
-    setProjectId(id);
+    setDetailId(id);
     setView('overview');
-    location.hash=id && to==='projects' ? projectHash(id) : to;
+    location.hash=id && to==='projects' ? projectHash(id) : id && to==='contacts' ? '#contacts/'+id : to;
   }
 
   async function signIn(authenticate:()=>Promise<unknown>) {
@@ -233,7 +234,8 @@ export function Desk() {
         navigate('projects',id);
         if(!data.projects.some(plan=>plan.id===id)) void run(async()=>{},undefined,{kind:'read'});
       }}/>}
-      {section==='contacts' && <Contacts data={data} run={run} haben={flags.haben} openProject={id=>navigate('projects',id)}/>}
+      {section==='contacts' && <Contacts data={data} run={run} haben={flags.haben} selected={detailId}
+        selectContact={id=>navigate('contacts',id)} openProject={id=>navigate('projects',id)}/>}
       {section==='warehouse' && <Warehouse data={data} run={run} accountId={person.id}/>}
       {section==='costs' && <Costs data={data} run={run}/>}
       {section==='account' && <><AccountPassword/><PasskeySettings/><BuildInfo/></>}
@@ -295,17 +297,18 @@ function Dashboard({data,select,open}:{data:Data;select:(id:string)=>void;open:(
   </>;
 }
 
-function Contacts({data,run,haben,openProject}:{data:Data;run:Run;haben:boolean;openProject:(id:string)=>void}) {
+function Contacts({data,run,haben,selected,selectContact,openProject}:{data:Data;run:Run;haben:boolean;selected:string;
+  selectContact:(id:string)=>void;openProject:(id:string)=>void}) {
   const [search,setSearch]=useState('');
-  const [selected,setSelected]=useState('');
-  const [comparison,setComparison]=useState<any>();
+  const [contactComparison,setComparison]=useState<{contactId:string;result:any}>();
   const [duplicates,setDuplicates]=useState<{input:Record<string,string>;contacts:Row[]}>();
   const [confirmation,setConfirmation]=useState<Confirmation>();
   const contactPanel=useRef<HTMLElement>(null);
   const contactDetail=useRef<HTMLElement>(null);
   const duplicateWarning=useRef<HTMLElement>(null);
-  const [focusContact,setFocusContact]=useState('');
+  const isOpen=useRef(false);
   const contact=data.contacts.find((row)=>row.id===selected);
+  const comparison=contactComparison?.contactId===selected ? contactComparison.result : undefined;
   const query=search.trim().toLowerCase();
   const phoneDigits=/^[\d\s+()-]+$/.test(query) ? query.replace(/\D/g,'') : '';
   const visibleContacts=data.contacts.filter((row)=>
@@ -313,17 +316,16 @@ function Contacts({data,run,haben,openProject}:{data:Data;run:Run;haben:boolean;
     || (phoneDigits!=='' && (row.phone ?? '').replace(/\D/g,'').includes(phoneDigits)));
   const projects=contact ? data.projects.filter((project)=>project.contact_id===contact.id) : [];
   useEffect(()=>{
-    if(focusContact && contact?.id===focusContact){
-      contactDetail.current?.focus();
-      setFocusContact('');
-    }
-  },[focusContact,contact?.id]);
+    isOpen.current=true;
+    return ()=>{isOpen.current=false;};
+  },[]);
+  useEffect(()=>{if(contact?.id) contactDetail.current?.focus();},[contact?.id]);
   useEffect(()=>{if(duplicates) duplicateWarning.current?.focus();},[duplicates]);
 
   function openContact(id:string) {
-    setSelected(id);
     setComparison(undefined);
-    setFocusContact(id);
+    if(id===selected) contactDetail.current?.focus();
+    else selectContact(id);
   }
 
   function fields(record?:Row) {
@@ -333,8 +335,8 @@ function Contacts({data,run,haben,openProject}:{data:Data;run:Run;haben:boolean;
 
   async function saveContact(input:Record<string,string>,isCurrent:()=>boolean) {
     const result=await api('contacts','POST',input);
-    if(!isCurrent()) return;
-    setSelected(result.id);
+    if(!isCurrent() || !isOpen.current) return;
+    selectContact(result.id);
     setComparison(undefined);
   }
 
@@ -358,7 +360,7 @@ function Contacts({data,run,haben,openProject}:{data:Data;run:Run;haben:boolean;
     return run(async(isCurrent)=>{
       const result=await api(`contacts/${contact.id}/haben`,'POST',input);
       if(result.action==='error')throw new Error(result.message);
-      if(isCurrent()) setComparison(result);
+      if(isCurrent()) setComparison({contactId:contact.id,result});
       if(result.action==='conflict') return noWrite;
     });
   }
@@ -395,7 +397,7 @@ function Contacts({data,run,haben,openProject}:{data:Data;run:Run;haben:boolean;
     {contact&&<Panel title={contact.name} focusRef={contactDetail}><div className="panel-body">
       <Form key={contact.id} caption="Änderungen speichern" fields={fields(contact)} submit={(input)=>run(()=>api(`contacts/${contact.id}`,'PATCH',input),'Kontakt gespeichert.')}/>
       {haben&&<Expand title="Haben-Kontakt">
-        <Form caption="Abgleichen" fields={[{name:'link_id',label:'Vorhandene Haben-Kontakt-ID',value:contact.haben_id ?? ''}]}
+        <Form key={contact.id} caption="Abgleichen" fields={[{name:'link_id',label:'Vorhandene Haben-Kontakt-ID',value:contact.haben_id ?? ''}]}
           submit={({link_id})=>sync(link_id?{link_id}:{})}/>
         {comparison?.action==='conflict' && <div className="conflict">
           <p>Beide Stände unterscheiden sich. Welcher soll übernommen werden?</p>

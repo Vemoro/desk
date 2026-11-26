@@ -144,8 +144,12 @@ export function Project({project,data,run,flags,accountId,back,tab}:{project:Row
 }
 
 function Overview({project,data,run,haben}:{project:Row;data:Data;run:Run;haben:boolean}) {
+  const contact=data.contacts.find((row)=>row.id===project.contact_id);
   return <div className="two-col">
     <Panel title="Projektdaten"><div className="panel-body">
+      <p className="subtle">{contact
+        ? <>Zugeordneter Kontakt <a href={'#contacts/'+contact.id}>{contact.name}</a></>
+        : 'Kontakt nicht verfügbar'}</p>
       <Form key={JSON.stringify([project.name,project.contact_id,project.due,project.notes,project.cost_center])} caption="Projektdaten speichern" fields={[
         { name:'name',label:'Projektname',value:project.name,required:true },
         { name:'contact_id',label:'Kontakt',choices:options(data.contacts),value:project.contact_id,required:true },
