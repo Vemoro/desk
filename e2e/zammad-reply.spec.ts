@@ -28,7 +28,7 @@ test('Interne Notiz bleibt geöffnet und kann einen Beitrag zitieren',async({pag
   });
   await signIn(page);
   await project(page,'Büroinstallation');
-  await page.getByRole('button',{name:'Kommunikation',exact:true}).click();
+  await page.getByRole('link',{name:'Kommunikation',exact:true}).click();
   const note=page.getByRole('textbox',{name:'Interne Notiz'});
   await expect(note).toBeVisible();
   await note.fill('Abstimmen');
@@ -104,7 +104,7 @@ test('Zammad beantwortet die gewählte E-Mail mit nachvollziehbarem Empfänger u
   });
   await signIn(page);
   await project(page,name);
-  await page.getByRole('button',{name:'Kommunikation',exact:true}).click();
+  await page.getByRole('link',{name:'Kommunikation',exact:true}).click();
   const ticket=page.getByRole('region',{name:'Anfrage des Musterbüros',exact:true});
   await expect(ticket.getByText('Zammad-Ticket #1042',{exact:true})).toBeVisible();
   await expect(page.getByRole('complementary',{name:'Vorgangsdetails'}).getByRole('link',{name:'Ticket 1042 öffnen'})).toBeVisible();

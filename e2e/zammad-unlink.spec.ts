@@ -39,7 +39,7 @@ test('Zammad-Zuordnung verlangt Bestätigung und erlaubt erneutes Verknüpfen',a
 
   await signIn(page);
   await project(page,name);
-  await page.getByRole('button',{name:'Kommunikation',exact:true}).click();
+  await page.getByRole('link',{name:'Kommunikation',exact:true}).click();
   const unlink=page.getByRole('button',{name:'Ticketverknüpfung lösen'});
   await expect(page.getByRole('link',{name:'Ticket TEST-42 öffnen'})).toBeVisible();
   await unlink.click();

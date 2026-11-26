@@ -31,7 +31,7 @@ async function openTarget(page:Page,withAttempts=false,ticketTitle='Anfrage vom 
   }}));
   await signIn(page);
   await project(page,projectName);
-  await page.getByRole('button',{name:'Kommunikation',exact:true}).click();
+  await page.getByRole('link',{name:'Kommunikation',exact:true}).click();
   const panel=page.getByRole('region',{name:ticketTitle,exact:true});
   await expect(panel.getByText('Montage bestätigt',{exact:true})).toBeVisible();
   return panel;

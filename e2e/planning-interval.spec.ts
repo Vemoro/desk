@@ -11,7 +11,7 @@ for(const type of ['Personal','Inventar']) {
     });
     await signIn(page);
     await project(page,'Veranstaltungsbetreuung im Kulturhaus');
-    await page.getByRole('button',{name:'Ressourcen & Kalkulation',exact:true}).click();
+    await page.getByRole('link',{name:'Ressourcen & Kalkulation',exact:true}).click();
     const summary=page.getByText(type+' vormerken',{exact:true}).first();
     await summary.click();
     const form=page.locator('form').filter({has:page.getByRole('button',{name:type==='Personal'?'Person vormerken':'Inventar vormerken',exact:true})});

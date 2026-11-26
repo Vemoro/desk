@@ -29,14 +29,14 @@ for(const topic of ['Veranstaltungsbetreuung','Büroinstallation']) {
     }
     await page.getByRole('button',{name:'Planung',exact:true}).click();
     await expect(page.getByRole('status').getByText('Projektstatus: Planung.')).toBeVisible();
-    await page.getByRole('button',{name:'Kanban',exact:true}).click();
+    await page.getByRole('link',{name:'Kanban',exact:true}).click();
     await page.getByText('Aufgabe anlegen',{exact:true}).click();
     await page.getByLabel('Aufgabe',{exact:true}).fill('Material disponieren');
     await page.getByRole('combobox',{name:'Verantwortlich',exact:true}).selectOption({label:'Mira Muster'});
     await page.getByRole('button',{name:'Aufgabe speichern'}).click();
     await page.getByRole('combobox',{name:'Status für Material disponieren'}).selectOption('done');
     await expect(page.getByRole('combobox',{name:'Status für Material disponieren'})).toHaveValue('done');
-    await page.getByRole('button',{name:'Überblick',exact:true}).click();
+    await page.getByRole('link',{name:'Überblick',exact:true}).click();
     await page.getByLabel('Angebotsreferenz').fill(`A-${suffix}`);
     await page.getByLabel('Rechnungsreferenz').fill(`RE-${suffix}`);
     await page.getByRole('button',{name:'Referenzen speichern'}).click();
@@ -63,19 +63,19 @@ for(const topic of ['Veranstaltungsbetreuung','Büroinstallation']) {
     await post('costs',{entries:[{project_id:projectId,source:'E2E',reference:'BEL-'+suffix,name:'Musterbeleg',cents:800}]});
     await page.reload();
     await expect(page.getByRole('heading',{name:project})).toBeVisible();
-    await page.getByRole('button',{name:'Ressourcen & Kalkulation',exact:true}).click();
+    await page.getByRole('link',{name:'Ressourcen & Kalkulation',exact:true}).click();
     const planRow=page.getByRole('row').filter({hasText:'Geplantes Material'});
     await planRow.getByText('Position bearbeiten',{exact:true}).click();
     await planRow.getByRole('spinbutton',{name:'Menge',exact:true}).fill('3');
     await planRow.getByRole('button',{name:'Position aktualisieren'}).click();
     await expect(page.getByRole('status').getByText('Position aktualisiert.')).toBeVisible();
     await expect(planRow.getByText('15,00')).toBeVisible();
-    await page.getByRole('button',{name:'Controlling',exact:true}).click();
+    await page.getByRole('link',{name:'Controlling',exact:true}).click();
     await expect(page.getByText('Musterbeleg',{exact:true})).toBeVisible();
-    await page.getByRole('button',{name:'Überblick',exact:true}).click();
+    await page.getByRole('link',{name:'Überblick',exact:true}).click();
     await page.getByRole('button',{name:'Abgerechnet',exact:true}).click();
     await expect(page.getByRole('status').getByText('Projektstatus: Abgerechnet.')).toBeVisible();
-    await page.getByRole('button',{name:'Kommunikation',exact:true}).click();
+    await page.getByRole('link',{name:'Kommunikation',exact:true}).click();
     await expect(page.getByRole('heading',{name:'Externer Vorgang'})).toBeVisible();
   });
 }

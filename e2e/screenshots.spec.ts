@@ -22,7 +22,7 @@ for(const theme of ['hell','dunkel']) {
         ['Kanban','kanban','Aufgaben'],['Ressourcen & Kalkulation','ressourcenplanung','Ressourcenplanung'],
         ['Controlling','controlling','Belegbezogene Ist-Kosten'],
       ]) {
-        await page.getByRole('button',{name:tab,exact:true}).click();
+        await page.getByRole('link',{name:tab,exact:true}).click();
         await expect(page.getByRole('heading',{name:label,exact:true})).toBeVisible();
         await page.screenshot({path:`${projectOutput}/${image}-${theme}.png`,animations:'disabled',fullPage:true});
       }

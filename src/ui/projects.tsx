@@ -3,6 +3,7 @@ import { api, calendarDate, downloadPositions, euros, inventoryLabel, inventoryN
 import { ConfirmDialog, Expand, Form, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
 import { ProjectHistory } from './project-history';
 import { Communication } from './communication';
+import { projectHash, projectViews, type ProjectView } from './project-views';
 
 export type Data = Record<'contacts'|'projects'|'tasks'|'users'|'lines'|'reservations'|'locations'|'items'|'movements'|'costs'|'stock',Row[]>;
 type Flags = { haben:boolean; zammad:boolean };
@@ -100,15 +101,15 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
   </>;
 }
 
-export function Project({project,data,run,flags,accountId,back}:{project:Row;data:Data;run:Run;flags:Flags;accountId:string;back:()=>void}) {
-  const [tab,setTab]=useState('overview');
+export function Project({project,data,run,flags,accountId,back,tab}:{project:Row;data:Data;run:Run;flags:Flags;accountId:string;back:()=>void;tab:ProjectView}) {
   const title=useRef<HTMLHeadingElement>(null);
   useEffect(()=>{title.current?.focus();},[]);
-  const tabs:Record<string,string>={overview:'Überblick',tasks:'Kanban',planning:'Ressourcen & Kalkulation',finance:'Controlling',communication:'Kommunikation',history:'Verlauf'};
   return <>
     <div className="breadcrumb"><button className="text-button" onClick={back}>Projekte</button><span>/</span>{project.name}</div>
     <div className="project-head"><div><h1 ref={title} tabIndex={-1}>{project.name}</h1><div className="subtle">{name(data.contacts,project.contact_id)} · Termin {calendarDate(project.due)}</div></div><Pill label={projectStages[project.stage]} tone="accent"/></div>
-    <nav className="tabs" aria-label="Projektansichten">{Object.entries(tabs).map(([key,label])=><button key={key} aria-current={tab===key?'page':undefined} onClick={()=>setTab(key)}>{label}</button>)}</nav>
+    <nav className="tabs" aria-label="Projektansichten">{(Object.keys(projectViews) as ProjectView[]).map((key)=>
+      <a key={key} href={projectHash(project.id,key)} aria-current={tab===key?'page':undefined}>{projectViews[key]}</a>
+    )}</nav>
     {tab==='overview' && <Overview project={project} data={data} run={run} haben={flags.haben}/>}
     {tab==='tasks' && <Kanban project={project} data={data} run={run}/>}
     {tab==='planning' && <Planning project={project} data={data} run={run} accountId={accountId}/>}
