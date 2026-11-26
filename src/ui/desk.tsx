@@ -303,16 +303,16 @@ function Dashboard({data,select,open}:{data:Data;select:(id:string)=>void;open:(
 function Contacts({data,run,haben,selected,selectContact,openProject}:{data:Data;run:Run;haben:boolean;selected:string;
   selectContact:(id:string)=>void;openProject:(id:string)=>void}) {
   const [search,setSearch]=useState('');
-  const [contactComparison,setComparison]=useState<{contactId:string;result:any}>();
+  const [comparisons,setComparisons]=useState(()=>new Map<string,any>());
   const [duplicates,setDuplicates]=useState<{input:Record<string,string>;contacts:Row[]}>();
   const [confirmation,setConfirmation]=useState<Confirmation>();
   const contactPanel=useRef<HTMLElement>(null);
   const contactDetail=useRef<HTMLElement>(null);
   const duplicateWarning=useRef<HTMLElement>(null);
   const isOpen=useRef(false);
-  const comparisonRequest=useRef(0);
+  const comparisonRequests=useRef(new Map<string,number>());
   const contact=data.contacts.find((row)=>row.id===selected);
-  const comparison=contactComparison?.contactId===selected ? contactComparison.result : undefined;
+  const comparison=comparisons.get(selected);
   const query=search.trim().toLowerCase();
   const phoneDigits=/^[\d\s+()-]+$/.test(query) ? query.replace(/\D/g,'') : '';
   const visibleContacts=data.contacts.filter((row)=>
@@ -327,7 +327,12 @@ function Contacts({data,run,haben,selected,selectContact,openProject}:{data:Data
   useEffect(()=>{if(duplicates) duplicateWarning.current?.focus();},[duplicates]);
 
   function openContact(id:string) {
-    setComparison(undefined);
+    setComparisons(previous=>{
+      if(!previous.has(id)) return previous;
+      const next=new Map(previous);
+      next.delete(id);
+      return next;
+    });
     if(id===selected) contactDetail.current?.focus();
     else selectContact(id);
   }
@@ -341,7 +346,6 @@ function Contacts({data,run,haben,selected,selectContact,openProject}:{data:Data
     const result=await api('contacts','POST',input);
     if(!isCurrent() || !isOpen.current) return;
     selectContact(result.id);
-    setComparison(undefined);
   }
 
   async function createContact(fields:Record<string,string>) {
@@ -361,12 +365,15 @@ function Contacts({data,run,haben,selected,selectContact,openProject}:{data:Data
 
   async function sync(input:unknown) {
     if(!contact)return;
-    const request=++comparisonRequest.current;
+    const contactId=contact.id;
+    const requests=comparisonRequests.current;
+    const request=(requests.get(contactId)??0)+1;
+    requests.set(contactId,request);
     return run(async(isCurrent)=>{
-      const result=await api(`contacts/${contact.id}/haben`,'POST',input);
+      const result=await api(`contacts/${contactId}/haben`,'POST',input);
       if(result.action==='error')throw new Error(result.message);
-      if(isCurrent() && isOpen.current && request===comparisonRequest.current && location.hash==='#contacts/'+contact.id) {
-        setComparison({contactId:contact.id,result});
+      if(isCurrent() && isOpen.current && requests.get(contactId)===request) {
+        setComparisons(previous=>new Map(previous).set(contactId,result));
       }
       if(result.action==='conflict') return noWrite;
     });

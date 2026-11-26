@@ -77,30 +77,44 @@ test('Eine Haben-Rückmeldung bleibt beim zugehörigen Kontakt',async({page})=>{
   await expect(detail.getByRole('button',{name:'Haben übernehmen'})).toHaveCount(0);
 });
 
-test('Verspätete Haben-Rückmeldung lässt den Konflikt des geöffneten Kontakts stehen',async({page})=>{
+for(const returnToFirst of [false,true]) test(returnToFirst
+  ? 'Browser-Zurück zeigt den noch ausstehenden Haben-Konflikt des ersten Kontakts'
+  : 'Verspätete Haben-Rückmeldung lässt den Konflikt des geöffneten Kontakts stehen',async({page})=>{
   const conflict=(email:string)=>({
     action:'conflict',haben_id:'muster',desk:{name:contactName,email},
     haben:{name:'Kontor aus Haben',email:'kontakt@example.test'},
   });
-  const pending=holdRoute();
+  const firstPending=holdRoute();
+  const secondPending=holdRoute();
   await page.route('**/api/v1/integrations',route=>route.fulfill({json:{haben:true,zammad:false}}));
-  await page.route('**/api/v1/contacts/first/haben',pending.resolve);
-  await page.route('**/api/v1/contacts/second/haben',route=>route.fulfill({json:conflict('zwei@example.test')}));
+  await page.route('**/api/v1/contacts/first/haben',firstPending.resolve);
+  await page.route('**/api/v1/contacts/second/haben',secondPending.resolve);
   const panel=await openTarget(page);
   await panel.getByRole('link',{name:contactName,exact:true}).click();
   const detail=page.getByRole('region',{name:contactName,exact:true});
   await detail.getByText('Haben-Kontakt',{exact:true}).click();
   const sync=detail.getByRole('button',{name:'Abgleichen',exact:true});
   await sync.click();
-  const oldRequest=await pending.request;
+  const firstRequest=await firstPending.request;
   const list=page.getByRole('region',{name:'Interessenten und Kontakte',exact:true});
   await list.getByRole('row').filter({hasText:'zwei@example.test'}).getByRole('button',{name:contactName}).click();
   await expect(detail.getByLabel('E-Mail')).toHaveValue('zwei@example.test');
   await sync.click();
+  const secondRequest=await secondPending.request;
+  if(returnToFirst) await page.goBack();
+  const [visibleEmail,otherEmail]=returnToFirst
+    ? ['eins@example.test','zwei@example.test'] : ['zwei@example.test','eins@example.test'];
+  const [visibleRequest,otherRequest]=returnToFirst ? [firstRequest,secondRequest] : [secondRequest,firstRequest];
+  await expect(detail.getByLabel('E-Mail')).toHaveValue(visibleEmail);
+  await settleResponse(page,visibleRequest,conflict(visibleEmail));
   const resolveConflict=detail.getByRole('button',{name:'Haben übernehmen'});
+  try {
+    await expect(resolveConflict).toBeVisible();
+  } finally {
+    await settleResponse(page,otherRequest,conflict(otherEmail));
+  }
   await expect(resolveConflict).toBeVisible();
-  await settleResponse(page,oldRequest,conflict('eins@example.test'));
-  await expect(resolveConflict).toBeVisible();
+  await expect(detail.getByRole('cell',{name:visibleEmail,exact:true})).toBeVisible();
 });
 
 test('Fehler beim Speichern des Projekts bleibt im Projekt',async({page})=>{
