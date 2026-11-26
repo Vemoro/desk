@@ -1,8 +1,9 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { api, calendarDate, downloadPositions, euros, inventoryLabel, inventoryName, moment, money, name, projectStages, reservationStages, taskStages, type Row } from './client';
+import { api, calendarDate, downloadPositions, euros, inventoryLabel, inventoryName, moment, money, name, projectStages, reservationStages, type Row } from './client';
 import { ConfirmDialog, Expand, Form, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
 import { ProjectHistory } from './project-history';
 import { Communication } from './communication';
+import { ProjectKanban } from './project-kanban';
 import { projectHash, projectViews, type ProjectView } from './project-views';
 
 export type Data = Record<'contacts'|'projects'|'tasks'|'users'|'lines'|'reservations'|'locations'|'items'|'movements'|'costs'|'stock',Row[]>;
@@ -130,7 +131,7 @@ export function Project({project,data,run,flags,accountId,back,tab}:{project:Row
       <a key={key} href={projectHash(project.id,key)} aria-current={tab===key?'page':undefined}>{projectViews[key]}</a>
     )}</nav>
     {tab==='overview' && <Overview project={project} data={data} run={run} haben={flags.haben}/>}
-    {tab==='tasks' && <Kanban project={project} data={data} run={run}/>}
+    {tab==='tasks' && <ProjectKanban projectId={project.id} tasks={data.tasks} users={data.users} run={run}/>}
     {tab==='planning' && <Planning project={project} data={data} run={run} accountId={accountId}/>}
     {tab==='finance' && <Controlling project={project} data={data} run={run}/>}
     {tab==='communication' && <Communication project={project} zammad={flags.zammad} run={run}/>}
@@ -163,42 +164,6 @@ function Overview({project,data,run,haben}:{project:Row;data:Data;run:Run;haben:
       </Expand>}
     </div></Panel>
   </div>;
-}
-
-function Kanban({project,data,run}:{project:Row;data:Data;run:Run}) {
-  const tasks=data.tasks.filter((task)=>task.project_id===project.id);
-  const activePeople=options(data.users.filter(person=>!person.blocked));
-  function assigneeChoices(id:string | null) {
-    const previous=data.users.find(person=>person.id===id && person.blocked);
-    return previous ? [...activePeople,{value:previous.id,label:`${previous.name} (gesperrt)`}] : activePeople;
-  }
-  return <>
-    <Panel title="Aufgaben" action={<span className="subtle">{tasks.length} Aufgaben</span>}>
-      <div className="panel-body"><Expand title="Aufgabe anlegen">
-        <Form caption="Aufgabe speichern" fields={[
-          {name:'name',label:'Aufgabe',required:true},{name:'assignee_id',label:'Verantwortlich',choices:activePeople},
-          {name:'due',label:'Fällig am',type:'date'},
-        ]} submit={(fields)=>run(()=>api('tasks','POST',{project_id:project.id,...fields,assignee_id:fields.assignee_id||null,due:fields.due||null}),'Aufgabe angelegt.')}/>
-      </Expand></div>
-    </Panel>
-    <div className="board" aria-label="Kanban">
-      {Object.entries(taskStages).map(([status,label])=><section key={status} className="board-column"
-        onDragOver={(event)=>event.preventDefault()}
-        onDrop={(event)=>{event.preventDefault();const id=event.dataTransfer.getData('text/plain');
-          if(tasks.some((task)=>task.id===id && task.status!==status)) void run(()=>api(`tasks/${id}`,'PATCH',{status}));}}>
-        <h2>{label} <span>{tasks.filter((task)=>task.status===status).length}</span></h2>
-        {tasks.filter((task)=>task.status===status).map((task)=><article key={task.id} className="task" draggable onDragStart={(event)=>event.dataTransfer.setData('text/plain',task.id)}>
-          <strong>{task.name}</strong><span className="subtle">{name(data.users,task.assignee_id)} · {calendarDate(task.due)}</span>
-          <label><span className="sr-only">Status für {task.name}</span><select value={task.status} onChange={(event)=>run(()=>api(`tasks/${task.id}`,'PATCH',{status:event.target.value}))}>
-            {Object.entries(taskStages).map(([key,value])=><option value={key} key={key}>{value}</option>)}
-          </select></label>
-          <Expand title="Bearbeiten"><Form caption="Aufgabe aktualisieren" fields={[
-            {name:'name',label:'Aufgabe',value:task.name,required:true},{name:'assignee_id',label:'Verantwortlich',value:task.assignee_id,choices:assigneeChoices(task.assignee_id)},{name:'due',label:'Fällig am',type:'date',value:task.due?.slice(0,10)},
-          ]} submit={(fields)=>run(()=>api(`tasks/${task.id}`,'PATCH',{...fields,assignee_id:fields.assignee_id||null,due:fields.due||null}))}/></Expand>
-        </article>)}
-      </section>)}
-    </div>
-  </>;
 }
 
 function Planning({project,data,run,accountId}:{project:Row;data:Data;run:Run;accountId:string}) {
