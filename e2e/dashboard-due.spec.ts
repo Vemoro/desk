@@ -1,31 +1,41 @@
 import { expect, test } from '@playwright/test';
+import { kanbanTaskResponse, projectResponse } from '../src/server/contracts';
 import { signIn } from './session';
 
 test.use({timezoneId:'America/Los_Angeles'});
 
 test('Fällige Aufgaben aktiver Projekte sind vor dem Zehnerlimit nach Termin sortiert',async({page})=>{
-  await page.clock.install({time:new Date('2028-05-18T06:59:00Z')});
-  await page.route('**/api/v1/projects?*',route=>route.fulfill({json:[
-    {id:'active',name:'Montage im Musterbüro',stage:'confirmed'},
-    {id:'second',name:'Werkstatt des Musterbüros',stage:'planning'},
-    {id:'closed',name:'Abgerechnetes Projekt',stage:'complete'},
-    {id:'cancelled',name:'Abgesagtes Projekt',stage:'cancelled'},
-  ]}));
-  const overdue='2028-05-16T00:00:00.000Z';
-  let tasks=[
-    ...Array.from({length:10},(_,index)=>({id:`excluded-${index}`,name:`Abgerechnet ${index}`,project_id:'closed',status:'todo',due:'2028-05-15'})),
-    {id:'cancelled',name:'Abgesagte Aufgabe',project_id:'cancelled',status:'todo',due:overdue},
-    {id:'later',name:'Ergebnis dokumentieren',project_id:'active',status:'todo',due:'2028-05-20'},
-    {id:'future',name:'Materialrückgabe planen',project_id:'active',status:'todo',due:'2028-05-18'},
-    {id:'equal-b',name:'Werkzeug bereitlegen',project_id:'second',status:'doing',due:overdue},
-    {id:'equal-a',name:'Werkzeug bereitlegen',project_id:'active',status:'todo',due:'2028-05-16'},
-    {id:'old',name:'Material vorbereiten',project_id:'active',status:'todo',due:overdue},
-    {id:'older',name:'Zugang abstimmen',project_id:'active',status:'todo',due:'2028-05-14'},
-    {id:'done',name:'Erledigte Aufgabe',project_id:'active',status:'done',due:overdue},
-    {id:'today',name:'Team einweisen',project_id:'active',status:'todo',due:'2028-05-17T00:00:00.000Z'},
-    {id:'no-due',name:'Aufgabe ohne Termin',project_id:'active',status:'todo',due:null},
-    ...Array.from({length:7},(_,index)=>({id:`future-${index}`,name:`Folgeaufgabe ${index}`,project_id:'active',status:'todo',due:'2028-05-19'})),
-  ];
+  await page.clock.install({time:new Date('2028-05-18T06:58:55Z')});
+  await page.clock.pauseAt(new Date('2028-05-18T06:59:00Z'));
+  const fixtureId=(number:number)=>`61000000-0000-4000-8000-${String(number).padStart(12,'0')}`;
+  const [active,second,closed,cancelled]=[1,2,3,4].map(fixtureId);
+  const projects=projectResponse.array().parse([
+    {id:active,name:'Montage im Musterbüro',stage:'confirmed'},
+    {id:second,name:'Werkstatt des Musterbüros',stage:'planning'},
+    {id:closed,name:'Abgerechnetes Projekt',stage:'complete'},
+    {id:cancelled,name:'Abgesagtes Projekt',stage:'cancelled'},
+  ].map(project=>({
+    ...project,contact_id:fixtureId(5),notes:'',due:null,offer_ref:'',invoice_ref:'',
+    external_link:'',communication_note:'',haben_offer_id:null,haben_offer:null,cost_center:'',zammad_ticket_id:null,
+  })));
+  await page.route('**/api/v1/projects?*',route=>route.fulfill({json:projects}));
+  const task=(number:number,name:string,project_id:string,day:string|null,status='todo')=>({
+    id:fixtureId(number),name,project_id,status,due:day&&`2028-05-${day}T00:00:00.000Z`,assignee_id:null,kanban_position:number,
+  });
+  let tasks=kanbanTaskResponse.array().parse([
+    ...Array.from({length:10},(_,index)=>task(20+index,`Abgerechnet ${index}`,closed,'15')),
+    task(30,'Abgesagte Aufgabe',cancelled,'16'),
+    task(31,'Ergebnis dokumentieren',active,'20'),
+    task(32,'Materialrückgabe planen',active,'18'),
+    task(34,'Werkzeug bereitlegen',second,'16','doing'),
+    task(33,'Werkzeug bereitlegen',active,'16'),
+    task(35,'Material vorbereiten',active,'16'),
+    task(36,'Zugang abstimmen',active,'14'),
+    task(37,'Erledigte Aufgabe',active,'16','done'),
+    task(38,'Team einweisen',active,'17'),
+    task(39,'Aufgabe ohne Termin',active,null),
+    ...Array.from({length:7},(_,index)=>task(40+index,`Folgeaufgabe ${index}`,active,'19')),
+  ]);
   await page.route('**/api/v1/tasks/kanban',route=>route.fulfill({json:tasks}));
   await signIn(page);
   const panel=page.locator('section.panel').filter({has:page.getByRole('heading',{name:'Fällige Aufgaben',exact:true})});
@@ -50,7 +60,7 @@ test('Fällige Aufgaben aktiver Projekte sind vor dem Zehnerlimit nach Termin so
   await expect(nextDay).not.toContainText(/Heute|Überfällig/);
   await expect(panel.getByText(/Abgerechnet|Abgesagte|Erledigte|Aufgabe ohne Termin|Ergebnis dokumentieren|Folgeaufgabe 4/)).toHaveCount(0);
 
-  await page.clock.fastForward(70_000);
+  await page.clock.fastForward(60_000);
   await expect(today).toContainText('Überfällig');
   await expect(today).toContainText('17.05.2028');
   await expect(nextDay).toContainText('Heute');
