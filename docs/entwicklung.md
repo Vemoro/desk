@@ -35,7 +35,7 @@ Ergebnis, Fehlschläge und Auslassungen mit Grund gehören in den PR. Eine Wiede
 
 Der Workflow **Prüfungen** meldet den Check `desk` bei Pull Requests und Pushes auf `main`. **Arbeitsgrundlage** meldet den Check `doku` bei passenden Pfaden im Pull Request und bei Pushes auf `main`. Wird ein Entwurf zur Prüfung freigegeben, gelten dieselben Kriterien wie beim Öffnen eines PRs.
 
-Sobald die manuell startbaren Workflows auf `main` liegen, können Beitragende mit Repository-Schreibzugriff bei fehlendem automatischem Lauf **Actions → Run workflow** verwenden. Wähle den Branch mit dem aktuellen Prüfkandidaten und der manuell startbaren Workflow-Version. Halte den geprüften Commit und den Lauf im PR fest. Der manuelle Doku-Lauf prüft Leerzeichen gegen den direkten Vorgänger. Prüfe bei mehreren Commits den gesamten PR-Diff zusätzlich mit `git diff --check <Basis> HEAD`. Die GitHub-Freigabe für Workflow-Läufe aus Forks gilt auch weiterhin für automatische PR-Läufe.
+Sobald die manuell startbaren Workflows auf `main` liegen, können Beitragende mit Repository-Schreibzugriff bei fehlendem automatischem Lauf **Actions → Run workflow** verwenden. Wähle den Branch mit dem aktuellen Prüfkandidaten und der manuell startbaren Workflow-Version. Halte den geprüften Commit und den Lauf im PR fest. Der manuelle Doku-Lauf prüft Leerzeichen gegen den direkten Vorgänger. Prüfe bei mehreren Commits den gesamten PR-Diff zusätzlich mit `git diff --check <Zielbranch>...HEAD`. Verwende den aktuellen Remote-Ref des Zielbranches, beispielsweise `origin/main`. Die GitHub-Freigabe für Workflow-Läufe aus Forks gilt auch weiterhin für automatische PR-Läufe.
 
 ### Befehle und Screenshot-Workflow
 
