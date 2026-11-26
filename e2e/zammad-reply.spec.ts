@@ -81,6 +81,7 @@ test('Zammad beantwortet die gewählte E-Mail mit nachvollziehbarem Empfänger u
       articles,outgoing:attempts,
     }}));
   await page.route(path+'/outgoing/*',route=>{
+    if(!attempts.length) return route.fulfill({status:404,json:{code:'zammad_attempt_not_found'}});
     if(route.request().postDataJSON().retry) {
       attempts[0]!.status='unknown';
       historyUnavailable=true;
@@ -153,6 +154,8 @@ test('Zammad beantwortet die gewählte E-Mail mit nachvollziehbarem Empfänger u
   await expect(editor.getByLabel('Nachricht',{exact:true})).toHaveValue('Bitte am Haupteingang melden.');
   await editor.getByRole('button',{name:'E-Mail über Zammad senden'}).click();
   await expect(editor.getByLabel('Nachricht',{exact:true})).toBeDisabled();
+  await editor.getByRole('button',{name:'Sendeversuch prüfen',exact:true}).click();
+  expect(outbound).toHaveLength(2);
   await editor.getByRole('button',{name:'Mit denselben Angaben fortfahren'}).click();
   await expect(editor.getByRole('alert').last()).toHaveText('Sendezustand prüfen. Der Versuch steht im Projektverlauf.');
   await expect(editor.getByLabel('Betreff')).toBeDisabled();
