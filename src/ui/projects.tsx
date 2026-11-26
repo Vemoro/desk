@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type FocusEvent } from 'react';
+import { missingStageReference } from '../project-references';
 import { api, calendarDate, downloadPositions, euros, inventoryLabel, inventoryName, moment, money, name, projectStages, reservationStages, type Row } from './client';
 import { ConfirmDialog, Expand, Form, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
 import { ProjectHistory } from './project-history';
@@ -144,6 +145,12 @@ export function Project({project,data,run,flags,accountId,back,tab}:{project:Row
 }
 
 function Overview({project,data,run,haben}:{project:Row;data:Data;run:Run;haben:boolean}) {
+  const hintId=useId();
+  const stages=(transitions[project.stage]??[]).map(stage=>({
+    stage,reference:missingStageReference(stage,{
+      offer_ref:project.offer_ref,invoice_ref:project.invoice_ref,haben_offer_id:project.haben_offer_id,
+    }),
+  }));
   return <div className="two-col">
     <Panel title="Projektdaten"><div className="panel-body">
       <Form key={JSON.stringify([project.name,project.contact_id,project.due,project.notes,project.cost_center])} caption="Projektdaten speichern" fields={[
@@ -159,8 +166,13 @@ function Overview({project,data,run,haben}:{project:Row;data:Data;run:Run;haben:
         {name:'offer_ref',label:'Angebotsreferenz',value:project.offer_ref},
         {name:'invoice_ref',label:'Rechnungsreferenz',value:project.invoice_ref},
       ]} submit={(fields)=>run(()=>api(`projects/${project.id}`,'PATCH',fields),'Referenzen gespeichert.')}/>
-      <div className="actions">
-        {transitions[project.stage]?.map((stage)=><button key={stage} onClick={()=>run(()=>api(`projects/${project.id}/stage`,'PATCH',{stage}),`Projektstatus: ${projectStages[stage]}.`)}>{projectStages[stage]}</button>)}
+      {stages.map(({stage,reference})=>reference && <p key={stage} id={`${hintId}-${stage}`} className="subtle">
+        Für „{projectStages[stage]}“ zuerst das Feld „{reference}“ speichern.
+      </p>)}
+      <div className="actions stage-actions">
+        {stages.map(({stage,reference})=><button key={stage} disabled={Boolean(reference)}
+          aria-describedby={reference?`${hintId}-${stage}`:undefined}
+          onClick={()=>run(()=>api(`projects/${project.id}/stage`,'PATCH',{stage}),`Projektstatus: ${projectStages[stage]}.`)}>{projectStages[stage]}</button>)}
       </div>
       {haben && <Expand title="Haben-Angebot">
         {project.haben_offer && <p><a href={project.haben_offer.url} target="_blank" rel="noreferrer">Angebot öffnen</a> · {project.haben_offer.status}</p>}
