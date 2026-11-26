@@ -45,6 +45,8 @@ test('Projektansichten bleiben im Direktlink und im Browserverlauf erhalten',asy
   await expect(tabs.getByRole('link',{name:'Überblick'})).toHaveAttribute('aria-current','page');
   await kanban.focus();
   await kanban.press('Enter');
+  await expect(kanban).toHaveAttribute('aria-current','page');
+  await expect(kanban).toBeFocused();
   await controlling.click();
   await expect(page.getByRole('heading',{name:'Belegbezogene Ist-Kosten'})).toBeVisible();
   await page.goBack();
