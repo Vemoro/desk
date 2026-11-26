@@ -2,9 +2,9 @@
 
 Jeder veröffentlichte Eintrag nennt Version und Datum. Er fasst Änderungen für Nutzende, Schritte für die Aktualisierung und bekannte Einschränkungen zusammen.
 
-## 0.1.0.0 – unveröffentlicht
+## 0.1.0.0 (2026-11-26)
 
-Desk ist eine selbst gehostete Projektverwaltung für kleine Teams. Die erste Version begleitet einen Auftrag von der Kundenanfrage über Planung, Kalkulation und Projektlager bis zur dokumentierten Rechnungsreferenz. Der [Prüfleitfaden](docs/release-abnahme.md) führt zum aktuellen Abnahmeprotokoll.
+Desk ist eine selbst gehostete Projektverwaltung für kleine Teams. Die erste Version begleitet einen Auftrag von der Kundenanfrage über Planung, Kalkulation und Projektlager bis zur dokumentierten Rechnungsreferenz. Quellarchiv und Prüfsumme stehen im [GitHub-Release](https://github.com/Vemoro/desk/releases/tag/v0.1.0.0) bereit. [Abnahmeprotokoll](https://github.com/Vemoro/desk/issues/65)
 
 ### Projekte, Planung und Lager
 
@@ -27,7 +27,7 @@ Desk ist eine selbst gehostete Projektverwaltung für kleine Teams. Die erste Ve
 
 ### Installation und Aktualisierung
 
-- Desk lässt sich unter Windows, Android und iOS als Web-App installieren und über das blaue Desk-Symbol im eigenen Fenster starten. [Desk als Web-App installieren](docs/desk.md#desk-als-web-app-installieren)
+- Die Installation als Web-App und der Start im eigenen Fenster sind unter Windows und Android bestätigt. Die Abnahme auf einem echten iPhone steht aus. [Geräteabnahme](https://github.com/Vemoro/desk/issues/85) [Desk als Web-App installieren](docs/desk.md#desk-als-web-app-installieren)
 - Für eine Erstinstallation eine leere PostgreSQL-17-Datenbank migrieren und das erste Administrationskonto anlegen. Zammad lässt sich optional anbinden. Die Installationsdoku beschreibt den mit Desk geprüften Aufbau einer neuen Zammad-Instanz und ihre getrennte Sicherung. Der Desk-Lizenztext liegt auch im Laufzeit-Image. [Installation](docs/installation.md) · [Lizenzinventar](docs/lizenzinventar.md)
 - Bei einer vorhandenen Desk-Entwicklungsinstanz den Dienst vor dem Wechsel anhalten, PostgreSQL und die Laufzeitkonfiguration sichern und die Wiederherstellung getrennt prüfen. Die neue Version erst nach erfolgreicher Migration starten. [Sicherung und Wiederanlauf](docs/sicherung.md#upgrade-und-wiederanlauf-proben)
 - Führe vor dem Start die Migrationen `008_zammad_reply.sql` und `009_zammad_internal_notes.sql` aus. Desk speichert damit den Bezug auf die beantwortete Nachricht und hält Sendeversuche für interne Notizen getrennt fest. Ein Desk-Stand vor Einführung von Migration 008 sendet die gespeicherte Antwortreferenz bei einem erneuten Versuch nicht mit. Kläre offene artikelbezogene Versuche vor dem Rückwechsel oder wiederhole sie später mit einem Stand, der die Referenz mitsendet. Lass bei offenen Notizversuchen die Ticketverknüpfung bestehen, damit du sie nach der Rückkehr zum neuen Stand prüfen kannst. [Zammad und Rückwechsel](docs/desk.md#zammad)

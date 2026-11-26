@@ -18,7 +18,7 @@
 [Warum Desk?](#warum-desk) · [Auftragsablauf](#so-läuft-ein-auftrag) · [Funktionen](#funktionen) · [Haben und Zammad](#haben-und-zammad) · [Schnellstart](#schnellstart) · [FAQ](#häufige-fragen)
 
 > [!NOTE]
-> Desk befindet sich in Entwicklung. Die erste öffentliche Version ist in Vorbereitung. [Roadmap](docs/roadmap.md) · [Release-Abnahme](docs/release-abnahme.md) · [Release-Notizen](CHANGELOG.md)
+> Desk 0.1.0.0 ist veröffentlicht. Das Quellarchiv und seine SHA-256-Prüfsumme stehen unter **Assets** bereit. [Download und Release-Notizen](https://github.com/Vemoro/desk/releases/tag/v0.1.0.0) · [Produktseite und Dokumentation](https://vemoro.de/desk/) · [Roadmap](docs/roadmap.md)
 
 ## Warum Desk?
 
@@ -86,4 +86,4 @@ In einer laufenden Desk-Instanz unter `/api/v1/openapi.json`. Die Betriebsdoku b
 
 ## Mitwirken
 
-Desk steht unter der AGPL-3.0-only. Mit Zugriff auf das derzeit private Repository kannst du Fehler melden, Vorschläge einbringen oder einen Beitrag vorbereiten. [Mitwirken](CONTRIBUTING.md) · [Sicherheitsmeldungen](SECURITY.md) · [Entwicklungsregeln](docs/entwicklung.md) · [Lizenz](LICENSE) · [Urheberhinweis](public/desk-notice.txt) · [Lizenzinventar der Auslieferung](docs/lizenzinventar.md) · [Drittanbieterhinweise](public/third-party-notices.txt)
+Desk steht unter der AGPL-3.0-only. Du kannst Fehler melden, Vorschläge einbringen oder einen Beitrag vorbereiten. [Mitwirken](CONTRIBUTING.md) · [Sicherheitsmeldungen](SECURITY.md) · [Entwicklungsregeln](docs/entwicklung.md) · [Lizenz](LICENSE) · [Urheberhinweis](public/desk-notice.txt) · [Lizenzinventar der Auslieferung](docs/lizenzinventar.md) · [Drittanbieterhinweise](public/third-party-notices.txt)
