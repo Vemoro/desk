@@ -83,7 +83,7 @@ Doku, Oberfläche und Beiträge werden auf Deutsch geschrieben, Code-Bezeichner 
 
 Starte die beiden zu prüfenden Git-Stände auf unterschiedlichen lokalen Ports. Verwende je Instanz eine eigene, frisch angelegte PostgreSQL-Datenbank mit Suffix `_demo`. Führe je Instanz `bun run migrate` und `bun run demo` mit demselben `DESK_DEMO_PASSWORD` aus. Setze die zum Port passende `DESK_ORIGIN` und lasse echte Integrationen aus. Verwende direkte Loopback-Adressen. Der Aufruf folgt keinen Weiterleitungen.
 
-Führe den Vergleich mit installiertem Playwright-Chromium und demselben `DESK_DEMO_PASSWORD` aus.
+Führe den Vergleich im Checkout aus, der `review:screenshots` enthält. Verwende dort installiertes Playwright-Chromium und dasselbe `DESK_DEMO_PASSWORD` wie für die Demo-Datenbanken.
 
 ```sh
 bun run review:screenshots http://localhost:4193 http://localhost:4194
