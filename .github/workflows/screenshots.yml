@@ -13,7 +13,7 @@ jobs:
           - state: vorher
             commit: ccf06da3381a128f1138fe4b196ee964d88638f9
           - state: nachher
-            commit: ec8c1d1f50a6db0274e58246a7b25d8497f8f6c2
+            commit: 349498b75244ff09ec1e0b7c4b271d8e1c624708
     services:
       postgres:
         image: postgres:17
