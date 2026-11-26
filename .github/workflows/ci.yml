@@ -39,7 +39,10 @@ jobs:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
       - run: bun run build
-      - run: bun run check
+      - shell: bash
+        run: |
+          export DESK_CHECK_BASE="${DESK_CHECK_BASE:-$(git rev-parse refs/remotes/origin/main)}"
+          bun run check
         env:
           DESK_CHECK_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
       - run: bun run migrate

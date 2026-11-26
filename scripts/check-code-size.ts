@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
@@ -16,6 +17,7 @@ const nonCodeTokens=new Set([
 function countLines(source:ts.SourceFile,body:ts.Node) {
   const lines=new Set<number>();
   function count(node:ts.Node) {
+    if(ts.isJSDoc(node)) return;
     const children=node.getChildren(source);
     if(children.length) {
       children.forEach(count);
@@ -27,8 +29,8 @@ function countLines(source:ts.SourceFile,body:ts.Node) {
   return lines.size;
 }
 
-function functionName(node:ts.SignatureDeclaration,source:ts.SourceFile) {
-  const own=ts.getNameOfDeclaration(node);
+function functionName(node:ts.Node,source:ts.SourceFile) {
+  const own=(node as ts.NamedDeclaration).name;
   if(own) return own.getText(source);
   const parent=node.parent;
   if(ts.isVariableDeclaration(parent) || ts.isPropertyAssignment(parent) || ts.isPropertyDeclaration(parent)) {
@@ -39,7 +41,7 @@ function functionName(node:ts.SignatureDeclaration,source:ts.SourceFile) {
 
 export function codeSizes(file:string,text:string):Limits {
   const source=ts.createSourceFile(file,text,ts.ScriptTarget.Latest,true);
-  const total=text ? text.replace(/\r?\n$/,'').split(/\r?\n/).length : 0;
+  const total=text ? source.getLineStarts().length-(/[\n\r\u2028\u2029]$/.test(text)?1:0) : 0;
   const sizes:Limits={files:total>fileLimit?{[file]:total}:{},functions:{}};
   const names=new Map<string,number>();
   function visit(node:ts.Node,scope='') {
@@ -52,7 +54,9 @@ export function codeSizes(file:string,text:string):Limits {
       if(lines>functionLimit) sizes.functions[`${file}:${identifier}`]=lines;
       ts.forEachChild(node,child=>visit(child,identifier+' › '));
     } else {
-      ts.forEachChild(node,child=>visit(child,scope));
+      const namedContainer=ts.isClassLike(node) || ts.isModuleDeclaration(node) || ts.isObjectLiteralExpression(node);
+      const next=namedContainer?scope+functionName(node,source)+' › ':scope;
+      ts.forEachChild(node,child=>visit(child,next));
     }
   }
   visit(source);
@@ -102,6 +106,22 @@ function baseSizes(commit:string):Limits {
   return sizes;
 }
 
+export function readBaseline(value:unknown):Limits {
+  if(!value || typeof value!=='object' || Array.isArray(value)) throw new Error('Ungültige Bestandsliste.');
+  const limits:Limits={files:{},functions:{}};
+  for(const group of ['files','functions'] as const) {
+    const entries=(value as Record<string,unknown>)[group];
+    if(!entries || typeof entries!=='object' || Array.isArray(entries)) throw new Error('Ungültige Bestandsgruppe: '+group);
+    for(const [id,length] of Object.entries(entries)) {
+      if(typeof length!=='number' || !Number.isSafeInteger(length) || length<=0) {
+        throw new Error('Ungültige Bestandslänge: '+id);
+      }
+      Object.defineProperty(limits[group],id,{value:length,enumerable:true});
+    }
+  }
+  return limits;
+}
+
 export function baselineGrowth(baseline:Limits,base:Limits) {
   const violations:string[]=[];
   for(const group of ['files','functions'] as const) {
@@ -120,16 +140,16 @@ export function requiresReleaseChecks(version:string) {
 async function main() {
   const found:Limits={files:{},functions:{}};
   const glob=new Bun.Glob('{src,scripts}/**/*.{ts,tsx}');
-  const files=Array.from(glob.scanSync({cwd:root})).map(file=>file.replaceAll('\\','/')).sort();
+  const files=Array.from(glob.scanSync({cwd:root,dot:true})).map(file=>file.replaceAll('\\','/')).sort();
   for(const file of files.filter(isSourceFile)) {
-    mergeSizes(found,file,await Bun.file(new URL('../'+file,import.meta.url)).text());
+    mergeSizes(found,file,await Bun.file(join(root,file)).text());
   }
   if(process.argv.includes('--bestand')) {
     console.log(JSON.stringify(found,null,2));
     return;
   }
   const metadata=await Bun.file(new URL('../package.json',import.meta.url)).json() as {deskVersion:string};
-  const baseline=await Bun.file(new URL('../.checks/code-size.json',import.meta.url)).json() as Limits;
+  const baseline=readBaseline(await Bun.file(new URL('../.checks/code-size.json',import.meta.url)).json());
   const release=process.argv.includes('--release') || requiresReleaseChecks(metadata.deskVersion);
   const violations=sizeViolations(found,baseline,release);
   const base=process.env.DESK_CHECK_BASE;

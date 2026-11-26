@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { baselineGrowth, codeSizes, requiresReleaseChecks, sizeViolations } from '../scripts/check-code-size';
+import { baselineGrowth, codeSizes, readBaseline, requiresReleaseChecks, sizeViolations } from '../scripts/check-code-size';
 
 const limits={files:{},functions:{}};
 const file='src/muster.ts';
@@ -22,10 +22,31 @@ describe('Größenregeln',()=>{
     expect(codeSizes(file,'function muster() {\n'+blankLines+template+'}\n')).toEqual(limits);
   });
 
+  test('Angehängter JSDoc zählt nicht als Codezeile',()=>{
+    const code=sourceWithFunction(79).replace('void 78;', 'void 78;\n  /**\n   * @type {number}\n   */\n  const value=1;');
+    expect(codeSizes(file,code)).toEqual(limits);
+  });
+
+  test('Die Bestandsliste weist Werte ab, die den Zahlenvergleich aushebeln könnten',()=>{
+    expect(()=>readBaseline({files:{[file]:'401 Zeilen'},functions:{}})).toThrow('Ungültige Bestandslänge');
+    expect(readBaseline({files:{[file]:401},functions:{}})).toEqual({files:{[file]:401},functions:{}});
+  });
+
   test('Die vierstellige Desk-Version aktiviert die Regeln ab 0.2.0.0',()=>{
     expect(requiresReleaseChecks('0.1.99.0')).toBe(false);
     expect(requiresReleaseChecks('0.2.0.0')).toBe(true);
     expect(requiresReleaseChecks('1.0.0.0')).toBe(true);
+  });
+
+  test('Die Dateigröße gilt auch bei CR-Zeilenenden',()=>{
+    expect(codeSizes(file,'void 0;\r'.repeat(401)).files).toEqual({[file]:401});
+  });
+
+  test('Gleichnamige Methoden verschiedener Klassen teilen keine Ausnahme',()=>{
+    const method=sourceWithFunction(81).replace('function muster','render');
+    const old=codeSizes(file,`class Alt { ${method} }`);
+    const current=codeSizes(file,`class Neu { ${method} } class Alt { render() {} }`);
+    expect(sizeViolations(current,old,false)).toHaveLength(2);
   });
 
   test('Bestandswerte dürfen weder wachsen noch als veraltete Ausnahme stehen bleiben',()=>{
