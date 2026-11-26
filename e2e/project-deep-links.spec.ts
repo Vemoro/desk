@@ -8,6 +8,7 @@ test('Projektansichten bleiben im Direktlink und im Browserverlauf erhalten',asy
   const items=await (await page.request.get('/api/v1/projects')).json();
   const name='Veranstaltungsbetreuung im Kulturhaus';
   const project=items.find((entry:{name:string})=>entry.name===name);
+  expect(project?.id).toBeTruthy();
   const detail=`/#projects/${project.id}`;
   await page.context().clearCookies();
 
@@ -19,6 +20,7 @@ test('Projektansichten bleiben im Direktlink und im Browserverlauf erhalten',asy
   const kanban=tabs.getByRole('link',{name:'Kanban'});
   const controlling=tabs.getByRole('link',{name:'Controlling'});
   await expect(page.getByRole('heading',{name,exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Aufgaben',exact:true})).toBeVisible();
   await expect(kanban).toHaveAttribute('aria-current','page');
   await page.reload();
   await expect(kanban).toHaveAttribute('aria-current','page');
@@ -41,7 +43,8 @@ test('Projektansichten bleiben im Direktlink und im Browserverlauf erhalten',asy
   await expectProjectList();
   await projectLink.click();
   await expect(tabs.getByRole('link',{name:'Überblick'})).toHaveAttribute('aria-current','page');
-  await kanban.click();
+  await kanban.focus();
+  await kanban.press('Enter');
   await controlling.click();
   await expect(page.getByRole('heading',{name:'Belegbezogene Ist-Kosten'})).toBeVisible();
   await page.goBack();
@@ -64,6 +67,9 @@ test('Projektansichten bleiben im Direktlink und im Browserverlauf erhalten',asy
   await expect(tabs.getByRole('link',{name:'Überblick'})).toHaveAttribute('aria-current','page');
   await page.goto(detail+'/unbekannt');
   await expect(tabs.getByRole('link',{name:'Überblick'})).toHaveAttribute('aria-current','page');
+  await page.goto(detail+'/history');
+  await expect(tabs.getByRole('link',{name:'Verlauf'})).toHaveAttribute('aria-current','page');
+  await expect(page.getByRole('heading',{name:'Projektverlauf',exact:true})).toBeVisible();
   await page.goto('/#projects/11111111-1111-4111-8111-111111111111/tasks');
   await expect(page.getByText('Dieses Projekt ist nicht verfügbar.')).toBeVisible();
   await expect(projectLink).toBeVisible();

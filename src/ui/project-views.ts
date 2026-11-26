@@ -4,6 +4,7 @@ export const projectViews = {
   planning:'Ressourcen & Kalkulation',
   finance:'Controlling',
   communication:'Kommunikation',
+  history:'Verlauf',
 } as const;
 
 export type ProjectView=keyof typeof projectViews;
