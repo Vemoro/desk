@@ -1,0 +1,6 @@
+Desk
+Copyright © 2026 Steffen Gundlach (Vemoro)
+SPDX-License-Identifier: AGPL-3.0-only
+
+Kontakt: support@vemoro.de
+Impressum: https://vemoro.de/impressum/

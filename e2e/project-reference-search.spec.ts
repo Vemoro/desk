@@ -33,8 +33,12 @@ test('Projektsuche findet Angebots- und Rechnungsreferenzen zusammen mit den Fil
   await expect(event).toHaveCount(0);
   await due.selectOption('all');
 
+  await search.fill('null');
+  await expect(page.getByText('Keine Projekte entsprechen den Filtern.')).toBeVisible();
   await search.fill('kein-eintrag');
   await expect(page.getByText('Keine Projekte entsprechen den Filtern.')).toBeVisible();
+  await search.fill('wartung');
+  await expect(page.getByRole('button',{name:'Wartung',exact:true})).toBeVisible();
   await search.fill('musterkunde');
   await expect(installation).toBeVisible();
   await installation.click();
