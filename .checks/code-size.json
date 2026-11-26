@@ -1,10 +1,8 @@
 {
   "files": {
-    "src/ui/communication.tsx": 604,
     "src/ui/desk.tsx": 749
   },
   "functions": {
-    "src/ui/communication.tsx:ZammadCommunication": 422,
     "src/ui/desk.tsx:Desk": 198,
     "src/ui/desk.tsx:Contacts": 125,
     "src/ui/desk.tsx:Warehouse": 173,
