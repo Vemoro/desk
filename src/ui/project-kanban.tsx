@@ -10,6 +10,8 @@ type DropPosition={status:string;beforeTaskId:string|null};
 const assigneeFilters={all:'Alle',me:'Mir zugeordnet',unassigned:'Ohne Zuständigkeit'};
 type AssigneeFilter=keyof typeof assigneeFilters;
 type Filters={assignee:AssigneeFilter;term:string};
+const sortChoices={standard:'Standard',due:'Frühester Termin zuerst'};
+type KanbanSort=keyof typeof sortChoices;
 
 function matchesAssignee(assignee:string|null|undefined,accountId:string,filter:AssigneeFilter) {
   return filter==='all' || (filter==='me' ? assignee===accountId : assignee==null);
@@ -23,10 +25,19 @@ function matchesFilters(title:string,assignee:string|null|undefined,accountId:st
   return matchesTitle(title,filters.term) && matchesAssignee(assignee,accountId,filters.assignee);
 }
 
-function filteredBoard(allTasks:Row[],projectId:string,accountId:string,filters:Filters) {
+function compareDue(left:Row,right:Row) {
+  if(!left.due || !right.due) return Number(!left.due)-Number(!right.due);
+  return left.due.slice(0,10).localeCompare(right.due.slice(0,10));
+}
+
+function filteredBoard(allTasks:Row[],projectId:string,accountId:string,filters:Filters,sort:KanbanSort) {
   const tasks=allTasks.filter(task=>task.project_id===projectId && matchesFilters(task.name,task.assignee_id,accountId,filters));
-  const columns=Object.fromEntries(statusChoices.map(({value})=>[value,tasks.filter(task=>task.status===value)
-    .sort((left,right)=>(left.kanban_position ?? Infinity)-(right.kanban_position ?? Infinity))]));
+  const columns=Object.fromEntries(statusChoices.map(({value})=>{
+    const cards=tasks.filter(task=>task.status===value)
+      .sort((left,right)=>(left.kanban_position ?? Infinity)-(right.kanban_position ?? Infinity));
+    if(sort==='due') cards.sort(compareDue);
+    return [value,cards];
+  }));
   return {tasks,columns};
 }
 
@@ -40,9 +51,10 @@ function positionAtPointer(event:DragEvent<HTMLElement>,status:string,draggedTas
   return {status,beforeTaskId:null};
 }
 
-function KanbanHeading({count,filters,search,filterControl,searchControl,onFilter,onSearch}:{
-  count:number;filters:Filters;search:string;filterControl:RefObject<HTMLSelectElement|null>;
-  searchControl:RefObject<HTMLInputElement|null>;onFilter:(value:AssigneeFilter)=>void;onSearch:(value:string)=>void;
+function KanbanHeading({count,filters,search,sort,filterControl,searchControl,onFilter,onSearch,onSort}:{
+  count:number;filters:Filters;search:string;sort:KanbanSort;filterControl:RefObject<HTMLSelectElement|null>;
+  searchControl:RefObject<HTMLInputElement|null>;onFilter:(value:AssigneeFilter)=>void;
+  onSearch:(value:string)=>void;onSort:(value:KanbanSort)=>void;
 }) {
   return <>
     <header className="kanban-heading"><h2>Aufgaben</h2>
@@ -54,22 +66,34 @@ function KanbanHeading({count,filters,search,filterControl,searchControl,onFilte
           onChange={event=>onFilter(event.currentTarget.value as AssigneeFilter)}>
           {Object.entries(assigneeFilters).map(([value,label])=><option key={value} value={value}>{label}</option>)}
         </select>}</Field>
+        <Field label="Aufgaben sortieren">{props=><select {...props} value={sort}
+          onChange={event=>onSort(event.currentTarget.value as KanbanSort)}>
+          {Object.entries(sortChoices).map(([value,label])=><option key={value} value={value}>{label}</option>)}
+        </select>}</Field>
         <span className="subtle" role="status">{count} {count===1?'Aufgabe':'Aufgaben'}</span>
       </div>
     </header>
-    <KanbanFilterFeedback count={count} filters={filters} resetAssignee={()=>{onFilter('all');filterControl.current?.focus();}}/>
+    <KanbanViewFeedback count={count} filters={filters} sort={sort}
+      resetAssignee={()=>{onFilter('all');filterControl.current?.focus();}}/>
   </>;
 }
 
-function KanbanFilterFeedback({count,filters,resetAssignee}:{count:number;filters:Filters;resetAssignee:()=>void}) {
-  if(filters.term) return <div className="kanban-filter-feedback">
-    <p className="subtle">{filters.assignee==='all' ? 'Zum Umordnen leere die Suche.' : 'Zum Umordnen leere die Suche und wähle „Alle“.'}</p>
-    {count===0 && <p>Keine Aufgaben für diese Suche.</p>}
-  </div>;
-  if(filters.assignee==='all') return null;
+function KanbanViewFeedback({count,filters,sort,resetAssignee}:{
+  count:number;filters:Filters;sort:KanbanSort;resetAssignee:()=>void;
+}) {
+  const hasAssigneeFilter=filters.assignee!=='all';
+  const steps=[
+    sort==='due' ? 'wähle „Standard“' : '',
+    filters.term ? 'leere die Suche' : '',
+    hasAssigneeFilter ? 'wähle „Alle“' : '',
+  ].filter(Boolean);
+  if(!steps.length) return null;
+  const instruction=new Intl.ListFormat('de').format(steps);
   return <div className="kanban-filter-feedback">
-    <p className="subtle">Der Filter kann Karten ausblenden. Zum Umordnen wähle „Alle“.</p>
-    {count===0 && <div className="actions">
+    <p className="subtle">{hasAssigneeFilter && !filters.term && 'Der Filter kann Karten ausblenden. '}
+      Zum Umordnen {instruction}.</p>
+    {count===0 && filters.term && <p>Keine Aufgaben für diese Suche.</p>}
+    {count===0 && !filters.term && hasAssigneeFilter && <div className="actions">
       <p>Keine Aufgaben für diesen Filter.</p>
       <button type="button" onClick={resetAssignee}>Alle anzeigen</button>
     </div>}
@@ -165,11 +189,12 @@ export function ProjectKanban({projectId,accountId,tasks:allTasks,users,run}:{
 }) {
   const [assignee,setAssignee]=useState<AssigneeFilter>('all');
   const [search,setSearch]=useState('');
+  const [sort,setSort]=useState<KanbanSort>('standard');
   const filterControl=useRef<HTMLSelectElement>(null);
   const searchControl=useRef<HTMLInputElement>(null);
   const filters={assignee,term:search.trim().toLowerCase()};
-  const canReorder=assignee==='all' && !filters.term;
-  const {tasks,columns}=filteredBoard(allTasks,projectId,accountId,filters);
+  const canReorder=sort==='standard' && assignee==='all' && !filters.term;
+  const {tasks,columns}=filteredBoard(allTasks,projectId,accountId,filters,sort);
   const board=useRef<HTMLDivElement>(null);
   const [editor,setEditor]=useState<{task:Row;trigger:HTMLButtonElement;move?:boolean}>();
   const {restoreFocus,pendingFocus}=useKanbanFocus({board,filterControl,searchControl,editing:Boolean(editor),
@@ -219,9 +244,10 @@ export function ProjectKanban({projectId,accountId,tasks:allTasks,users,run}:{
   }
 
   return <section className="project-kanban">
-    <KanbanHeading count={tasks.length} filters={filters} search={search} filterControl={filterControl} searchControl={searchControl}
+    <KanbanHeading count={tasks.length} filters={filters} search={search} sort={sort} filterControl={filterControl} searchControl={searchControl}
       onFilter={value=>{clearDrop();setAssignee(value);}}
-      onSearch={value=>{clearDrop();setSearch(value);}}/>
+      onSearch={value=>{clearDrop();setSearch(value);}}
+      onSort={value=>{clearDrop();setSort(value);}}/>
     <KanbanColumns board={board} columns={columns} dropPosition={dropPosition} dragging={dragging} projectId={projectId}
       canReorder={canReorder} filters={filters}
       run={run} users={users} setEditor={setEditor} markDrop={markDrop}
