@@ -82,6 +82,10 @@ small { display: block; color: var(--muted); margin-top: 4px; font-size: var(--t
 .sidebar .theme:hover { background:var(--side-active); }
 .main { width:100%; max-width:1600px; margin:0 auto; padding: 32px var(--page-inline) 52px; display:flex; flex-direction:column; gap:20px; }
 .page-title,.project-head { padding: 8px 0 8px; }
+.page-title { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:12px; }
+.page-title > button { margin-inline-start:auto; }
+.list-empty { display:grid; justify-items:start; gap:12px; padding:20px; border-top:1px solid var(--border); }
+.list-empty p { margin:0; color:var(--muted); }
 .project-head { display:flex; justify-content:space-between; align-items:center; gap:12px; }
 .project-head > div { min-width:0; overflow-wrap:anywhere; }
 .project-head .subtle { margin-top:8px; }

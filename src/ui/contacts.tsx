@@ -2,6 +2,7 @@ import { Field } from './field';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { api, calendarDate, projectStages, type Row } from './client';
 import type { Data } from './projects';
+import { ListEmpty, PageHeading, openListForm } from './list-page';
 import { ConfirmDialog, Expand, Form, noWrite, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
 
 export function Contacts({data,run,haben,selected,selectContact,openProject}:{data:Data;run:Run;haben:boolean;selected:string;
@@ -11,17 +12,14 @@ export function Contacts({data,run,haben,selected,selectContact,openProject}:{da
   const [duplicates,setDuplicates]=useState<{input:Record<string,string>;contacts:Row[]}>();
   const [confirmation,setConfirmation]=useState<Confirmation>();
   const contactPanel=useRef<HTMLElement>(null);
+  const contactSearch=useRef<HTMLInputElement>(null);
+  const creation=useRef<HTMLDetailsElement>(null);
   const contactDetail=useRef<HTMLElement>(null);
   const duplicateWarning=useRef<HTMLElement>(null);
   const isOpen=useRef(false);
   const comparisonRequests=useRef(new Map<string,number>());
   const contact=data.contacts.find((row)=>row.id===selected);
   const comparison=comparisons.get(selected);
-  const query=search.trim().toLowerCase();
-  const phoneDigits=/^[\d\s+()-]+$/.test(query) ? query.replace(/\D/g,'') : '';
-  const visibleContacts=data.contacts.filter((row)=>
-    `${row.name} ${row.email}`.toLowerCase().includes(query)
-    || (phoneDigits!=='' && (row.phone ?? '').replace(/\D/g,'').includes(phoneDigits)));
   const projects=contact ? data.projects.filter((project)=>project.contact_id===contact.id) : [];
   useEffect(()=>{
     isOpen.current=true;
@@ -78,18 +76,20 @@ export function Contacts({data,run,haben,selected,selectContact,openProject}:{da
     });
   }
 
+  const openCreation=()=>openListForm(creation);
   return <>
+    <PageHeading title="Kontakte" action={<button type="button" className="primary" onClick={openCreation}>Neuer Kontakt</button>}/>
     <Panel title="Interessenten und Kontakte" focusRef={contactPanel} action={haben&&<button onClick={()=>run(()=>api('haben/contacts/import','POST',{}),'Haben-Kontakte importiert.')}>Aus Haben importieren</button>}>
-      <div className="panel-body"><Field label="Kontakte suchen" className="filter">{props=><input {...props} type="search" value={search} onChange={(event)=>setSearch(event.target.value)}/>}</Field>
-        <Expand title="Kontakt anlegen">
+      <div className="panel-body"><Field label="Kontakte suchen" className="filter">{props=><input {...props} ref={contactSearch} type="search" value={search} onChange={(event)=>setSearch(event.target.value)}/>}</Field>
+        <Expand title="Kontakt anlegen" detailsRef={creation}>
           <div onInput={()=>setDuplicates(undefined)}>
             <Form caption="Kontakt speichern" fields={fields()} submit={createContact}/>
           </div>
           {duplicates&&<Duplicates warningRef={duplicateWarning} duplicates={duplicates} openContact={openContact}
             setConfirmation={setConfirmation} saveContact={saveContact}/>}
         </Expand></div>
-      <Table headers={['Name','E-Mail','Telefon']} rows={visibleContacts
-        .map((row)=>({key:row.id,cells:[<button type="button" className="text-button" onClick={()=>openContact(row.id)}>{row.name}</button>,row.email||'–',row.phone||'–']}))}/>
+      <ContactResults contacts={data.contacts} search={search} openContact={openContact} openCreation={openCreation}
+        resetSearch={()=>{setSearch('');contactSearch.current?.focus();}}/>
     </Panel>
     {contact&&<ContactDetail contact={contact} projects={projects} run={run} haben={haben}
       comparison={comparison} sync={sync} detailRef={contactDetail} openProject={openProject}/>}
@@ -100,6 +100,23 @@ export function Contacts({data,run,haben,selected,selectContact,openProject}:{da
   </>;
 }
 
+function ContactResults({contacts,search,openContact,openCreation,resetSearch}:{
+  contacts:Row[];search:string;openContact:(id:string)=>void;openCreation:()=>void;resetSearch:()=>void;
+}) {
+  const query=search.trim().toLowerCase();
+  const phoneDigits=/^[\d\s+()-]+$/.test(query) ? query.replace(/\D/g,'') : '';
+  const visible=contacts.filter(row=>`${row.name} ${row.email}`.toLowerCase().includes(query)
+    || (phoneDigits!=='' && (row.phone ?? '').replace(/\D/g,'').includes(phoneDigits)));
+  if(visible.length) return <Table headers={['Name','E-Mail','Telefon']} rows={visible.map(row=>({key:row.id,cells:[
+    <button type="button" className="text-button" onClick={()=>openContact(row.id)}>{row.name}</button>,row.email||'–',row.phone||'–',
+  ]}))}/>;
+  if(query) return <ListEmpty action={<button type="button" onClick={resetSearch}>Suche leeren</button>}>
+    Keine Kontakte entsprechen der Suche.
+  </ListEmpty>;
+  return <ListEmpty action={<button type="button" onClick={openCreation}>Neuer Kontakt</button>}>
+    Hier erscheinen deine Interessenten und Kontakte.
+  </ListEmpty>;
+}
 
 function fields(record?:Row) {
   return [{name:'name',label:'Name',value:record?.name,required:true},{name:'email',label:'E-Mail',value:record?.email},

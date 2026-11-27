@@ -10,6 +10,7 @@ import { BuildInfo, Dashboard, DeskLogin } from './desk-home';
 import { Costs, Settings } from './desk-admin';
 import { WeeklyPlanning } from './weekly-planning';
 import { ConfirmationRequests } from './widgets';
+import { PageHeading } from './list-page';
 import { Icon } from './icons';
 import { Navigation, sections, type Section } from './navigation';
 
@@ -69,7 +70,7 @@ export function Desk() {
     }}>Zum Inhalt</a>
     <Navigation person={person} section={section} themeButton={themeButton} onNavigate={navigate} onLogout={logout}/>
     <main id="desk-main" tabIndex={-1} className="main">
-      {section!=='projects'||!project?<header className="page-title"><h1>{sections[section][0]}</h1></header>:null}
+      {section!=='projects' && section!=='contacts' && section!=='warehouse' && <PageHeading title={sections[section][0]}/>}
       {alert}
       {refreshRequired && <div className="notice actions">
         <p role="status">Die Änderung wurde gespeichert. Die Ansicht konnte nicht aktualisiert werden.</p>
@@ -80,7 +81,11 @@ export function Desk() {
       {section==='dashboard' && <Dashboard data={data} select={(id)=>navigate('projects',id)} open={()=>navigate('projects')}/>}
       {section==='projects' && projectId && !project && <p className="notice" role="status">Dieses Projekt ist nicht verfügbar.</p>}
       {section==='projects' && (project?<Project key={project.id} tab={view} project={project} data={data} run={run} flags={flags} accountId={person.id} back={()=>navigate('projects')}/>
-        :<Projects data={data} run={run} filters={projectFilters} onFilter={setProjectFilters} select={(id)=>navigate('projects',id)}/>)}
+        :<Projects data={data} run={run} filters={projectFilters} onFilter={setProjectFilters}
+          select={(id)=>navigate('projects',id)} openContacts={()=>{
+            navigate('contacts');
+            document.getElementById('desk-main')?.focus();
+          }}/>)}
       {section==='planning' && <WeeklyPlanning selectedWeek={planningWeek} onWeek={setPlanningWeek} onSessionExpired={()=>{
         endSession();
         setNotice({message:'Bitte erneut anmelden, um die Wochenplanung zu öffnen.',error:false});
