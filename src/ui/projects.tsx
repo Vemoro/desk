@@ -1,15 +1,18 @@
 import { Field } from './field';
 import { useEffect, useId, useRef, useState, type FocusEvent } from 'react';
 import { missingStageReference } from '../project-references';
+import { microsecondsWithinMillisecond } from '../time';
 import { api, calendarDate, euros, inventoryLabel, inventoryName, moment, money, name, projectStages, reservationStages, type Row } from './client';
+import { calculationLineCents, formatCalculationTotal } from './calculation-money';
 import { ConfirmDialog, Expand, Form, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
 import { ProjectHistory } from './project-history';
 import { OfferExport } from './offer-export';
 import { Communication } from './communication';
 import { ProjectKanban } from './project-kanban';
 import { projectHash, projectViews, type ProjectView } from './project-views';
-import { useLocalDay } from './local-day';
+import { localDayRange, useLocalDay } from './local-day';
 import { ListEmpty, PageHeading, openListForm } from './list-page';
+import { emptyReservationFilters, ReservationFilters } from './reservation-filters';
 
 export type Data = Record<'contacts'|'projects'|'tasks'|'users'|'lines'|'reservations'|'locations'|'items'|'movements'|'costs'|'stock',Row[]>;
 type Flags = { haben:boolean; zammad:boolean };
@@ -208,16 +211,25 @@ function Planning(props:ProjectPlanningProps) {
   return <><ProjectReservations {...props}/><ProjectCalculation project={props.project} data={props.data} run={props.run}/></>;
 }
 
+function overlapsReservationDay(row:Row,{start,end}:ReturnType<typeof localDayRange>) {
+  const bookingEnd=Date.parse(row.ends_at);
+  const submillisecond=row.ends_at_submillisecond ?? microsecondsWithinMillisecond(row.ends_at);
+  return start<end && Date.parse(row.starts_at)<end
+    && (bookingEnd>start || (bookingEnd===start && submillisecond>0));
+}
+
 function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) {
-  const [resourceFilter,setResourceFilter]=useState('');
-  const [statusFilter,setStatusFilter]=useState('');
+  const [filters,setFilters]=useState(emptyReservationFilters);
   const resourceSelector=useRef<HTMLSelectElement>(null);
   const focusedStatusAction=useRef<HTMLButtonElement>(null);
+  const {resource,status,day}=filters;
+  const dayRange=day ? localDayRange(day) : undefined;
   const visibleReservations=data.reservations.filter((row)=>
     row.project_id===project.id
-    && (!resourceFilter || (row.user_id?'user':'item')===resourceFilter)
-    && (!statusFilter || row.status===statusFilter));
-  const filtered=Boolean(resourceFilter || statusFilter);
+    && (!resource || (row.user_id?'user':'item')===resource)
+    && (!status || row.status===status)
+    && (!dayRange || overlapsReservationDay(row,dayRange)));
+  const filtered=Boolean(resource || status || day);
   const equipmentIds=new Set(data.items.filter(item=>item.kind==='equipment').map(item=>item.id));
 
   useEffect(()=>{
@@ -251,25 +263,8 @@ function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) 
     {name:'ends_at',label:'Bis',type:'datetime-local',required:true,describedBy},
   ];
   return <Panel title="Ressourcenplanung">
-      <div className="panel-body">
-        <div className="form-grid">
-          <Field label="Ressourcentyp">{props=><select {...props} ref={resourceSelector} value={resourceFilter} onChange={(event)=>setResourceFilter(event.target.value)}>
-            <option value="">Alle</option><option value="user">Personal</option><option value="item">Inventar</option>
-          </select>}</Field>
-          <Field label="Status filtern">{props=><select {...props} value={statusFilter} onChange={(event)=>setStatusFilter(event.target.value)}>
-            <option value="">Alle</option>
-            {Object.entries(reservationStages).map(([value,label])=><option key={value} value={value}>{label}</option>)}
-          </select>}</Field>
-        </div>
-        <div className="actions">
-          <span className="subtle" role="status">{visibleReservations.length} {visibleReservations.length===1?'Reservierung':'Reservierungen'}</span>
-          <button type="button" disabled={!filtered} onClick={()=>{
-            setResourceFilter('');
-            setStatusFilter('');
-            resourceSelector.current?.focus();
-          }}>Filter zurücksetzen</button>
-        </div>
-      </div>
+      <ReservationFilters filters={filters} onChange={setFilters} resourceSelector={resourceSelector}
+        count={visibleReservations.length} timeZone={timeZone}/>
       <div className="panel-body compact-actions">
       <Expand title="Personal vormerken"><Form caption="Person vormerken" retryScope={`reservations:${accountId}:${project.id}:person`} prepare={reservationTimes} retryNote={retryNote} fields={[
         {name:'user_id',label:'Person',choices:activePeople,required:true},...timeFields(personTimeZoneId),
@@ -297,19 +292,11 @@ function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) 
     }))}/>}</Panel>;
 }
 
-const calculationCurrency = new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'});
-
-function formatCalculationTotal(cents:bigint) {
-  const fraction=(cents%100n).toString().padStart(2,'0');
-  return calculationCurrency.formatToParts(cents/100n)
-    .map(part=>part.type==='fraction' ? fraction : part.value).join('');
-}
-
 function CalculationTotals({lines}:{lines:Row[]}) {
   let buy=0n;
   let sell=0n;
   for(const line of lines){
-    const cents=BigInt(line.quantity)*BigInt(line.unit_cents);
+    const cents=calculationLineCents(line.quantity,line.unit_cents);
     if(line.kind==='buy') buy+=cents;
     if(line.kind==='sell') sell+=cents;
   }
