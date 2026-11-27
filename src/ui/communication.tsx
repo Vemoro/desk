@@ -138,11 +138,16 @@ function TicketDetails({ticketId,projectId,ticket,zammad,failed,conversation,req
   conversation:{outgoing:Conversation['outgoing']}|null; request:RequestZammad;
   setConfirmation:(confirmation:Confirmation)=>void; children:ReactNode;
 }) {
+  const unlinkHint=useId();
+  const waiting=zammad && !conversation && !failed;
   return <aside className="communication-details" aria-label="Vorgangsdetails">
     {ticketId && <Panel title="Ticketdetails">
       <div className="panel-body communication-reference communication-ticket-details">
         {ticket ? <a href={ticket.url} target="_blank" rel="noreferrer">Ticket {ticket.number} öffnen</a> : <p className="subtle">Ticket-ID {ticketId}</p>}
-        {!conversation?.outgoing.length && <button type="button" className="danger" disabled={zammad && !conversation && !failed}
+        {conversation?.outgoing.length ? <p className="subtle">
+          Die Verknüpfung bleibt bestehen, weil für dieses Ticket Sendeversuche vorliegen.
+        </p> : <button type="button" className="danger" disabled={waiting}
+          aria-describedby={waiting?unlinkHint:undefined}
           onClick={event=>setConfirmation({
             actionKey:'zammad-unlink:'+projectId+':'+ticketId,
             title:'Ticketverknüpfung lösen',
@@ -152,6 +157,7 @@ function TicketDetails({ticketId,projectId,ticket,zammad,failed,conversation,req
             submit:()=>request('unlink',{id:ticketId}),
             feedback:'Ticketverknüpfung gelöst.',
           })}>Ticketverknüpfung lösen</button>}
+        {waiting && <p id={unlinkHint} className="subtle">Die Verknüpfung lässt sich lösen, sobald der Ticketverlauf geprüft ist.</p>}
       </div>
     </Panel>}
     {children}
