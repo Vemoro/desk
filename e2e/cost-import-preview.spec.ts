@@ -91,7 +91,8 @@ test('Die Vorschau liest aktuelle Belege und die echte Bestätigung erhält eine
   const input=page.getByRole('textbox',{name:'CSV-Inhalt'});
   const inspect=page.getByRole('button',{name:'CSV prüfen',exact:true});
   const preview=page.getByRole('region',{name:'Importvorschau',exact:true});
-  const other=await browser.newContext({baseURL:new URL(page.url()).origin});
+  const origin=new URL(page.url()).origin;
+  const other=await browser.newContext({baseURL:origin});
   try {
     const secondPage=await other.newPage();
     await signIn(secondPage);
@@ -103,11 +104,11 @@ test('Die Vorschau liest aktuelle Belege und die echte Bestätigung erhält eine
     expect(first).toBeTruthy();
     expect(second).toBeTruthy();
     const reference='CSV-'+crypto.randomUUID();
-    const added=await request.post('/api/v1/costs',{data:{entries:[
+    const added=await request.post('/api/v1/costs',{headers:{Origin:origin},data:{entries:[
       {source:'haben-export',reference,name:'Export vorher',cents:1050,project_id:first.id},
       {source:'manual',reference,name:'Manueller Beleg',cents:350,project_id:first.id},
     ]}});
-    expect(added.status()).toBe(201);
+    expect(added.status(),await added.text()).toBe(201);
     const [exported,manual]=await added.json() as {id:string}[];
     const invalid=reference+'-fehler';
     const csv=['reference;name;amount;cost_center',[reference,'Export nachher','21,00',first.cost_center].join(';'),invalid+';Fehler;ungültig;'].join('\n');
@@ -131,8 +132,8 @@ test('Die Vorschau liest aktuelle Belege und die echte Bestätigung erhält eine
 
     await inspect.click();
     await expect(row).toContainText(first.name);
-    const assignment=await request.patch('/api/v1/costs/'+exported.id,{data:{project_id:second.id}});
-    expect(assignment.ok()).toBe(true);
+    const assignment=await request.patch('/api/v1/costs/'+exported.id,{headers:{Origin:origin},data:{project_id:second.id}});
+    expect(assignment.ok(),await assignment.text()).toBe(true);
     await preview.getByRole('button',{name:'1 gültige Zeile übernehmen',exact:true}).press('Enter');
     await expect(preview).toBeHidden();
     await expect(input).toBeFocused();
