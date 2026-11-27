@@ -42,13 +42,32 @@ function SourceLink() {
 
 const dashboardAssigneeChoices={all:'Alle',me:'Mir zugeordnet',unassigned:'Ohne Zuständigkeit'};
 type DashboardAssignee=keyof typeof dashboardAssigneeChoices;
+const dashboardPeriodChoices={all:'Alle Termine',overdue:'Überfällig',today:'Heute',later:'Später'};
+type DashboardPeriod=keyof typeof dashboardPeriodChoices;
 
 function matchesDashboardAssignee(assignee:string|null|undefined,filter:DashboardAssignee,accountId:string) {
   return filter==='all' || (filter==='me' ? assignee===accountId : assignee==null);
 }
 
+function matchesDashboardPeriod(due:string,today:string,period:DashboardPeriod) {
+  switch(period) {
+    case 'all': return true;
+    case 'overdue': return due<today;
+    case 'today': return due===today;
+    case 'later': return due>today;
+  }
+}
+
+function dashboardEmptyTasks(assignee:DashboardAssignee,period:DashboardPeriod) {
+  if(period!=='all') return assignee==='all'
+    ? 'Keine offenen Aufgaben für diesen Zeitraum.'
+    : 'Keine offenen Aufgaben für diese Filter.';
+  return assignee==='all' ? 'Keine offenen Aufgaben mit Termin.' : 'Keine offenen Aufgaben mit Termin für diese Zuständigkeit.';
+}
+
 export function Dashboard({data,accountId,select,open}:{data:Data;accountId:string;select:(id:string)=>void;open:()=>void}) {
   const [assignee,setAssignee]=useState<DashboardAssignee>('all');
+  const [period,setPeriod]=useState<DashboardPeriod>('all');
   const active=data.projects.filter((project)=>!['complete','cancelled'].includes(project.stage));
   const today=useLocalDay();
   const activeIds=new Set(active.map((project)=>project.id));
@@ -56,6 +75,7 @@ export function Dashboard({data,accountId,select,open}:{data:Data;accountId:stri
     .filter((task)=>task.status!=='done' && task.due && activeIds.has(task.project_id)
       && matchesDashboardAssignee(task.assignee_id,assignee,accountId))
     .map((task)=>({task,due:task.due.slice(0,10)}))
+    .filter(({due})=>matchesDashboardPeriod(due,today,period))
     .sort((first,second)=>first.due.localeCompare(second.due)
       || first.task.name.localeCompare(second.task.name,'de')
       || first.task.id.localeCompare(second.task.id))
@@ -71,18 +91,22 @@ export function Dashboard({data,accountId,select,open}:{data:Data;accountId:stri
         <button className="text-button" onClick={()=>select(row.id)}>{row.name}</button>,name(data.contacts,row.contact_id),<Pill label={projectStages[row.stage]} tone="accent"/>,calendarDate(row.due),
       ]}))}/>
     </Panel>
-    <Panel title="Fällige Aufgaben" action={<Field label="Aufgaben anzeigen">{props=><select {...props} value={assignee}
-      onChange={event=>setAssignee(event.currentTarget.value as DashboardAssignee)}>
-      {Object.entries(dashboardAssigneeChoices).map(([value,label])=><option key={value} value={value}>{label}</option>)}
-    </select>}</Field>}>
+    <Panel title="Fällige Aufgaben" action={<div className="actions">
+      <Field label="Aufgaben anzeigen">{props=><select {...props} value={assignee}
+        onChange={event=>setAssignee(event.currentTarget.value as DashboardAssignee)}>
+        {Object.entries(dashboardAssigneeChoices).map(([value,label])=><option key={value} value={value}>{label}</option>)}
+      </select>}</Field>
+      <Field label="Aufgabentermine filtern">{props=><select {...props} value={period}
+        onChange={event=>setPeriod(event.currentTarget.value as DashboardPeriod)}>
+        {Object.entries(dashboardPeriodChoices).map(([value,label])=><option key={value} value={value}>{label}</option>)}
+      </select>}</Field>
+    </div>}>
       {dueTasks.length ? <Table headers={['Aufgabe','Projekt','Verantwortlich','Termin']} rows={dueTasks.map(({task,due})=>({
         key:task.id,cells:[task.name,<button className="text-button" onClick={()=>select(task.project_id)}>{name(data.projects,task.project_id)}</button>,
           name(data.users,task.assignee_id),<div className="actions">{calendarDate(due)}
             {due<=today && <Pill label={due<today?'Überfällig':'Heute'} tone="accent"/>}
           </div>],
-      }))}/> : <p className="empty">{assignee==='all'
-        ? 'Keine offenen Aufgaben mit Termin.'
-        : 'Keine offenen Aufgaben mit Termin für diese Zuständigkeit.'}</p>}
+      }))}/> : <p className="empty">{dashboardEmptyTasks(assignee,period)}</p>}
     </Panel>
   </>;
 }
