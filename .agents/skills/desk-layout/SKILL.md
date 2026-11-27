@@ -9,10 +9,9 @@ Lies [Desk-Gestaltung](../../../DESIGN.md) und vergleiche die betroffene Ansicht
 
 ## Aufbau
 
-- Nutze für Navigation und Seitenaufbau die vorhandenen Komponenten und Größen aus [Navigation](../../../src/ui/navigation.tsx) und [CSS](../../../src/app.css). Ordne fachliche Ziele den sichtbaren Arbeitsgruppen zu. Konto, administrative Einstellungen und Hilfslinks gehören in den Fußbereich. Ergänze bei neuen Funktionen eine Gruppe erst, wenn vorhandene Gruppen fachlich nicht passen.
-- Lass die aktive Ansicht sichtbar und die Buildversion auch außerhalb der Kontoseite erreichbar. Verwende für den ausgelieferten Quellstand die konfigurierte Quellcode-URL. Der allgemeinere Repository-Link trägt die Bezeichnung „Desk-Projekt auf GitHub“.
+- Nutze für Navigation und Seitenaufbau die vorhandenen Komponenten und Größen aus [Navigation](../../../src/ui/navigation.tsx) und [CSS](../../../src/app.css). Folge bei Gruppen, Rollen, Links und Schriftstufen den [Seitenleistenregeln](../../../DESIGN.md#seitenleiste).
 - Der Seitenkopf nennt den Bereich. Die Arbeitsansicht priorisiert laufende Aufgaben und die nächste Hauptaktion. Zugehörige Daten stehen daneben oder mobil im Lesefluss darunter. Wiederverwende vorhandene Muster für Karten, Tabellen, Formulare und Dialoge.
-- Bewahre die Lesereihenfolge und die Tastaturführung im kompakten Layout. Ein geöffnetes Handymenü lässt sich mit Escape schließen. Nach interner Navigation geht der Fokus zum Hauptinhalt. Richte reguläre mobile Bedienziele am 44-Pixel-Mindestmaß aus.
+- Bewahre die Lesereihenfolge und die Tastaturführung im kompakten Layout. Prüfe im geöffneten Handymenü sowohl Escape mit Fokus zum Menüknopf als auch die interne Navigation mit Fokus zum Hauptinhalt.
 
 ## Abnahme
 

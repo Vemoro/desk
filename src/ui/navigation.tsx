@@ -20,6 +20,15 @@ const workSections = [
   {label:'Bestände und Kosten', sections:['warehouse','costs']},
 ] as const;
 
+function revealActiveSection(panel:HTMLDivElement|null) {
+  const active=panel?.querySelector<HTMLElement>('nav [aria-current="page"]');
+  if(!panel || !active?.getClientRects().length) return;
+  const area=panel.getBoundingClientRect();
+  const item=active.getBoundingClientRect();
+  if(item.top<area.top) panel.scrollTop+=item.top-area.top;
+  else if(item.bottom>area.bottom) panel.scrollTop+=item.bottom-area.bottom;
+}
+
 function SidebarAccount({person,themeButton,children,onLogout}:{
   person:Person; themeButton:ReactNode; children:ReactNode; onLogout:()=>Promise<void>;
 }) {
@@ -46,6 +55,8 @@ export function Navigation({person, section, themeButton, onNavigate, onLogout}:
   const [open,setOpen]=useState(false);
   const toggle=useRef<HTMLButtonElement>(null);
   const panel=useRef<HTMLDivElement>(null);
+
+  useEffect(()=>{revealActiveSection(panel.current);},[open,section]);
 
   useEffect(()=>{
     if (!open) return;
@@ -79,6 +90,7 @@ export function Navigation({person, section, themeButton, onNavigate, onLogout}:
       }
       setOpen(false);
       if(focused===toggle.current) panel.current?.querySelector<HTMLButtonElement>('nav [aria-current="page"]')?.focus();
+      revealActiveSection(panel.current);
     }
     mobile.addEventListener('change',onViewport);
     document.addEventListener('focusin',recordFocus);
