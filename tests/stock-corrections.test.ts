@@ -8,7 +8,7 @@ import { required } from '../src/server/errors';
 const database=process.env.DATABASE_URL;
 if (!database || !new URL(database).pathname.endsWith('_test')) throw new Error('Isolierte Testdatenbank erforderlich.');
 
-test('Migration erhält vorhandene Buchungen und ihre Artikel-, Projekt- und Kontoverweise',async()=>{
+test('Lagermigrationen erhalten vorhandene Buchungen und ihre Artikel-, Projekt- und Kontoverweise',async()=>{
   await db.begin(async transaction=>{
     const schema='stock_upgrade_'+crypto.randomUUID().replaceAll('-','');
     await transaction.unsafe(`CREATE SCHEMA ${schema}`);
@@ -28,6 +28,10 @@ test('Migration erhält vorhandene Buchungen und ihre Artikel-, Projekt- und Kon
     await transaction.unsafe(await Bun.file(new URL('../migrations/006_stock_corrections.sql',import.meta.url)).text()).simple();
     expect(await first(transaction,'SELECT * FROM movements WHERE id=$1',[original.id])).toEqual({
       ...original,corrects_movement_id:null,correction_reason:null,
+    });
+    await transaction.unsafe(await Bun.file(new URL('../migrations/011_delivery_reference.sql',import.meta.url)).text()).simple();
+    expect(await first(transaction,'SELECT movement.* FROM movements AS movement WHERE movement.id=$1',[original.id])).toEqual({
+      ...original,corrects_movement_id:null,correction_reason:null,delivery_reference:null,
     });
     await transaction.unsafe(`DROP SCHEMA ${schema} CASCADE`);
   });
@@ -208,6 +212,81 @@ test('Konkurrierende Korrekturen können den ursprünglichen Zugang in Summe nic
     ]);
     expect(outcomes.map(response=>response.status).sort()).toEqual([201,409]);
     expect(await balance()).toMatchObject({physical:11});
+  } finally {
+    await cleanup();
+  }
+});
+
+
+test('Wareneingang speichert optionale Lieferscheinreferenzen normalisiert und wiederholbar',async()=>{
+  const {request,cleanup,location,material}=await warehouseExample();
+  const original={action:'receive',item_id:material,location_id:location,quantity:2};
+  const receive=(reference?:string,key?:string)=>request('/movements','POST',
+    {...original,delivery_reference:reference},key);
+  try {
+    const openApi=await (await request('/openapi.json')).json();
+    const receiveSchema=openApi.paths['/movements'].post.requestBody.content['application/json'].schema.oneOf
+      .find((schema:{properties:{action:{const?:string}}})=>schema.properties.action.const==='receive');
+    expect(receiveSchema.properties.delivery_reference).toEqual({
+      type:'string',description:'Optionaler Freitext. Desk entfernt äußere Leerzeichen und akzeptiert danach bis zu 160 Zeichen.',
+    });
+    expect(receiveSchema.required).not.toContain('delivery_reference');
+
+    const legacyKey=crypto.randomUUID();
+    const legacy=await receive(undefined,legacyKey);
+    expect(legacy.status).toBe(201);
+    const legacyRow=await legacy.json();
+    expect(legacyRow.delivery_reference).toBeNull();
+    const legacyRetry=await receive('   ',legacyKey);
+    expect(legacyRetry.status).toBe(201);
+    expect(await legacyRetry.json()).toEqual(legacyRow);
+
+    for(const empty of ['', ' 	 ']) {
+      const response=await receive(empty);
+      expect(response.status).toBe(201);
+      expect(await response.json()).toMatchObject({delivery_reference:null});
+    }
+
+    const reference='LS-2028-42';
+    const key=crypto.randomUUID();
+    const receipt=await receive('  '+reference+'  ',key);
+    expect(receipt.status).toBe(201);
+    const row=await receipt.json();
+    expect(row).toMatchObject({action:'receive',delivery_reference:reference});
+    const retry=await receive(reference,key);
+    expect(retry.status).toBe(201);
+    expect(await retry.json()).toEqual(row);
+    expect((await receive('LS-2028-43',key)).status).toBe(409);
+
+    for(const character of ['x','📦']) {
+      const limit=character.repeat(160);
+      const accepted=await receive(' '+limit+' ');
+      expect(accepted.status).toBe(201);
+      expect(await accepted.json()).toMatchObject({delivery_reference:limit});
+      const tooLong=await receive(limit+character);
+      expect(tooLong.status).toBe(400);
+      expect(await tooLong.json()).toMatchObject({
+        code:'invalid_input',error:expect.stringContaining('Die Lieferscheinreferenz darf höchstens 160 Zeichen haben.'),
+      });
+    }
+
+    for(const invalidReference of ['LS\0-2028-42','LS\uD800-2028-42']) {
+      for(const key of [undefined,crypto.randomUUID()]) {
+        const invalid=await receive(invalidReference,key);
+        expect(invalid.status).toBe(400);
+        expect(await invalid.json()).toMatchObject({
+          code:'invalid_input',error:expect.stringContaining('Die Lieferscheinreferenz enthält ungültige Zeichen.'),
+        });
+      }
+    }
+    const correction=await request(`/movements/${row.id}/corrections`,'POST',{quantity:1,reason:'Teilkorrektur'});
+    expect(correction.status).toBe(201);
+    expect(await correction.json()).toMatchObject({action:'correct_receive',delivery_reference:null});
+    const movements=(await (await request('/movements?limit=200')).json()) as {id:string;item_id:string;delivery_reference:string|null}[];
+    const itemMovements=movements.filter(entry=>entry.item_id===material);
+    expect(itemMovements.filter(entry=>entry.delivery_reference===reference)).toEqual([row]);
+    expect(itemMovements).toContainEqual(legacyRow);
+    expect(itemMovements).toHaveLength(7);
   } finally {
     await cleanup();
   }

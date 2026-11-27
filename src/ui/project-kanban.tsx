@@ -3,7 +3,7 @@ import { api, ApiError, calendarDate, name, taskStages, type Row } from './clien
 import { Icon } from './icons';
 import { Form, FormDialog, options, type Run } from './widgets';
 import { Field } from './field';
-import { useLocalDay } from './local-day';
+import { useLocalDayWithFocus } from './local-day';
 
 const statusChoices=Object.entries(taskStages).map(([value,label])=>({value,label}));
 const columnEnd='end';
@@ -142,7 +142,7 @@ function MoveCardForm({task,columns,submit}:{task:Row;columns:Record<string,Row[
   ]} submit={({status,before})=>submit({status,beforeTaskId:before===columnEnd?null:before})}/>;
 }
 
-function quickAddFeedback(title:string,filters:Filters) {
+function quickAddHint(title:string,filters:Filters) {
   const hiddenByTitle=!matchesTitle(title,filters.term);
   if(filters.due==='today' || filters.due==='overdue') {
     const steps=[
@@ -150,29 +150,28 @@ function quickAddFeedback(title:string,filters:Filters) {
       filters.assignee==='me' ? 'wähle bei „Aufgaben anzeigen“ „Alle“ oder „Ohne Zuständigkeit“' : '',
       'wähle bei „Aufgabentermine filtern“ „Alle Termine“ oder „Ohne Termin“',
     ].filter(Boolean);
-    return `Karte ohne Termin angelegt. Damit sie erscheint, ${new Intl.ListFormat('de').format(steps)}.`;
+    return `Die Karte hat keinen Termin. Damit sie erscheint, ${new Intl.ListFormat('de').format(steps)}.`;
   }
-  if(hiddenByTitle && filters.assignee==='me') return 'Karte angelegt. Leere die Suche und wähle „Alle“ oder „Ohne Zuständigkeit“.';
-  if(hiddenByTitle) return 'Karte angelegt. Leere die Suche, damit die Karte erscheint.';
-  if(filters.assignee==='me') return 'Karte angelegt. Sie erscheint unter „Alle“ oder „Ohne Zuständigkeit“.';
-  return 'Karte angelegt.';
+  if(hiddenByTitle && filters.assignee==='me') return 'Leere die Suche und wähle „Alle“ oder „Ohne Zuständigkeit“, damit die Karte erscheint.';
+  if(hiddenByTitle) return 'Leere die Suche, damit die Karte erscheint.';
+  if(filters.assignee==='me') return 'Die Karte erscheint unter „Alle“ oder „Ohne Zuständigkeit“.';
 }
 
 function AddCard({projectId,status,run,filters}:{projectId:string;status:string;run:Run;filters:Filters}) {
   const disclosure=useRef<HTMLDetailsElement>(null);
   const [savedTitle,setSavedTitle]=useState<string>();
 
-  return <>
+  return <div>
     <details className="kanban-add" ref={disclosure} onToggle={event=>{
       if(event.currentTarget.open) event.currentTarget.querySelector('input')?.focus();
+      else setSavedTitle(undefined);
     }}>
       <summary>Karte hinzufügen</summary>
       <Form className="kanban-add-form" caption="Karte anlegen" fields={[
         {name:'name',label:'Kartentitel',required:true},
       ]} submit={async({name})=>{
         setSavedTitle(undefined);
-        const saved=await run(()=>api('tasks','POST',{project_id:projectId,status,name}),undefined,{reportInlineError:true});
-        if(!saved) return;
+        if(!await run(()=>api('tasks','POST',{project_id:projectId,status,name}),'Karte angelegt.',{reportInlineError:true})) return;
         setSavedTitle(name);
         const details=disclosure.current;
         const title=details?.querySelector('input');
@@ -180,8 +179,8 @@ function AddCard({projectId,status,run,filters}:{projectId:string;status:string;
         if(details?.open && (details.contains(document.activeElement) || document.activeElement===document.body)) title?.focus();
       }}/>
     </details>
-    {savedTitle!==undefined && <p className="subtle" role="status">{quickAddFeedback(savedTitle,filters)}</p>}
-  </>;
+    <div className="subtle" role="status">{savedTitle!==undefined?quickAddHint(savedTitle,filters):null}</div>
+  </div>;
 }
 
 type CardFocus={taskId:string;trigger:HTMLButtonElement;move?:boolean};
@@ -216,7 +215,9 @@ function useKanbanFocus({board,filterControl,searchControl,dueControl,editing,al
     const selector=wasMove ? `[data-kanban-card="${id}"] .task-move` : `[data-task-id="${id}"]`;
     const card=trigger.isConnected ? trigger : board.current?.querySelector<HTMLButtonElement>(selector);
     const controls={title:searchControl,assignee:filterControl,due:dueControl};
-    const hiddenBy=pending?.taskId===taskId && editFocusFilter(current ?? pending.next,pending,accountId,filters);
+    const fallbackTask=!card && allTasks.find(task=>task.id===taskId);
+    const hiddenBy=pending?.taskId===taskId ? editFocusFilter(current ?? pending.next,pending,accountId,filters) :
+      fallbackTask && hiddenByFilter(taskFields(fallbackTask),accountId,filters);
     const filter=hiddenBy ? controls[hiddenBy] : filterControl;
     restoreFocus.current=undefined;
     (card ?? (canReorder ? board.current : filter.current))?.focus();
@@ -234,10 +235,11 @@ export function ProjectKanban({projectId,accountId,tasks:allTasks,dataVersion,us
   const filterControl=useRef<HTMLSelectElement>(null);
   const searchControl=useRef<HTMLInputElement>(null);
   const dueControl=useRef<HTMLSelectElement>(null);
-  const filters={assignee,term:search.trim().toLowerCase(),due,today:useLocalDay()};
+  const board=useRef<HTMLDivElement>(null);
+  const today=useLocalDayWithFocus(board,dueControl);
+  const filters={assignee,term:search.trim().toLowerCase(),due,today};
   const canReorder=sort==='standard' && assignee==='all' && !filters.term && due==='all';
   const {tasks,columns}=filteredBoard(allTasks,projectId,accountId,filters,sort);
-  const board=useRef<HTMLDivElement>(null);
   const [editor,setEditor]=useState<{task:Row;trigger:HTMLButtonElement;move?:boolean}>();
   const {restoreFocus,pendingFocus}=useKanbanFocus({board,filterControl,searchControl,dueControl,
     editing:Boolean(editor),allTasks,dataVersion,canReorder,filters,accountId});
@@ -288,13 +290,12 @@ export function ProjectKanban({projectId,accountId,tasks:allTasks,dataVersion,us
   return <section className="project-kanban">
     <KanbanHeading count={tasks.length} filters={filters} search={search} sort={sort}
       filterControl={filterControl} searchControl={searchControl} dueControl={dueControl}
-      onFilter={value=>{clearDrop();pendingFocus.current=undefined;setAssignee(value);}}
-      onSearch={value=>{clearDrop();pendingFocus.current=undefined;setSearch(value);}}
-      onDue={value=>{clearDrop();pendingFocus.current=undefined;setDue(value);}}
+      onFilter={value=>{clearDrop();setAssignee(value);}}
+      onSearch={value=>{clearDrop();setSearch(value);}}
+      onDue={value=>{clearDrop();setDue(value);}}
       onSort={value=>{clearDrop();setSort(value);}}
       onReset={()=>{
         clearDrop();
-        pendingFocus.current=undefined;
         setSearch('');
         setAssignee('all');
         setDue('all');
