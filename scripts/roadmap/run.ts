@@ -18,6 +18,8 @@ const hasAssignee = (issue: Issue, login: string) => issue.assignees.some(user =
 const available = (card: Card) => !card.isArchived && (card.status === 'Geplant' || card.status === 'In Arbeit');
 
 const activeIssueLimit = 10;
+const issueLimitMessage = 'du kannst höchstens ' + activeIssueLimit +
+  ' laufende Desk-Issues gleichzeitig bearbeiten. Schließe zuerst eine Aufgabe ab oder gib sie frei.';
 
 async function hasReachedIssueLimit(api: GitHub, board: Board, login: string, target: number) {
   const counted = new Set<number>();
@@ -95,9 +97,9 @@ export async function runCommand(api: GitHub, event: Event) {
       return await tell('dieses Issue ist dir bereits zugewiesen.');
     }
   }
-  if ((!alreadyAssigned || card.status !== 'In Arbeit') && await hasReachedIssueLimit(api, board, login, number)) {
-    return await tell('du kannst höchstens ' + activeIssueLimit +
-      ' laufende Desk-Issues gleichzeitig bearbeiten. Schließe zuerst eine Aufgabe ab oder gib sie frei.');
+  const wasInProgress = alreadyAssigned && card.status === 'In Arbeit';
+  if (!wasInProgress && await hasReachedIssueLimit(api, board, login, number)) {
+    return await tell(issueLimitMessage);
   }
   if (!alreadyAssigned) {
     const assigned = await api.add(number, login);
@@ -116,7 +118,10 @@ export async function runCommand(api: GitHub, event: Event) {
   if (current.state !== 'open' || current.assignees.length !== 1 || !hasAssignee(current, login)) {
     return await tell('die Zuweisung wurde zwischenzeitlich geändert.');
   }
-  if (currentCard.status !== 'In Arbeit') await board.set(currentCard, 'In Arbeit');
+  if (currentCard.status !== 'In Arbeit') {
+    if (wasInProgress && await hasReachedIssueLimit(api, board, login, number)) return await tell(issueLimitMessage);
+    await board.set(currentCard, 'In Arbeit');
+  }
   await api.comment(number, marker('claim', login) + '\n@' + login +
     ' das Issue ist dir zugewiesen und steht unter „In Arbeit“. Mit \u0060/freigeben\u0060 kannst du es zurückgeben.');
 }

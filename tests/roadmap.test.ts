@@ -291,3 +291,29 @@ test('an unreadable active backlog leaves assignments and cards untouched', asyn
   expect(f.card.status).toBe('Geplant');
   expect(f.issue.assignees).toEqual([]);
 });
+
+test('a card moved out of active work during takeover needs free capacity again', async () => {
+  const f = fixture();
+  f.active(10);
+  const last = f.otherCards.get(210)!;
+  last.status = 'Geplant';
+  f.card.status = 'In Arbeit';
+  f.issue.assignees = [mira];
+  const board = await f.api.board();
+  let targetReads = 0;
+  f.api.board = async () => ({
+    ...board,
+    card: async number => {
+      if (number === f.issue.number && ++targetReads === 2) {
+        f.card.status = 'Geplant';
+        last.status = 'In Arbeit';
+      }
+      return await board.card(number);
+    },
+  });
+  await f.send('/übernehmen');
+  expect(f.writes).toEqual(['comment']);
+  expect(f.comments[0].body).toContain('höchstens 10');
+  expect(f.card.status).toBe('Geplant');
+  expect(f.issue.assignees).toEqual([mira]);
+});
