@@ -10,10 +10,12 @@ type DropPosition={status:string;beforeTaskId:string|null};
 const assigneeFilters={all:'Alle',me:'Mir zugeordnet',unassigned:'Ohne Zuständigkeit'};
 type AssigneeFilter=keyof typeof assigneeFilters;
 
+function matchesAssignee(assignee:string|null|undefined,accountId:string,filter:AssigneeFilter) {
+  return filter==='all' || (filter==='me' ? assignee===accountId : assignee==null);
+}
+
 function filteredBoard(allTasks:Row[],projectId:string,accountId:string,filter:AssigneeFilter) {
-  const tasks=allTasks.filter(task=>task.project_id===projectId && (
-    filter==='all' || (filter==='me' ? task.assignee_id===accountId : task.assignee_id==null)
-  ));
+  const tasks=allTasks.filter(task=>task.project_id===projectId && matchesAssignee(task.assignee_id,accountId,filter));
   const columns=Object.fromEntries(statusChoices.map(({value})=>[value,tasks.filter(task=>task.status===value)
     .sort((left,right)=>(left.kanban_position ?? Infinity)-(right.kanban_position ?? Infinity))]));
   return {tasks,columns};
@@ -73,23 +75,54 @@ function MoveCardForm({task,columns,submit}:{task:Row;columns:Record<string,Row[
 
 function AddCard({projectId,status,run,onlyMine}:{projectId:string;status:string;run:Run;onlyMine:boolean}) {
   const disclosure=useRef<HTMLDetailsElement>(null);
-  const feedback=onlyMine?'Karte angelegt. Sie erscheint unter „Alle“ oder „Ohne Zuständigkeit“.':'Karte angelegt.';
+  const [hiddenCardSaved,setHiddenCardSaved]=useState(false);
 
   return <details className="kanban-add" ref={disclosure} onToggle={(event)=>{
     if(event.currentTarget.open) event.currentTarget.querySelector('input')?.focus();
+    else setHiddenCardSaved(false);
   }}>
     <summary>Karte hinzufügen</summary>
     <Form className="kanban-add-form" caption="Karte anlegen" fields={[
       {name:'name',label:'Kartentitel',required:true},
     ]} submit={async({name})=>{
-      const saved=await run(()=>api('tasks','POST',{project_id:projectId,status,name}),feedback,{reportInlineError:true});
+      setHiddenCardSaved(false);
+      const saved=await run(()=>api('tasks','POST',{project_id:projectId,status,name}),onlyMine?undefined:'Karte angelegt.',{reportInlineError:true});
       if(!saved) return;
       const details=disclosure.current;
+      if(onlyMine && details?.open) setHiddenCardSaved(true);
       const title=details?.querySelector('input');
       if(title?.value===name) title.value='';
       if(details?.open && (details.contains(document.activeElement) || document.activeElement===document.body)) title?.focus();
     }}/>
+    {onlyMine && hiddenCardSaved && <p className="subtle" role="status">Karte angelegt. Sie erscheint unter „Alle“ oder „Ohne Zuständigkeit“.</p>}
   </details>;
+}
+
+type CardFocus={taskId:string;trigger:HTMLButtonElement;move?:boolean};
+
+function useKanbanFocus({board,filterControl,editing,tasks,canReorder}:{
+  board:RefObject<HTMLDivElement|null>;filterControl:RefObject<HTMLSelectElement|null>;
+  editing:boolean;tasks:Row[];canReorder:boolean;
+}) {
+  const restoreFocus=useRef<CardFocus|undefined>(undefined);
+  const hiddenAfterRefresh=useRef<string|undefined>(undefined);
+
+  useLayoutEffect(()=>{
+    if(editing) return;
+    const hidden=hiddenAfterRefresh.current;
+    if(hidden && !tasks.some(task=>task.id===hidden)) {
+      hiddenAfterRefresh.current=undefined;
+      if(!restoreFocus.current && document.activeElement===document.body) filterControl.current?.focus();
+    }
+    if(!restoreFocus.current) return;
+    const {taskId,trigger,move:wasMove}=restoreFocus.current;
+    const id=CSS.escape(taskId);
+    const selector=wasMove ? `[data-kanban-card="${id}"] .task-move` : `[data-task-id="${id}"]`;
+    const card=trigger.isConnected ? trigger : board.current?.querySelector<HTMLButtonElement>(selector);
+    restoreFocus.current=undefined;
+    (card ?? (canReorder ? board.current : filterControl.current))?.focus();
+  },[board,filterControl,editing,tasks,canReorder]);
+  return {restoreFocus,hiddenAfterRefresh};
 }
 
 export function ProjectKanban({projectId,accountId,tasks:allTasks,users,run}:{
@@ -100,20 +133,10 @@ export function ProjectKanban({projectId,accountId,tasks:allTasks,users,run}:{
   const canReorder=filter==='all';
   const {tasks,columns}=filteredBoard(allTasks,projectId,accountId,filter);
   const board=useRef<HTMLDivElement>(null);
-  const restoreFocus=useRef<{taskId:string;trigger:HTMLButtonElement;move?:boolean}|undefined>(undefined);
   const [editor,setEditor]=useState<{task:Row;trigger:HTMLButtonElement;move?:boolean}>();
+  const {restoreFocus,hiddenAfterRefresh}=useKanbanFocus({board,filterControl,editing:Boolean(editor),tasks,canReorder});
   const dragging=useRef<string|undefined>(undefined);
   const [dropPosition,setDropPosition]=useState<DropPosition>();
-
-  useLayoutEffect(()=>{
-    if(editor || !restoreFocus.current) return;
-    const {taskId,trigger,move:wasMove}=restoreFocus.current;
-    const id=CSS.escape(taskId);
-    const selector=wasMove ? `[data-kanban-card="${id}"] .task-move` : `[data-task-id="${id}"]`;
-    const card=trigger.isConnected ? trigger : board.current?.querySelector<HTMLButtonElement>(selector);
-    restoreFocus.current=undefined;
-    (card ?? (canReorder ? board.current : filterControl.current))?.focus();
-  },[editor,canReorder]);
 
   function dismiss() {
     if(!editor) return;
@@ -159,6 +182,7 @@ export function ProjectKanban({projectId,accountId,tasks:allTasks,users,run}:{
   return <section className="project-kanban">
     <KanbanHeading count={tasks.length} filter={filter} filterControl={filterControl} onFilter={value=>{
       clearDrop();
+      hiddenAfterRefresh.current=undefined;
       setFilter(value);
     }}/>
     <KanbanColumns board={board} columns={columns} dropPosition={dropPosition} dragging={dragging} projectId={projectId}
@@ -179,7 +203,11 @@ export function ProjectKanban({projectId,accountId,tasks:allTasks,users,run}:{
           ['due',editor.task.due?.slice(0,10)||null,fields.due||null],
           ['status',editor.task.status,fields.status],
         ].filter(([,previous,next])=>previous!==next).map(([key,,value])=>[key,value]));
-        const saveCard=()=>run(()=>api(`tasks/${editor.task.id}`,'PATCH',changes),'Karte gespeichert.',{reportInlineError:true});
+        const saveCard=async()=>{
+          const saved=await run(()=>api(`tasks/${editor.task.id}`,'PATCH',changes),'Karte gespeichert.',{reportInlineError:true});
+          if(saved && !matchesAssignee(fields.assignee_id||null,accountId,filter)) hiddenAfterRefresh.current=editor.task.id;
+          return saved;
+        };
         return save(Object.keys(changes).length ? saveCard : async()=>true);
       }}/>
     }</FormDialog>}

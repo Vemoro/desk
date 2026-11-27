@@ -95,3 +95,45 @@ test('Die Schnellerfassung erklärt ausgeblendete Karten und der Leerzustand lä
   await expect(todo.getByRole('heading')).toHaveText('Offen 1');
   await expect(todo.getByRole('button',{name:'Musterkarte aus der Schnellerfassung',exact:true})).toBeVisible();
 });
+
+test('Der verspätete Wechsel aus dem Filter gibt den Fokus an die Auswahl zurück',async({page})=>{
+  const {board,other}=await fixture(page);
+  const filter=page.getByRole('combobox',{name:'Aufgaben anzeigen',exact:true});
+  await filter.selectOption('me');
+  await page.route('**/api/v1/tasks/kanban',route=>route.fulfill({status:503,json:{error:'Test-Abruffehler'}}),{times:1});
+  const card=board.getByRole('button',{name:/Eigene Karte zuerst/});
+  const taskId=await card.getAttribute('data-task-id');
+  await card.press('Enter');
+  const dialog=page.getByRole('dialog',{name:'Karte bearbeiten'});
+  await dialog.getByRole('combobox',{name:'Verantwortlich'}).selectOption(other.id);
+  await dialog.getByRole('button',{name:'Karte speichern'}).click();
+  await expect(dialog).toHaveCount(0);
+  expect((await (await page.request.get('/api/v1/tasks/'+taskId)).json()).assignee_id).toBe(other.id);
+  await expect(card).toBeFocused();
+  await page.getByRole('button',{name:'Ansicht aktualisieren',exact:true}).press('Enter');
+  await expect(card).toHaveCount(0);
+  await expect(filter).toBeFocused();
+});
+
+test('Eine gespeicherte ausgeblendete Karte bleibt auch nach Abruffehler erklärt',async({page})=>{
+  const {board,first}=await fixture(page);
+  await page.getByRole('combobox',{name:'Aufgaben anzeigen',exact:true}).selectOption('me');
+  await page.route('**/api/v1/tasks/kanban',route=>route.fulfill({status:503,json:{error:'Test-Abruffehler'}}),{times:1});
+  const todo=board.getByRole('region',{name:'Offen',exact:true});
+  await todo.getByText('Karte hinzufügen',{exact:true}).click();
+  const input=todo.getByRole('textbox',{name:'Kartentitel'});
+  const name='Musterkarte trotz Abruffehler';
+  await input.fill(name);
+  await input.press('Enter');
+  await expect(page.getByText('Die Änderung wurde gespeichert. Die Ansicht konnte nicht aktualisiert werden.')).toBeVisible();
+  const feedback=todo.getByText('Karte angelegt. Sie erscheint unter „Alle“ oder „Ohne Zuständigkeit“.');
+  await expect(feedback).toBeVisible();
+  await expect(input).toBeFocused();
+  const tasks=await (await page.request.get('/api/v1/tasks/kanban')).json();
+  expect(tasks.find((task:{name:string;project_id:string})=>task.name===name && task.project_id===first.id)?.assignee_id).toBeNull();
+  const retry=page.getByRole('button',{name:'Ansicht aktualisieren',exact:true});
+  await retry.click();
+  await expect(retry).toHaveCount(0);
+  await expect(todo.getByRole('button',{name,exact:true})).toHaveCount(0);
+  await expect(feedback).toBeVisible();
+});
