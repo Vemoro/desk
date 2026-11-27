@@ -36,15 +36,15 @@ test('Bewegungssuche findet Artikel und Lieferscheine auch auf einer späteren A
   await query.fill('  mUsTeR-2  ');
   await expect(panel.getByText('1 von 201 Bewegungen',{exact:true})).toBeVisible();
   await expect(panel.getByText('LS-MUSTER-2',{exact:true})).toBeVisible();
-  await query.fill('wk-200');
+  for(const keyword of ['Montagekoff','k-20','v-07']){
+    await query.fill(keyword);
+    await expect(panel.getByText('3 von 201 Bewegungen',{exact:true})).toBeVisible();
+    await expect(panel.getByText('LS-MUSTER-2',{exact:true})).toBeVisible();
+  }
   await panel.getByLabel('Projekt filtern').selectOption('kunde');
   await panel.getByLabel('Bewegungsart filtern').selectOption('receive');
   await expect(panel.getByText('1 von 201 Bewegungen',{exact:true})).toBeVisible();
   await expect(panel.getByText('LS-MUSTER-2',{exact:true})).toBeVisible();
-  for(const keyword of ['Montagekoff','inv-073']){
-    await query.fill(keyword);
-    await expect(panel.getByText('LS-MUSTER-2',{exact:true})).toBeVisible();
-  }
   await query.fill('ohne-treffer');
   await expect(panel.getByText('Keine Lagerbewegungen für diese Filter.')).toBeVisible();
   await panel.getByRole('button',{name:'Filter zurücksetzen'}).press('Enter');
