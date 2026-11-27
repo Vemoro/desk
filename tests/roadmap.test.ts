@@ -13,6 +13,15 @@ function fixture() {
   const issue: Issue = { number: 123, state: 'open', assignees: [] };
   const card = { id: 'card', status: 'Geplant', isArchived: false };
   const comments: Comment[] = [];
+  const otherIssues: Issue[] = [];
+  const otherCards = new Map<number, typeof card>();
+  function active(count: number) {
+    for (let index = 1; index <= count; index++) {
+      const number = 200 + index;
+      otherIssues.push({ number, state: 'open', assignees: [mira] });
+      otherCards.set(number, { id: String(number), status: 'In Arbeit', isArchived: false });
+    }
+  }
   const writes: string[] = [];
   const pulls: { body: string | null }[] = [];
   let accepted = true;
@@ -22,11 +31,11 @@ function fixture() {
     comments.push({ body: marker(kind, mira.login), user: author, created_at: new Date(when).toISOString() });
   const api: ReturnType<typeof github> = {
     board: async () => ({
-      card: async () => ({ ...card }),
+      card: async number => number === issue.number ? { ...card } : otherCards.get(number) ?? null,
       set: async (_item, status) => { card.status = status; writes.push(status); },
     }),
     issue: async () => issue,
-    assignedIssues: async () => [issue],
+    assignedIssues: async () => [issue, ...otherIssues],
     pulls: async () => pulls,
     comments: async () => comments,
     assignments: async () => [{ event: 'assigned', assignee: mira, created_at: new Date(start).toISOString() }],
@@ -50,7 +59,7 @@ function fixture() {
   const send = (body: string, user: User = mira, pull_request?: object) =>
     runCommand(api, { action: 'created', repository: { full_name: repository },
       issue: { number: issue.number, pull_request }, comment: { body, user } });
-  return { issue, card, comments, writes, pulls, api, send, confirm,
+  return { issue, card, comments, writes, pulls, api, send, confirm, active, otherIssues, otherCards,
     rejectAssignment: () => { accepted = false; },
     exemptCollaborator: () => { collaborator = true; },
     failRemoval: () => { failRemoval = true; },
@@ -214,4 +223,97 @@ test('a reply during the final open PR check keeps the assignment', async () => 
   await runReminders(f.api, false, now);
   expect(pullsChecked).toBe(2);
   expect(f.writes).toEqual([]);
+});
+
+test('the ninth active assignment allows one more, ignoring other cards and closed work', async () => {
+  const f = fixture();
+  f.active(9);
+  f.otherIssues.push(
+    { number: 301, state: 'open', assignees: [mira], pull_request: {} },
+    { number: 302, state: 'closed', assignees: [mira] },
+    { number: 303, state: 'open', assignees: [alex] },
+    { number: 304, state: 'open', assignees: [mira] },
+    { number: 305, state: 'open', assignees: [mira] },
+    { number: 306, state: 'open', assignees: [mira] },
+    f.otherIssues[0],
+  );
+  for (const number of [301, 302, 303]) f.otherCards.set(number, { id: String(number), status: 'In Arbeit', isArchived: false });
+  f.otherCards.set(304, { id: '304', status: 'In Arbeit', isArchived: true });
+  f.otherCards.set(305, { id: '305', status: 'Geplant', isArchived: false });
+  await f.send('/übernehmen');
+  expect(f.writes).toEqual(['+mira', 'In Arbeit', 'comment']);
+});
+
+test('the tenth active assignment includes manually assigned and shared issues', async () => {
+  const f = fixture();
+  f.active(10);
+  f.otherIssues[0].assignees.push(alex);
+  f.card.status = 'In Arbeit';
+  await f.send('/übernehmen');
+  expect(f.writes).toEqual(['comment']);
+  expect(f.comments[0].body).toContain('höchstens 10');
+  expect(f.issue.assignees).toEqual([]);
+  expect(f.card.status).toBe('In Arbeit');
+
+  f.otherCards.get(201)!.status = 'Geplant';
+  await f.send('/übernehmen');
+  expect(f.issue.assignees).toEqual([mira]);
+});
+
+test('the limit blocks promotion of an already assigned card outside active work', async () => {
+  const f = fixture();
+  f.active(10);
+  f.issue.assignees = [mira];
+  await f.send('/übernehmen');
+  expect(f.writes).toEqual(['comment']);
+  expect(f.card.status).toBe('Geplant');
+  expect(f.issue.assignees).toEqual([mira]);
+});
+
+test('confirmation and release of an active card work at the limit', async () => {
+  const f = fixture();
+  f.active(10);
+  f.card.status = 'In Arbeit';
+  f.issue.assignees = [mira];
+  await f.send('/übernehmen');
+  expect(f.writes).toEqual(['comment']);
+  expect(f.comments[0].body).toStartWith(marker('claim', mira.login));
+  await f.send('/übernehmen');
+  await f.send('/freigeben');
+  expect(f.writes).toEqual(['comment', 'comment', 'Geplant', '-mira', 'comment']);
+});
+
+test('an unreadable active backlog leaves assignments and cards untouched', async () => {
+  const f = fixture();
+  f.api.assignedIssues = async () => { throw new Error('temporary read failure'); };
+  await expect(f.send('/übernehmen')).rejects.toThrow('temporary read failure');
+  expect(f.writes).toEqual([]);
+  expect(f.card.status).toBe('Geplant');
+  expect(f.issue.assignees).toEqual([]);
+});
+
+test('a card moved out of active work during takeover needs free capacity again', async () => {
+  const f = fixture();
+  f.active(10);
+  const last = f.otherCards.get(210)!;
+  last.status = 'Geplant';
+  f.card.status = 'In Arbeit';
+  f.issue.assignees = [mira];
+  const board = await f.api.board();
+  let targetReads = 0;
+  f.api.board = async () => ({
+    ...board,
+    card: async number => {
+      if (number === f.issue.number && ++targetReads === 2) {
+        f.card.status = 'Geplant';
+        last.status = 'In Arbeit';
+      }
+      return await board.card(number);
+    },
+  });
+  await f.send('/übernehmen');
+  expect(f.writes).toEqual(['comment']);
+  expect(f.comments[0].body).toContain('höchstens 10');
+  expect(f.card.status).toBe('Geplant');
+  expect(f.issue.assignees).toEqual([mira]);
 });
