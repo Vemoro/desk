@@ -107,13 +107,19 @@ test('Nach einem fehlgeschlagenen Abruf erhält die verschobene Karte ihren Term
 
 test.describe('Terminsortierung auf dem Smartphone',()=>{
   test.use({hasTouch:true,viewport:{width:390,height:844}});
-  test('Standard gibt den Positionsdialog für Touch wieder frei',async({page})=>{
+  test('Nach der Rückkehr zu Standard lässt sich die Position per Touch speichern',async({page})=>{
     const {board,sort,todo}=await fixture(page);
     await sort.selectOption('due');
     expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
     await expect(board.getByRole('button',{name:'Verschieben',exact:true})).toHaveCount(0);
     await sort.selectOption('standard');
     await todo.getByRole('button',{name:'Verschieben',exact:true}).first().tap();
-    await expect(page.getByRole('dialog',{name:'Karte verschieben'})).toBeVisible();
+    const dialog=page.getByRole('dialog',{name:'Karte verschieben'});
+    await dialog.getByRole('combobox',{name:'Zielposition'}).selectOption({label:'Ans Spaltenende'});
+    await dialog.getByRole('button',{name:'Karte verschieben'}).tap();
+    const titles=todo.locator('.task-card strong');
+    await expect(titles.last()).toHaveText('Montage spät');
+    await page.reload();
+    await expect(titles.last()).toHaveText('Montage spät');
   });
 });
