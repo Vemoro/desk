@@ -22,6 +22,8 @@ test('Beleg-Kostenstelle bleibt bei manueller Zuordnung sichtbar',async({page})=
   const [created]=await inserted.json() as {id:string;cost_center:string;project_id:string|null}[];
   expect(created.cost_center).toBe(center);
   expect(created.project_id).toBeNull();
+  await page.reload();
+  await expect(page.getByRole('heading',{name:'Übersicht',exact:true})).toBeVisible();
 
   await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Ist-Kosten',exact:true}).click();
   const imported=page.getByRole('row').filter({has:page.getByText(reference,{exact:true})});
