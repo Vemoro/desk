@@ -164,6 +164,11 @@ tr:nth-last-child(1 of :not([hidden])) td { border-bottom:0; }
 .tabs a:focus-visible { outline-color:var(--accent-ink); }
 .tabs a[aria-current] { border-bottom:2px solid var(--accent-ink); color:var(--accent-ink); font-weight:700; }
 .two-col,.compact-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.cost-import-wide { grid-column:1/-1; min-width:0; }
+.import-preview { display:grid; gap:12px; min-width:0; margin-block-start:16px; }
+.import-preview h3,.import-preview p { margin:0; }
+.import-preview td { overflow-wrap:anywhere; }
+.import-preview td[data-numeric] { white-space:nowrap; }
 .project-kanban { min-width:0; }
 .kanban-heading { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
 .kanban-heading .actions { align-items:end; }
@@ -347,6 +352,7 @@ tr:nth-last-child(1 of :not([hidden])) td { border-bottom:0; }
 .offer-preview { width:min(620px,calc(100% - 32px)); }
 .offer-preview-body { display:grid; grid-template-rows:minmax(0,1fr) auto; min-height:0; }
 .offer-preview-list { margin-top:12px; overflow-wrap:anywhere; }
+.offer-preview-total { margin:12px 0 0; text-align:right; font-variant-numeric:tabular-nums; }
 th[data-numeric],td[data-numeric] > div { text-align:right; font-variant-numeric:tabular-nums; }
 .danger { color:var(--danger); }
 button.destructive,button.destructive:not(:disabled):hover { background:var(--danger); border-color:var(--danger); color:var(--paper); }

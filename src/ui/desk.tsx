@@ -3,7 +3,7 @@ import { defaultProjectFilters, Project, Projects } from './projects';
 import { projectHash, projectView, type ProjectView } from './project-views';
 import { PasskeySettings } from './passkeys';
 import { AccountPassword } from './account-password';
-import { Warehouse } from './warehouse';
+import { defaultMovementFilters, Warehouse } from './warehouse';
 import { useDeskData } from './desk-data';
 import { Contacts } from './contacts';
 import { BuildInfo, Dashboard, DeskLogin } from './desk-home';
@@ -20,10 +20,12 @@ export function Desk() {
   const [detailId,setDetailId]=useState('');
   const [view,setView]=useState<ProjectView>('overview');
   const [projectFilters,setProjectFilters]=useState(defaultProjectFilters);
+  const [movementFilters,setMovementFilters]=useState(defaultMovementFilters);
   const [planningWeek,setPlanningWeek]=useState<string>();
   const [theme,setTheme]=useState('light');
   const {person,data,dataVersion,flags,notice,setNotice,refreshRequired,refreshing,confirmationRequests,signIn,logout,endSession,retryRefresh,run}=useDeskData(()=>{
     setProjectFilters(defaultProjectFilters);
+    setMovementFilters(defaultMovementFilters);
     setPlanningWeek(undefined);
   });
   const projectId=section==='projects'?detailId:'';
@@ -93,7 +95,8 @@ export function Desk() {
       }}/>}
       {section==='contacts' && <Contacts data={data} run={run} haben={flags.haben} selected={detailId}
         selectContact={id=>navigate('contacts',id)} openProject={id=>navigate('projects',id)}/>}
-      {section==='warehouse' && <Warehouse data={data} run={run} accountId={person.id}/>}
+      {section==='warehouse' && <Warehouse data={data} run={run} accountId={person.id}
+        filters={movementFilters} onFilter={setMovementFilters}/>}
       {section==='costs' && <Costs data={data} run={run}/>}
       {section==='account' && <><AccountPassword/><PasskeySettings run={run}/><BuildInfo/></>}
       {section==='settings' && (person.role==='admin' ?
