@@ -65,8 +65,9 @@ export function Costs({data,run}:{data:Data;run:Run}) {
       <option value="">Alle Belege</option><option value="assigned">Zugeordnet</option><option value="unassigned">Ohne Zuordnung</option>
     </select>}</Field>
     <button type="button" disabled={!query&&!source&&!assignment} onClick={resetFilters}>Filter zurücksetzen</button>
-  </div>{visibleCosts.length ? <Table numeric={[3]} headers={['Beleg','Bezeichnung','Quelle','Netto','Projektzuordnung']} rows={visibleCosts.map(row=>({key:row.id,cells:[
+  </div>{visibleCosts.length ? <Table numeric={[3]} headers={['Beleg','Bezeichnung','Quelle','Netto','Kostenstelle','Projektzuordnung']} rows={visibleCosts.map(row=>({key:row.id,cells:[
     row.reference,row.name,costSourceLabel(row.source),euros(row.cents),
+    <span className="cost-center-value">{row.cost_center?.trim() ? row.cost_center : '–'}</span>,
     <Field label={`Projekt für ${row.reference}`} visuallyHiddenLabel>{props=><select {...props} value={row.project_id??''}
       onFocus={event=>{focusedAssignment.current=event.currentTarget;}}
       onBlur={event=>{
