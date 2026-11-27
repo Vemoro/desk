@@ -6,6 +6,8 @@ Prüfe vor einer Änderung [Produktumfang](roadmap.md), Status, Auftrag und erwa
 
 Fehlt für einen neuen Bereich eine passende Desk-Vorgabe zu Gestaltung oder Code, prüfe vor der Umsetzung übertragbare Regeln und Beispiele im [Haben-Repository](https://github.com/Speicherstadt/haben). Halte im zugehörigen PR einen begründeten Vorschlag mit Quelle und geprüftem Stand fest. Gibt es kein passendes Vorbild, dokumentiere das Ergebnis kurz im PR.
 
+Veröffentlichte SQL-Migrationen behalten Dateiname und Inhalt. Neue Migrationen stehen in Dateinamensreihenfolge hinter den veröffentlichten Dateien. Die CI ermittelt den zuletzt veröffentlichten Release aus `Vemoro/desk` und verifiziert das Upgrade des zusammengeführten Stands mit synthetischen Kontakt-, Projekt- und Lagerdaten. [Upgrade-Prüfung](../scripts/check-release-upgrade.py)
+
 Arbeite pro Thema auf einem eigenen Branch gegen die passende Git-Basis. Änderungen an `main` kommen über freigegebene Pull Requests. Wenn eine Vorarbeit in einem offenen PR steckt, nenne dessen Nummer, Basis und Head. Fremde Änderungen bleiben geschützt. Bestehende Routen, Daten und Exportformate sind Bestandteil der Abnahme, wenn die Änderung sie berührt.
 
 ## Umsetzung
