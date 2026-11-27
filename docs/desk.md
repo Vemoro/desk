@@ -91,6 +91,10 @@ Unter **Bestand je Lagerort** sucht **Bestand suchen** nach Teilen des Artikelna
 
 Ohne aktive Filter zeigt ein leerer Bestand den nächsten Schritt. **Wareneingang erfassen** öffnet das Buchungsformular. Fehlen die Stammdaten, öffnet **Neuer Artikel** oder **Neuer Lagerort** das passende Formular.
 
+### Ist-Kosten filtern
+
+In **Ist-Kosten** lassen sich Belege nach Referenz oder Bezeichnung suchen und zugleich nach Quelle und Projektzuordnung filtern. Wählst du unter **Zuordnung filtern** den Eintrag **Ohne Zuordnung** und weist einem Beleg ein Projekt zu, verschwindet er aus der gefilterten Liste. Die Filter bleiben gesetzt. **Filter zurücksetzen** zeigt wieder alle Belege.
+
 ## Haben
 
 `HABEN_URL` und `HABEN_TOKEN` auf dem Desk-Server setzen. Angebote benötigen Leserechte für Angebote. Für Kontakte stehen die benötigten Rechte, der erste Import, das Verknüpfen und die Wiederholung nach Fehlern im [Kontaktabgleich zwischen Desk und Haben](haben-kontaktabgleich.md).

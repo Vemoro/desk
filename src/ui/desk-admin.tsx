@@ -1,12 +1,54 @@
 import { Field } from './field';
+import { ListEmpty } from './list-page';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { api, compileCsv, euros, money, type Row } from './client';
 import type { Data } from './projects';
 import { Expand, Form, ConfirmDialog, noWrite, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
 import { SettingsLayout, type SettingsArea } from './settings-navigation';
 
+const costSources=new Map([['manual','Manuell'],['haben-export','Haben-Export'],['demo','Demo']]);
+
+function costSourceLabel(source:string) {
+  return costSources.get(source)??`„${source}“`;
+}
+
 export function Costs({data,run}:{data:Data;run:Run}) {
-  return <Panel title="Belege und Zuordnung"><div className="panel-body">
+  const [query,setQuery]=useState('');
+  const [source,setSource]=useState('');
+  const [assignment,setAssignment]=useState('');
+  const searchInput=useRef<HTMLInputElement>(null);
+  const assignmentFilter=useRef<HTMLSelectElement>(null);
+  const focusedAssignment=useRef<HTMLSelectElement|null>(null);
+  const term=query.trim().toLowerCase();
+  const sources=Array.from(new Set(data.costs.map(row=>row.source))).sort();
+  const visibleCosts=data.costs.filter(row=>
+    (!term || [row.reference,row.name].some(value=>value.toLowerCase().includes(term)))
+    && (!source || row.source===source)
+    && (!assignment || Boolean(row.project_id)===(assignment==='assigned')));
+  const filterActive=Boolean(term || source || assignment);
+
+  useEffect(()=>{
+    const trigger=focusedAssignment.current;
+    if(trigger && !trigger.isConnected) {
+      focusedAssignment.current=null;
+      if(document.activeElement===document.body) assignmentFilter.current?.focus();
+    }
+  });
+
+  function resetFilters() {
+    setQuery('');
+    setSource('');
+    setAssignment('');
+    searchInput.current?.focus();
+  }
+
+  function assignCost(id:string,projectId:string) {
+    return run(()=>api('costs/'+id,'PATCH',{project_id:projectId||null}),'Zuordnung gespeichert.');
+  }
+
+  return <Panel title="Belege und Zuordnung" action={<span className="subtle" role="status">
+    {visibleCosts.length} von {data.costs.length} {data.costs.length===1?'Beleg':'Belegen'}
+  </span>}><div className="panel-body compact-actions">
     <Expand title="Kosten aus CSV übernehmen"><Form caption="Kosten übernehmen" fields={[
       {name:'csv',label:'CSV-Inhalt mit reference, name, amount und optional cost_center',type:'textarea',required:true},
     ]} submit={({csv})=>run(()=>api('costs','POST',{entries:compileCsv(csv)}),'Kosten übernommen.')}/></Expand>
@@ -14,11 +56,26 @@ export function Costs({data,run}:{data:Data;run:Run}) {
       {name:'reference',label:'Belegreferenz',required:true},{name:'name',label:'Bezeichnung',required:true},
       {name:'amount',label:'Netto in Euro',required:true},{name:'project_id',label:'Projekt',choices:options(data.projects)},
     ]} submit={(input)=>run(()=>api('costs','POST',{entries:[{reference:input.reference,name:input.name,cents:money(input.amount),source:'manual',project_id:input.project_id||null}]}),'Beleg gespeichert.')}/></Expand>
-  </div><Table numeric={[2]} headers={['Beleg','Bezeichnung','Netto','Projektzuordnung']} rows={data.costs.map((row)=>({key:row.id,cells:[
-    row.reference,row.name,euros(row.cents),<Field label={`Projekt für ${row.reference}`} visuallyHiddenLabel>{props=><select {...props} value={row.project_id??''}
-      onChange={(event)=>run(()=>api(`costs/${row.id}`,'PATCH',{project_id:event.target.value||null}),'Zuordnung gespeichert.')}>
-      <option value="">Ohne Zuordnung</option>{data.projects.map((project)=><option value={project.id} key={project.id}>{project.name}</option>)}</select>}</Field>,
-  ]}))}/></Panel>;
+  </div><div className="panel-body form-grid">
+    <Field label="Belege suchen">{props=><input {...props} type="search" ref={searchInput} value={query} onChange={event=>setQuery(event.target.value)}/>}</Field>
+    <Field label="Quelle filtern">{props=><select {...props} value={source} onChange={event=>setSource(event.target.value)}>
+      <option value="">Alle Quellen</option>
+      {sources.map(value=><option key={value} value={value}>{costSourceLabel(value)}</option>)}
+    </select>}</Field>
+    <Field label="Zuordnung filtern">{props=><select {...props} ref={assignmentFilter} value={assignment} onChange={event=>setAssignment(event.target.value)}>
+      <option value="">Alle Belege</option><option value="assigned">Zugeordnet</option><option value="unassigned">Ohne Zuordnung</option>
+    </select>}</Field>
+    <button type="button" disabled={!query&&!source&&!assignment} onClick={resetFilters}>Filter zurücksetzen</button>
+  </div>{visibleCosts.length ? <Table numeric={[3]} headers={['Beleg','Bezeichnung','Quelle','Netto','Projektzuordnung']} rows={visibleCosts.map(row=>({key:row.id,cells:[
+    row.reference,row.name,costSourceLabel(row.source),euros(row.cents),
+    <Field label={`Projekt für ${row.reference}`} visuallyHiddenLabel>{props=><select {...props} value={row.project_id??''}
+      onFocus={event=>{focusedAssignment.current=event.currentTarget;}}
+      onBlur={event=>{
+        if(event.relatedTarget && focusedAssignment.current===event.currentTarget) focusedAssignment.current=null;
+      }}
+      onChange={event=>void assignCost(row.id,event.currentTarget.value)}>
+      <option value="">Ohne Zuordnung</option>{data.projects.map(project=><option value={project.id} key={project.id}>{project.name}</option>)}</select>}</Field>,
+  ]}))}/> : <ListEmpty>{filterActive?'Keine Belege für diese Filter.':'Hier erscheinen importierte oder einzeln erfasste Belege.'}</ListEmpty>}</Panel>;
 }
 
 type SettingsHeading=RefObject<HTMLHeadingElement|null>;
