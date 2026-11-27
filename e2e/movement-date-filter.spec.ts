@@ -72,6 +72,18 @@ test('Datumsfilter kombiniert Buchungstag, Suche, Projekt und Bewegungsart über
   await expect(search).toBeFocused();
   for(const field of [from,to,search,kind,project]) await expect(field).toHaveValue('');
   await expect(panel.getByText('201 von 201 Bewegungen',{exact:true})).toBeVisible();
+
+  const reset=panel.getByRole('button',{name:'Filter zurücksetzen'});
+  for(const field of [from,to]) {
+    await field.press('1');
+    await expect.poll(()=>field.evaluate(input=>(input as HTMLInputElement).validity.badInput)).toBe(true);
+    await expect(field).toHaveValue('');
+    await expect(reset).toBeEnabled();
+    await reset.press('Enter');
+    await expect.poll(()=>field.evaluate(input=>(input as HTMLInputElement).validity.badInput)).toBe(false);
+    await expect(reset).toBeDisabled();
+    await expect(search).toBeFocused();
+  }
 });
 
 test('Lokale Kalendertage berücksichtigen 23 und 25 Stunden',async({page})=>{

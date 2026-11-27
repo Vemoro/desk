@@ -151,8 +151,26 @@ function MovementFilters({filters,onChange,projects,count,total,invalidRange}:{
   const search=useRef<HTMLInputElement>(null);
   const timeZoneId=useId();
   const timeZone=Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  const fromDate=useRef<HTMLInputElement>(null);
+  const toDate=useRef<HTMLInputElement>(null);
+  const [incompleteDate,setIncompleteDate]=useState(false);
+
+  // Native date inputs can hold incomplete segments while their value is empty.
+  function trackDateInput() {
+    setIncompleteDate(Boolean(fromDate.current?.validity.badInput || toDate.current?.validity.badInput));
+  }
+
+  function resetFilters() {
+    for(const input of [fromDate.current,toDate.current]) {
+      if(input) input.value='';
+    }
+    setIncompleteDate(false);
+    onChange(defaultMovementFilters);
+    search.current?.focus();
+  }
   return <>
-    <div className="form-grid">
+    <div className="form-grid movement-filters">
       <Field label="Lagerbewegungen suchen">{props=><input {...props} ref={search} type="search" value={filters.query}
         onChange={event=>onChange({...filters,query:event.currentTarget.value})}/>}</Field>
       <Field label="Bewegungsart filtern">{props=><select {...props} value={filters.kind}
@@ -166,16 +184,15 @@ function MovementFilters({filters,onChange,projects,count,total,invalidRange}:{
         <option value="without-project">Ohne Projektbezug</option>
         {options(projects).map(({value,label})=><option key={value} value={value}>{label}</option>)}
       </select>}</Field>
-      <Field label="Vom Datum" describedBy={timeZoneId}>{props=><input {...props} type="date" value={filters.from}
+      <Field label="Vom Datum" describedBy={timeZoneId}>{props=><input {...props} type="date" ref={fromDate} value={filters.from} onInput={trackDateInput} onKeyUp={trackDateInput} onBlur={trackDateInput}
         onChange={event=>onChange({...filters,from:event.currentTarget.value})}/>}</Field>
       <Field label="Bis Datum" describedBy={timeZoneId} error={invalidRange?'Das Bis-Datum liegt vor dem Vom-Datum.':undefined}>
-        {props=><input {...props} type="date" value={filters.to}
+        {props=><input {...props} type="date" ref={toDate} value={filters.to} onInput={trackDateInput} onKeyUp={trackDateInput} onBlur={trackDateInput}
           onChange={event=>onChange({...filters,to:event.currentTarget.value})}/>}
       </Field>
     </div>
     <div className="actions">
-      <button type="button" disabled={!Object.values(filters).some(Boolean)}
-        onClick={()=>{onChange(defaultMovementFilters);search.current?.focus();}}>Filter zurücksetzen</button>
+      <button type="button" disabled={!incompleteDate && !Object.values(filters).some(Boolean)} onClick={resetFilters}>Filter zurücksetzen</button>
       <span className="subtle" id={timeZoneId}>Browser-Zeitzone {timeZone}</span>
       {!invalidRange && <span className="subtle" role="status">{count} von {total} Bewegungen</span>}
     </div>
