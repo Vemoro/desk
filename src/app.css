@@ -88,6 +88,8 @@ small { display: block; color: var(--muted); margin-top: 4px; font-size: var(--t
 .breadcrumb,.subtle { color:var(--muted); font-size: var(--text-14); }
 .breadcrumb { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
 .metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
+@media (1020px < width <= 1200px) { .dashboard-metrics { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+@media (width > 1200px) { .dashboard-metrics { grid-template-columns:repeat(5,minmax(0,1fr)); } }
 .metric { background:var(--paper); border:1px solid var(--border); border-radius:var(--radius); padding:20px; min-width:0; container-type:inline-size; }
 .metric span { display:block; color:var(--muted); font-size: var(--text-14); }
 .metric strong { display:block; padding-top:8px; font-size: var(--text-28); letter-spacing:-.025em; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
@@ -105,6 +107,7 @@ tr:nth-last-child(1 of :not([hidden])) td { border-bottom:0; }
 .pill.accent::before { background:var(--accent-ink); }
 .empty { color:var(--muted); padding:24px 20px; }
 .booking-details { overflow-wrap:anywhere; }
+.delivery-reference { overflow-wrap:anywhere; }
 .week-controls { display:flex; align-items:end; flex-wrap:wrap; gap:16px; }
 .week-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); padding:8px; }
 .week-day { min-width:0; padding:8px; overflow-wrap:anywhere; }
