@@ -222,15 +222,16 @@ function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) 
   const [filters,setFilters]=useState(emptyReservationFilters);
   const resourceSelector=useRef<HTMLSelectElement>(null);
   const focusedStatusAction=useRef<HTMLButtonElement>(null);
-  const {resource,status,day}=filters;
+  const {resource,status,day,onlyCheckedOut}=filters;
   const dayRange=day ? localDayRange(day) : undefined;
+  const equipmentIds=new Set(data.items.filter(item=>item.kind==='equipment').map(item=>item.id));
   const visibleReservations=data.reservations.filter((row)=>
     row.project_id===project.id
     && (!resource || (row.user_id?'user':'item')===resource)
     && (!status || row.status===status)
+    && (!onlyCheckedOut || (equipmentIds.has(row.item_id) && row.checked_out>0))
     && (!dayRange || overlapsReservationDay(row,dayRange)));
-  const filtered=Boolean(resource || status || day);
-  const equipmentIds=new Set(data.items.filter(item=>item.kind==='equipment').map(item=>item.id));
+  const filtered=Object.values(filters).some(Boolean);
 
   useEffect(()=>{
     const button=focusedStatusAction.current;
@@ -368,6 +369,9 @@ export function Controlling({project,data,run}:{project:Row;data:Data;run:Run}) 
         {name:'reference',label:'Belegreferenz',required:true},{name:'name',label:'Bezeichnung',required:true},{name:'amount',label:'Netto in Euro',required:true},
       ]} submit={(fields)=>run(()=>api('costs','POST',{entries:[{project_id:project.id,source:'manual',reference:fields.reference,name:fields.name,cents:money(fields.amount)}]}),'Ist-Kosten gespeichert.')}/></Expand></div>
       <Table numeric={[3]} headers={['Belegreferenz','Bezeichnung','Quelle','Netto']} rows={visibleCosts.map((row)=>({key:row.id,cells:[row.reference,row.name,row.source,euros(row.cents)]}))}/>
+      {selectedSource&&<div className="panel-body">
+        <output>Summe der sichtbaren Belege <strong className="cost-subtotal">{euros(visibleCosts.reduce((sum,row)=>sum+row.cents,0))}</strong></output>
+      </div>}
     </Panel>
   </>;
 }
