@@ -72,12 +72,7 @@ export function Desk() {
     <main id="desk-main" tabIndex={-1} className="main">
       {section!=='projects' && section!=='contacts' && section!=='warehouse' && <PageHeading title={sections[section][0]}/>}
       {alert}
-      {refreshRequired && <div className="notice actions">
-        <p role="status">Die Änderung wurde gespeichert. Die Ansicht konnte nicht aktualisiert werden.</p>
-        <button type="button" disabled={refreshing} onClick={()=>void retryRefresh()}>
-          {refreshing?'Ansicht wird aktualisiert …':'Ansicht aktualisieren'}
-        </button>
-      </div>}
+      {refreshRequired && <RefreshNotice refreshing={refreshing} onRefresh={retryRefresh}/>}
       {section==='dashboard' && <Dashboard data={data} accountId={person.id}
         select={(id)=>navigate('projects',id)} open={()=>navigate('projects')}/>}
       {section==='projects' && projectId && !project && <p className="notice" role="status">Dieses Projekt ist nicht verfügbar.</p>}
@@ -106,4 +101,13 @@ export function Desk() {
         <p className="notice" role="status">Die Einstellungen sind der Administration vorbehalten.</p>)}
     </main>
   </div></ConfirmationRequests>;
+}
+
+function RefreshNotice({refreshing,onRefresh}:{refreshing:boolean;onRefresh:()=>Promise<void>}) {
+  return <div className="notice actions">
+    <p role="status">Die Änderung wurde gespeichert. Die Ansicht konnte nicht aktualisiert werden.</p>
+    <button type="button" disabled={refreshing} onClick={()=>void onRefresh()}>
+      {refreshing?'Ansicht wird aktualisiert …':'Ansicht aktualisieren'}
+    </button>
+  </div>;
 }
