@@ -63,12 +63,28 @@ test('Terminfilter kombiniert die Auswahl und aktualisiert Heute zur lokalen Mit
   await expect(titles).toHaveText(['Lageplan anfordern','Anfrage lesen']);
   await date.selectOption('today');
   await expect(titles).toHaveText(['Material prüfen','Lieferung annehmen']);
+  await board.getByRole('button',{name:/Material prüfen/}).focus();
   await page.clock.fastForward(70_000);
   await expect(date).toHaveValue('today');
   await expect(titles).toHaveText(['Geräte montieren']);
+  await expect(date).toBeFocused();
   await page.goto('/#projects/'+second.id+'/tasks');
   await expect(date).toHaveValue('all');
   await expect(titles).toHaveText(['Aufbau abstimmen']);
+});
+
+test('Nach Mitternacht kehrt der Fokus beim Schließen der ausgefilterten Karte zum Terminfilter zurück',async({page})=>{
+  const {board,date,dialog}=await fixture(page);
+  await date.selectOption('today');
+  const card=board.getByRole('button',{name:/Material prüfen/});
+  await card.press('Enter');
+  const close=dialog.getByRole('button',{name:'Schließen',exact:true});
+  await expect(close).toBeVisible();
+  await page.clock.fastForward(70_000);
+  await expect(card).toHaveCount(0);
+  await expect(dialog).toBeVisible();
+  await close.click();
+  await expect(date).toBeFocused();
 });
 
 test('Kartenfokus folgt einem Statuswechsel oder einer Änderung an Titel und Termin',async({page})=>{

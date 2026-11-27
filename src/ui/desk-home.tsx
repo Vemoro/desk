@@ -2,11 +2,11 @@ import { Field } from './field';
 import type { ReactNode } from 'react';
 import { PasskeyLogin } from './passkeys';
 import { OidcLogin } from './oidc-login';
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { api, calendarDate, euros, name, projectStages } from './client';
 import type { Data } from './projects';
 import { Form, Panel, Pill, Table } from './widgets';
-import { useLocalDay } from './local-day';
+import { useLocalDayWithFocus } from './local-day';
 
 export function BuildInfo() {
   const [copyStatus,setCopyStatus]=useState('');
@@ -65,32 +65,13 @@ function dashboardEmptyTasks(assignee:DashboardAssignee,period:DashboardPeriod) 
   return assignee==='all' ? 'Keine offenen Aufgaben mit Termin.' : 'Keine offenen Aufgaben mit Termin für diese Zuständigkeit.';
 }
 
-function useDashboardDay() {
-  const taskList=useRef<HTMLDivElement>(null);
-  const periodField=useRef<HTMLSelectElement>(null);
-  const previouslyFocused=useRef<Element|null>(null);
-  const rememberFocus=useCallback(()=>{
-    const focused=document.activeElement;
-    previouslyFocused.current=taskList.current?.contains(focused) ? focused : null;
-  },[]);
-  const today=useLocalDay(rememberFocus);
-
-  useLayoutEffect(()=>{
-    const focused=previouslyFocused.current;
-    previouslyFocused.current=null;
-    if(focused && !focused.isConnected && document.activeElement===document.body) {
-      periodField.current?.focus();
-    }
-  },[today]);
-
-  return {today,taskList,periodField};
-}
-
 export function Dashboard({data,accountId,select,open}:{data:Data;accountId:string;select:(id:string)=>void;open:()=>void}) {
   const [assignee,setAssignee]=useState<DashboardAssignee>('all');
   const [period,setPeriod]=useState<DashboardPeriod>('all');
   const active=data.projects.filter((project)=>!['complete','cancelled'].includes(project.stage));
-  const {today,taskList,periodField}=useDashboardDay();
+  const taskList=useRef<HTMLDivElement>(null);
+  const periodField=useRef<HTMLSelectElement>(null);
+  const today=useLocalDayWithFocus(taskList,periodField);
   const activeIds=new Set(active.map((project)=>project.id));
   const datedOpenTasks=data.tasks
     .filter((task)=>task.status!=='done' && task.due && activeIds.has(task.project_id))

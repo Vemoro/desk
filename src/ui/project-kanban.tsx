@@ -3,7 +3,7 @@ import { api, ApiError, calendarDate, name, taskStages, type Row } from './clien
 import { Icon } from './icons';
 import { Form, FormDialog, options, type Run } from './widgets';
 import { Field } from './field';
-import { useLocalDay } from './local-day';
+import { useLocalDayWithFocus } from './local-day';
 
 const statusChoices=Object.entries(taskStages).map(([value,label])=>({value,label}));
 const columnEnd='end';
@@ -217,7 +217,9 @@ function useKanbanFocus({board,filterControl,searchControl,dueControl,editing,al
     const selector=wasMove ? `[data-kanban-card="${id}"] .task-move` : `[data-task-id="${id}"]`;
     const card=trigger.isConnected ? trigger : board.current?.querySelector<HTMLButtonElement>(selector);
     const controls={title:searchControl,assignee:filterControl,due:dueControl};
-    const hiddenBy=pending?.taskId===taskId && editFocusFilter(current ?? pending.next,pending,accountId,filters);
+    const fallbackTask=!card && allTasks.find(task=>task.id===taskId);
+    const hiddenBy=pending?.taskId===taskId ? editFocusFilter(current ?? pending.next,pending,accountId,filters) :
+      fallbackTask && hiddenByFilter(taskFields(fallbackTask),accountId,filters);
     const filter=hiddenBy ? controls[hiddenBy] : filterControl;
     restoreFocus.current=undefined;
     (card ?? (canReorder ? board.current : filter.current))?.focus();
@@ -235,10 +237,11 @@ export function ProjectKanban({projectId,accountId,tasks:allTasks,dataVersion,us
   const filterControl=useRef<HTMLSelectElement>(null);
   const searchControl=useRef<HTMLInputElement>(null);
   const dueControl=useRef<HTMLSelectElement>(null);
-  const filters={assignee,term:search.trim().toLowerCase(),due,today:useLocalDay()};
+  const board=useRef<HTMLDivElement>(null);
+  const today=useLocalDayWithFocus(board,dueControl);
+  const filters={assignee,term:search.trim().toLowerCase(),due,today};
   const canReorder=sort==='standard' && assignee==='all' && !filters.term && due==='all';
   const {tasks,columns}=filteredBoard(allTasks,projectId,accountId,filters,sort);
-  const board=useRef<HTMLDivElement>(null);
   const [editor,setEditor]=useState<{task:Row;trigger:HTMLButtonElement;move?:boolean}>();
   const {restoreFocus,pendingFocus}=useKanbanFocus({board,filterControl,searchControl,dueControl,
     editing:Boolean(editor),allTasks,dataVersion,canReorder,filters,accountId});
