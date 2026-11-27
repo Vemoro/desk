@@ -1,5 +1,5 @@
 export class DeskError extends Error {
-  constructor(public status: number, message: string) { super(message); }
+  constructor(public status: number, message: string, public code?:string) { super(message); }
 }
 
 export function required<T>(value: T | undefined, message = 'Datensatz nicht gefunden.'): T {
