@@ -122,7 +122,7 @@ test('Die Vorschau liest aktuelle Belege und die echte Bestätigung erhält eine
 
     await input.fill(csv);
     await inspect.click();
-    const row=preview.getByRole('row').filter({has:preview.getByRole('cell',{name:reference,exact:true})});
+    const row=preview.getByRole('row').filter({has:page.getByRole('cell',{name:reference,exact:true})});
     await expect(row).toContainText('Aktualisierung');
     await expect(row).toContainText(first.name);
     await expect(preview.getByRole('heading')).toBeFocused();
