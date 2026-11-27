@@ -7,12 +7,14 @@ test('Kostenquelle filtert nur Belege des offenen Projekts und lässt Projektken
     {id:'second',name:'Musterwartung',stage:'planning'},
     {id:'empty',name:'Musterprojekt ohne Belege',stage:'planning'},
   ];
-  let costs=[
+  const originalCosts=[
     {id:'a',project_id:'first',reference:'RE-01',name:'Material',source:'haben-export',cents:2300},
     {id:'b',project_id:'first',reference:'RE-02',name:'Transport',source:'manual',cents:1700},
     {id:'c',project_id:'second',reference:'RE-03',name:'Werkzeug',source:'manual',cents:1000},
     {id:'d',project_id:'second',reference:'RE-04',name:'Montage',source:'partner',cents:4300},
   ];
+  let costs=originalCosts;
+  let refreshes=0;
   await page.route('**/api/v1/projects?*',route=>route.fulfill({json:projects}));
   await page.route('**/api/v1/costs?*',route=>route.fulfill({json:costs}));
   await page.route('**/api/v1/lines?*',route=>route.fulfill({json:[
@@ -21,13 +23,13 @@ test('Kostenquelle filtert nur Belege des offenen Projekts und lässt Projektken
   ]}));
   await page.route('**/api/v1/costs',route=>{
     expect(route.request().method()).toBe('POST');
-    costs=costs.filter(entry=>entry.id!=='a');
+    costs=++refreshes===1 ? originalCosts.filter(entry=>entry.id!=='a') : originalCosts;
     return route.fulfill({json:{inserted:1}});
   });
   await signIn(page);
   const open=async(name:string)=>{
     await project(page,name);
-    await page.getByRole('button',{name:'Controlling',exact:true}).click();
+    await page.getByRole('link',{name:'Controlling',exact:true}).click();
   };
   await open(projects[0].name);
   const panel=page.locator('section').filter({has:page.getByRole('heading',{name:'Belegbezogene Ist-Kosten'})});
@@ -64,6 +66,14 @@ test('Kostenquelle filtert nur Belege des offenen Projekts und lässt Projektken
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText('RE-02');
   await expect(actual).toContainText('17,00');
+
+  await panel.getByLabel('Belegreferenz').fill('TEST-NACHLADEN');
+  await panel.getByLabel('Bezeichnung').fill('Erneut laden');
+  await panel.getByLabel('Netto in Euro').fill('1');
+  await panel.getByRole('button',{name:'Kosten speichern'}).click();
+  await expect(filter.locator('option')).toHaveText(['Alle Quellen','haben-export','manual']);
+  await expect(filter).toHaveValue('');
+  await expect(rows).toHaveCount(2);
 
   await filter.selectOption('manual');
   await open(projects[1].name);
