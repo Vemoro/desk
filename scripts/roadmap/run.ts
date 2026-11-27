@@ -17,6 +17,22 @@ const latest = (dates: number[]) => dates.length ? Math.max(...dates) : undefine
 const hasAssignee = (issue: Issue, login: string) => issue.assignees.some(user => user.login === login);
 const available = (card: Card) => !card.isArchived && (card.status === 'Geplant' || card.status === 'In Arbeit');
 
+const activeIssueLimit = 10;
+
+async function hasReachedIssueLimit(api: GitHub, board: Board, login: string, target: number) {
+  const counted = new Set<number>();
+  for (const issue of await api.assignedIssues(login)) {
+    if (issue.number === target || counted.has(issue.number) || issue.state !== 'open' ||
+        issue.pull_request || !hasAssignee(issue, login)) continue;
+    const card = await board.card(issue.number);
+    if (card && !card.isArchived && card.status === 'In Arbeit') {
+      counted.add(issue.number);
+      if (counted.size >= activeIssueLimit) return true;
+    }
+  }
+  return false;
+}
+
 function requestFrom(event: Event) {
   const { action, repository: repo, issue, comment } = event;
   if (action !== 'created' || repo?.full_name !== repository || !issue || issue.pull_request ||
@@ -78,7 +94,12 @@ export async function runCommand(api: GitHub, event: Event) {
         c.body.startsWith(marker('claim', login)))) {
       return await tell('dieses Issue ist dir bereits zugewiesen.');
     }
-  } else {
+  }
+  if ((!alreadyAssigned || card.status !== 'In Arbeit') && await hasReachedIssueLimit(api, board, login, number)) {
+    return await tell('du kannst höchstens ' + activeIssueLimit +
+      ' laufende Desk-Issues gleichzeitig bearbeiten. Schließe zuerst eine Aufgabe ab oder gib sie frei.');
+  }
+  if (!alreadyAssigned) {
     const assigned = await api.add(number, login);
     if (!hasAssignee(assigned, login)) return await tell('GitHub hat die Zuweisung nicht bestätigt. Bitte wende dich an die Maintainer.');
     if (assigned.assignees.some(user => user.login !== login)) {

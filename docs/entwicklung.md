@@ -110,6 +110,8 @@ Beginne mit dem höchsten belegten Nutzen für Desk. Prüfe vorhandene Issues, P
 
 Wende für neue und wiederaufgenommene Aufgaben das [Issue-Review](#issue-review-vor-der-planung) an. Ein PR ist nach Selbstprüfung, unabhängigem Review und grüner erforderlicher CI auf seinem aktuellen Stand prüfbereit. Bei betroffener Oberfläche gehören Vergleichsbilder zur Abnahme.
 
+Arbeite die laufenden Issues unter „In Arbeit“ ab, bevor du neue Aufgaben einplanst. Pro Person gelten höchstens zehn laufende Desk-Issues. Archiviere erledigte Karten im Freigabeboard, sobald der Abschluss belegt ist. [Übernahmegrenze auf der Roadmap](roadmap.md#issues-übernehmen-und-freigeben)
+
 Die bisherige Viererfolge samt Startwert ist eine Orientierung für die Planung. Passe Aufgaben und Umfang an Priorität, Risiken, Abhängigkeiten und verfügbare Zeit für Tests und Reviews an. Kann ein geprüftes Issue sinnvoll umgesetzt werden, starte den PR direkt im vereinbarten Auftrag. Leert sich die umsetzbare Warteschlange, prüfe den Bestand und fülle sie mit geeigneten Aufgaben auf.
 
 | Planungssituation | Richtwert für geprüfte Issues | Richtwert für prüfbereite PRs |

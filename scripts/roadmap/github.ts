@@ -89,7 +89,7 @@ export function github(issueToken: string, roadmapToken: string) {
   return {
     board,
     issue: (number: number) => json<Issue>(`${repoPath}/issues/${number}`),
-    assignedIssues: () => list<Issue>(repoPath + '/issues', '&state=open&assignee=*'),
+    assignedIssues: (login = '*') => list<Issue>(repoPath + '/issues', '&state=open&assignee=' + encodeURIComponent(login)),
     pulls: () => list<{ body: string | null }>(repoPath + '/pulls', '&state=open'),
     comments: (number: number) => list<Comment>(`${repoPath}/issues/${number}/comments`),
     assignments: (number: number) => list<Assignment>(`${repoPath}/issues/${number}/events`),
