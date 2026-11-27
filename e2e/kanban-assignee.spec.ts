@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { signIn } from './session';
+import { holdRoute, signIn } from './session';
 
 async function fixture(page:Page) {
   await signIn(page);
@@ -137,3 +137,33 @@ test('Eine gespeicherte ausgeblendete Karte bleibt auch nach Abruffehler erklär
   await expect(todo.getByRole('button',{name,exact:true})).toHaveCount(0);
   await expect(feedback).toBeVisible();
 });
+
+for(const scenario of [
+  {name:'Alle → Mir zugeordnet',start:'all',next:'me',hidden:true},
+  {name:'Mir zugeordnet → Alle',start:'me',next:'all',hidden:false},
+  {name:'Schnellerfassung zuklappen',start:'me',next:null,hidden:true},
+] as const) {
+  test(`Die Schnellerfassung bestätigt das Speichern nach „${scenario.name}“`,async({page})=>{
+    const {board}=await fixture(page);
+    const filter=page.getByRole('combobox',{name:'Aufgaben anzeigen',exact:true});
+    const todo=board.getByRole('region',{name:'Offen',exact:true});
+    const toggle=todo.getByText('Karte hinzufügen',{exact:true});
+    const held=holdRoute();
+    await filter.selectOption(scenario.start);
+    await page.route('**/api/v1/tasks',held.resolve,{times:1});
+    await toggle.click();
+    const input=todo.getByRole('textbox',{name:'Kartentitel'});
+    await input.fill('Musterkarte in laufender Schnellerfassung');
+    await input.press('Enter');
+    const request=await held.request;
+    if(scenario.next) {
+      await filter.focus();
+      await filter.selectOption(scenario.next);
+    } else await toggle.click();
+    await request.continue();
+    const feedback=scenario.hidden?'Karte angelegt. Sie erscheint unter „Alle“ oder „Ohne Zuständigkeit“.':'Karte angelegt.';
+    await expect(todo.getByText(feedback,{exact:true})).toBeVisible();
+    await expect(scenario.next?filter:toggle).toBeFocused();
+    await expect(todo.getByRole('button',{name:'Musterkarte in laufender Schnellerfassung'})).toHaveCount(scenario.hidden?0:1);
+  });
+}

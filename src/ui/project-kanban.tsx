@@ -75,27 +75,29 @@ function MoveCardForm({task,columns,submit}:{task:Row;columns:Record<string,Row[
 
 function AddCard({projectId,status,run,onlyMine}:{projectId:string;status:string;run:Run;onlyMine:boolean}) {
   const disclosure=useRef<HTMLDetailsElement>(null);
-  const [hiddenCardSaved,setHiddenCardSaved]=useState(false);
+  const [saved,setSaved]=useState(false);
+  const feedback=onlyMine?'Karte angelegt. Sie erscheint unter „Alle“ oder „Ohne Zuständigkeit“.':'Karte angelegt.';
 
-  return <details className="kanban-add" ref={disclosure} onToggle={(event)=>{
-    if(event.currentTarget.open) event.currentTarget.querySelector('input')?.focus();
-    else setHiddenCardSaved(false);
-  }}>
-    <summary>Karte hinzufügen</summary>
-    <Form className="kanban-add-form" caption="Karte anlegen" fields={[
-      {name:'name',label:'Kartentitel',required:true},
-    ]} submit={async({name})=>{
-      setHiddenCardSaved(false);
-      const saved=await run(()=>api('tasks','POST',{project_id:projectId,status,name}),onlyMine?undefined:'Karte angelegt.',{reportInlineError:true});
-      if(!saved) return;
-      const details=disclosure.current;
-      if(onlyMine && details?.open) setHiddenCardSaved(true);
-      const title=details?.querySelector('input');
-      if(title?.value===name) title.value='';
-      if(details?.open && (details.contains(document.activeElement) || document.activeElement===document.body)) title?.focus();
-    }}/>
-    {onlyMine && hiddenCardSaved && <p className="subtle" role="status">Karte angelegt. Sie erscheint unter „Alle“ oder „Ohne Zuständigkeit“.</p>}
-  </details>;
+  return <>
+    <details className="kanban-add" ref={disclosure} onToggle={event=>{
+      if(event.currentTarget.open) event.currentTarget.querySelector('input')?.focus();
+      else setSaved(false);
+    }}>
+      <summary>Karte hinzufügen</summary>
+      <Form className="kanban-add-form" caption="Karte anlegen" fields={[
+        {name:'name',label:'Kartentitel',required:true},
+      ]} submit={async({name})=>{
+        setSaved(false);
+        if(!await run(()=>api('tasks','POST',{project_id:projectId,status,name}),undefined,{reportInlineError:true})) return;
+        setSaved(true);
+        const details=disclosure.current;
+        const title=details?.querySelector('input');
+        if(title?.value===name) title.value='';
+        if(details?.open && (details.contains(document.activeElement) || document.activeElement===document.body)) title?.focus();
+      }}/>
+    </details>
+    <div className="subtle" role="status">{saved?feedback:null}</div>
+  </>;
 }
 
 type CardFocus={taskId:string;trigger:HTMLButtonElement;move?:boolean};
