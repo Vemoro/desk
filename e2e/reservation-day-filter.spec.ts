@@ -139,7 +139,9 @@ test('Der Winterzeittag enthält beide Vorkommen der wiederholten Stunde',async(
   await expect(panel.getByRole('row').filter({hasText:'Später begonnen'})).toHaveCount(0);
 });
 
-test('Der Projektabruf behält die bisherige Zeitdarstellung und unterscheidet den Termin knapp nach Mitternacht',async({page})=>{
+type ReservationExample={name:string;start:string;end:string;serializedEnd:string;submillisecond:number};
+
+async function projectWithReservations(page:Page,examples:ReservationExample[]) {
   await signIn(page);
   const suffix=crypto.randomUUID().slice(0,8);
   const title='Muster Tageswechsel '+suffix;
@@ -152,35 +154,84 @@ test('Der Projektabruf behält die bisherige Zeitdarstellung und unterscheidet d
   const contact=await post('contacts',{name:'Muster Tageswechsel'});
   const created=await post('projects',{name:title,contact_id:contact.id});
   const location=await post('locations',{name:'Musterlager '+suffix});
-  const legacyEnd='2027-02-09T23:00:00.000Z';
-  const exactEnd='2027-02-09T23:00:00.000500Z';
-  const ids:Record<string,string>={};
-  for(const [name,ends_at] of [['Endet genau um Mitternacht',legacyEnd],['Endet knapp nach Mitternacht',exactEnd]]){
-    const item=await post('items',{name,kind:'equipment',code:'TAG-'+crypto.randomUUID().slice(0,8)});
+  const expected=new Map<string,ReservationExample>();
+  for(const example of examples){
+    const item=await post('items',{name:example.name,kind:'equipment',code:'TAG-'+crypto.randomUUID().slice(0,8)});
     const reservation=await post('reservations',{
-      project_id:created.id,item_id:item.id,location_id:location.id,quantity:1,starts_at:'2027-02-09T22:59:00Z',ends_at,
+      project_id:created.id,item_id:item.id,location_id:location.id,quantity:1,starts_at:example.start,ends_at:example.end,
     });
-    ids[ends_at]=reservation.id;
+    expected.set(reservation.id,example);
   }
 
-  const response=await page.request.get('/api/v1/reservations?limit=200');
-  expect(response.ok()).toBeTruthy();
-  const rows=await response.json() as {id:string;starts_at:string;ends_at:string;ends_at_precise?:string}[];
-  for(const [end,id] of Object.entries(ids)){
-    expect(rows.find(row=>row.id===id)).toMatchObject({
-      starts_at:'2027-02-09T22:59:00.000Z',
-      ends_at:legacyEnd,
-      ends_at_precise:end===legacyEnd?'2027-02-09T23:00:00.000000Z':end,
-    });
+  for(let offset=0;expected.size;offset+=200){
+    const response=await page.request.get('/api/v1/reservations?limit=200&offset='+offset);
+    expect(response.ok()).toBeTruthy();
+    const rows=await response.json() as {id:string;starts_at:string;ends_at:string;ends_at_submillisecond?:number}[];
+    for(const row of rows){
+      const example=expected.get(row.id);
+      if(!example) continue;
+      expect(row).toMatchObject({
+        starts_at:new Date(example.start).toISOString(),
+        ends_at:example.serializedEnd,
+        ends_at_submillisecond:example.submillisecond,
+      });
+      expected.delete(row.id);
+    }
+    if(rows.length<200) break;
   }
+  expect(expected.size).toBe(0);
 
   await page.reload();
   await project(page,title);
   await page.getByRole('link',{name:'Ressourcen & Kalkulation',exact:true}).click();
   const panel=page.locator('section').filter({has:page.getByRole('heading',{name:'Ressourcenplanung',exact:true})});
   await expect(panel.getByText('2 Reservierungen',{exact:true})).toBeVisible();
+  return panel;
+}
+
+test('Der Projektabruf unterscheidet Ende genau um Mitternacht und knapp danach',async({page})=>{
+  const start='2027-02-09T22:59:00Z';
+  const serializedEnd='2027-02-09T23:00:00.000Z';
+  const panel=await projectWithReservations(page,[
+    {name:'Endet genau um Mitternacht',start,end:serializedEnd,serializedEnd,submillisecond:0},
+    {name:'Endet knapp nach Mitternacht',start,end:'2027-02-09T23:00:00.000500Z',serializedEnd,submillisecond:500},
+  ]);
   await panel.getByLabel('Am Datum').fill('2027-02-10');
   await expect(panel.getByText('1 Reservierung',{exact:true})).toBeVisible();
   await expect(panel.getByRole('row').filter({hasText:'Endet knapp nach Mitternacht'})).toBeVisible();
   await expect(panel.getByRole('row').filter({hasText:'Endet genau um Mitternacht'})).toHaveCount(0);
+});
+
+test.describe('Erster lokaler ISO-Kalendertag',()=>{
+  test.use({timezoneId:'Etc/GMT-1'});
+
+  test('Ein auf UTC-Jahr 0000 fallendes Terminende wird richtig verglichen',async({page})=>{
+    const panel=await projectWithReservations(page,[
+      {name:'Vor Tagesbeginn',start:'0001-01-01T00:00:00+02:00',end:'0001-01-01T00:00:00+01:00',
+        serializedEnd:'0000-12-31T23:00:00.000Z',submillisecond:0},
+      {name:'Im gewählten Tag',start:'0001-01-01T00:30:00+01:00',end:'0001-01-01T01:00:00+01:00',
+        serializedEnd:'0001-01-01T00:00:00.000Z',submillisecond:0},
+    ]);
+    await panel.getByLabel('Am Datum').fill('0001-01-01');
+    await expect(panel.getByText('1 Reservierung',{exact:true})).toBeVisible();
+    await expect(panel.getByRole('row').filter({hasText:'Im gewählten Tag'})).toBeVisible();
+    await expect(panel.getByRole('row').filter({hasText:'Vor Tagesbeginn'})).toHaveCount(0);
+  });
+});
+
+test.describe('Letzter vierstelliger ISO-Kalendertag',()=>{
+  test.use({timezoneId:'Etc/GMT+1'});
+
+  test('Ein auf UTC-Jahr 10000 fallendes Terminende wird richtig verglichen',async({page})=>{
+    const panel=await projectWithReservations(page,[
+      {name:'Spätreservierung',start:'9999-12-31T23:00:00-01:00',end:'9999-12-31T23:59:00-01:00',
+        serializedEnd:'+010000-01-01T00:59:00.000Z',submillisecond:0},
+      {name:'Frühere Reservierung',start:'9999-12-31T22:00:00-01:00',end:'9999-12-31T22:59:00-01:00',
+        serializedEnd:'9999-12-31T23:59:00.000Z',submillisecond:0},
+    ]);
+    await panel.getByLabel('Am Datum').fill('9999-12-31');
+    await expect(panel.getByText('2 Reservierungen',{exact:true})).toBeVisible();
+    await expect(panel.getByRole('row').filter({hasText:'Spätreservierung'})).toBeVisible();
+    await expect(panel.getByRole('row').filter({hasText:'Frühere Reservierung'})).toBeVisible();
+  });
 });

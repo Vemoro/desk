@@ -212,10 +212,10 @@ const emptyReservationFilters={resource:'',status:'',day:''};
 type ReservationFilterValues=typeof emptyReservationFilters;
 
 function overlapsReservationDay(row:Row,{start,end}:ReturnType<typeof localDayRange>) {
-  const endTimestamp=row.ends_at_precise ?? row.ends_at;
-  const bookingEnd=Date.parse(endTimestamp);
+  const bookingEnd=Date.parse(row.ends_at);
+  const submillisecond=row.ends_at_submillisecond ?? microsecondsWithinMillisecond(row.ends_at);
   return start<end && Date.parse(row.starts_at)<end
-    && (bookingEnd>start || (bookingEnd===start && microsecondsWithinMillisecond(endTimestamp)>0));
+    && (bookingEnd>start || (bookingEnd===start && submillisecond>0));
 }
 
 function ReservationFilters({filters,onChange,resourceSelector,count,timeZone}:{
