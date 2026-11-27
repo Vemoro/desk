@@ -1,5 +1,10 @@
 name: Doku-Screenshots erstellen
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/screenshots.yml'
+      - 'e2e/screenshots.spec.ts'
 permissions:
   contents: read
 jobs:
@@ -22,6 +27,8 @@ jobs:
     env:
       DATABASE_URL: postgres://desk:desk@127.0.0.1:5438/desk_demo
       DESK_DEMO_PASSWORD: muster-test-passwort
+      DESK_ORIGIN: http://localhost:4173
+      DESK_AUTH_SECRET: nur-fuer-die-isolierte-desk-testdatenbank
     steps:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
