@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { signIn } from './session';
+import { holdRoute, signIn } from './session';
 
 test('API-Token-Liste unterscheidet Laden, Fehler und echte Leerantwort',async({page})=>{
   let requests=0;
@@ -53,4 +53,37 @@ test('API-Token-Liste unterscheidet Laden, Fehler und echte Leerantwort',async({
   await expect(panel.getByRole('status')).toHaveText('Keine API-Token erstellt.');
 
   expect(writes).toBe(0);
+});
+
+test('Ein erzeugter API-Token bleibt nach einem Bereichswechsel kopierbar',async({page})=>{
+  const post=holdRoute();
+  const token={id:'muster',label:'Muster-Token',scope:'read'};
+  let created=false;
+  await page.route('**/api/v1/tokens',route=>{
+    if(route.request().method()==='POST') {
+      post.resolve(route);
+      return;
+    }
+    return route.fulfill({json:created?[token]:[]});
+  });
+  await signIn(page);
+  await page.getByRole('button',{name:'Einstellungen',exact:true}).click();
+  const nav=page.getByRole('navigation',{name:'Einstellungsbereiche'});
+  const api=nav.getByRole('link',{name:/^API-Zugriff /});
+  const team=nav.getByRole('link',{name:/^Team /});
+  await api.click();
+  await page.getByText('API-Token erzeugen',{exact:true}).click();
+  await page.getByLabel('Name',{exact:true}).fill(token.label);
+  await page.getByLabel('Berechtigung',{exact:true}).selectOption(token.scope);
+  await page.getByRole('button',{name:'Token erzeugen',exact:true}).click();
+  const request=await post.request;
+  await team.click();
+  created=true;
+  await request.fulfill({status:201,json:{...token,token:'desk_synthetischer_token'}});
+  await expect(page.getByText('API-Token erzeugt.',{exact:true})).toBeVisible();
+  const copy=page.getByLabel('Token jetzt kopieren');
+  await expect(copy).toHaveCount(0);
+  await api.click();
+  await expect(copy).toHaveValue('desk_synthetischer_token');
+  await expect(page.getByRole('cell',{name:token.label,exact:true})).toBeVisible();
 });

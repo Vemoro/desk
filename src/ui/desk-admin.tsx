@@ -27,16 +27,32 @@ export function Settings({data,run,flags,accountId,area}:{
   data:Data; run:Run; flags:{haben:boolean;zammad:boolean}; accountId:string; area?:SettingsArea;
 }) {
   const heading=useRef<HTMLHeadingElement>(null);
+  const [issued,setIssued]=useState('');
+  const [creatingToken,setCreatingToken]=useState(false);
+  async function createToken(input:Record<string,string>) {
+    setCreatingToken(true);
+    try {
+      return await run(async(isCurrent)=>{
+        const result=await api('tokens','POST',input);
+        if(isCurrent()) setIssued(result.token);
+      },'API-Token erzeugt.');
+    } finally {
+      setCreatingToken(false);
+    }
+  }
   return <SettingsLayout area={area} heading={heading}>
     {(area===undefined || area==='team') && <TeamSettings users={data.users} run={run} accountId={accountId} heading={heading}/>}
-    {area==='api' && <ApiAccess run={run} heading={heading}/>}
+    {area==='api' && <ApiAccess run={run} heading={heading} issued={issued} creating={creatingToken}
+      createToken={createToken} clearIssued={()=>setIssued('')}/>}
     {area==='integrations' && <Integrations flags={flags} run={run} heading={heading}/>}
   </SettingsLayout>;
 }
 
-function ApiAccess({run,heading}:{run:Run;heading:SettingsHeading}) {
+function ApiAccess({run,heading,issued,creating,createToken,clearIssued}:{
+  run:Run; heading:SettingsHeading; issued:string; creating:boolean;
+  createToken:(input:Record<string,string>)=>Promise<boolean>; clearIssued:()=>void;
+}) {
   const [tokenList,setTokenList]=useState<{status:'loading'|'failed'}|{status:'loaded';tokens:Row[]}>({status:'loading'});
-  const [issued,setIssued]=useState('');
   const [revocation,setRevocation]=useState<Confirmation>();
   const tokenRequest=useRef(0);
   const tokenPanel=useRef<HTMLElement>(null);
@@ -55,7 +71,7 @@ function ApiAccess({run,heading}:{run:Run;heading:SettingsHeading}) {
   useEffect(()=>{
     void refresh();
     return ()=>{tokenRequest.current++;};
-  },[]);
+  },[issued]);
   useEffect(()=>{
     if(tokenList.status==='loading' || !returnTokenFocus.current) return;
     returnTokenFocus.current=false;
@@ -66,9 +82,9 @@ function ApiAccess({run,heading}:{run:Run;heading:SettingsHeading}) {
   return <>
     <Panel title="API-Zugriff" headingRef={heading} focusRef={tokenPanel}
       action={<a href="/api/v1/openapi.json" target="_blank" rel="noreferrer">OpenAPI</a>}><div className="panel-body">
-      <Expand title="API-Token erzeugen"><Form caption="Token erzeugen" fields={[
+      <Expand title="API-Token erzeugen"><Form caption="Token erzeugen" disabled={creating} fields={[
         {name:'label',label:'Name',required:true},{name:'scope',label:'Berechtigung',choices:[{value:'read',label:'Lesen'},{value:'write',label:'Lesen und schreiben'}],required:true},
-      ]} submit={(input)=>run(async(isCurrent)=>{const result=await api('tokens','POST',input);if(isCurrent()) {setIssued(result.token);await refresh();}},'API-Token erzeugt.')}/></Expand>
+      ]} submit={createToken}/></Expand>
       {issued&&<Field label="Token jetzt kopieren">{props=><input {...props} value={issued} readOnly onFocus={(e)=>e.target.select()}/>}</Field>}
     </div>
     {tokenList.status==='loading'&&<p className="empty" role="status">API-Token werden geladen …</p>}
@@ -87,7 +103,10 @@ function ApiAccess({run,heading}:{run:Run;heading:SettingsHeading}) {
           trigger:event.currentTarget,
           submit:async isCurrent=>{
             await api("tokens/"+row.id,"DELETE");
-            if(isCurrent()) {setIssued("");await refresh();}
+            if(isCurrent()) {
+              if(issued) clearIssued();
+              else await refresh();
+            }
           },feedback:"Token widerrufen.",
         })}>Widerrufen</button>,
       ]}))}/>

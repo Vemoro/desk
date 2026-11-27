@@ -86,9 +86,6 @@ small { display: block; color: var(--muted); margin-top: 4px; font-size: var(--t
 .settings-nav a { display:block; padding:12px; min-height:var(--control-h); border-radius:8px; color:var(--ink); text-decoration:none; }
 .settings-nav a:hover { background:var(--soft); }
 .settings-nav a[aria-current] { background:var(--tint); color:var(--accent-ink); }
-@media (min-width:901px) {
-  .settings-layout:not([data-detail]) .settings-nav a:first-child { background:var(--tint); color:var(--accent-ink); }
-}
 .settings-nav strong { font-size:var(--text-14); }
 .settings-content { display:grid; min-width:0; gap:16px; }
 .settings-back { display:none; }

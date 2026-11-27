@@ -8,6 +8,7 @@ test('Einstellungsbereiche haben Direktlinks und fokussieren ihren Titel',async(
   const team=page.getByRole('heading',{name:'Team',exact:true});
   const api=page.getByRole('heading',{name:'API-Zugriff',exact:true});
   await expect(team).toBeVisible();
+  await expect(nav.getByRole('link',{name:/^Team /})).toHaveAttribute('aria-current','page');
 
   const apiLink=nav.getByRole('link',{name:/^API-Zugriff /});
   await apiLink.focus();
@@ -23,6 +24,12 @@ test('Einstellungsbereiche haben Direktlinks und fokussieren ihren Titel',async(
   await expect(page.getByRole('heading',{name:'Integrationen',exact:true})).toBeFocused();
   await page.goBack();
   await expect(api).toBeFocused();
+  await apiLink.press('Enter');
+  await expect(api).toBeFocused();
+  await nav.getByRole('link',{name:/^Integrationen /}).focus();
+  await page.setViewportSize({width:390,height:844});
+  await expect(nav).toBeHidden();
+  await expect(api).toBeFocused();
 });
 
 test('Das mobile Einstellungsmenü kehrt zum gewählten Bereich zurück',async({page})=>{
@@ -33,6 +40,7 @@ test('Das mobile Einstellungsmenü kehrt zum gewählten Bereich zurück',async({
   await page.getByRole('button',{name:'Einstellungen',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Team',exact:true})).toBeHidden();
   const teamLink=nav.getByRole('link',{name:/^Team /});
+  await expect(nav.locator('[aria-current]')).toHaveCount(0);
   await teamLink.click();
   await expect(nav).toBeHidden();
   await expect(page.getByRole('heading',{name:'Team',exact:true})).toBeFocused();

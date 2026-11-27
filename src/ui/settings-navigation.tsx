@@ -1,4 +1,4 @@
-import { useEffect, useRef, type MouseEvent, type ReactNode, type RefObject } from 'react';
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from 'react';
 
 const areas = {
   team: {label:'Team', hint:'Konten, Rollen und Zugang'},
@@ -12,9 +12,13 @@ export function settingsArea(value:string):SettingsArea|undefined {
   return Object.hasOwn(areas,value) ? value as SettingsArea : undefined;
 }
 
-function followArea(event:MouseEvent<HTMLAnchorElement>, next:SettingsArea, area?:SettingsArea) {
-  if(event.button!==0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || area===next) return;
+function followArea(event:MouseEvent<HTMLAnchorElement>, next:SettingsArea, heading:HTMLHeadingElement|null, area?:SettingsArea) {
+  if(event.button!==0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
   event.preventDefault();
+  if(area===next) {
+    heading?.focus();
+    return;
+  }
   location.hash='settings/'+next;
   history.replaceState({...history.state,deskSettingsFromList:!area},'');
 }
@@ -24,6 +28,35 @@ export function SettingsLayout({area,heading,children}:{
 }) {
   const previousArea=useRef<SettingsArea|undefined>(undefined);
   const navigation=useRef<HTMLElement>(null);
+  const [desktop,setDesktop]=useState(false);
+  const selected=area ?? (desktop ? 'team' : undefined);
+
+  useEffect(()=>{
+    const mobile=window.matchMedia('(max-width: 900px)');
+    let wasMobile=mobile.matches;
+    let lastFocused=document.activeElement;
+    setDesktop(!wasMobile);
+    function trackFocus(event:FocusEvent) {
+      if(event.target instanceof Element) lastFocused=event.target;
+    }
+    function clearFocus() {
+      if(mobile.matches===wasMobile) lastFocused=null;
+    }
+    function sync(event:MediaQueryListEvent) {
+      wasMobile=event.matches;
+      setDesktop(!wasMobile);
+      const focused=document.activeElement===document.body ? lastFocused : document.activeElement;
+      if(wasMobile && area && navigation.current?.contains(focused)) heading.current?.focus();
+    }
+    mobile.addEventListener('change',sync);
+    document.addEventListener('focusin',trackFocus);
+    document.addEventListener('focusout',clearFocus);
+    return ()=>{
+      mobile.removeEventListener('change',sync);
+      document.removeEventListener('focusin',trackFocus);
+      document.removeEventListener('focusout',clearFocus);
+    };
+  },[area,heading]);
 
   useEffect(()=>{
     if(area) heading.current?.focus();
@@ -36,8 +69,8 @@ export function SettingsLayout({area,heading,children}:{
   return <div className="settings-layout" data-detail={Boolean(area) || undefined}>
     <nav className="settings-nav" ref={navigation} aria-label="Einstellungsbereiche">
       {(Object.keys(areas) as SettingsArea[]).map(key=>
-        <a key={key} href={'#settings/'+key} aria-current={key===area?'page':undefined}
-          onClick={event=>followArea(event,key,area)}>
+        <a key={key} href={'#settings/'+key} aria-current={key===selected?'page':undefined}
+          onClick={event=>followArea(event,key,heading.current,area)}>
           <strong>{areas[key].label}</strong>{' '}
           <small>{areas[key].hint}</small>
         </a>
