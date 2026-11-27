@@ -19,6 +19,15 @@ export const calendarDate = (value?:string|null) => value ? new Intl.DateTimeFor
 export const moment = (value?:string) => value ? new Intl.DateTimeFormat('de-DE',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value)) : '–';
 export const name = (collection:Row[], id?:string) => collection.find((row)=>row.id===id)?.name ?? '–';
 
+export function reservationDurationLabel(totalMinutes:number) {
+  const hours=Math.floor(totalMinutes/60);
+  const minutes=totalMinutes%60;
+  const minuteLabel=`${minutes} ${minutes===1?'Minute':'Minuten'}`;
+  if(!hours) return minuteLabel;
+  const hourLabel=`${hours} ${hours===1?'Stunde':'Stunden'}`;
+  return minutes ? `${hourLabel} ${minuteLabel}` : hourLabel;
+}
+
 export function inventoryLabel(item:Row):string {
   const articleName=item.name ?? '–';
   return item.inventory_number ? `${articleName} (${item.inventory_number})` : articleName;

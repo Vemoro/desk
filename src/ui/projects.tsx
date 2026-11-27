@@ -2,7 +2,7 @@ import { Field } from './field';
 import { useEffect, useId, useRef, useState, type FocusEvent } from 'react';
 import { missingStageReference } from '../project-references';
 import { microsecondsWithinMillisecond } from '../time';
-import { api, calendarDate, euros, inventoryLabel, inventoryName, isOpenProject, moment, money, name, projectStages, reservationStages, type Row } from './client';
+import { api, calendarDate, euros, inventoryLabel, inventoryName, isOpenProject, moment, money, name, projectStages, reservationDurationLabel, reservationStages, type Row } from './client';
 import { calculationLineCents, formatCalculationTotal } from './calculation-money';
 import { ConfirmDialog, Expand, Form, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
 import { ProjectHistory } from './project-history';
@@ -284,7 +284,9 @@ function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) 
     </div>{filtered && !visibleReservations.length ? <p className="empty">Keine Reservierungen für diese Filter.</p>
     : <Table numeric={[2,3]} headers={['Ressource','Zeitraum','Menge','Noch ausgegeben','Status','Aktion']} rows={visibleReservations.map((row)=>({
       key:row.id,cells:[row.user_id ? name(data.users,row.user_id) : <><span>{inventoryName(data.items,row.item_id)}</span><small>{name(data.locations,row.location_id)}</small></>,
-        <>{moment(row.starts_at)}<small>bis {moment(row.ends_at)}</small></>,row.quantity,
+        <>{moment(row.starts_at)}<small>bis {moment(row.ends_at)}</small>
+          {Number.isSafeInteger(row.duration_minutes) && row.duration_minutes>=0 && <small>{reservationDurationLabel(row.duration_minutes)}</small>}
+        </>,row.quantity,
         equipmentIds.has(row.item_id) ? row.checked_out ?? '–' : '–',
         <Pill label={reservationStages[row.status]} tone={row.status==='firm'?'accent':'neutral'}/>,
         <div className="actions">{row.status==='tentative' && ['confirmed','running'].includes(project.stage) && (

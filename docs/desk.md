@@ -57,6 +57,8 @@ In der Ressourcenplanung und im Projektlager steht die Inventarnummer eines Einz
 
 Für den Tagesvergleich liefert `GET /api/v1/reservations` zusätzlich `ends_at_submillisecond`. Das Feld enthält als Ganzzahl von 0 bis 999 die Mikrosekunden innerhalb der in `ends_at` angegebenen Millisekunde. Die Zeitdarstellung von `starts_at` und `ends_at` bleibt gleich.
 
+Unter **Zeitraum** steht die verstrichene Dauer in Stunden und Minuten. Desk rundet auf volle Minuten ab. Mehr als 24 Stunden bleiben als Stunden sichtbar. Die Dauer ist unabhängig von der Browser-Zeitzone und berücksichtigt Zeitumstellungen. `GET /api/v1/reservations` liefert sie als ganze Minuten im Zahlenfeld `duration_minutes`.
+
 ### Offene Geräteausgaben in der Ressourcenplanung
 
 **Noch ausgegeben** zeigt bei einer Gerätereservierung, wie viele Geräte zurückgegeben werden müssen. Die Zahl bleibt auch unter **Freigegeben** sichtbar. Nach einer Teilrückgabe sinkt sie um die zurückgegebene Menge. Sind alle Geräte zurück, zeigt die Spalte **0**. Bei Personal und Verbrauchsmaterial steht ein Gedankenstrich. Rückgaben buchst du im **Projektlager**. **Nur offene Geräteausgaben** grenzt die Ressourcenplanung auf Geräte mit mindestens einer ausstehenden Rückgabe ein. Die Auswahl lässt sich mit Ressourcentyp, Status und Datum kombinieren. Bei aktiver Auswahl entfallen vollständig zurückgegebene Reservierungen beim nächsten Laden der Daten. **Filter zurücksetzen** deaktiviert die Auswahl.
