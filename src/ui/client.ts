@@ -70,7 +70,9 @@ export function money(value:string) {
   return Math.round(Number(normalized)*100);
 }
 
-export function downloadPositions(project:Row, rows:Row[]) {
+export type OfferPosition = { name:string; quantity:number; unit_cents:number };
+
+export function downloadPositions(project:Pick<Row,'id'>, rows:OfferPosition[]) {
   const encode=(value:unknown)=>{
     const string=String(value);
     return '"'+(/^[=+\-@\t\r]/.test(string) ? "'"+string : string).replaceAll('"','""')+'"';

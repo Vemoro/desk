@@ -1,6 +1,7 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { holdRoute, settleResponse, signIn } from './session';
-async function openExport(page:Page){
+import { triggerDeskRead } from './desk-refresh';
+async function openOfferPreview(page:Page){
   await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Projekte',exact:true}).click();
   await page.getByRole('button',{name:'Musterinstallation',exact:true}).click();
   await page.getByRole('link',{name:'Ressourcen & Kalkulation',exact:true}).click();
@@ -30,10 +31,9 @@ test('ein älterer Abruf kann neuere Kontakte und Integrationsflags nicht übers
     return route.fulfill({json:{haben:flagsLoad>=3,zammad:false}});
   });
   await signIn(page);
-  const exportButton=await openExport(page);
-  await exportButton.click();
+  await triggerDeskRead(page);
   const [oldContacts,oldFlags]=await Promise.all([olderContacts.request,olderFlags.request]);
-  await exportButton.click();
+  await triggerDeskRead(page);
   await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Kontakte',exact:true}).click();
   const newestContact=page.getByRole('table').getByRole('button',{name:'Neuer Kontakt',exact:true});
   await expect(newestContact).toBeVisible();
@@ -56,12 +56,11 @@ for(const staleStatus of [200,401]){
       return route.fulfill({json:contact(calls===1?'Erster Kontakt':'Neuer Kontakt')});
     });
     await signIn(page);
-    const exportButton=await openExport(page);
-    await exportButton.click();
+    await triggerDeskRead(page);
     const old=await olderContacts.request;
     let secondOld:Route|undefined;
     if(staleStatus===200){
-      await exportButton.click();
+      await triggerDeskRead(page);
       secondOld=await secondOlderContacts.request;
     }
     await page.getByRole('button',{name:'Abmelden',exact:true}).click();
@@ -88,7 +87,7 @@ for(const staleStatus of [200,401]){
       await expect(page.getByRole('alert')).toHaveCount(0);
     }
     await page.route('**/api/v1/contacts?*',route=>route.fulfill({status:401,json:{error:'Sitzung abgelaufen'}}));
-    await (await openExport(page)).click();
+    await triggerDeskRead(page);
     await expect(page.getByRole('heading',{name:'Anmelden',exact:true})).toBeVisible();
   });
 }
@@ -101,7 +100,7 @@ test('ein verspäteter 401 hinterlässt vor der Neuanmeldung keine Meldung',asyn
     return route.fulfill({json:contact('Mira Muster')});
   });
   await signIn(page);
-  await (await openExport(page)).click();
+  await triggerDeskRead(page);
   const request=await pending.request;
   await page.getByRole('button',{name:'Abmelden',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Anmelden',exact:true})).toBeVisible();
@@ -129,16 +128,17 @@ async function secondAccount(page:Page){
   return email;
 }
 
-for(const operation of ['download','project'] as const){
+for(const operation of ['download','unauthorized-preview','project'] as const){
   test(`Späte Antwort für ${operation} bleibt nach Kontowechsel ohne Seiteneffekt`,async({page})=>{
     let downloads=0;
     page.on('download',()=>downloads++);
     const delayed=holdRoute();
     await signIn(page);
     const email=await secondAccount(page);
-    if(operation==='download'){
+    const offer=operation!=='project';
+    if(offer){
       await page.route('**/api/v1/projects/projekt/offer-positions',route=>delayed.resolve(route));
-      await (await openExport(page)).click();
+      await (await openOfferPreview(page)).click();
     }else{
       await page.route('**/api/v1/projects',route=>delayed.resolve(route));
       await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Projekte',exact:true}).click();
@@ -150,12 +150,20 @@ for(const operation of ['download','project'] as const){
     }
     const request=await delayed.request;
     try{
+      if(offer){
+        await page.goBack();
+        await expect(page.getByRole('dialog',{name:'Angebotspositionen'})).toHaveCount(0);
+      }
       await switchAccount(page,email);
       const address=page.url();
-      await settleResponse(page,request,operation==='download'?[{name:'Musterartikel',quantity:1,unit_cents:100}]:{id:'alter-auftrag'},operation==='download'?200:201);
+      const response=operation==='unauthorized-preview' ? {error:'Alte Vorschau'} :
+        offer ? [{name:'Musterartikel',quantity:1,unit_cents:100}] : {id:'alter-auftrag'};
+      await settleResponse(page,request,response,operation==='unauthorized-preview'?401:offer?200:201);
       await expect(page).toHaveURL(address);
       await expect(page.getByRole('complementary').getByText('Muster Zweitkonto',{exact:true})).toBeVisible();
       expect(downloads).toBe(0);
+      await expect(page.getByRole('dialog',{name:'Angebotspositionen'})).toHaveCount(0);
+      await expect(page.getByRole('alert')).toHaveCount(0);
     }finally{
       await request.abort().catch(()=>{});
     }
