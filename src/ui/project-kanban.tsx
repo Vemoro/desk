@@ -129,11 +129,11 @@ function AddCard({projectId,status,run,filters}:{projectId:string;status:string;
 }
 
 type CardFocus={taskId:string;trigger:HTMLButtonElement;move?:boolean};
-type PendingCardFocus=CardFocus & {status:string;hiddenBy?:'title'|'assignee'};
+type PendingCardFocus=CardFocus & {before:Row};
 
-function useKanbanFocus({board,filterControl,searchControl,editing,tasks,canReorder}:{
+function useKanbanFocus({board,filterControl,searchControl,editing,allTasks,term,canReorder}:{
   board:RefObject<HTMLDivElement|null>;filterControl:RefObject<HTMLSelectElement|null>;searchControl:RefObject<HTMLInputElement|null>;
-  editing:boolean;tasks:Row[];canReorder:boolean;
+  editing:boolean;allTasks:Row[];term:string;canReorder:boolean;
 }) {
   const restoreFocus=useRef<CardFocus|undefined>(undefined);
   const pendingFocus=useRef<PendingCardFocus|undefined>(undefined);
@@ -141,8 +141,9 @@ function useKanbanFocus({board,filterControl,searchControl,editing,tasks,canReor
   useLayoutEffect(()=>{
     if(editing) return;
     const pending=pendingFocus.current;
-    const visible=tasks.find(task=>task.id===pending?.taskId);
-    const refreshed=pending && (!visible || (!pending.hiddenBy && visible.status===pending.status));
+    const updated=pending && allTasks.find(task=>task.id===pending.taskId);
+    const refreshed=pending && (!updated || updated.name!==pending.before.name ||
+      updated.assignee_id!==pending.before.assignee_id || updated.status!==pending.before.status);
     if(refreshed) {
       pendingFocus.current=undefined;
       if(!restoreFocus.current && document.activeElement===document.body) restoreFocus.current=pending;
@@ -152,10 +153,10 @@ function useKanbanFocus({board,filterControl,searchControl,editing,tasks,canReor
     const id=CSS.escape(taskId);
     const selector=wasMove ? `[data-kanban-card="${id}"] .task-move` : `[data-task-id="${id}"]`;
     const card=trigger.isConnected ? trigger : board.current?.querySelector<HTMLButtonElement>(selector);
-    const filter=pending?.taskId===taskId && pending.hiddenBy==='title' ? searchControl : filterControl;
+    const filter=updated?.id===taskId && !matchesTitle(updated.name,term) ? searchControl : filterControl;
     restoreFocus.current=undefined;
     (card ?? (canReorder ? board.current : filter.current))?.focus();
-  },[board,filterControl,searchControl,editing,tasks,canReorder]);
+  },[board,filterControl,searchControl,editing,allTasks,term,canReorder]);
   return {restoreFocus,pendingFocus};
 }
 
@@ -171,7 +172,8 @@ export function ProjectKanban({projectId,accountId,tasks:allTasks,users,run}:{
   const {tasks,columns}=filteredBoard(allTasks,projectId,accountId,filters);
   const board=useRef<HTMLDivElement>(null);
   const [editor,setEditor]=useState<{task:Row;trigger:HTMLButtonElement;move?:boolean}>();
-  const {restoreFocus,pendingFocus}=useKanbanFocus({board,filterControl,searchControl,editing:Boolean(editor),tasks,canReorder});
+  const {restoreFocus,pendingFocus}=useKanbanFocus({board,filterControl,searchControl,editing:Boolean(editor),
+    allTasks,term:filters.term,canReorder});
   const dragging=useRef<string|undefined>(undefined);
   const [dropPosition,setDropPosition]=useState<DropPosition>();
 
@@ -218,8 +220,8 @@ export function ProjectKanban({projectId,accountId,tasks:allTasks,users,run}:{
 
   return <section className="project-kanban">
     <KanbanHeading count={tasks.length} filters={filters} search={search} filterControl={filterControl} searchControl={searchControl}
-      onFilter={value=>{clearDrop();pendingFocus.current=undefined;setAssignee(value);}}
-      onSearch={value=>{clearDrop();pendingFocus.current=undefined;setSearch(value);}}/>
+      onFilter={value=>{clearDrop();setAssignee(value);}}
+      onSearch={value=>{clearDrop();setSearch(value);}}/>
     <KanbanColumns board={board} columns={columns} dropPosition={dropPosition} dragging={dragging} projectId={projectId}
       canReorder={canReorder} filters={filters}
       run={run} users={users} setEditor={setEditor} markDrop={markDrop}
@@ -240,10 +242,8 @@ export function ProjectKanban({projectId,accountId,tasks:allTasks,users,run}:{
         ].filter(([,previous,next])=>previous!==next).map(([key,,value])=>[key,value]));
         const saveCard=async()=>{
           const saved=await run(()=>api(`tasks/${editor.task.id}`,'PATCH',changes),'Karte gespeichert.',{reportInlineError:true});
-          const hiddenBy=!matchesTitle(fields.name,filters.term) ? 'title' :
-            !matchesAssignee(fields.assignee_id||null,accountId,assignee) ? 'assignee' : undefined;
-          if(saved && (hiddenBy || fields.status!==editor.task.status)) {
-            pendingFocus.current={taskId:editor.task.id,trigger:editor.trigger,status:fields.status,hiddenBy};
+          if(saved && ('name' in changes || 'assignee_id' in changes || 'status' in changes)) {
+            pendingFocus.current={taskId:editor.task.id,trigger:editor.trigger,before:editor.task};
           }
           return saved;
         };

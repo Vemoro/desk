@@ -123,6 +123,27 @@ test('Beim späteren Ausblenden bleibt bewusst gesetzter Fokus erhalten',async({
   await expect(assignee).toBeFocused();
 });
 
+test('Nach einem Suchwechsel kehrt der Fokus beim verspäteten Ausblenden zur Suche zurück',async({page})=>{
+  const {search,todo}=await fixture(page);
+  await search.fill('montage');
+  await page.route('**/api/v1/tasks/kanban',route=>route.fulfill({status:503,json:{error:'Test-Abruffehler'}}),{times:1});
+  const card=todo.getByRole('button',{name:/Montage prüfen/});
+  await card.press('Enter');
+  const dialog=page.getByRole('dialog',{name:'Karte bearbeiten'});
+  await dialog.getByRole('textbox',{name:'Kartentitel'}).fill('Ausführung dokumentieren');
+  await dialog.getByRole('button',{name:'Karte speichern'}).click();
+  await expect(card).toBeFocused();
+  await search.fill('prüfen');
+  const delayed=holdRoute();
+  await page.route('**/api/v1/tasks/kanban',delayed.resolve,{times:1});
+  await page.getByRole('button',{name:'Ansicht aktualisieren'}).click();
+  const request=await delayed.request;
+  await card.focus();
+  await request.continue();
+  await expect(card).toHaveCount(0);
+  await expect(search).toBeFocused();
+});
+
 test('Bei abgelehnter Schnellerfassung bleiben Titel und Spalte erhalten',async({page})=>{
   const {search,doing}=await fixture(page);
   await search.fill('montage');
