@@ -33,9 +33,11 @@ Im **Kanban** erfasst du Aufgaben mit **Karte hinzufügen** direkt in der passen
 
 Unter **Aufgaben suchen** gibst du einen Teil des Titels ein. Groß- und Kleinschreibung sowie Leerzeichen am Anfang und Ende spielen dabei keine Rolle. Unter **Aufgaben anzeigen** wählst du **Alle**, **Mir zugeordnet** oder **Ohne Zuständigkeit**. Karten müssen beide Filter erfüllen, damit sie in ihrer Spalte und im Zähler erscheinen. **Suche leeren** erhält die gewählte Zuständigkeit. Beim nächsten Projekt beginnt die Suche leer und die Auswahl steht auf **Alle**.
 
+Unter **Aufgabentermine filtern** zeigt **Überfällig** Aufgaben, deren Termin vor heute liegt und die noch offen, in Arbeit oder in Prüfung sind. **Heute** berücksichtigt auch erledigte Aufgaben mit heutigem Termin. **Ohne Termin** zeigt undatierte Aufgaben. Desk verwendet den Kalendertag des Browsers und aktualisiert die Ansicht beim Tageswechsel. Die Terminauswahl wirkt zusammen mit Suche und Zuständigkeit. Beim nächsten Projekt ist wieder **Alle Termine** ausgewählt.
+
 Wenn nur nach Zuständigkeit gefiltert wird und keine Karten erscheinen, setzt **Alle anzeigen** die Auswahl zurück. Unter **Aufgaben sortieren** ordnet **Frühester Termin zuerst** die sichtbaren Karten in jeder Spalte nach Fälligkeit. Karten mit demselben Termin behalten ihre Reihenfolge. Karten ohne Termin stehen am Ende. **Standard** zeigt wieder die gespeicherte Reihenfolge und ist beim nächsten Projekt voreingestellt.
 
-Zum manuellen Umordnen wähle **Standard** und **Alle** und leere einen aktiven Suchbegriff. Status und Zuständigkeit kannst du weiterhin im Kartendialog ändern. Du kannst auch bei laufender Suche eine Karte direkt in einer Spalte hinzufügen. Desk meldet nach dem Speichern, welche Filter du bei Bedarf ändern musst, um sie zu sehen.
+Zum manuellen Umordnen wähle **Standard**, **Alle** und **Alle Termine** und leere einen aktiven Suchbegriff. Status, Zuständigkeit und Fälligkeit kannst du weiterhin im Kartendialog ändern. In jeder Spalte kannst du auch bei aktiven Filtern eine undatierte Karte hinzufügen. Desk meldet nach dem Speichern, welche Filter du bei Bedarf ändern musst, um sie zu sehen.
 
 Wähle unter **Kontakte** den Namen eines Kontakts. Unter **Zugehörige Projekte** stehen seine Projekte mit Status und Termin. Wähle den Projektnamen, um das Projekt zu öffnen. Gleichnamige Kontakte zeigen jeweils ihre eigenen Projekte.
 
