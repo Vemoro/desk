@@ -72,7 +72,7 @@ test('Angebots-CSV behält Dateiname, Kopfzeile, Beträge und Textmaskierung',as
   await signIn(page);
   await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Projekte',exact:true}).click();
   await page.getByRole('button',{name:'Musterinstallation',exact:true}).click();
-  await page.getByRole('button',{name:'Ressourcen & Kalkulation',exact:true}).click();
+  await page.getByRole('link',{name:'Ressourcen & Kalkulation',exact:true}).click();
   await page.getByRole('button',{name:'Angebotspositionen exportieren',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'Angebotspositionen',exact:true});
   const event=page.waitForEvent('download');
