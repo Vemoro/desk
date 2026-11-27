@@ -1,0 +1,13 @@
+services:
+  desk:
+    ports: !override []
+    networks:
+      default: {}
+      proxy:
+        aliases:
+          - ${DESK_PROXY_ALIAS:-desk-selfhost}
+
+networks:
+  proxy:
+    external: true
+    name: ${DESK_PROXY_NETWORK:?DESK_PROXY_NETWORK in .env.selfhost setzen}
