@@ -13,6 +13,7 @@ test('Der Zammad-Lesetest startet erst beim Absenden und zeigt sein Ergebnis in 
   });
   await signIn(page);
   await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Einstellungen',exact:true}).click();
+  await page.getByRole('link',{name:/^Integrationen /}).click();
   const panel=page.locator('.panel').filter({has:page.getByRole('heading',{name:'Integrationen',exact:true})});
   const id=panel.getByRole('spinbutton',{name:'Zammad-Ticket-ID'});
   const submit=panel.getByRole('button',{name:'Zammad-Verbindung prüfen'});
