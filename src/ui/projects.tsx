@@ -344,8 +344,13 @@ function ProjectCalculation({project,data,run}:Omit<ProjectPlanningProps,'accoun
 }
 
 export function Controlling({project,data,run}:{project:Row;data:Data;run:Run}) {
+  const [source,setSource]=useState('');
   const lines=data.lines.filter((row)=>row.project_id===project.id);
   const costs=data.costs.filter((row)=>row.project_id===project.id);
+  const sources=[...new Set<string>(costs.map(row=>row.source))].sort();
+  const selectedSource=sources.includes(source)?source:'';
+  useEffect(()=>{if(source!==selectedSource) setSource(selectedSource);},[source,selectedSource]);
+  const visibleCosts=selectedSource?costs.filter(row=>row.source===selectedSource):costs;
   const budget=(kind:string)=>lines.filter((row)=>row.kind===kind).reduce((sum,row)=>sum+row.quantity*row.unit_cents,0);
   const actual=costs.reduce((sum,row)=>sum+row.cents,0);
   return <>
@@ -353,10 +358,16 @@ export function Controlling({project,data,run}:{project:Row;data:Data;run:Run}) 
       ['Einkauf geplant',budget('buy')],['Ist-Kosten',actual],['Abweichung',actual-budget('buy')],['Verkauf geplant',budget('sell')],
     ].map(([label,value])=><div className="metric" key={label}><span>{label}</span><strong>{euros(Number(value))}</strong></div>)}</div>
     <Panel title="Belegbezogene Ist-Kosten">
-      <div className="panel-body"><Expand title="Ist-Kosten erfassen"><Form caption="Kosten speichern" fields={[
+      <div className="panel-body">
+        <Field label="Kostenquelle filtern" className="filter">{props=><select {...props} value={selectedSource}
+          onChange={event=>setSource(event.currentTarget.value)}>
+          <option value="">Alle Quellen</option>
+          {sources.map(value=><option key={value} value={value}>{value}</option>)}
+        </select>}</Field>
+        <Expand title="Ist-Kosten erfassen"><Form caption="Kosten speichern" fields={[
         {name:'reference',label:'Belegreferenz',required:true},{name:'name',label:'Bezeichnung',required:true},{name:'amount',label:'Netto in Euro',required:true},
       ]} submit={(fields)=>run(()=>api('costs','POST',{entries:[{project_id:project.id,source:'manual',reference:fields.reference,name:fields.name,cents:money(fields.amount)}]}),'Ist-Kosten gespeichert.')}/></Expand></div>
-      <Table numeric={[3]} headers={['Belegreferenz','Bezeichnung','Quelle','Netto']} rows={costs.map((row)=>({key:row.id,cells:[row.reference,row.name,row.source,euros(row.cents)]}))}/>
+      <Table numeric={[3]} headers={['Belegreferenz','Bezeichnung','Quelle','Netto']} rows={visibleCosts.map((row)=>({key:row.id,cells:[row.reference,row.name,row.source,euros(row.cents)]}))}/>
     </Panel>
   </>;
 }
