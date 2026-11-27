@@ -127,13 +127,15 @@ function OpenCheckouts({data,bookings}:{data:Data;bookings:Bookings}) {
 
 function WarehouseMovements({data,run,accountId}:WarehouseProps) {
   const [correctionId,setCorrectionId]=useState('');
-  const [writingCorrection,setWritingCorrection]=useState(false);
+  const [writingCorrection,setWritingCorrection]=useState('');
+  const correctionProgress=writingCorrection ? `korrektur-laeuft-${writingCorrection}` : undefined;
   const [movementKind,setMovementKind]=useState('');
   const [movementProject,setMovementProject]=useState('');
   const visibleMovements=data.movements.filter(row=>
     (!movementKind || row.action===movementKind)
     && (!movementProject || (movementProject==='without-project' ? !row.project_id : row.project_id===movementProject)));
   const visibleMovementIds=new Set(visibleMovements.map(row=>row.id));
+  const progressOutsideRow=Boolean(writingCorrection && !visibleMovementIds.has(writingCorrection));
   // Keep an open correction mounted until it closes, including while its row is filtered out.
   const renderedMovements=data.movements.filter(row=>visibleMovementIds.has(row.id) || row.id===correctionId);
   const movements=new Map(data.movements.map(row=>[row.id,row]));
@@ -161,6 +163,7 @@ function WarehouseMovements({data,run,accountId}:WarehouseProps) {
             onClick={()=>{setMovementKind('');setMovementProject('');}}>Filter zurücksetzen</button>
           <span className="subtle" role="status">{visibleMovements.length} von {data.movements.length} Bewegungen</span>
         </div>
+        {progressOutsideRow && <p id={correctionProgress} className="subtle" role="status">Eine ausgeblendete Korrektur wird noch gebucht.</p>}
       </div>
       {renderedMovements.length > 0 && <Table numeric={[5]} hidden={visibleMovements.length===0}
       headers={['Zeitpunkt','Bewegung','Artikel','Lagerort','Projekt','Menge','Lieferschein','Erfasst durch','Aktion']}
@@ -183,21 +186,23 @@ function WarehouseMovements({data,run,accountId}:WarehouseProps) {
           inventoryName(data.items,row.item_id),name(data.locations,row.location_id),name(data.projects,row.project_id),row.quantity,
           row.delivery_reference ? <span className="delivery-reference">{row.delivery_reference}</span> : '–',name(data.users,row.actor_id),
           correctable && (remaining > 0 || hasPendingWrite(correctionScope) ? <div>
-            <button type="button" aria-expanded={correctionId===row.id} disabled={writingCorrection}
+            <button type="button" aria-expanded={correctionId===row.id} disabled={Boolean(writingCorrection)}
+              aria-describedby={correctionProgress}
               onClick={()=>setCorrectionId(current=>current===row.id?'':row.id)}>{remaining>0?'Korrigieren':'Korrektur prüfen'}</button>
+            {writingCorrection===row.id && !progressOutsideRow && <p id={correctionProgress} className="subtle" role="status">Korrektur wird gebucht …</p>}
             {correctionId===row.id && <div className="stock-correction-form"><Form caption="Korrektur buchen"
               retryScope={correctionScope} fields={[
                 {name:'quantity',label:'Korrekturmenge',type:'number',required:true,min:1,max:remaining,value:1},
                 {name:'reason',label:'Begründung',type:'textarea',required:true},
               ]} submit={async (input,key)=>{
-                setWritingCorrection(true);
+                setWritingCorrection(row.id);
                 try {
                   const saved=await run(()=>api(`movements/${row.id}/corrections`,'POST',
                     {quantity:Number(input.quantity),reason:input.reason},key),'Korrektur gebucht.',{reportWriteRejection:true});
                   if(saved) setCorrectionId(current=>current===row.id?'':current);
                   return saved;
                 } finally {
-                  setWritingCorrection(false);
+                  setWritingCorrection('');
                 }
               }}/></div>}
           </div>
