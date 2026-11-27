@@ -49,7 +49,7 @@ function KanbanHeading({count,filters,search,filterControl,searchControl,onFilte
       <div className="actions">
         <Field label="Aufgaben suchen">{props=><input {...props} ref={searchControl} type="search" value={search}
           onChange={event=>onSearch(event.currentTarget.value)}/>}</Field>
-        {search && <button type="button" onClick={()=>{onSearch('');searchControl.current?.focus();}}>Suche leeren</button>}
+        <button type="button" disabled={!search} onClick={()=>{onSearch('');searchControl.current?.focus();}}>Suche leeren</button>
         <Field label="Aufgaben anzeigen">{props=><select {...props} ref={filterControl} value={filters.assignee}
           onChange={event=>onFilter(event.currentTarget.value as AssigneeFilter)}>
           {Object.entries(assigneeFilters).map(([value,label])=><option key={value} value={value}>{label}</option>)}
@@ -107,52 +107,57 @@ function AddCard({projectId,status,run,filters}:{projectId:string;status:string;
   const disclosure=useRef<HTMLDetailsElement>(null);
   const [savedTitle,setSavedTitle]=useState<string>();
 
-  return <details className="kanban-add" ref={disclosure} onToggle={(event)=>{
-    if(event.currentTarget.open) event.currentTarget.querySelector('input')?.focus();
-    else setSavedTitle(undefined);
-  }}>
-    <summary>Karte hinzufügen</summary>
-    <Form className="kanban-add-form" caption="Karte anlegen" fields={[
-      {name:'name',label:'Kartentitel',required:true},
-    ]} submit={async({name})=>{
-      setSavedTitle(undefined);
-      const saved=await run(()=>api('tasks','POST',{project_id:projectId,status,name}),undefined,{reportInlineError:true});
-      if(!saved) return;
-      const details=disclosure.current;
-      if(details?.open) setSavedTitle(name);
-      const title=details?.querySelector('input');
-      if(title?.value===name) title.value='';
-      if(details?.open && (details.contains(document.activeElement) || document.activeElement===document.body)) title?.focus();
-    }}/>
+  return <>
+    <details className="kanban-add" ref={disclosure} onToggle={event=>{
+      if(event.currentTarget.open) event.currentTarget.querySelector('input')?.focus();
+    }}>
+      <summary>Karte hinzufügen</summary>
+      <Form className="kanban-add-form" caption="Karte anlegen" fields={[
+        {name:'name',label:'Kartentitel',required:true},
+      ]} submit={async({name})=>{
+        setSavedTitle(undefined);
+        const saved=await run(()=>api('tasks','POST',{project_id:projectId,status,name}),undefined,{reportInlineError:true});
+        if(!saved) return;
+        setSavedTitle(name);
+        const details=disclosure.current;
+        const title=details?.querySelector('input');
+        if(title?.value===name) title.value='';
+        if(details?.open && (details.contains(document.activeElement) || document.activeElement===document.body)) title?.focus();
+      }}/>
+    </details>
     {savedTitle!==undefined && <p className="subtle" role="status">{quickAddFeedback(savedTitle,filters)}</p>}
-  </details>;
+  </>;
 }
 
 type CardFocus={taskId:string;trigger:HTMLButtonElement;move?:boolean};
+type PendingCardFocus=CardFocus & {status:string;hiddenBy?:'title'|'assignee'};
 
-function useKanbanFocus({board,filterControl,editing,tasks,canReorder}:{
-  board:RefObject<HTMLDivElement|null>;filterControl:RefObject<HTMLElement|null>;
+function useKanbanFocus({board,filterControl,searchControl,editing,tasks,canReorder}:{
+  board:RefObject<HTMLDivElement|null>;filterControl:RefObject<HTMLSelectElement|null>;searchControl:RefObject<HTMLInputElement|null>;
   editing:boolean;tasks:Row[];canReorder:boolean;
 }) {
   const restoreFocus=useRef<CardFocus|undefined>(undefined);
-  const hiddenAfterRefresh=useRef<string|undefined>(undefined);
+  const pendingFocus=useRef<PendingCardFocus|undefined>(undefined);
 
   useLayoutEffect(()=>{
     if(editing) return;
-    const hidden=hiddenAfterRefresh.current;
-    if(hidden && !tasks.some(task=>task.id===hidden)) {
-      hiddenAfterRefresh.current=undefined;
-      if(!restoreFocus.current && document.activeElement===document.body) filterControl.current?.focus();
+    const pending=pendingFocus.current;
+    const visible=tasks.find(task=>task.id===pending?.taskId);
+    const refreshed=pending && (!visible || (!pending.hiddenBy && visible.status===pending.status));
+    if(refreshed) {
+      pendingFocus.current=undefined;
+      if(!restoreFocus.current && document.activeElement===document.body) restoreFocus.current=pending;
     }
     if(!restoreFocus.current) return;
     const {taskId,trigger,move:wasMove}=restoreFocus.current;
     const id=CSS.escape(taskId);
     const selector=wasMove ? `[data-kanban-card="${id}"] .task-move` : `[data-task-id="${id}"]`;
     const card=trigger.isConnected ? trigger : board.current?.querySelector<HTMLButtonElement>(selector);
+    const filter=pending?.taskId===taskId && pending.hiddenBy==='title' ? searchControl : filterControl;
     restoreFocus.current=undefined;
-    (card ?? (canReorder ? board.current : filterControl.current))?.focus();
-  },[board,filterControl,editing,tasks,canReorder]);
-  return {restoreFocus,hiddenAfterRefresh};
+    (card ?? (canReorder ? board.current : filter.current))?.focus();
+  },[board,filterControl,searchControl,editing,tasks,canReorder]);
+  return {restoreFocus,pendingFocus};
 }
 
 export function ProjectKanban({projectId,accountId,tasks:allTasks,users,run}:{
@@ -167,8 +172,7 @@ export function ProjectKanban({projectId,accountId,tasks:allTasks,users,run}:{
   const {tasks,columns}=filteredBoard(allTasks,projectId,accountId,filters);
   const board=useRef<HTMLDivElement>(null);
   const [editor,setEditor]=useState<{task:Row;trigger:HTMLButtonElement;move?:boolean}>();
-  const {restoreFocus,hiddenAfterRefresh}=useKanbanFocus({board,filterControl:filters.term ? searchControl : filterControl,
-    editing:Boolean(editor),tasks,canReorder});
+  const {restoreFocus,pendingFocus}=useKanbanFocus({board,filterControl,searchControl,editing:Boolean(editor),tasks,canReorder});
   const dragging=useRef<string|undefined>(undefined);
   const [dropPosition,setDropPosition]=useState<DropPosition>();
 
@@ -215,8 +219,8 @@ export function ProjectKanban({projectId,accountId,tasks:allTasks,users,run}:{
 
   return <section className="project-kanban">
     <KanbanHeading count={tasks.length} filters={filters} search={search} filterControl={filterControl} searchControl={searchControl}
-      onFilter={value=>{clearDrop();hiddenAfterRefresh.current=undefined;setAssignee(value);}}
-      onSearch={value=>{clearDrop();hiddenAfterRefresh.current=undefined;setSearch(value);}}/>
+      onFilter={value=>{clearDrop();pendingFocus.current=undefined;setAssignee(value);}}
+      onSearch={value=>{clearDrop();pendingFocus.current=undefined;setSearch(value);}}/>
     <KanbanColumns board={board} columns={columns} dropPosition={dropPosition} dragging={dragging} projectId={projectId}
       canReorder={canReorder} filters={filters}
       run={run} users={users} setEditor={setEditor} markDrop={markDrop}
@@ -237,7 +241,11 @@ export function ProjectKanban({projectId,accountId,tasks:allTasks,users,run}:{
         ].filter(([,previous,next])=>previous!==next).map(([key,,value])=>[key,value]));
         const saveCard=async()=>{
           const saved=await run(()=>api(`tasks/${editor.task.id}`,'PATCH',changes),'Karte gespeichert.',{reportInlineError:true});
-          if(saved && !matchesFilters(fields.name,fields.assignee_id||null,accountId,filters)) hiddenAfterRefresh.current=editor.task.id;
+          const hiddenBy=!matchesTitle(fields.name,filters.term) ? 'title' :
+            !matchesAssignee(fields.assignee_id||null,accountId,assignee) ? 'assignee' : undefined;
+          if(saved && (hiddenBy || fields.status!==editor.task.status)) {
+            pendingFocus.current={taskId:editor.task.id,trigger:editor.trigger,status:fields.status,hiddenBy};
+          }
           return saved;
         };
         return save(Object.keys(changes).length ? saveCard : async()=>true);

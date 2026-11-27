@@ -76,6 +76,33 @@ test('Nach Status- und Titeländerungen bleibt der Fokus im Kanban',async({page}
   await expect(search).toBeFocused();
 });
 
+test('Die Zuständigkeitsauswahl erhält den Fokus, wenn nur die Zuständigkeit nicht passt',async({page})=>{
+  const {search,assignee,todo}=await fixture(page);
+  await search.fill('montage');
+  await assignee.selectOption('me');
+  const card=todo.getByRole('button',{name:/Montage prüfen/});
+  await card.press('Enter');
+  const dialog=page.getByRole('dialog',{name:'Karte bearbeiten'});
+  await dialog.getByRole('combobox',{name:'Verantwortlich'}).selectOption({label:'Noah Beispiel'});
+  await dialog.getByRole('button',{name:'Karte speichern'}).click();
+  await expect(card).toHaveCount(0);
+  await expect(assignee).toBeFocused();
+});
+
+test('Nach einem verzögerten Abruf erhält die verschobene Karte den Fokus',async({page})=>{
+  const {search,todo,doing}=await fixture(page);
+  await search.fill('montage');
+  await page.route('**/api/v1/tasks/kanban',route=>route.fulfill({status:503,json:{error:'Test-Abruffehler'}}),{times:1});
+  const oldCard=todo.getByRole('button',{name:/Montage prüfen/});
+  await oldCard.press('Enter');
+  const dialog=page.getByRole('dialog',{name:'Karte bearbeiten'});
+  await dialog.getByRole('combobox',{name:'Status'}).selectOption('doing');
+  await dialog.getByRole('button',{name:'Karte speichern'}).click();
+  await expect(oldCard).toBeFocused();
+  await page.getByRole('button',{name:'Ansicht aktualisieren'}).press('Enter');
+  await expect(doing.getByRole('button',{name:/Montage prüfen/})).toBeFocused();
+});
+
 test('Die Schnellerfassung erklärt die aktuell wirksamen Filter nach einem Abruffehler',async({page})=>{
   const {first,search,assignee,todo}=await fixture(page);
   const title='Werkzeug im Musterlager';
@@ -95,6 +122,8 @@ test('Die Schnellerfassung erklärt die aktuell wirksamen Filter nach einem Abru
   await input.press('Enter');
   try {
     await expect.poll(()=>posts).toBe(1);
+    await todo.getByText('Karte hinzufügen',{exact:true}).click();
+    await assignee.focus();
     await assignee.selectOption('me');
   } finally {
     releasePost();
