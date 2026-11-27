@@ -1,5 +1,6 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { signIn } from './session';
+import { triggerDeskRead } from './desk-refresh';
 
 async function createWithFailedRefresh(page:Page,status:401|503) {
   let writes=0;
@@ -114,7 +115,7 @@ test('Ein älterer Abruf kann den Hinweis nach einer weiteren Speicherung nicht 
   expect(writes).toBe(2);
 });
 
-test('Ein fehlgeschlagener neuerer Export-Abruf hält die bestätigte Speicherung sichtbar',async({page})=>{
+test('Ein fehlgeschlagener neuerer Leseabruf hält die bestätigte Speicherung sichtbar',async({page})=>{
   let writes=0;
   let readsAfterWrite=0;
   let holdFirst!:(route:Route)=>void;
@@ -140,10 +141,7 @@ test('Ein fehlgeschlagener neuerer Export-Abruf hält die bestätigte Speicherun
   await page.getByRole('button',{name:'Kontakt speichern',exact:true}).click();
   const first=await firstRead;
   try{
-    await nav.getByRole('button',{name:'Projekte',exact:true}).click();
-    await page.getByRole('button',{name:'Büroinstallation Westflügel',exact:true}).click();
-    await page.getByRole('link',{name:'Ressourcen & Kalkulation',exact:true}).click();
-    await page.getByRole('button',{name:'Angebotspositionen exportieren',exact:true}).click();
+    await triggerDeskRead(page);
     await expect.poll(()=>readsAfterWrite).toBe(2);
     await first.fulfill({status:503,json:{error:'Erster Abruf fehlgeschlagen'}});
     const retry=page.getByRole('button',{name:'Ansicht aktualisieren',exact:true});

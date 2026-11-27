@@ -56,11 +56,11 @@ test('Bewegungssuche findet Artikel und Lieferscheine auch auf einer späteren A
   await expect(checkoutProject).toHaveValue('muster');
 });
 
-test('Die Suche erhält eine offene und eine laufende Lagerkorrektur',async({page})=>{
+test('Suche und Buchungstag erhalten offene und laufende Lagerkorrekturen',async({page})=>{
   const entry={item_id:'kit',location_id:'lager',created_at:'2028-05-17T12:00:00Z'};
   const receipt={...entry,id:'receipt',action:'receive',quantity:5,delivery_reference:'LS-MUSTER-1'};
-  const part={...entry,id:'part',action:'correct_receive',quantity:2,corrects_movement_id:receipt.id};
-  const booked={...entry,id:'booked',action:'correct_receive',quantity:1,corrects_movement_id:receipt.id};
+  const part={...entry,id:'part',created_at:'2028-05-18T12:00:00Z',action:'correct_receive',quantity:2,corrects_movement_id:receipt.id};
+  const booked={...entry,id:'booked',created_at:'2028-05-19T12:00:00Z',action:'correct_receive',quantity:1,corrects_movement_id:receipt.id};
   const held=holdRoute();
   let received=false;
   await page.route('**/api/v1/movements?*',route=>route.fulfill({json:received?[booked,part,receipt]:[part,receipt]}));
@@ -70,6 +70,8 @@ test('Die Suche erhält eine offene und eine laufende Lagerkorrektur',async({pag
   const panel=page.locator('section').filter({has:page.getByRole('heading',{name:'Lagerbewegungen',exact:true})});
   const query=panel.getByRole('searchbox',{name:'Lagerbewegungen suchen'});
   const stock=page.getByRole('searchbox',{name:'Bestand suchen'});
+  const from=panel.getByLabel('Vom Datum');
+  const to=panel.getByLabel('Bis Datum');
   await stock.fill('MAT-11');
   await query.fill('LS-MUSTER-1');
   await expect(panel.getByText('1 von 2 Bewegungen',{exact:true})).toBeVisible();
@@ -84,16 +86,25 @@ test('Die Suche erhält eine offene und eine laufende Lagerkorrektur',async({pag
   await query.fill('LS-MUSTER-1');
   await expect(quantity).toHaveValue('2');
   await expect(reason).toHaveValue('Musterlieferung nachgezählt');
+  await query.fill('');
+  await from.fill('2028-05-18');
+  await expect(quantity).toBeHidden();
+  await expect(panel.getByText(/Original vom/)).toBeVisible();
+  await expect(panel.getByRole('link',{name:/Original vom/})).toHaveCount(0);
+  await from.fill('');
+  await to.fill('2028-05-17');
+  await expect(quantity).toHaveValue('2');
+  await expect(reason).toHaveValue('Musterlieferung nachgezählt');
   await quantity.fill('1');
   await panel.getByRole('button',{name:'Korrektur buchen',exact:true}).click();
   const request=await held.request;
   expect(request.request().postDataJSON()).toMatchObject({quantity:1,reason:'Musterlieferung nachgezählt'});
-  await query.fill('kein Treffer');
+  await to.fill('2028-05-16');
   await expect(panel.getByText('Eine ausgeblendete Korrektur wird noch gebucht.',{exact:true})).toBeVisible();
   received=true;
   await request.fulfill({status:201,json:booked});
   await expect(panel.getByText('Eine ausgeblendete Korrektur wird noch gebucht.',{exact:true})).toHaveCount(0);
-  await query.fill('LS-MUSTER-1');
+  await to.fill('2028-05-17');
   await expect(panel.getByText('1 von 3 Bewegungen',{exact:true})).toBeVisible();
   await panel.getByRole('button',{name:'Korrigieren',exact:true}).click();
   await expect(quantity).toHaveAttribute('max','2');
