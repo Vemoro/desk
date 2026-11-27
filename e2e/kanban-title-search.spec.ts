@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { signIn } from './session';
+import { holdRoute, signIn } from './session';
 
 async function fixture(page:Page) {
   await signIn(page);
@@ -101,6 +101,39 @@ test('Nach einem verzögerten Abruf erhält die verschobene Karte den Fokus',asy
   await expect(oldCard).toBeFocused();
   await page.getByRole('button',{name:'Ansicht aktualisieren'}).press('Enter');
   await expect(doing.getByRole('button',{name:/Montage prüfen/})).toBeFocused();
+});
+
+test('Beim späteren Ausblenden bleibt bewusst gesetzter Fokus erhalten',async({page})=>{
+  const {search,assignee,todo}=await fixture(page);
+  await search.fill('montage');
+  await page.route('**/api/v1/tasks/kanban',route=>route.fulfill({status:503,json:{error:'Test-Abruffehler'}}),{times:1});
+  const card=todo.getByRole('button',{name:/Montage prüfen/});
+  await card.press('Enter');
+  const dialog=page.getByRole('dialog',{name:'Karte bearbeiten'});
+  await dialog.getByRole('textbox',{name:'Kartentitel'}).fill('Ausführung prüfen');
+  await dialog.getByRole('button',{name:'Karte speichern'}).click();
+  await expect(card).toBeFocused();
+  const delayed=holdRoute();
+  await page.route('**/api/v1/tasks/kanban',delayed.resolve,{times:1});
+  await page.getByRole('button',{name:'Ansicht aktualisieren'}).press('Enter');
+  const request=await delayed.request;
+  await assignee.focus();
+  await request.continue();
+  await expect(card).toHaveCount(0);
+  await expect(assignee).toBeFocused();
+});
+
+test('Bei abgelehnter Schnellerfassung bleiben Titel und Spalte erhalten',async({page})=>{
+  const {search,doing}=await fixture(page);
+  await search.fill('montage');
+  await page.route('**/api/v1/tasks',route=>route.fulfill({status:422,json:{error:'Test-Schreibablehnung'}}),{times:1});
+  await doing.getByText('Karte hinzufügen',{exact:true}).click();
+  const input=doing.getByRole('textbox',{name:'Kartentitel'});
+  await input.fill('Montage erneut prüfen');
+  await input.press('Enter');
+  await expect(doing.getByText('Test-Schreibablehnung')).toBeVisible();
+  await expect(input).toHaveValue('Montage erneut prüfen');
+  await expect(doing.getByText('Karte angelegt.',{exact:true})).toHaveCount(0);
 });
 
 test('Die Schnellerfassung erklärt die aktuell wirksamen Filter nach einem Abruffehler',async({page})=>{
