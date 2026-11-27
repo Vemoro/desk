@@ -78,7 +78,7 @@ function AddCard({projectId,status,run,onlyMine}:{projectId:string;status:string
   const [saved,setSaved]=useState(false);
   const feedback=onlyMine?'Karte angelegt. Sie erscheint unter „Alle“ oder „Ohne Zuständigkeit“.':'Karte angelegt.';
 
-  return <>
+  return <div>
     <details className="kanban-add" ref={disclosure} onToggle={event=>{
       if(event.currentTarget.open) event.currentTarget.querySelector('input')?.focus();
       else setSaved(false);
@@ -97,7 +97,7 @@ function AddCard({projectId,status,run,onlyMine}:{projectId:string;status:string
       }}/>
     </details>
     <div className="subtle" role="status">{saved?feedback:null}</div>
-  </>;
+  </div>;
 }
 
 type CardFocus={taskId:string;trigger:HTMLButtonElement;move?:boolean};
