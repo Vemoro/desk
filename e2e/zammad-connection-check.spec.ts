@@ -1,5 +1,26 @@
 import { expect, test } from '@playwright/test';
-import { signIn } from './session';
+import { holdRoute, signIn } from './session';
+
+test('Ein laufender Zammad-Lesetest bleibt beim Bereichswechsel erhalten',async({page})=>{
+  const held=holdRoute();
+  await page.route('**/api/v1/integrations/zammad/check',held.resolve);
+  await signIn(page);
+  await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Einstellungen',exact:true}).click();
+  const integrations=page.getByRole('link',{name:/^Integrationen /});
+  await integrations.click();
+  const ticket=page.getByRole('spinbutton',{name:'Zammad-Ticket-ID'});
+  await ticket.fill('42');
+  await page.getByRole('button',{name:'Zammad-Verbindung prüfen'}).click();
+  const request=await held.request;
+  expect(request.request().postDataJSON()).toEqual({id:42});
+  await page.getByRole('link',{name:/^Team /}).click();
+  await expect(ticket).toBeHidden();
+  await integrations.click();
+  await expect(ticket).toHaveValue('42');
+  await expect(page.getByRole('button',{name:'Wird geprüft …'})).toBeDisabled();
+  await request.fulfill({status:201,json:{ok:true}});
+  await expect(page.getByText('Ticket 42 und sein Verlauf sind erreichbar.')).toBeVisible();
+});
 
 test('Der Zammad-Lesetest startet erst beim Absenden und zeigt sein Ergebnis in den Einstellungen',async({page})=>{
   const submitted: unknown[]=[];
@@ -13,6 +34,7 @@ test('Der Zammad-Lesetest startet erst beim Absenden und zeigt sein Ergebnis in 
   });
   await signIn(page);
   await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Einstellungen',exact:true}).click();
+  await page.getByRole('link',{name:/^Integrationen /}).click();
   const panel=page.locator('.panel').filter({has:page.getByRole('heading',{name:'Integrationen',exact:true})});
   const id=panel.getByRole('spinbutton',{name:'Zammad-Ticket-ID'});
   const submit=panel.getByRole('button',{name:'Zammad-Verbindung prüfen'});

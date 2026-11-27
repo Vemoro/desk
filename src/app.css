@@ -81,6 +81,20 @@ small { display: block; color: var(--muted); margin-top: 4px; font-size: var(--t
 .theme { flex-shrink:0; min-height:32px; min-width:32px; padding:4px; margin-left:auto; background:transparent; color:inherit; border-color:currentColor; }
 .sidebar .theme:hover { background:var(--side-active); }
 .main { width:100%; max-width:1600px; margin:0 auto; padding: 32px var(--page-inline) 52px; display:flex; flex-direction:column; gap:20px; }
+.settings-layout { display:grid; grid-template-columns:minmax(180px,240px) minmax(0,1fr); gap:20px; align-items:start; }
+.settings-nav { display:grid; gap:4px; padding:4px; background:var(--paper); border:1px solid var(--border); border-radius:var(--radius); }
+.settings-nav a { display:block; padding:12px; min-height:var(--control-h); border-radius:8px; color:var(--ink); text-decoration:none; }
+.settings-nav a:hover { background:var(--soft); }
+.settings-nav a[aria-current] { background:var(--tint); color:var(--accent-ink); }
+.settings-nav strong { font-size:var(--text-14); }
+.settings-content { display:grid; min-width:0; gap:16px; }
+.settings-back { display:none; }
+@media (max-width:900px) {
+  .settings-layout { grid-template-columns:minmax(0,1fr); }
+  .settings-layout[data-detail] .settings-nav,
+  .settings-layout:not([data-detail]) .settings-content:not(:has(dialog[open])) { display:none; }
+  .settings-back { display:inline-flex; align-items:center; justify-self:start; min-height:var(--control-h); }
+}
 .page-title,.project-head { padding: 8px 0 8px; }
 .project-head { display:flex; justify-content:space-between; align-items:center; gap:12px; }
 .project-head > div { min-width:0; overflow-wrap:anywhere; }
