@@ -43,7 +43,7 @@ function KanbanHeading({count,filter,filterControl,onFilter}:{
       </div>
     </header>
     {filter!=='all' && <div className="kanban-filter-feedback">
-      <p className="subtle">Zum Umordnen wähle „Alle“.</p>
+      <p className="subtle">Der Filter kann Karten ausblenden. Zum Umordnen wähle „Alle“.</p>
       {count===0 && <div className="actions">
         <p>Keine Aufgaben für diesen Filter.</p>
         <button type="button" onClick={()=>{onFilter('all');filterControl.current?.focus();}}>Alle anzeigen</button>

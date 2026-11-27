@@ -40,6 +40,7 @@ test('Der Zuständigkeitsfilter erhält Reihenfolge, Schreibwege und Fokus',asyn
   await expect(todo.locator('.task-card strong')).toHaveText(['Eigene Karte zuerst','Eigene Karte danach']);
   await expect(board.getByRole('button',{name:'Verschieben',exact:true})).toHaveCount(0);
   await expect(todo.locator('article[draggable="true"]')).toHaveCount(0);
+  await expect(todo.getByRole('button',{name:/Eigene Karte zuerst/})).toHaveCSS('cursor','pointer');
   await expect(page.getByText('Zum Umordnen wähle „Alle“.')).toBeVisible();
   expect(await (await page.request.get('/api/v1/tasks/kanban')).json()).toEqual(snapshot);
 
@@ -62,6 +63,7 @@ test('Der Zuständigkeitsfilter erhält Reihenfolge, Schreibwege und Fokus',asyn
   await expect(todo.locator('.task-card strong')).toHaveText(['Verdeckte Karte','Eigene Karte danach','Ohne Konto']);
   await expect(doing.getByRole('button',{name:'Verschieben',exact:true}).first()).toBeEnabled();
   await expect(doing.locator('article[draggable="true"]')).toHaveCount(2);
+  await expect(moved).toHaveCSS('cursor','grab');
   await filter.selectOption('me');
   await page.goto('/#projects/'+second.id+'/tasks');
   await expect(filter).toHaveValue('all');

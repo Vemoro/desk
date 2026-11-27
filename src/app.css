@@ -148,7 +148,8 @@ tr:nth-last-child(1 of :not([hidden])) td { border-bottom:0; }
 .board-column h3 span { color:var(--muted); }
 .task { position:relative; display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start;
   background:var(--paper); border:1px solid var(--border); border-radius:7px; }
-.task-card { width:100%; display:grid; gap:4px; text-align:left; overflow-wrap:anywhere; cursor:grab; border:0; }
+.task-card { width:100%; display:grid; gap:4px; text-align:left; overflow-wrap:anywhere; border:0; }
+.task[draggable="true"] .task-card { cursor:grab; }
 .task-card .subtle { font-size: var(--text-13); }
 .task-move { display:grid; place-items:center; min-width:40px; padding:4px; border:0; color:var(--accent-ink); }
 .task-move .icon { width:17px; height:17px; }
