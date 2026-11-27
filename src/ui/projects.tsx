@@ -217,6 +217,7 @@ function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) 
     && (!resourceFilter || (row.user_id?'user':'item')===resourceFilter)
     && (!statusFilter || row.status===statusFilter));
   const filtered=Boolean(resourceFilter || statusFilter);
+  const equipmentIds=new Set(data.items.filter(item=>item.kind==='equipment').map(item=>item.id));
 
   useEffect(()=>{
     const button=focusedStatusAction.current;
@@ -282,9 +283,10 @@ function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) 
         <p id={inventoryTimeZoneId} className="subtle wide">{timeZoneHint}</p>
       </Form></Expand>
     </div>{filtered && !visibleReservations.length ? <p className="empty">Keine Reservierungen für diese Filter.</p>
-    : <Table numeric={[2]} headers={['Ressource','Zeitraum','Menge','Status','Aktion']} rows={visibleReservations.map((row)=>({
+    : <Table numeric={[2,3]} headers={['Ressource','Zeitraum','Menge','Noch ausgegeben','Status','Aktion']} rows={visibleReservations.map((row)=>({
       key:row.id,cells:[row.user_id ? name(data.users,row.user_id) : <><span>{inventoryName(data.items,row.item_id)}</span><small>{name(data.locations,row.location_id)}</small></>,
         <>{moment(row.starts_at)}<small>bis {moment(row.ends_at)}</small></>,row.quantity,
+        equipmentIds.has(row.item_id) ? row.checked_out ?? '–' : '–',
         <Pill label={reservationStages[row.status]} tone={row.status==='firm'?'accent':'neutral'}/>,
         <div className="actions">{row.status==='tentative' && ['confirmed','running'].includes(project.stage) && (
           blockedPeople.has(row.user_id) ? <span className="subtle">Konto gesperrt</span>

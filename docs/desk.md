@@ -55,6 +55,10 @@ In der Ressourcenplanung und im Projektlager steht die Inventarnummer eines Einz
 
 Öffne im Projekt **Ressourcen & Kalkulation**. Unter **Ressourcenplanung** lassen sich **Ressourcentyp** und **Status filtern** kombinieren. Die Trefferzahl zählt nur die angezeigten Reservierungen. Nach einer Freigabe oder festen Reservierung bleiben die Filter aktiv. Mit **Filter zurücksetzen** siehst du wieder alle Reservierungen des Projekts.
 
+### Offene Geräteausgaben in der Ressourcenplanung
+
+**Noch ausgegeben** zeigt bei einer Gerätereservierung, wie viele Geräte zurückgegeben werden müssen. Die Zahl bleibt auch unter **Freigegeben** sichtbar. Nach einer Teilrückgabe sinkt sie um die zurückgegebene Menge. Sind alle Geräte zurück, zeigt die Spalte **0**. Bei Personal und Verbrauchsmaterial steht ein Gedankenstrich. Rückgaben buchst du im **Projektlager**.
+
 ### Wochenplanung öffnen
 
 Unter **Wochenplanung** siehst du offene Reservierungen aus allen Projekten. Wähle ein Datum oder blättere wochenweise. Eine Woche reicht von Montag 00:00 Uhr bis zum folgenden Montag 00:00 Uhr in der angezeigten Browser-Zeitzone. Personal steht je Person, Inventar je Artikel und Lagerort mit Menge. **Vorgemerkt** und **Fest reserviert** sind direkt am Eintrag beschriftet. Eine Buchung über Mitternacht erscheint an beiden betroffenen Tagen, beim Wochenwechsel jeweils in der zugehörigen Woche. Am Tag der Herbstumstellung machen UTC-Offsets die wiederholte Stunde unterscheidbar. Offene Geräteausgaben findest du im **Projektlager**.
