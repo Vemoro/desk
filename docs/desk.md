@@ -55,6 +55,10 @@ In der Ressourcenplanung und im Projektlager steht die Inventarnummer eines Einz
 
 Öffne im Projekt **Ressourcen & Kalkulation**. Unter **Ressourcenplanung** lassen sich **Ressourcentyp** und **Status filtern** kombinieren. Die Trefferzahl zählt nur die angezeigten Reservierungen. Nach einer Freigabe oder festen Reservierung bleiben die Filter aktiv. Mit **Filter zurücksetzen** siehst du wieder alle Reservierungen des Projekts.
 
+### Offene Geräteausgaben in der Ressourcenplanung
+
+**Noch ausgegeben** zeigt bei einer Gerätereservierung, wie viele Geräte zurückgegeben werden müssen. Die Zahl bleibt auch unter **Freigegeben** sichtbar. Nach einer Teilrückgabe sinkt sie um die zurückgegebene Menge. Sind alle Geräte zurück, zeigt die Spalte **0**. Bei Personal und Verbrauchsmaterial steht ein Gedankenstrich. Rückgaben buchst du im **Projektlager**.
+
 ### Wochenplanung öffnen
 
 Unter **Wochenplanung** siehst du offene Reservierungen aus allen Projekten. Wähle ein Datum oder blättere wochenweise. Eine Woche reicht von Montag 00:00 Uhr bis zum folgenden Montag 00:00 Uhr in der angezeigten Browser-Zeitzone. Personal steht je Person, Inventar je Artikel und Lagerort mit Menge. **Vorgemerkt** und **Fest reserviert** sind direkt am Eintrag beschriftet. Eine Buchung über Mitternacht erscheint an beiden betroffenen Tagen, beim Wochenwechsel jeweils in der zugehörigen Woche. Am Tag der Herbstumstellung machen UTC-Offsets die wiederholte Stunde unterscheidbar. Offene Geräteausgaben findest du im **Projektlager**.
@@ -79,7 +83,9 @@ Desk zeichnet Statuswechsel, Festlegungen und Freigaben ab Migration `007_projec
 
 Öffne **Projektlager → Lagerbewegungen** und wähle beim ursprünglichen Wareneingang oder Verbrauch **Korrigieren**. Gib Menge und Begründung ein und wähle **Korrektur buchen**. Die neue Bewegung enthält die Begründung und einen Link zum sichtbaren Original. Ist dessen Zeile ausgeblendet, zeigt Desk das Datum der Originalbuchung. Teilkorrekturen können zusammen höchstens die ursprüngliche Menge erreichen. Für eine Ausgabe verwendest du die Rückgabe.
 
-In **Lagerbewegungen** kannst du Bewegungsart und Projekt gemeinsam filtern. Wähle **Ohne Projektbezug**, um Buchungen ohne Projektzuordnung zu sehen. Desk zeigt die Trefferzahl. **Filter zurücksetzen** zeigt wieder alle Bewegungen an. Auch ausgeblendete Korrekturen zählen zur bereits korrigierten Menge. Wenn du die Zeile eines geöffneten Korrekturformulars kurz ausblendest, bleiben deine Eingaben erhalten.
+Unter **Lagerbewegungen suchen** findest du Bewegungen anhand von Teilen des Artikelnamens, der Artikelnummer, der Inventarnummer oder der Lieferscheinreferenz. Die Suche und die Filter für Bewegungsart und Projekt wirken zusammen. Wähle **Ohne Projektbezug**, um Buchungen ohne Projektzuordnung zu sehen. Die Trefferzahl zählt die sichtbaren Bewegungen. **Filter zurücksetzen** zeigt wieder alle Bewegungen an und setzt den Fokus ins Suchfeld. Auch ausgeblendete Korrekturen zählen zur bereits korrigierten Menge. Wenn du die Zeile eines geöffneten Korrekturformulars kurz ausblendest, bleiben deine Eingaben erhalten. Läuft die Buchung einer ausgeblendeten Korrektur noch, zeigt Desk den Fortschritt oberhalb der Tabelle.
+
+Mit **Vom Datum** und **Bis Datum** grenzt du die Bewegungen nach Buchungstagen ein. Beide Grenzen sind optional und schließen den jeweiligen Tag ein. Die angezeigte Browser-Zeitzone gilt auch für die Spalte **Zeitpunkt**. Der Datumsbereich wirkt zusammen mit der Suche sowie den Filtern für Bewegungsart und Projekt. Liegt **Bis Datum** vor **Vom Datum**, korrigiere die Eingabe am markierten Feld oder setze die Filter zurück.
 
 Eine Verbrauchskorrektur schreibt die Menge dem Lagerort gut. Bei fester Reservierung steht die korrigierte Menge wieder für diese Reservierung bereit. Bei einer Korrektur des Wareneingangs prüft Desk den physischen Bestand. Für Geräte zählt die höchste gleichzeitige Restmenge aus laufenden und zukünftigen festen Reservierungen. Für Verbrauchsmaterial zählt der offene Bedarf aller festen Reservierungen. Ein vollständig zurückgenommener Wareneingang eines Einzelgeräts lässt sich anschließend neu buchen.
 
@@ -90,6 +96,10 @@ War die Antwort auf eine bereits gespeicherte Vollkorrektur unklar, öffne an de
 Unter **Bestand je Lagerort** sucht **Bestand suchen** nach Teilen des Artikelnamens, der Artikelnummer oder der Inventarnummer. Groß- und Kleinschreibung spielen dabei keine Rolle. Eine Bestandszeile muss alle aktiven Filter erfüllen. **Nur mit freiem Bestand** zeigt Zeilen mit einem Wert größer als null in der Spalte **Frei**. Ergibt die Filterung keine Treffer, erscheint „Kein Bestand für diese Filter.“ **Filter zurücksetzen** leert Suche und Lagerortwahl und deaktiviert die Option. **Offene Ausgaben** und **Lagerbewegungen** bleiben separat sichtbar.
 
 Ohne aktive Filter zeigt ein leerer Bestand den nächsten Schritt. **Wareneingang erfassen** öffnet das Buchungsformular. Fehlen die Stammdaten, öffnet **Neuer Artikel** oder **Neuer Lagerort** das passende Formular.
+
+### Ist-Kosten filtern
+
+In **Ist-Kosten** lassen sich Belege nach Referenz oder Bezeichnung suchen und zugleich nach Quelle und Projektzuordnung filtern. Wählst du unter **Zuordnung filtern** den Eintrag **Ohne Zuordnung** und weist einem Beleg ein Projekt zu, verschwindet er aus der gefilterten Liste. Die Filter bleiben gesetzt. **Filter zurücksetzen** zeigt wieder alle Belege.
 
 ## Haben
 
