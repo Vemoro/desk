@@ -10,13 +10,13 @@ test('Bewegung öffnet das richtige Projekt und Browser-Zurück erhält die Filt
   const resources={
     projects,
     items:[{id:'kit',name:'Montagekoffer',code:'WK-200',kind:'equipment'}],
-    locations:[{id:'lager',name:'Musterlager'}],
+    locations:[{id:'lager',name:'Musterlager'},{id:'zweites-lager',name:'Musterlager West'}],
     reservations:[{id:'r1',project_id:'muster-a',item_id:'kit',location_id:'lager',quantity:1,status:'firm',checked_out:1}],
     movements:[
       {...movement,id:'target',action:'issue',project_id:'muster-b',delivery_reference:'LS-2028-018'},
       {...movement,id:'other',action:'issue',project_id:'muster-a',delivery_reference:'LS-2028-017'},
       {...movement,id:'missing',action:'receive',project_id:'hidden',delivery_reference:'LS-ohne-sichtbares-projekt'},
-      {...movement,id:'unassigned',action:'receive',project_id:null,delivery_reference:'LS-ohne-projekt'},
+      {...movement,id:'unassigned',location_id:'zweites-lager',action:'receive',project_id:null,delivery_reference:'LS-ohne-projekt'},
     ],
   };
   for(const [resource,json] of Object.entries(resources)){
@@ -56,12 +56,13 @@ test('Bewegung öffnet das richtige Projekt und Browser-Zurück erhält die Filt
   await expect(from).toHaveValue('2028-05-18');
   await expect(to).toHaveValue('2028-05-18');
   await expect(checkoutLocation).toHaveValue('');
-  await expect(panel.getByText('1 Bewegung',{exact:true})).toBeVisible();
+  await expect(panel.getByText('1 von 4 Bewegungen',{exact:true})).toBeVisible();
   await expect(panel.getByText('LS-2028-018',{exact:true})).toBeVisible();
   await expect(panel.getByText('LS-2028-017',{exact:true})).toHaveCount(0);
 
   await panel.getByRole('button',{name:'Filter zurücksetzen'}).click();
-  await expect(panel.getByText('4 Bewegungen',{exact:true})).toBeVisible();
+  await expect(panel.getByText('4 von 4 Bewegungen',{exact:true})).toBeVisible();
+  await expect(search).toBeFocused();
   await expect(openProject).toHaveCount(2);
   for(const reference of ['LS-ohne-sichtbares-projekt','LS-ohne-projekt']){
     const projectCell=panel.getByRole('row').filter({has:page.getByText(reference,{exact:true})}).locator('td[data-label="Projekt"]');
@@ -86,9 +87,10 @@ test('Bewegung öffnet das richtige Projekt und Browser-Zurück erhält die Filt
   await page.getByLabel('E-Mail').fill('mira@example.test');
   await page.getByLabel('Passwort').fill(process.env.DESK_DEMO_PASSWORD!);
   await page.getByRole('button',{name:'Anmelden',exact:true}).click();
-  await expect(panel.getByText('4 Bewegungen',{exact:true})).toBeVisible();
+  await expect(panel.getByText('4 von 4 Bewegungen',{exact:true})).toBeVisible();
   await expect(search).toHaveValue('');
   await expect(location).toHaveValue('');
+  await expect(location.getByRole('option').first()).toHaveText('Alle Lagerorte');
   await expect(action).toHaveValue('');
   await expect(project).toHaveValue('');
   await expect(from).toHaveValue('');

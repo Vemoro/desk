@@ -1,3 +1,5 @@
+import { csvFile, csvText } from './csv';
+
 export type Row = { id: string; [key: string]: any };
 
 export const projectStages: Record<string,string> = {
@@ -6,30 +8,59 @@ export const projectStages: Record<string,string> = {
 };
 export const taskStages: Record<string,string> = {todo:'Offen',doing:'In Arbeit',review:'Prüfung',done:'Erledigt'};
 export const reservationStages: Record<string,string> = {tentative:'Vorgemerkt',firm:'Fest reserviert',released:'Freigegeben'};
-export const movementStages: Record<string,string> = {receive:'Wareneingang',issue:'Ausgabe',return:'Rückgabe',consume:'Verbrauch'};
+export const movementStages: Record<string,string> = {
+  receive:'Wareneingang',issue:'Ausgabe',return:'Rückgabe',consume:'Verbrauch',
+  correct_receive:'Korrektur Wareneingang',correct_consume:'Korrektur Verbrauch',
+};
 export const euros = (cents:number) => new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(cents / 100);
 export const date = (value?:string) => value ? new Intl.DateTimeFormat('de-DE',{dateStyle:'medium'}).format(new Date(value)) : '–';
+export const calendarDate = (value?:string|null) => value ? new Intl.DateTimeFormat('de-DE',{dateStyle:'medium',timeZone:'UTC'}).format(new Date(value)) : '–';
 export const moment = (value?:string) => value ? new Intl.DateTimeFormat('de-DE',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value)) : '–';
 export const name = (collection:Row[], id?:string) => collection.find((row)=>row.id===id)?.name ?? '–';
 
-export class ApiError extends Error {
-  constructor(public status:number,message:string) { super(message); }
+export function inventoryLabel(item:Row):string {
+  const articleName=item.name ?? '–';
+  return item.inventory_number ? `${articleName} (${item.inventory_number})` : articleName;
 }
 
-export async function api<T = any>(path:string,method='GET',input?:unknown):Promise<T> {
+export function inventoryName(items:Row[], id:string) {
+  const item=items.find(row=>row.id===id);
+  return item ? inventoryLabel(item) : '–';
+}
+
+export class ApiError extends Error {
+  constructor(public status:number,message:string,public code?:string) { super(message); }
+}
+
+export async function api<T = any>(path:string,method='GET',input?:unknown,requestKey?:string):Promise<T> {
+  const headers=new Headers();
+  if(input!==undefined) headers.set('Content-Type','application/json');
+  if(requestKey!==undefined) headers.set('Idempotency-Key',requestKey);
   const response = await fetch(`/api/v1/${path}`,{
-    method, headers:input === undefined ? undefined : {'Content-Type':'application/json'},
+    method, headers,
     body:input === undefined ? undefined : JSON.stringify(input),
   });
-  const result = await response.json();
-  if (!response.ok) throw new ApiError(response.status,result.error ?? 'Die Aktion konnte nicht abgeschlossen werden.');
-  return result;
+  let result:unknown;
+  try {
+    result=await response.json();
+  } catch {
+    if(response.ok) throw new Error('Desk hat keine gültige JSON-Antwort erhalten.');
+  }
+  if(!response.ok) {
+    const problem=result && typeof result==='object' ? result as Record<string,unknown> : undefined;
+    const message=problem?.error;
+    const code=typeof problem?.code==='string' ? problem.code : undefined;
+    throw new ApiError(response.status,typeof message==='string' && message.trim()
+      ? message : `Die Aktion konnte nicht abgeschlossen werden (HTTP ${response.status}).`,code);
+  }
+  return result as T;
 }
 
-export async function all(path:string):Promise<Row[]> {
-  const result:Row[] = [];
+export async function all<T extends Row=Row>(path:string):Promise<T[]> {
+  const result:T[] = [];
+  const separator=path.includes('?')?'&':'?';
   for(let offset=0; ; offset+=200) {
-    const page=await api<Row[]>(`${path}?limit=200&offset=${offset}`);
+    const page=await api<T[]>(`${path}${separator}limit=200&offset=${offset}`);
     result.push(...page);
     if (page.length < 200) return result;
   }
@@ -72,20 +103,18 @@ export function compileCsv(text:string) {
   });
 }
 
-export function csvText(value:string) {
-  return '"'+(/^[=+\-@\t\r]/.test(value) ? "'"+value : value).replaceAll('"','""')+'"';
+export type OfferPosition = { name:string; quantity:number; unit_cents:number };
+
+export function downloadPositions(project:Pick<Row,'id'>, rows:OfferPosition[]) {
+  const lines=rows.map(row=>[csvText(row.name),row.quantity,(row.unit_cents/100).toFixed(2).replace('.',',')].join(';'));
+  downloadBlob(`angebotspositionen-${project.id.slice(0,8)}.csv`,csvFile(['Position;Menge;Einzelpreis EUR',...lines]));
 }
 
-export function downloadCsv(filename:string,lines:string[]) {
-  const url=URL.createObjectURL(new Blob(['\uFEFF',lines.join('\r\n')],{type:'text/csv;charset=utf-8'}));
+export function downloadBlob(filename:string,blob:Blob) {
+  const url=URL.createObjectURL(blob);
   const anchor=document.createElement('a');
   anchor.href=url;
   anchor.download=filename;
   anchor.click();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
-}
-
-export function downloadPositions(project:Row, rows:Row[]) {
-  const lines=rows.map((row)=>[csvText(String(row.name)),row.quantity,(row.unit_cents/100).toFixed(2).replace('.',',')].join(';'));
-  downloadCsv(`angebotspositionen-${project.id.slice(0,8)}.csv`,['Position;Menge;Einzelpreis EUR',...lines]);
 }
