@@ -335,6 +335,28 @@ function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) 
     }))}/>}</Panel>;
 }
 
+const calculationCurrency = new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'});
+
+function formatCalculationTotal(cents:bigint) {
+  const fraction=(cents%100n).toString().padStart(2,'0');
+  return calculationCurrency.formatToParts(cents/100n)
+    .map(part=>part.type==='fraction' ? fraction : part.value).join('');
+}
+
+function CalculationTotals({lines}:{lines:Row[]}) {
+  let buy=0n;
+  let sell=0n;
+  for(const line of lines){
+    const cents=BigInt(line.quantity)*BigInt(line.unit_cents);
+    if(line.kind==='buy') buy+=cents;
+    if(line.kind==='sell') sell+=cents;
+  }
+  return <div className="metrics calculation-totals" role="group" aria-label="Kalkulationssummen">
+    <div className="metric"><span>Einkauf netto</span><strong>{formatCalculationTotal(buy)}</strong></div>
+    <div className="metric"><span>Verkauf netto</span><strong>{formatCalculationTotal(sell)}</strong></div>
+  </div>;
+}
+
 function ProjectCalculation({project,data,run}:Omit<ProjectPlanningProps,'accountId'>) {
   const [confirmation,setConfirmation]=useState<Confirmation>();
   const calculationPanel=useRef<HTMLElement>(null);
@@ -344,7 +366,9 @@ function ProjectCalculation({project,data,run}:Omit<ProjectPlanningProps,'accoun
       const positions=await api(`projects/${project.id}/offer-positions`);
       if(isCurrent()) downloadPositions(project,positions);
     },undefined,{kind:'read'})}>Angebotspositionen exportieren</button>}>
-      <div className="panel-body"><Expand title="Position anlegen"><Form caption="Position speichern" fields={[
+      <div className="panel-body">
+        <CalculationTotals lines={lines}/>
+        <Expand title="Position anlegen"><Form caption="Position speichern" fields={[
         {name:'kind',label:'Art',choices:[{value:'buy',label:'Einkauf'},{value:'sell',label:'Verkauf'}],required:true},
         {name:'name',label:'Position',required:true},{name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},
         {name:'unit',label:'Einzelpreis netto in Euro',required:true},

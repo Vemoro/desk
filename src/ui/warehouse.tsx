@@ -141,15 +141,53 @@ function OpenCheckouts({data,bookings}:{data:Data;bookings:Bookings}) {
     </Panel>;
 }
 
+const defaultMovementFilters={query:'',kind:'',project:''};
+type MovementFilterValues=typeof defaultMovementFilters;
+
+function MovementFilters({filters,onChange,projects,count,total}:{
+  filters:MovementFilterValues;onChange:(filters:MovementFilterValues)=>void;
+  projects:Data['projects'];count:number;total:number;
+}) {
+  const search=useRef<HTMLInputElement>(null);
+  return <>
+    <div className="form-grid">
+      <Field label="Lagerbewegungen suchen">{props=><input {...props} ref={search} type="search" value={filters.query}
+        onChange={event=>onChange({...filters,query:event.currentTarget.value})}/>}</Field>
+      <Field label="Bewegungsart filtern">{props=><select {...props} value={filters.kind}
+        onChange={event=>onChange({...filters,kind:event.currentTarget.value})}>
+        <option value="">Alle Bewegungsarten</option>
+        {Object.entries(movementStages).map(([value,label])=><option key={value} value={value}>{label}</option>)}
+      </select>}</Field>
+      <Field label="Projekt filtern">{props=><select {...props} value={filters.project}
+        onChange={event=>onChange({...filters,project:event.currentTarget.value})}>
+        <option value="">Alle Projekte</option>
+        <option value="without-project">Ohne Projektbezug</option>
+        {options(projects).map(({value,label})=><option key={value} value={value}>{label}</option>)}
+      </select>}</Field>
+    </div>
+    <div className="actions">
+      <button type="button" disabled={!filters.query && !filters.kind && !filters.project}
+        onClick={()=>{onChange(defaultMovementFilters);search.current?.focus();}}>Filter zurücksetzen</button>
+      <span className="subtle" role="status">{count} von {total} Bewegungen</span>
+    </div>
+  </>;
+}
+
 function WarehouseMovements({data,run,accountId}:WarehouseProps) {
   const [correctionId,setCorrectionId]=useState('');
   const [writingCorrection,setWritingCorrection]=useState('');
   const correctionProgress=writingCorrection ? `korrektur-laeuft-${writingCorrection}` : undefined;
-  const [movementKind,setMovementKind]=useState('');
-  const [movementProject,setMovementProject]=useState('');
-  const visibleMovements=data.movements.filter(row=>
-    (!movementKind || row.action===movementKind)
-    && (!movementProject || (movementProject==='without-project' ? !row.project_id : row.project_id===movementProject)));
+  const [filters,setFilters]=useState(defaultMovementFilters);
+  const {kind,project}=filters;
+  const term=filters.query.trim().toLowerCase();
+  const items=new Map(data.items.map(item=>[item.id,item]));
+  const visibleMovements=data.movements.filter(row=>{
+    const item=items.get(row.item_id);
+    return (!kind || row.action===kind)
+      && (!project || (project==='without-project' ? !row.project_id : row.project_id===project))
+      && (!term || [item?.name,item?.code,item?.inventory_number,row.delivery_reference]
+        .some(value=>value?.toLowerCase().includes(term)));
+  });
   const visibleMovementIds=new Set(visibleMovements.map(row=>row.id));
   const progressOutsideRow=Boolean(writingCorrection && !visibleMovementIds.has(writingCorrection));
   // Keep an open correction mounted until it closes, including while its row is filtered out.
@@ -163,22 +201,8 @@ function WarehouseMovements({data,run,accountId}:WarehouseProps) {
   }
   return <Panel title="Lagerbewegungen">
       <div className="panel-body">
-        <div className="form-grid">
-          <Field label="Bewegungsart filtern">{props=><select {...props} value={movementKind} onChange={event=>setMovementKind(event.target.value)}>
-            <option value="">Alle Bewegungsarten</option>
-            {Object.entries(movementStages).map(([value,label])=><option key={value} value={value}>{label}</option>)}
-          </select>}</Field>
-          <Field label="Projekt filtern">{props=><select {...props} value={movementProject} onChange={event=>setMovementProject(event.target.value)}>
-            <option value="">Alle Projekte</option>
-            <option value="without-project">Ohne Projektbezug</option>
-            {options(data.projects).map(({value,label})=><option key={value} value={value}>{label}</option>)}
-          </select>}</Field>
-        </div>
-        <div className="actions">
-          <button type="button" disabled={!movementKind && !movementProject}
-            onClick={()=>{setMovementKind('');setMovementProject('');}}>Filter zurücksetzen</button>
-          <span className="subtle" role="status">{visibleMovements.length} von {data.movements.length} Bewegungen</span>
-        </div>
+        <MovementFilters filters={filters} onChange={setFilters} projects={data.projects}
+          count={visibleMovements.length} total={data.movements.length}/>
         {progressOutsideRow && <p id={correctionProgress} className="subtle" role="status">Eine ausgeblendete Korrektur wird noch gebucht.</p>}
       </div>
       {renderedMovements.length > 0 && <Table numeric={[5]} hidden={visibleMovements.length===0}
