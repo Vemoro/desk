@@ -71,8 +71,8 @@ test('Terminfilter kombiniert die Auswahl und aktualisiert Heute zur lokalen Mit
   await expect(titles).toHaveText(['Aufbau abstimmen']);
 });
 
-test('Kartenfokus folgt einem Status- oder Terminwechsel und einem erneuten Abruf',async({page})=>{
-  const {board,date,todo,doing,dialog}=await fixture(page);
+test('Kartenfokus folgt einem Statuswechsel oder einer Änderung an Titel und Termin',async({page})=>{
+  const {board,date,todo,doing,dialog,search}=await fixture(page);
   await date.selectOption('overdue');
   await todo.getByRole('button',{name:'Material vorbereiten',exact:false}).press('Enter');
   await dialog.getByRole('combobox',{name:'Status'}).selectOption('doing');
@@ -86,15 +86,52 @@ test('Kartenfokus folgt einem Status- oder Terminwechsel und einem erneuten Abru
   await expect(date).toBeFocused();
 
   await date.selectOption('today');
-  await page.route('**/api/v1/tasks/kanban',route=>route.fulfill({status:503,json:{error:'Test-Abruffehler'}}),{times:1});
+  await search.fill('prüfen');
   const card=board.getByRole('button',{name:'Material prüfen',exact:false});
+  await card.press('Enter');
+  await dialog.getByRole('textbox',{name:'Kartentitel'}).fill('Material inspizieren');
+  await dialog.getByLabel('Fällig am').fill('2028-05-18');
+  await dialog.getByRole('button',{name:'Karte speichern'}).click();
+  await expect(card).toHaveCount(0);
+  await expect(date).toBeFocused();
+});
+
+test('Nach Abruffehler und Mitternacht erhält die wieder sichtbare Karte den Fokus',async({page})=>{
+  const {board,date,dialog}=await fixture(page);
+  await date.selectOption('today');
+  await page.route('**/api/v1/tasks/kanban',route=>route.fulfill({status:503,json:{error:'Test-Abruffehler'}}),{times:1});
+  const card=board.getByRole('button',{name:/Material prüfen/});
   await card.press('Enter');
   await dialog.getByLabel('Fällig am').fill('2028-05-18');
   await dialog.getByRole('button',{name:'Karte speichern'}).click();
   await expect(card).toBeFocused();
-  await page.getByRole('button',{name:'Ansicht aktualisieren'}).press('Enter');
+  await page.clock.fastForward(70_000);
   await expect(card).toHaveCount(0);
-  await expect(date).toBeFocused();
+  await page.getByRole('button',{name:'Ansicht aktualisieren'}).press('Enter');
+  await expect(card).toBeFocused();
+});
+
+test('Nach der Rückkehr zu Alle Termine und Standard lassen sich beide Positionswege speichern',async({page})=>{
+  const {date,sort,todo}=await fixture(page);
+  await date.selectOption('overdue');
+  await sort.selectOption('due');
+  await date.selectOption('all');
+  await sort.selectOption('standard');
+  const first=todo.getByRole('button',{name:/Material vorbereiten/});
+  const second=todo.getByRole('button',{name:/Material inventarisieren/});
+  const titles=todo.locator('.task-card strong');
+  await second.dragTo(first,{targetPosition:{x:12,y:5}});
+  await expect(titles.first()).toHaveText('Material inventarisieren');
+  await page.reload();
+  await expect(titles.first()).toHaveText('Material inventarisieren');
+  const editPosition=todo.getByRole('button',{name:'Verschieben',exact:true}).first();
+  await editPosition.press('Enter');
+  const move=page.getByRole('dialog',{name:'Karte verschieben'});
+  await move.getByRole('combobox',{name:'Zielposition'}).selectOption({label:'Ans Spaltenende'});
+  await move.getByRole('button',{name:'Karte verschieben'}).click();
+  await expect(titles.last()).toHaveText('Material inventarisieren');
+  await page.reload();
+  await expect(titles.last()).toHaveText('Material inventarisieren');
 });
 
 test('Schnellerfassung nennt nach dem Speichern auch den Terminfilter',async({page})=>{
