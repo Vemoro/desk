@@ -36,17 +36,23 @@ test('Offene Geräteausgaben greifen mit Status, Datum und Ressourcentyp und rea
   await page.route('**/api/v1/lines',route=>route.fulfill({json:{id:'line'}}));
   await signIn(page);
   await project(page,'Musterinstallation');
-  await page.getByRole('button',{name:'Ressourcen & Kalkulation',exact:true}).click();
+  await page.getByRole('link',{name:'Ressourcen & Kalkulation',exact:true}).click();
   const panel=page.locator('section').filter({has:page.getByRole('heading',{name:'Ressourcenplanung',exact:true})});
-  const open=panel.getByRole('checkbox',{name:'Nur offene Geräteausgaben'});
+  const openField=panel.locator('label').filter({has:page.getByRole('checkbox',{name:'Nur offene Geräteausgaben',exact:true})});
+  const open=openField.getByRole('checkbox');
   const type=panel.getByLabel('Ressourcentyp');
   const status=panel.getByLabel('Status filtern');
   const date=panel.getByLabel('Am Datum');
   const rows=panel.locator('tbody tr');
   await expect(rows).toHaveCount(6);
+  await expect(open).toBeVisible();
   await expect(open).not.toBeChecked();
 
-  await open.check();
+  await open.focus();
+  await open.press('Space');
+  await expect(open).toBeChecked();
+  await expect(openField).toHaveCSS('outline-style','solid');
+  await expect(openField).toHaveCSS('outline-offset','-2px');
   await status.selectOption('released');
   await date.fill('2028-05-17');
   await expect(panel.getByText('1 Reservierung',{exact:true})).toBeVisible();
@@ -77,7 +83,10 @@ test('Offene Geräteausgaben greifen mit Status, Datum und Ressourcentyp und rea
   await expect(open).toBeChecked();
   await expect(date).toHaveValue('2028-05-17');
   await expect(status).toHaveValue('released');
-  await panel.getByRole('button',{name:'Filter zurücksetzen'}).click();
+  const reset=panel.getByRole('button',{name:'Filter zurücksetzen'});
+  await reset.focus();
+  await reset.press('Enter');
+  await expect(type).toBeFocused();
   await expect(open).not.toBeChecked();
   await expect(type).toHaveValue('');
   await expect(status).toHaveValue('');
