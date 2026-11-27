@@ -5,6 +5,11 @@ import type { Data } from './projects';
 import { ListEmpty, PageHeading, openListForm } from './list-page';
 import { ConfirmDialog, Expand, Form, noWrite, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
 
+function focusContactDetail(panel:HTMLElement|null) {
+  panel?.focus({preventScroll:true});
+  panel?.querySelector(':scope > header')?.scrollIntoView({block:'nearest'});
+}
+
 export function Contacts({data,run,haben,selected,selectContact,openProject}:{data:Data;run:Run;haben:boolean;selected:string;
   selectContact:(id:string)=>void;openProject:(id:string)=>void}) {
   const [search,setSearch]=useState('');
@@ -25,7 +30,7 @@ export function Contacts({data,run,haben,selected,selectContact,openProject}:{da
     isOpen.current=true;
     return ()=>{isOpen.current=false;};
   },[]);
-  useEffect(()=>{if(contact?.id) contactDetail.current?.focus();},[contact?.id]);
+  useEffect(()=>{if(contact?.id) focusContactDetail(contactDetail.current);},[contact?.id]);
   useEffect(()=>{if(duplicates) duplicateWarning.current?.focus();},[duplicates]);
 
   function openContact(id:string) {
@@ -35,7 +40,7 @@ export function Contacts({data,run,haben,selected,selectContact,openProject}:{da
       next.delete(id);
       return next;
     });
-    if(id===selected) contactDetail.current?.focus();
+    if(id===selected) focusContactDetail(contactDetail.current);
     else selectContact(id);
   }
 

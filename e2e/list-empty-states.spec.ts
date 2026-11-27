@@ -60,6 +60,19 @@ test('Suche leeren stellt die Kontakte und den Fokus wieder her',async({page})=>
   await expect(page.getByRole('button',{name:'Kontor West',exact:true})).toBeVisible();
 });
 
+test('Ein Kontakt aus der wiederhergestellten Liste behält seinen Titel im kurzen Smartphone-Viewport',async({page})=>{
+  await page.setViewportSize({width:390,height:320});
+  await signIn(page);
+  await openList(page,'Kontakte');
+  await page.getByRole('searchbox',{name:'Kontakte suchen'}).fill('ZZ ohne Treffer');
+  await page.getByRole('button',{name:'Suche leeren',exact:true}).press('Enter');
+  const contact=page.getByRole('button',{name:'Kontor West',exact:true});
+  await contact.press('Enter');
+  const detail=page.getByRole('region',{name:'Kontor West',exact:true});
+  await expect(detail).toBeFocused();
+  await expect(detail.getByRole('heading',{name:'Kontor West',exact:true})).toBeInViewport({ratio:1});
+});
+
 test('Ein fehlgeschlagener Abruf zeigt keinen Projektleerstand',async({page})=>{
   await signIn(page);
   let release!:()=>void;
