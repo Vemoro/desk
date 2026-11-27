@@ -40,6 +40,7 @@ test('Projektcontrolling summiert sichtbare Belege unabhängig von den Projektke
   await expect(metrics).toHaveText(projectAmounts);
   await filter.selectOption('haben-export');
   await expect(subtotal).toHaveText(/19,00\s*€/);
+  await expect(subtotal.locator('strong')).toHaveCSS('font-variant-numeric','tabular-nums');
   await expect(rows).toHaveCount(2);
   await expect(rows.first()).toContainText('RE-01');
   await expect(rows.last()).toContainText('GS-01');
