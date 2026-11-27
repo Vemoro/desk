@@ -1,4 +1,5 @@
 import { Field } from './field';
+import { deliveryReferenceError } from '../delivery-reference';
 import { useState } from 'react';
 import { api, inventoryLabel, inventoryName, moment, movementStages, name } from './client';
 import type { Data } from './projects';
@@ -48,7 +49,7 @@ function WarehouseStock({data,run,accountId,bookings}:WarehouseProps & {bookings
       <Expand title="Wareneingang"><Form caption="Wareneingang buchen" retryScope={`movements:${accountId}:receive`} fields={[
         {name:'item_id',label:'Artikel',choices:options(data.items,inventoryLabel),required:true},{name:'location_id',label:'Lagerort',choices:options(data.locations),required:true},
         {name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},{name:'project_id',label:'Projektbezug',choices:options(data.projects)},
-        {name:'delivery_reference',label:'Lieferscheinreferenz'},
+        {name:'delivery_reference',label:'Lieferscheinreferenz',validate:deliveryReferenceError},
       ]} submit={(input,key)=>run(()=>api('movements','POST',{action:'receive',item_id:input.item_id,location_id:input.location_id,
         quantity:Number(input.quantity),project_id:input.project_id||undefined,
         delivery_reference:input.delivery_reference||undefined},key),'Wareneingang erfasst.',{reportWriteRejection:true})}/></Expand>

@@ -25,8 +25,20 @@ test('Lieferscheinreferenz der richtigen Buchung bleibt nach Neuladen mobil sich
   await form.getByRole('combobox',{name:'Artikel',exact:true}).selectOption(item.id);
   await form.getByRole('combobox',{name:'Lagerort',exact:true}).selectOption(location.id);
   await form.getByLabel('Menge',{exact:true}).fill('3');
-  await expect(form.getByLabel('Lieferscheinreferenz',{exact:true})).toBeVisible();
-  await form.getByLabel('Lieferscheinreferenz',{exact:true}).fill('  LS-2028-42  ');
+  const reference=form.getByLabel('Lieferscheinreferenz',{exact:true});
+  await expect(reference).toBeVisible();
+  const requests:string[]=[];
+  page.on('request',request=>{
+    if(request.method()==='POST' && request.url().endsWith('/api/v1/movements')) requests.push(request.url());
+  });
+  await reference.fill('x'.repeat(161));
+  await form.getByRole('button',{name:'Wareneingang buchen',exact:true}).click();
+  await expect(reference).toBeFocused();
+  await expect(reference).toHaveAttribute('aria-invalid','true');
+  await expect(reference).toHaveAccessibleDescription('Die Lieferscheinreferenz darf höchstens 160 Zeichen haben.');
+  expect(requests).toEqual([]);
+  await reference.fill('  LS-2028-42  ');
+  await expect(reference).not.toHaveAttribute('aria-invalid');
   const saved=page.waitForResponse((response)=>response.url().endsWith('/api/v1/movements') && response.request().method()==='POST');
   await form.getByRole('button',{name:'Wareneingang buchen',exact:true}).click();
   expect((await saved).status()).toBe(201);
