@@ -1,9 +1,10 @@
 import { Field } from './field';
+import { useRef, useState } from 'react';
 import { deliveryReferenceError } from '../delivery-reference';
-import { useState } from 'react';
 import { api, inventoryLabel, inventoryName, moment, movementStages, name } from './client';
 import type { Data } from './projects';
 import { Expand, Form, hasPendingWrite, options, Panel, Table, type Run } from './widgets';
+import { ListEmpty, PageHeading, openListForm } from './list-page';
 
 type WarehouseProps={data:Data;run:Run;accountId:string};
 
@@ -19,6 +20,10 @@ export function Warehouse(props:WarehouseProps) {
 type Bookings=Data['reservations'];
 
 function WarehouseStock({data,run,accountId,bookings}:WarehouseProps & {bookings:Bookings}) {
+  const addLocation=useRef<HTMLDetailsElement>(null);
+  const addItem=useRef<HTMLDetailsElement>(null);
+  const receive=useRef<HTMLDetailsElement>(null);
+  const stockSearch=useRef<HTMLInputElement>(null);
   const [bookingId,setBookingId]=useState('');
   const [stockQuery,setStockQuery]=useState('');
   const [stockLocation,setStockLocation]=useState('');
@@ -38,15 +43,23 @@ function WarehouseStock({data,run,accountId,bookings}:WarehouseProps & {bookings
     label:`${name(data.projects,row.project_id)} · ${inventoryName(data.items,row.item_id)} · ${name(data.locations,row.location_id)} · ${moment(row.starts_at)} bis ${moment(row.ends_at)}`,
   }));
   const selectedBooking=bookingChoices.find((choice)=>choice.value===bookingId);
-  return <Panel title="Bestand je Lagerort"><div className="panel-body compact-actions">
-      <Expand title="Lagerort anlegen"><Form caption="Lagerort speichern" fields={[{name:'name',label:'Lagerort',required:true}]}
+  const next=data.items.length===0
+    ? {form:addItem,label:'Neuer Artikel',hint:'Lege einen Artikel an, um Wareneingänge zu buchen.'}
+    : data.locations.length===0
+      ? {form:addLocation,label:'Neuer Lagerort',hint:'Lege einen Lagerort an, um Wareneingänge zu buchen.'}
+      : {form:receive,label:'Wareneingang erfassen',hint:'Hier erscheint der gebuchte Bestand je Lagerort.'};
+  const openNext=()=>openListForm(next.form);
+  return <>
+    <PageHeading title="Projektlager" action={<button type="button" className="primary" onClick={openNext}>{next.label}</button>}/>
+    <Panel title="Bestand je Lagerort"><div className="panel-body compact-actions">
+      <Expand title="Lagerort anlegen" detailsRef={addLocation}><Form caption="Lagerort speichern" fields={[{name:'name',label:'Lagerort',required:true}]}
         submit={(input)=>run(()=>api('locations','POST',input),'Lagerort angelegt.')}/></Expand>
-      <Expand title="Artikel anlegen"><Form caption="Artikel speichern" fields={[
+      <Expand title="Artikel anlegen" detailsRef={addItem}><Form caption="Artikel speichern" fields={[
         {name:'name',label:'Artikelname',required:true},{name:'code',label:'Artikelnummer',required:true},
         {name:'kind',label:'Artikelart',choices:[{value:'equipment',label:'Gerät'},{value:'consumable',label:'Verbrauchsmaterial'}],required:true},
         {name:'inventory_number',label:'Inventarnummer für Einzelgerät'},
       ]} submit={(input)=>run(()=>api('items','POST',{...input,inventory_number:input.inventory_number||null}),'Artikel angelegt.')}/></Expand>
-      <Expand title="Wareneingang"><Form caption="Wareneingang buchen" retryScope={`movements:${accountId}:receive`} fields={[
+      <Expand title="Wareneingang" detailsRef={receive}><Form caption="Wareneingang buchen" retryScope={`movements:${accountId}:receive`} fields={[
         {name:'item_id',label:'Artikel',choices:options(data.items,inventoryLabel),required:true},{name:'location_id',label:'Lagerort',choices:options(data.locations),required:true},
         {name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},{name:'project_id',label:'Projektbezug',choices:options(data.projects)},
         {name:'delivery_reference',label:'Lieferscheinreferenz',validate:deliveryReferenceError},
@@ -62,7 +75,7 @@ function WarehouseStock({data,run,accountId,bookings}:WarehouseProps & {bookings
       </Form></Expand>
     </div>
     <div className="panel-body form-grid">
-      <Field label="Bestand suchen">{props=><input {...props} type="search" value={stockQuery} onChange={(event)=>setStockQuery(event.target.value)}/>}</Field>
+      <Field label="Bestand suchen">{props=><input {...props} ref={stockSearch} type="search" value={stockQuery} onChange={(event)=>setStockQuery(event.target.value)}/>}</Field>
       <Field label="Lagerort filtern">{props=><select {...props} value={stockLocation} onChange={(event)=>setStockLocation(event.target.value)}>
         <option value="">Alle Lagerorte</option>
         {options(data.locations).map(({value,label})=><option key={value} value={value}>{label}</option>)}
@@ -72,11 +85,14 @@ function WarehouseStock({data,run,accountId,bookings}:WarehouseProps & {bookings
         <span>Nur mit freiem Bestand</span>
       </label>
       <button type="button" disabled={!stockQuery&&!stockLocation&&!onlyAvailable}
-        onClick={()=>{setStockQuery('');setStockLocation('');setOnlyAvailable(false);}}>Filter zurücksetzen</button>
+        onClick={()=>{setStockQuery('');setStockLocation('');setOnlyAvailable(false);stockSearch.current?.focus();}}>Filter zurücksetzen</button>
     </div>
-    {visibleStock.length || !stockFilterActive ? <Table numeric={[2,3,4]} headers={['Artikel','Lagerort','Physisch','Reserviert','Frei']} rows={visibleStock.map((row)=>({key:`${row.item_id}/${row.location_id}`,cells:[
+    {visibleStock.length ? <Table numeric={[2,3,4]} headers={['Artikel','Lagerort','Physisch','Reserviert','Frei']} rows={visibleStock.map((row)=>({key:`${row.item_id}/${row.location_id}`,cells:[
       inventoryName(data.items,row.item_id),name(data.locations,row.location_id),row.physical,row.reserved,<strong>{row.free}</strong>,
-    ]}))}/> : <p className="empty" role="status">Kein Bestand für diese Filter.</p>}</Panel>;
+    ]}))}/> : stockFilterActive ? <ListEmpty>Kein Bestand für diese Filter.</ListEmpty>
+      : <ListEmpty action={<button type="button" onClick={openNext}>{next.label}</button>}>{next.hint}</ListEmpty>}
+    </Panel>
+  </>;
 }
 
 function OpenCheckouts({data,bookings}:{data:Data;bookings:Bookings}) {

@@ -23,7 +23,9 @@ Im Projektüberblick unter **Auftrag und Abrechnung** zeigt Desk, welche Referen
 
 Unter **Kontakte → Kontakt anlegen** prüft Desk beim Speichern, ob der Name oder die ausgefüllte E-Mail-Adresse mit einem vorhandenen Kontakt übereinstimmt. Äußere Leerzeichen und Groß- oder Kleinschreibung spielen beim Vergleich keine Rolle. Öffne einen Treffer aus der Liste oder wähle **Trotzdem anlegen** und bestätige den zusätzlichen Kontakt. **Abbrechen** erhält die Eingabe und die Trefferliste.
 
-Unter **Kontakte suchen** findest du Namen, E-Mail-Adressen und Rufnummern. Für die Rufnummernsuche kannst du einen Teil der Nummer eingeben. Desk vergleicht die Ziffern unabhängig von Leerzeichen, Pluszeichen, Klammern und Bindestrichen. Leerzeichen vor und nach dem Suchbegriff kannst du beim Einfügen stehen lassen.
+Unter **Kontakte suchen** findest du Namen, E-Mail-Adressen und Rufnummern. Für die Rufnummernsuche kannst du einen Teil der Nummer eingeben. Desk vergleicht die Ziffern unabhängig von Leerzeichen, Pluszeichen, Klammern und Bindestrichen. Leerzeichen vor und nach dem Suchbegriff kannst du beim Einfügen stehen lassen. Bei einer Suche ohne Treffer zeigt **Suche leeren** wieder alle Kontakte. **Neuer Kontakt** öffnet das Formular aus dem Seitenkopf oder aus der leeren Liste.
+
+Unter **Projekte** öffnet **Neues Projekt** das Projektformular. Ist noch kein Kontakt vorhanden, führt **Zu den Kontakten** zur Kontaktliste, wo du zuerst einen Kontakt anlegst.
 
 Unter **Projekte** kannst du die Suche mit **Status**, **Fälligkeit** und **Kontakt** kombinieren. Teile des Projektnamens, des Kontaktnamens, der Angebots- oder Rechnungsreferenz oder der Projektkostenstelle reichen für die Suche aus. Bei der Kostenstelle spielen äußere Leerzeichen und Groß- oder Kleinschreibung keine Rolle. **Offen** zeigt alle Projekte außer abgerechneten und abgesagten. **Heute** und **Überfällig** beziehen sich auf den lokalen Kalendertag deines Browsers. **Überfällig** zeigt nur offene Projekte mit einem früheren Termin. Abgerechnete und abgesagte Projekte findest du über **Alle** bei der Fälligkeit und den passenden Status. **Ohne Termin** zeigt Projekte mit leerem Termin. Über **Kontakt** wählst du einen bestimmten Kontakteintrag. Desk ergänzt den Namen um die vorhandene E-Mail-Adresse und bei gleich beschrifteten Einträgen um die vorhandene Telefonnummer. Die vollständige Beschriftung des gewählten Kontakts steht unter dem Auswahlfeld. Bei identischen Angaben kannst du im Kontaktdetail die zugehörigen Projekte vergleichen. Bei der Rückkehr über **Projekte** in der Projektansicht oder über die Zurück-Funktion des Browsers bleiben Suche und Filter erhalten. Beim Neuladen oder Abmelden werden sie zurückgesetzt. **Filter zurücksetzen** zeigt wieder alle Projekte.
 
@@ -86,6 +88,8 @@ War die Antwort auf eine bereits gespeicherte Vollkorrektur unklar, öffne an de
 ### Bestand filtern
 
 Unter **Bestand je Lagerort** sucht **Bestand suchen** nach Teilen des Artikelnamens, der Artikelnummer oder der Inventarnummer. Groß- und Kleinschreibung spielen dabei keine Rolle. Eine Bestandszeile muss alle aktiven Filter erfüllen. **Nur mit freiem Bestand** zeigt Zeilen mit einem Wert größer als null in der Spalte **Frei**. Ergibt die Filterung keine Treffer, erscheint „Kein Bestand für diese Filter.“ **Filter zurücksetzen** leert Suche und Lagerortwahl und deaktiviert die Option. **Offene Ausgaben** und **Lagerbewegungen** bleiben separat sichtbar.
+
+Ohne aktive Filter zeigt ein leerer Bestand den nächsten Schritt. **Wareneingang erfassen** öffnet das Buchungsformular. Fehlen die Stammdaten, öffnet **Neuer Artikel** oder **Neuer Lagerort** das passende Formular.
 
 ## Haben
 

@@ -21,7 +21,7 @@ test('Kontaktsuche berücksichtigt formatierte Telefonnummern, Namen und E-Mail'
   }
   for(const query of ['999','+ () -','Mira 301234']){
     await search.fill(query);
-    await expect(page.getByText('Noch keine Einträge.',{exact:true})).toBeVisible();
+    await expect(page.getByText('Keine Kontakte entsprechen der Suche.',{exact:true})).toBeVisible();
   }
   await search.clear();
   await expect(table.getByRole('row')).toHaveCount(4);
@@ -48,7 +48,7 @@ for(const [device,width] of [['Desktop',1440],['Smartphone',390]] as const) {
     await expect(rows).toHaveCount(4);
     for(const query of [' Mira  Muster ',' kein Treffer ']) {
       await search.fill(query);
-      await expect(page.getByText('Noch keine Einträge.',{exact:true})).toBeVisible();
+      await expect(page.getByText('Keine Kontakte entsprechen der Suche.',{exact:true})).toBeVisible();
     }
   });
 }

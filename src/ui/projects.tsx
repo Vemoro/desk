@@ -8,6 +8,7 @@ import { Communication } from './communication';
 import { ProjectKanban } from './project-kanban';
 import { projectHash, projectViews, type ProjectView } from './project-views';
 import { useLocalDay } from './local-day';
+import { ListEmpty, PageHeading, openListForm } from './list-page';
 
 export type Data = Record<'contacts'|'projects'|'tasks'|'users'|'lines'|'reservations'|'locations'|'items'|'movements'|'costs'|'stock',Row[]>;
 type Flags = { haben:boolean; zammad:boolean };
@@ -26,14 +27,19 @@ function reservationTimes(values:Record<string,string>) {
 type ProjectFilters = { query:string; stage:string; due:string; contactId:string; sort:'standard'|'due' };
 export const defaultProjectFilters:ProjectFilters = {query:'',stage:'all',due:'all',contactId:'',sort:'standard'};
 
-export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;select:(id:string)=>void;
+export function Projects({data,run,select,filters,onFilter,openContacts}:{data:Data;run:Run;select:(id:string)=>void;openContacts:()=>void;
   filters:ProjectFilters;onFilter:(filters:ProjectFilters)=>void;
 }) {
   const search=useRef<HTMLInputElement>(null);
+  const creation=useRef<HTMLDetailsElement>(null);
   const searchHelpId=useId();
   const today=useLocalDay();
   const {filtered,contacts,selectedContact,projects,contactOptionLabel}=filteredProjects(data,filters,today);
+  const canCreate=data.contacts.length>0;
+  const actionLabel=canCreate?'Neues Projekt':'Zu den Kontakten';
+  const openCreation=canCreate?()=>openListForm(creation):openContacts;
   return <>
+    <PageHeading title="Projekte" action={<button type="button" className="primary" onClick={openCreation}>{actionLabel}</button>}/>
     <Panel title="Projekte">
       <div className="panel-body">
         <div className="project-filters">
@@ -71,7 +77,7 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
             search.current?.focus();
           }}>Filter zurücksetzen</button>
         </div>
-        <Expand title="Projekt anlegen">
+        {canCreate && <Expand title="Projekt anlegen" detailsRef={creation}>
           <Form caption="Projekt speichern" fields={[
             { name:'name',label:'Projektname',required:true },
             { name:'contact_id',label:'Interessent',choices:options(data.contacts),required:true },
@@ -81,9 +87,12 @@ export function Projects({data,run,select,filters,onFilter}:{data:Data;run:Run;s
             const project=await api('projects','POST',{...fields,due:fields.due||null});
             if(isCurrent()) select(project.id);
           },'Projekt angelegt.')}/>
-        </Expand>
+        </Expand>}
       </div>
-      {filtered && !projects.length ? <p className="empty">Keine Projekte entsprechen den Filtern.</p>
+      {!projects.length ? filtered ? <ListEmpty>Keine Projekte entsprechen den Filtern.</ListEmpty>
+        : <ListEmpty action={<button type="button" onClick={openCreation}>{actionLabel}</button>}>
+          {canCreate?'Hier erscheinen deine Projekte.':'Lege zuerst einen Kontakt an, um ein Projekt zu erstellen.'}
+        </ListEmpty>
       : <Table headers={['Projekt','Kontakt','Status','Termin']} rows={projects
         .map((project)=>({key:project.id,cells:[<button className="text-button" onClick={()=>select(project.id)}>{project.name}</button>,
           name(data.contacts,project.contact_id),<Pill label={projectStages[project.stage]} tone={project.stage==='confirmed'?'accent':'neutral'}/>,calendarDate(project.due)]}))}/>}

@@ -95,8 +95,8 @@ export function Panel({title,subtitle,headingIcon,children,action,focusRef,headi
   </section>;
 }
 
-export function Expand({title,children}:{title:string;children:ReactNode}) {
-  return <details className="expand"><summary>{title}</summary><div className="expand-body">{children}</div></details>;
+export function Expand({title,children,detailsRef}:{title:string;children:ReactNode;detailsRef?:RefObject<HTMLDetailsElement|null>}) {
+  return <details className="expand" ref={detailsRef}><summary>{title}</summary><div className="expand-body">{children}</div></details>;
 }
 
 export function Table({headers,rows,hidden,numeric=[]}:{
