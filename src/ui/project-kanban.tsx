@@ -76,7 +76,6 @@ function MoveCardForm({task,columns,submit}:{task:Row;columns:Record<string,Row[
 function AddCard({projectId,status,run,onlyMine}:{projectId:string;status:string;run:Run;onlyMine:boolean}) {
   const disclosure=useRef<HTMLDetailsElement>(null);
   const [saved,setSaved]=useState(false);
-  const feedback=onlyMine?'Karte angelegt. Sie erscheint unter „Alle“ oder „Ohne Zuständigkeit“.':'Karte angelegt.';
 
   return <div>
     <details className="kanban-add" ref={disclosure} onToggle={event=>{
@@ -88,7 +87,7 @@ function AddCard({projectId,status,run,onlyMine}:{projectId:string;status:string
         {name:'name',label:'Kartentitel',required:true},
       ]} submit={async({name})=>{
         setSaved(false);
-        if(!await run(()=>api('tasks','POST',{project_id:projectId,status,name}),undefined,{reportInlineError:true})) return;
+        if(!await run(()=>api('tasks','POST',{project_id:projectId,status,name}),'Karte angelegt.',{reportInlineError:true})) return;
         setSaved(true);
         const details=disclosure.current;
         const title=details?.querySelector('input');
@@ -96,7 +95,7 @@ function AddCard({projectId,status,run,onlyMine}:{projectId:string;status:string
         if(details?.open && (details.contains(document.activeElement) || document.activeElement===document.body)) title?.focus();
       }}/>
     </details>
-    <div className="subtle" role="status">{saved?feedback:null}</div>
+    <div className="subtle" role="status">{saved && onlyMine?'Die Karte erscheint unter „Alle“ oder „Ohne Zuständigkeit“.':null}</div>
   </div>;
 }
 

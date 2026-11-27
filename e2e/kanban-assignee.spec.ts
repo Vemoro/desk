@@ -1,6 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 import { holdRoute, signIn } from './session';
 
+const hiddenCardNotice='Die Karte erscheint unter „Alle“ oder „Ohne Zuständigkeit“.';
+
 async function fixture(page:Page) {
   await signIn(page);
   const origin=new URL(page.url()).origin;
@@ -82,7 +84,8 @@ test('Die Schnellerfassung erklärt ausgeblendete Karten und der Leerzustand lä
   const input=todo.getByRole('textbox',{name:'Kartentitel'});
   await input.fill('Musterkarte aus der Schnellerfassung');
   await input.press('Enter');
-  await expect(page.getByText('Karte angelegt. Sie erscheint unter „Alle“ oder „Ohne Zuständigkeit“.')).toBeVisible();
+  await expect(page.getByText('Karte angelegt.',{exact:true})).toBeVisible();
+  await expect(todo.getByText(hiddenCardNotice,{exact:true})).toBeVisible();
   await expect(input).toHaveValue('');
   await expect(input).toBeFocused();
   await expect(todo.getByRole('heading')).toHaveText('Offen 0');
@@ -126,7 +129,7 @@ test('Eine gespeicherte ausgeblendete Karte bleibt auch nach Abruffehler erklär
   await input.fill(name);
   await input.press('Enter');
   await expect(page.getByText('Die Änderung wurde gespeichert. Die Ansicht konnte nicht aktualisiert werden.')).toBeVisible();
-  const feedback=todo.getByText('Karte angelegt. Sie erscheint unter „Alle“ oder „Ohne Zuständigkeit“.');
+  const feedback=todo.getByText(hiddenCardNotice,{exact:true});
   await expect(feedback).toBeVisible();
   await expect(input).toBeFocused();
   const tasks=await (await page.request.get('/api/v1/tasks/kanban')).json();
@@ -142,6 +145,7 @@ for(const scenario of [
   {name:'Alle → Mir zugeordnet',start:'all',next:'me',hidden:true},
   {name:'Mir zugeordnet → Alle',start:'me',next:'all',hidden:false},
   {name:'Schnellerfassung zuklappen',start:'me',next:null,hidden:true},
+  {name:'Projektüberblick öffnen',start:'all',next:null,hidden:false},
 ] as const) {
   test(`Die Schnellerfassung bestätigt das Speichern nach „${scenario.name}“`,async({page})=>{
     const {board}=await fixture(page);
@@ -156,13 +160,20 @@ for(const scenario of [
     await input.fill('Musterkarte in laufender Schnellerfassung');
     await input.press('Enter');
     const request=await held.request;
+    if(scenario.name==='Projektüberblick öffnen') {
+      await page.getByRole('link',{name:'Überblick',exact:true}).click();
+      await request.continue();
+      await expect(board).toHaveCount(0);
+      await expect(page.getByText('Karte angelegt.',{exact:true})).toBeVisible();
+      return;
+    }
     if(scenario.next) {
       await filter.focus();
       await filter.selectOption(scenario.next);
     } else await toggle.click();
     await request.continue();
-    const feedback=scenario.hidden?'Karte angelegt. Sie erscheint unter „Alle“ oder „Ohne Zuständigkeit“.':'Karte angelegt.';
-    await expect(todo.getByText(feedback,{exact:true})).toBeVisible();
+    await expect(page.getByText('Karte angelegt.',{exact:true})).toBeVisible();
+    await expect(todo.getByText(hiddenCardNotice,{exact:true})).toHaveCount(scenario.hidden?1:0);
     await expect(scenario.next?filter:toggle).toBeFocused();
     await expect(todo.getByRole('button',{name:'Musterkarte in laufender Schnellerfassung'})).toHaveCount(scenario.hidden?0:1);
   });
