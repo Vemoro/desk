@@ -45,7 +45,7 @@ Unter **Aufgaben sortieren** ordnet **Frühester Termin zuerst** die sichtbaren 
 
 Zum manuellen Umordnen wähle **Standard**, **Alle** und **Alle Termine** und leere einen aktiven Suchbegriff. Status, Zuständigkeit und Fälligkeit kannst du weiterhin im Kartendialog ändern. In jeder Spalte kannst du auch bei aktiven Filtern eine undatierte Karte hinzufügen. Desk meldet nach dem Speichern, welche Filter du bei Bedarf ändern musst, um sie zu sehen.
 
-Wähle unter **Kontakte** den Namen eines Kontakts. Unter **Zugehörige Projekte** stehen seine Projekte mit Status und Termin. Wähle den Projektnamen, um das Projekt zu öffnen. Gleichnamige Kontakte zeigen jeweils ihre eigenen Projekte.
+Wähle unter **Kontakte** den Namen eines Kontakts. Unter **Zugehörige Projekte** stehen seine Projekte mit Status und Termin. **Projektstatus filtern** zeigt alle, offene oder beendete Projekte. **Beendet** umfasst abgerechnete und abgesagte Projekte. Beim Wechsel zu einem anderen Kontakt stehen wieder alle seine Projekte in der Liste. Wähle den Projektnamen, um das Projekt zu öffnen. Gleichnamige Kontakte zeigen jeweils ihre eigenen Projekte.
 
 Wenn Desk meldet, dass eine Änderung gespeichert wurde und die Ansicht nicht aktualisiert werden konnte, wähle **Ansicht aktualisieren**. Desk ruft die Daten erneut ab. Der Schreibvorgang wird dabei nicht wiederholt. Ist deine Sitzung abgelaufen, meldet Desk die erfolgreiche Speicherung in der Anmeldemaske. Nach der Anmeldung lädt Desk die aktuelle Ansicht.
 
