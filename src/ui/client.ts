@@ -71,37 +71,6 @@ export function money(value:string) {
   return Math.round(Number(normalized)*100);
 }
 
-export function compileCsv(text:string) {
-  const input=text.replace(/^\uFEFF/,'').trim();
-  const delimiter=input.slice(0,input.indexOf('\n')).includes(';') ? ';' : ',';
-  const records:string[][]=[];
-  let row:string[]=[];
-  let field='';
-  let quoted=false;
-  for(let index=0;index<input.length;index++) {
-    const char=input[index];
-    if(char==='"') {
-      if(quoted && input[index+1]==='"') {field+='"';index++;}
-      else quoted=!quoted;
-    } else if(!quoted && char===delimiter) {
-      row.push(field); field='';
-    } else if(!quoted && char==='\n') {
-      row.push(field.replace(/\r$/,'')); records.push(row); row=[]; field='';
-    } else field+=char;
-  }
-  if(quoted) throw new Error('Eine CSV-Zeile hat ein nicht geschlossenes Anführungszeichen.');
-  row.push(field);
-  records.push(row);
-  const columns=records.shift() ?? [];
-  for(const key of ['reference','name','amount']) {
-    if(!columns.includes(key)) throw new Error('CSV benötigt die Spalten reference, name und amount. cost_center ist optional.');
-  }
-  return records.filter((parts)=>parts.some(Boolean)).map((parts)=>{
-    const item=Object.fromEntries(columns.map((label,index)=>[label,parts[index] ?? '']));
-    return {source:'haben-export',reference:item.reference,name:item.name,cents:money(item.amount),cost_center:item.cost_center ?? ''};
-  });
-}
-
 export type OfferPosition = { name:string; quantity:number; unit_cents:number };
 
 export function downloadPositions(project:Pick<Row,'id'>, rows:OfferPosition[]) {

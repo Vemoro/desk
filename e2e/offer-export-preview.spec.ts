@@ -39,6 +39,7 @@ test('Angebots-CSV enthält genau die bestätigte Vorschau',async({page})=>{
   await open.click();
   await expect(dialog.getByRole('row').nth(1).getByRole('cell')).toHaveText([positions[0].name,'2','100,50 €']);
   await expect(dialog.getByRole('row').nth(2).getByRole('cell')).toHaveText([positions[1].name,'1','12,00 €']);
+  await expect(dialog.getByText('Netto-Summe 213,00 €',{exact:true})).toBeVisible();
   await expect(dialog.getByText('Einkauf Material',{exact:true})).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
@@ -60,6 +61,22 @@ test('Angebots-CSV enthält genau die bestätigte Vorschau',async({page})=>{
   expect(downloads).toBe(1);
 });
 
+test('Angebotsvorschau behält auch bei sehr großen Summen den letzten Cent',async({page})=>{
+  const largeOffer=[
+    ...Array.from({length:91},(_,index)=>({name:`Verkauf ${index+1}`,quantity:1_000_000,unit_cents:100_000_000})),
+    {name:'Ein Cent',quantity:1,unit_cents:1},
+  ];
+  await page.route('**/api/v1/projects/musterinstallation/offer-positions',route=>route.fulfill({json:largeOffer}));
+  await signIn(page);
+  await openCalculation(page,installation.name);
+  await page.getByRole('button',{name:'Angebotspositionen exportieren',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'Angebotspositionen',exact:true});
+  const total=dialog.getByText('Netto-Summe 91.000.000.000.000,01 €',{exact:true});
+  await total.scrollIntoViewIfNeeded();
+  await expect(total).toBeInViewport();
+  await expect(dialog.getByRole('button',{name:'CSV herunterladen',exact:true})).toBeInViewport();
+});
+
 test('Angebotsvorschau kann nach einem Abruffehler erneut laden und bleibt beim Projektwechsel geschlossen',async({page})=>{
   let phase:'error'|'empty'|'pending'='error';
   let release!:()=>void;
@@ -79,10 +96,12 @@ test('Angebotsvorschau kann nach einem Abruffehler erneut laden und bleibt beim 
   const dialog=page.getByRole('dialog',{name:'Angebotspositionen',exact:true});
   await open.click();
   await expect(dialog.getByRole('alert')).toHaveText('Die Angebotspositionen konnten nicht geladen werden.');
+  await expect(dialog.getByText(/Netto-Summe/)).toHaveCount(0);
   await expect(dialog.getByRole('button',{name:'CSV herunterladen'})).toHaveCount(0);
   phase='empty';
   await dialog.getByRole('button',{name:'Erneut laden',exact:true}).click();
   await expect(dialog.getByRole('status')).toHaveText('Für dieses Projekt sind keine Verkaufspositionen vorhanden.');
+  await expect(dialog.getByText(/Netto-Summe/)).toHaveCount(0);
   await expect(dialog.getByRole('button',{name:'CSV herunterladen'})).toHaveCount(0);
   await dialog.getByRole('button',{name:'Schließen',exact:true}).click();
   await expect(dialog).toBeHidden();
@@ -137,6 +156,7 @@ test('CSV bleibt auf dem bestätigten API-Abruf, auch wenn sich Positionen ände
   await expect(dialog.getByRole('row').nth(1).getByRole('cell')).toHaveText([expected,'2','100,50 €']);
   const updated=await page.request.patch('/api/v1/lines/'+sale.id,{headers,data:{name:'Neu seit Vorschau',quantity:3,unit_cents:20000}});
   expect(updated.ok(),await updated.text()).toBe(true);
+  await expect(dialog.getByText('Netto-Summe 201,00 €',{exact:true})).toBeVisible();
 
   const download=page.waitForEvent('download');
   await dialog.getByRole('button',{name:'CSV herunterladen',exact:true}).click();
@@ -144,6 +164,10 @@ test('CSV bleibt auf dem bestätigten API-Abruf, auch wenn sich Positionen ände
   expect(await readFile(await file.path(),'utf8')).toBe('\uFEFFPosition;Menge;Einzelpreis EUR\r\n"Montage ""Nord""; Aufbau";2;100,50');
   expect(reads).toBe(1);
   await expect(dialog).toBeHidden();
+  await page.getByRole('button',{name:'Angebotspositionen exportieren',exact:true}).click();
+  await expect(dialog.getByText('Netto-Summe 600,00 €',{exact:true})).toBeVisible();
+  await expect(dialog.getByRole('row').nth(1).getByRole('cell')).toHaveText(['Neu seit Vorschau','3','200,00 €']);
+  expect(reads).toBe(2);
 });
 
 test('eine verspätete Vorschau nach dem Schließen beendet die Sitzung nicht',async({page})=>{

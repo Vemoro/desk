@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { api, ApiError, downloadPositions, euros, type OfferPosition, type Row } from './client';
+import { calculationLineCents, formatCalculationTotal } from './calculation-money';
 import { noWrite, Table, type Run } from './widgets';
 
 type Preview = {status:'loading'} | {status:'failed'} | {status:'ready';positions:OfferPosition[]};
@@ -85,7 +86,11 @@ function PreviewContent({preview}:{preview:Preview}) {
   if(preview.status==='loading') return <p role="status">Angebotspositionen werden geladen …</p>;
   if(preview.status==='failed') return <p role="alert" className="inline-error">Die Angebotspositionen konnten nicht geladen werden.</p>;
   if(!preview.positions.length) return <p role="status">Für dieses Projekt sind keine Verkaufspositionen vorhanden.</p>;
-  return <Table numeric={[1,2]} headers={['Position','Menge','Netto je Einheit']} rows={preview.positions.map((row,index)=>({
-    key:String(index),cells:[row.name,row.quantity,euros(row.unit_cents)],
-  }))}/>;
+  const total=preview.positions.reduce((sum,row)=>sum+calculationLineCents(row.quantity,row.unit_cents),0n);
+  return <>
+    <Table numeric={[1,2]} headers={['Position','Menge','Netto je Einheit']} rows={preview.positions.map((row,index)=>({
+      key:String(index),cells:[row.name,row.quantity,euros(row.unit_cents)],
+    }))}/>
+    <p className="offer-preview-total">Netto-Summe <strong>{formatCalculationTotal(total)}</strong></p>
+  </>;
 }
