@@ -53,7 +53,9 @@ In der Ressourcenplanung und im Projektlager steht die Inventarnummer eines Einz
 
 ### Reservierungen im Projekt filtern
 
-Öffne im Projekt **Ressourcen & Kalkulation**. Unter **Ressourcenplanung** lassen sich **Ressourcentyp** und **Status filtern** kombinieren. Die Trefferzahl zählt nur die angezeigten Reservierungen. Nach einer Freigabe oder festen Reservierung bleiben die Filter aktiv. Mit **Filter zurücksetzen** siehst du wieder alle Reservierungen des Projekts.
+Öffne im Projekt **Ressourcen & Kalkulation**. Unter **Ressourcenplanung** kannst du **Ressourcentyp**, **Status filtern** und **Am Datum** kombinieren. Das Datum wählt in der angezeigten Browser-Zeitzone alle Reservierungen aus, die den gewählten Tag überlappen. Endet eine Reservierung genau zum Tagesbeginn oder beginnt sie zum Tagesbeginn des Folgetags, erscheint sie bei dieser Auswahl nicht. Die Trefferzahl zählt nur die angezeigten Reservierungen. Nach einer Freigabe oder festen Reservierung bleiben die Filter aktiv. Mit **Filter zurücksetzen** siehst du wieder alle Reservierungen des Projekts.
+
+Für den Tagesvergleich liefert `GET /api/v1/reservations` zusätzlich `ends_at_submillisecond`. Das Feld enthält als Ganzzahl von 0 bis 999 die Mikrosekunden innerhalb der in `ends_at` angegebenen Millisekunde. Die Zeitdarstellung von `starts_at` und `ends_at` bleibt gleich.
 
 ### Offene Geräteausgaben in der Ressourcenplanung
 

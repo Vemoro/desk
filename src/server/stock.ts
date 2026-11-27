@@ -231,7 +231,8 @@ export async function listStock() {
 export function listReservations(limit: number, offset: number) {
   return rows(db, `SELECT r.*, COALESCE((SELECT sum(CASE
     WHEN m.action='issue' THEN m.quantity WHEN m.action='return' THEN -m.quantity ELSE 0 END)
-    FROM movements m WHERE m.reservation_id=r.id),0)::integer AS checked_out
+    FROM movements m WHERE m.reservation_id=r.id),0)::integer AS checked_out,
+    EXTRACT(MICROSECONDS FROM r.ends_at)::integer % 1000 AS ends_at_submillisecond
     FROM reservations r ORDER BY starts_at,(r.user_id IS NULL),id LIMIT $1 OFFSET $2`, [limit,offset]);
 }
 
