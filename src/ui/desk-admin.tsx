@@ -67,8 +67,8 @@ export function Costs({data,run}:{data:Data;run:Run}) {
     <button type="button" disabled={!query&&!source&&!assignment} onClick={resetFilters}>Filter zurücksetzen</button>
   </div>{visibleCosts.length ? <Table numeric={[3]} headers={['Beleg','Bezeichnung','Quelle','Netto','Kostenstelle','Projektzuordnung']} rows={visibleCosts.map(row=>({key:row.id,cells:[
     row.reference,row.name,costSourceLabel(row.source),euros(row.cents),
-    <Field label={`Projekt für ${row.reference}`} visuallyHiddenLabel>{props=><select {...props} value={row.project_id??''}
     <span className="cost-center-value">{row.cost_center?.trim() ? row.cost_center : '–'}</span>,
+    <Field label={`Projekt für ${row.reference}`} visuallyHiddenLabel>{props=><select {...props} value={row.project_id??''}
       onFocus={event=>{focusedAssignment.current=event.currentTarget;}}
       onBlur={event=>{
         if(event.relatedTarget && focusedAssignment.current===event.currentTarget) focusedAssignment.current=null;
