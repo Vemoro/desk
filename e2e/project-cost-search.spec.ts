@@ -38,6 +38,7 @@ test('Belegsuche im Projekt kombiniert Quelle und Suchbegriff und summiert nur T
   const source=target.getByLabel('Kostenquelle filtern');
   const refs=target.locator('tbody tr td:first-child');
   const subtotal=target.getByText('Summe der sichtbaren Belege',{exact:false});
+  const subtotalAmount=subtotal.locator('strong');
   const filteredEmpty=target.getByRole('status').filter({hasText:'Keine Belege für diese Filter.'});
   const metrics=page.locator('.metrics .metric strong');
   const totals=['25,00 €','17,00 €','-8,00 €','60,00 €'];
@@ -49,7 +50,7 @@ test('Belegsuche im Projekt kombiniert Quelle und Suchbegriff und summiert nur T
   await expect(subtotal).toHaveCount(0);
   await search.fill('  m-24  ');
   await expect(refs).toHaveText(['RE-M-24','GS-M-24']);
-  await expect(subtotal).toContainText('0,00 €');
+  await expect(subtotalAmount).toHaveText('0,00 €');
   await expect(metrics).toHaveText(totals);
   await source.selectOption('manual');
   await expect(filteredEmpty).toBeVisible();
@@ -59,10 +60,10 @@ test('Belegsuche im Projekt kombiniert Quelle und Suchbegriff und summiert nur T
   await source.selectOption('');
   await search.fill('MONTAGE');
   await expect(refs).toHaveText(['RE-M-24','RE-25']);
-  await expect(subtotal).toContainText('37,00');
+  await expect(subtotalAmount).toHaveText('37,00 €');
   await source.selectOption('manual');
   await expect(refs).toHaveText(['RE-25']);
-  await expect(subtotal).toContainText('7,00');
+  await expect(subtotalAmount).toHaveText('7,00 €');
   await search.fill('nicht vorhanden');
   await expect(filteredEmpty).toBeVisible();
   await expect(subtotal).toHaveCount(0);
@@ -72,7 +73,7 @@ test('Belegsuche im Projekt kombiniert Quelle und Suchbegriff und summiert nur T
   await expect(search).toHaveValue('');
   await expect(source).toHaveValue('manual');
   await expect(refs).toHaveText(['RE-25','RE-26']);
-  await expect(subtotal).toContainText('17,00');
+  await expect(subtotalAmount).toHaveText('17,00 €');
   await expect(metrics).toHaveText(totals);
   await search.fill('Verwaltung');
   await show(page,second);
