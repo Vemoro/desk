@@ -13,6 +13,7 @@ import { ConfirmationRequests } from './widgets';
 import { PageHeading } from './list-page';
 import { Icon } from './icons';
 import { Navigation, sections, type Section } from './navigation';
+import { settingsArea } from './settings-navigation';
 
 export function Desk() {
   const [section,setSection]=useState<Section>('dashboard');
@@ -21,7 +22,7 @@ export function Desk() {
   const [projectFilters,setProjectFilters]=useState(defaultProjectFilters);
   const [planningWeek,setPlanningWeek]=useState<string>();
   const [theme,setTheme]=useState('light');
-  const {person,data,flags,notice,setNotice,refreshRequired,refreshing,confirmationRequests,signIn,logout,endSession,retryRefresh,run}=useDeskData(()=>{
+  const {person,data,dataVersion,flags,notice,setNotice,refreshRequired,refreshing,confirmationRequests,signIn,logout,endSession,retryRefresh,run}=useDeskData(()=>{
     setProjectFilters(defaultProjectFilters);
     setPlanningWeek(undefined);
   });
@@ -34,12 +35,11 @@ export function Desk() {
     function onHash(event?:HashChangeEvent) {
       const [route,id,requestedView]=location.hash.slice(1).split('/');
       if(route==='desk-main') return;
-      if(event && new URL(event.oldURL).hash.slice(1).split('/')[0]!==route) {
-        setNotice({message:'',error:false});
-      }
+      const [oldRoute,oldId]=event ? new URL(event.oldURL).hash.slice(1).split('/') : [route,id];
+      if(oldRoute!==route || (route==='settings' && id!==oldId)) setNotice({message:'',error:false});
       const next=Object.hasOwn(sections,route) ? route as Section : 'dashboard';
       setSection(next);
-      setDetailId(next==='projects'||next==='contacts' ? id ?? '' : '');
+      setDetailId(next==='projects'||next==='contacts'||next==='settings' ? id ?? '' : '');
       setView(projectView(next==='projects' && id ? requestedView : undefined));
     }
     onHash();
@@ -78,9 +78,11 @@ export function Desk() {
           {refreshing?'Ansicht wird aktualisiert …':'Ansicht aktualisieren'}
         </button>
       </div>}
-      {section==='dashboard' && <Dashboard data={data} select={(id)=>navigate('projects',id)} open={()=>navigate('projects')}/>}
+      {section==='dashboard' && <Dashboard data={data} accountId={person.id}
+        select={(id)=>navigate('projects',id)} open={()=>navigate('projects')}/>}
       {section==='projects' && projectId && !project && <p className="notice" role="status">Dieses Projekt ist nicht verfügbar.</p>}
-      {section==='projects' && (project?<Project key={project.id} tab={view} project={project} data={data} run={run} flags={flags} accountId={person.id} back={()=>navigate('projects')}/>
+      {section==='projects' && (project?<Project key={project.id} tab={view} project={project} data={data} dataVersion={dataVersion}
+        run={run} flags={flags} accountId={person.id} back={()=>navigate('projects')}/>
         :<Projects data={data} run={run} filters={projectFilters} onFilter={setProjectFilters}
           select={(id)=>navigate('projects',id)} openContacts={()=>{
             navigate('contacts');
@@ -99,7 +101,9 @@ export function Desk() {
       {section==='warehouse' && <Warehouse data={data} run={run} accountId={person.id}/>}
       {section==='costs' && <Costs data={data} run={run}/>}
       {section==='account' && <><AccountPassword/><PasskeySettings run={run}/><BuildInfo/></>}
-      {section==='settings'&&person.role==='admin' && <Settings data={data} run={run} flags={flags} accountId={person.id}/>}
+      {section==='settings' && (person.role==='admin' ?
+        <Settings data={data} run={run} flags={flags} accountId={person.id} area={settingsArea(detailId)}/> :
+        <p className="notice" role="status">Die Einstellungen sind der Administration vorbehalten.</p>)}
     </main>
   </div></ConfirmationRequests>;
 }

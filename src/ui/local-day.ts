@@ -1,13 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 
-export function useLocalDay() {
-  const [now,setNow]=useState(()=>new Date());
+function dayKey(date:Date) {
+  return [date.getFullYear(),date.getMonth()+1,date.getDate()].map(part=>String(part).padStart(2,'0')).join('-');
+}
+
+export function useLocalDay(beforeDayChange?:()=>void) {
+  const [today,setToday]=useState(()=>dayKey(new Date()));
   useEffect(()=>{
     let timer:number;
+    let lastDay:string|undefined;
     function updateDay() {
       window.clearTimeout(timer);
       const current=new Date();
-      setNow(current);
+      const day=dayKey(current);
+      if(lastDay!==undefined && day!==lastDay) beforeDayChange?.();
+      lastDay=day;
+      setToday(day);
       const nextDay=new Date(current.getFullYear(),current.getMonth(),current.getDate()+1);
       timer=window.setTimeout(updateDay,nextDay.getTime()-current.getTime());
     }
@@ -17,6 +25,22 @@ export function useLocalDay() {
       window.clearTimeout(timer);
       window.removeEventListener('focus',updateDay);
     };
-  },[]);
-  return [now.getFullYear(),now.getMonth()+1,now.getDate()].map(part=>String(part).padStart(2,'0')).join('-');
+  },[beforeDayChange]);
+  return today;
+}
+
+export function useLocalDayWithFocus(container:RefObject<HTMLElement|null>,fallback:RefObject<HTMLElement|null>) {
+  const previouslyFocused=useRef<Element|null>(null);
+  const rememberFocus=useCallback(()=>{
+    const focused=document.activeElement;
+    previouslyFocused.current=container.current?.contains(focused) ? focused : null;
+  },[container]);
+  const today=useLocalDay(rememberFocus);
+
+  useLayoutEffect(()=>{
+    const focused=previouslyFocused.current;
+    previouslyFocused.current=null;
+    if(focused && !focused.isConnected && document.activeElement===document.body) fallback.current?.focus();
+  },[today,fallback]);
+  return today;
 }

@@ -3,7 +3,7 @@ import type { Row } from './client';
 
 export const noWrite = Symbol('noWrite');
 
-type RunOptions = { kind?:'read'|'write'; reportWriteRejection?:boolean; reportInlineError?:boolean };
+type RunOptions = { kind?:'read'|'write'; reportWriteRejection?:boolean; reportInlineError?:boolean; onSaved?:(version:number)=>void };
 export type Run = (operation:(isCurrent:()=>boolean)=>Promise<unknown>, feedback?:string, options?:RunOptions)=>Promise<boolean>;
 export function options(records:Row[], label:(record:Row)=>string = record=>record.name ?? record.label ?? record.id) {
   return records.map(record=>({value:record.id,label:label(record)}));
@@ -80,12 +80,16 @@ export function FormDialog({title,trigger,dismiss,children}:{
   </dialog>;
 }
 
-export function Panel({title,subtitle,headingIcon,children,action,focusRef}:{title:string;subtitle?:string;headingIcon?:ReactNode;children:ReactNode;action?:ReactNode;focusRef?:RefObject<HTMLElement|null>}) {
+export function Panel({title,subtitle,headingIcon,children,action,focusRef,headingRef}:{
+  title:string; subtitle?:string; headingIcon?:ReactNode; children:ReactNode; action?:ReactNode;
+  focusRef?:RefObject<HTMLElement|null>; headingRef?:RefObject<HTMLHeadingElement|null>;
+}) {
   const titleId=useId();
+  const heading=<h2 id={focusRef?titleId:undefined} title={subtitle?title:undefined}
+    ref={headingRef} tabIndex={headingRef?-1:undefined}>{title}</h2>;
   return <section className="panel" ref={focusRef} tabIndex={focusRef?-1:undefined} aria-labelledby={focusRef?titleId:undefined}>
     <header className="panel-head">
-      {subtitle ? <div className="panel-heading">{headingIcon}<h2 id={focusRef?titleId:undefined} title={title}>{title}</h2><p className="subtle">{subtitle}</p></div>
-        : <h2 id={focusRef?titleId:undefined}>{title}</h2>}
+      {subtitle ? <div className="panel-heading">{headingIcon}{heading}<p className="subtle">{subtitle}</p></div> : heading}
       {action}
     </header>{children}
   </section>;

@@ -9,7 +9,7 @@ const initialData=Object.fromEntries(collections.map((key)=>[key,[]])) as unknow
 
 export function useDeskData(resetUi:()=>void) {
   const [person,setPerson]=useState<Person|null>();
-  const [data,setData]=useState<Data>(initialData);
+  const [snapshot,setSnapshot]=useState({data:initialData,version:0});
   const [flags,setFlags]=useState({haben:false,zammad:false});
   const [notice,setNotice]=useState({message:'',error:false});
   const [refreshRequired,setRefreshRequired]=useState(false);
@@ -34,7 +34,8 @@ export function useDeskData(resetUi:()=>void) {
       )]);
       if(!isCurrent()) return false;
       setFlags(integrations);
-      setData(Object.fromEntries(collections.map((key,index)=>[key,result[index]])) as unknown as Data);
+      const data=Object.fromEntries(collections.map((key,index)=>[key,result[index]])) as unknown as Data;
+      setSnapshot({data,version:saved});
       displayedSavedVersion.current=saved;
       setRefreshRequired(false);
       return true;
@@ -49,7 +50,7 @@ export function useDeskData(resetUi:()=>void) {
     confirmationRequests.current=new Map();
     displayedSavedVersion.current=savedVersion.current;
     setPerson(null);
-    setData(initialData);
+    setSnapshot({data:initialData,version:savedVersion.current});
     resetUi();
     setFlags({haben:false,zammad:false});
     setRefreshRequired(false);
@@ -89,7 +90,8 @@ export function useDeskData(resetUi:()=>void) {
   const run=deskAction({sessionVersion,savedVersion,displayedSavedVersion,load,refreshSavedData,endSession,setNotice});
 
   const {signIn,logout}=deskAuthentication({sessionVersion,signInPending,logoutPending,load,endSession,setPerson,setNotice});
-  return {person,data,flags,notice,setNotice,refreshRequired,refreshing,confirmationRequests,signIn,logout,endSession,retryRefresh,run};
+  return {person,data:snapshot.data,dataVersion:snapshot.version,flags,notice,setNotice,refreshRequired,refreshing,
+    confirmationRequests,signIn,logout,endSession,retryRefresh,run};
 }
 
 type LoadDeskData = (session:number)=>Promise<boolean>;
@@ -99,7 +101,7 @@ function deskAction({sessionVersion,savedVersion,displayedSavedVersion,load,refr
   sessionVersion:RefObject<number>; savedVersion:RefObject<number>; displayedSavedVersion:RefObject<number>;
   load:LoadDeskData; refreshSavedData:LoadDeskData; endSession:()=>void; setNotice:(notice:DeskNotice)=>void;
 }):Run {
-  return async(operation,feedback,{kind='write',reportWriteRejection,reportInlineError}={})=>{
+  return async(operation,feedback,{kind='write',reportWriteRejection,reportInlineError,onSaved}={})=>{
     const session=sessionVersion.current;
     const isCurrent=()=>session===sessionVersion.current;
     setNotice({message:'',error:false});
@@ -123,6 +125,7 @@ function deskAction({sessionVersion,savedVersion,displayedSavedVersion,load,refr
     }
     if(kind==='write') {
       savedVersion.current++;
+      onSaved?.(savedVersion.current);
       if(!await refreshSavedData(session)) return true;
     }
     if(feedback && isCurrent())setNotice({message:feedback,error:false});

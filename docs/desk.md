@@ -8,7 +8,9 @@ Starte Desk danach über das blaue Desk-Symbol im Startmenü oder auf dem Home-B
 
 ## Ein Auftrag
 
-In der **Übersicht** zeigt **Fällige Aufgaben** bis zu zehn offene Aufgaben mit Termin aus aktiven Projekten. Die ältesten Termine stehen zuerst. **Überfällig** und **Heute** richten sich nach dem Kalendertag des Browsers. Wähle den Projektnamen in einer Zeile, um den Projektüberblick zu öffnen.
+Die Kennzahl **Überfällige Aufgaben** in der **Übersicht** zählt alle offenen Aufgaben aktiver Projekte mit einem Termin vor dem heutigen Kalendertag des Browsers. Sie aktualisiert sich beim Tageswechsel und gilt unabhängig von den Filtern der Aufgabenliste.
+
+In der **Übersicht** zeigt **Fällige Aufgaben** bis zu zehn offene Aufgaben mit Termin aus aktiven Projekten. Unter **Aufgaben anzeigen** wählst du **Alle**, **Mir zugeordnet** oder **Ohne Zuständigkeit**. Unter **Aufgabentermine filtern** wählst du **Alle Termine**, **Überfällig**, **Heute** oder **Später**. Beide Auswahlen greifen vor der Zehn-Zeilen-Grenze. Die Trefferzahl berücksichtigt alle passenden Aufgaben. Sind es mehr als zehn, zeigt Desk zum Beispiel **10 von 17 Aufgaben angezeigt**. Die ältesten Termine stehen zuerst. **Überfällig**, **Heute** und **Später** richten sich nach dem Kalendertag des Browsers. Beim Tageswechsel bleiben die Auswahlen gesetzt und die Aufgaben werden für den neuen Tag angezeigt. Verschwindet dabei eine Zeile mit Tastaturfokus, springt der Fokus zum Terminfilter. Wähle den Projektnamen in einer Zeile, um den Projektüberblick zu öffnen.
 
 1. Einen Kontakt und ein Projekt anlegen. Aufgaben im Kanban verteilen und den Projektstatus auf Planung setzen.
 2. Personal und Inventar vormerken. Das Ende einer Vormerkung muss nach dem Beginn liegen. Bei **Von** und **Bis** zeigt das Formular die Browser-Zeitzone für neue Eingaben. Geplante Einkaufskosten und Verkaufspositionen erfassen. Die Verkaufspositionen können als CSV exportiert werden. Beim Entfernen einer Kalkulationsposition zeigt Desk ihren Namen zur Bestätigung.
@@ -32,6 +34,16 @@ Mit **Projekte sortieren → Frühester Termin zuerst** ordnet Desk die sichtbar
 Wenn du aus einem Projekt etwa **Kanban**, **Controlling** oder **Verlauf** teilen möchtest, öffne die Ansicht und kopiere ihre Adresse. Desk öffnet nach der Anmeldung den verlinkten Bereich. Ältere Projektlinks ohne Ansichtsangabe öffnen weiterhin den **Überblick**. Ist ein Projekt für dich nicht verfügbar, zeigt Desk einen Hinweis in der Projektliste.
 
 Im **Kanban** erfasst du Aufgaben mit **Karte hinzufügen** direkt in der passenden Spalte. Nach dem Speichern kannst du dort gleich den nächsten Titel eingeben. Wähle eine Karte oder öffne sie mit Enter, um Titel, Zuständigkeit, Fälligkeit oder Status zu ändern. Ziehe eine Karte auf die gewünschte Position innerhalb einer Spalte oder in eine andere Spalte. Der Einfügehinweis zeigt, wo sie abgelegt wird. Für Tastatur und Touch öffnet **Verschieben** an der Karte die Auswahl von Zielspalte und Zielposition. Desk speichert die Reihenfolge je Spalte. Auf schmalen Bildschirmen lässt sich das Board horizontal scrollen.
+
+Unter **Aufgaben suchen** gibst du einen Teil des Titels ein. Groß- und Kleinschreibung sowie Leerzeichen am Anfang und Ende spielen dabei keine Rolle. Unter **Aufgaben anzeigen** wählst du **Alle**, **Mir zugeordnet** oder **Ohne Zuständigkeit**. Karten müssen alle aktiven Filter erfüllen, damit sie in ihrer Spalte und im Zähler erscheinen. Beim nächsten Projekt beginnt die Suche leer und die Zuständigkeitsauswahl steht auf **Alle**.
+
+Unter **Aufgabentermine filtern** zeigt **Überfällig** Aufgaben, deren Termin vor heute liegt und die noch offen, in Arbeit oder in Prüfung sind. **Heute** berücksichtigt auch erledigte Aufgaben mit heutigem Termin. **Ohne Termin** zeigt undatierte Aufgaben. Desk verwendet den Kalendertag des Browsers und aktualisiert die Ansicht beim Tageswechsel. Verschwindet dabei eine fokussierte Karte, wechselt der Fokus zur Terminauswahl. Das gilt auch beim Schließen des Dialogs einer inzwischen ausgeblendeten Karte. Die Terminauswahl wirkt zusammen mit Suche und Zuständigkeit. Beim nächsten Projekt ist wieder **Alle Termine** ausgewählt.
+
+Mit **Filter zurücksetzen** leerst du die Suche und wechselst zu **Alle** und **Alle Termine**. Der Fokus kehrt zum Suchfeld zurück. Die gewählte Sortierung bleibt erhalten.
+
+Unter **Aufgaben sortieren** ordnet **Frühester Termin zuerst** die sichtbaren Karten in jeder Spalte nach Fälligkeit. Karten mit demselben Termin behalten ihre Reihenfolge. Karten ohne Termin stehen am Ende. **Standard** zeigt wieder die gespeicherte Reihenfolge und ist beim nächsten Projekt voreingestellt.
+
+Zum manuellen Umordnen wähle **Standard**, **Alle** und **Alle Termine** und leere einen aktiven Suchbegriff. Status, Zuständigkeit und Fälligkeit kannst du weiterhin im Kartendialog ändern. In jeder Spalte kannst du auch bei aktiven Filtern eine undatierte Karte hinzufügen. Desk meldet nach dem Speichern, welche Filter du bei Bedarf ändern musst, um sie zu sehen.
 
 Wähle unter **Kontakte** den Namen eines Kontakts. Unter **Zugehörige Projekte** stehen seine Projekte mit Status und Termin. Wähle den Projektnamen, um das Projekt zu öffnen. Gleichnamige Kontakte zeigen jeweils ihre eigenen Projekte.
 
@@ -58,6 +70,10 @@ Für denselben Datensatz liefert `GET /api/v1/planning/reservations` die offenen
 Desk zeichnet Statuswechsel, Festlegungen und Freigaben ab Migration `007_project_history.sql` auf. Vorhandene projektbezogene Lagerbewegungen erscheinen mit ihren ursprünglichen Buchungszeiten. Führe die Migration mit dem Befehl für deinen Installationsweg aus, bevor du die neue Version startest.
 
 Über die API liefert `GET /api/v1/projects/{id}/history` denselben Verlauf. Mit `limit` und `offset` kannst du seitenweise lesen. Im Feld `source` kennzeichnet `haben` den manuellen Haben-Abgleich und `project` die automatische Freigabe durch Statuswechsel. `desk` steht für die übrigen Ereignisse.
+
+### Wareneingang mit Lieferscheinreferenz
+
+Öffne im **Projektlager** den **Wareneingang** und gib bei Bedarf die **Lieferscheinreferenz** ein. Nach dem Buchen steht sie unter **Lagerbewegungen** in der Spalte **Lieferschein**. Buchungen ohne Referenz zeigen einen Gedankenstrich.
 
 ### Lagerbuchung korrigieren
 
@@ -114,13 +130,17 @@ Bei einem verknüpften Ticket filtert **Ticketverlauf durchsuchen** die bereits 
 - Je nach Ticketbetrieb stehen drei Installationswege zur Auswahl. [Installationsplan mit und ohne Zammad](installation.md)
 - Für den Start aus dem Quellcheckout `bun run build`, `bun run migrate` und `bun run start` ausführen. Beim Docker-Image die Migration vor dem Dienststart über einen einmaligen Container aus dem neuen Image ausführen. Verwende dafür `bun scripts/migrate.ts`, dieselbe `DATABASE_URL` und denselben Netzwerkzugang zu PostgreSQL wie für den Dienst.
 - `DESK_ORIGIN` auf die externe HTTPS-Adresse setzen und `DESK_AUTH_SECRET` dauerhaft im Anwendungsprozess beziehungsweise im Docker-Dienst bereitstellen. Den Dienst hinter einem HTTPS-Reverse-Proxy betreiben. Für eine Demo eine separate Datenbank mit dem Suffix `_demo` verwenden.
-- Teamkonten und widerrufbare API-Tokens stehen in den Einstellungen. Wenn die Tokenliste nicht geladen werden konnte, starte unter **API-Zugriff** mit **Erneut laden** einen neuen Abruf. Der API-Vertrag ist unter `/api/v1/openapi.json` verfügbar. Schreibende Tickets, Kontakte und andere Vorgänge laufen über die jeweils eingerichteten Serverzugänge.
+- Die Administration findet **Team**, **API-Zugriff** und **Integrationen** in den Einstellungen. Am Smartphone öffnet die Bereichsliste eine eigene Ansicht mit dem Link **Zurück zu Einstellungen**. Die Adresse eines geöffneten Bereichs lässt sich direkt weitergeben. Wenn die Tokenliste nicht geladen werden konnte, starte unter **API-Zugriff** mit **Erneut laden** einen neuen Abruf. Der API-Vertrag ist unter `/api/v1/openapi.json` verfügbar. Schreibende Tickets, Kontakte und andere Vorgänge laufen über die jeweils eingerichteten Serverzugänge.
 - Bei `POST /api/v1/movements`, `POST /api/v1/movements/{id}/corrections` und `POST /api/v1/reservations` kann ein optionaler `Idempotency-Key` übermittelt werden. Bei unklarer Antwort denselben Schlüssel und dieselben Angaben vom selben Konto erneut an denselben Endpunkt senden. Desk gibt die ursprüngliche Buchung, Korrektur oder Vormerkung mit HTTP 201 zurück. Andere Angaben zum selben Schlüssel ergeben HTTP 409. Zeitangaben mit verschiedenen UTC-Offsets gelten als gleich, wenn sie denselben Zeitpunkt bezeichnen. Für einen neuen Vorgang einen neuen Schlüssel verwenden. Ohne Schlüssel behandelt Desk jeden Aufruf als eigenen Vorgang.
 - Bei offenen Lagerbuchungen und Vormerkungen behält die Oberfläche den Vorgang im Browser-Tab über das Neuladen hinweg. Bei unklarer Antwort im selben Formular „Letzten Vorgang erneut senden“ wählen. Bei Vormerkungen bleiben die ursprünglich bestätigten Zeitpunkte auch nach einem Wechsel der Browser-Zeitzone erhalten. „Neuen Vorgang beginnen“ startet einen separaten Vorgang.
 - Vor einem Update PostgreSQL sichern und die Wiederherstellung in einer getrennten Instanz prüfen. [PostgreSQL sichern und Wiederherstellung prüfen](sicherung.md)
 - Für Desktop und Smartphone dieselbe HTTPS-Adresse verwenden.
 - `curl -i http://127.0.0.1:3000/api/v1/ready` prüft die Bereitschaft ohne Anmeldung. Desk antwortet mit HTTP 200 und `{"ready":true}`, wenn PostgreSQL erreichbar ist und alle vom Build erwarteten Migrationen angewendet wurden. Bei fehlender Migration, einem Datenbankfehler oder nach Ablauf des Zeitbudgets von zwei Sekunden lautet die Antwort HTTP 503 mit `{"ready":false}`. Fehlt `DATABASE_URL`, bricht der Start ab. Wende nötige Migrationen vor dem Dienststart an. Verwende bei Bedarf einen anderen Port. Die Prüfung ist unabhängig von Haben und Zammad.
 - Vor der ersten Veröffentlichung den vorgesehenen Stand mit dem [Prüfleitfaden zur Release-Abnahme](release-abnahme.md) protokollieren.
+
+### Update für Lieferscheinreferenzen
+
+Wende `011_delivery_reference.sql` vor dem Start mit dem unter [Betrieb](#betrieb) beschriebenen Migrationsbefehl an. Vorhandene Buchungen behalten ihre Daten und zeigen einen leeren Referenzwert. Beim API-Aufruf für einen Wareneingang ist `delivery_reference` optional. Desk entfernt äußere Leerzeichen und akzeptiert bis zu 160 Zeichen.
 
 ### Update für Lagerkorrekturen
 

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { signIn } from './session';
+import { holdRoute, settleResponse, signIn } from './session';
 
 test('Offene Ausgaben nach Projekt und Lagerort zeigen auch Teilrückgaben und abgesagte Projekte',async({page})=>{
   await page.setViewportSize({width:375,height:812});
@@ -383,11 +383,31 @@ test('Offene Ausgaben öffnen das Projekt der gewählten Lagerzeile',async({page
 
 test('Lagerkorrektur zeigt Begründung und Original und ändert den physischen Bestand',async({page})=>{
   await page.setViewportSize({width:390,height:844});
-  const {item,original,corrections}=await warehouseReceipt(page,8);
+  const {item,receipt,original,corrections}=await warehouseReceipt(page,8);
+  const correctionPath=`**/api/v1/movements/${receipt.id}/corrections`;
+  const delayed=holdRoute();
+  await page.route(correctionPath,route=>delayed.resolve(route),{times:1});
   await original.getByRole('button',{name:'Korrigieren',exact:true}).click();
   await original.getByLabel('Korrekturmenge').fill('3');
   const reason='Lieferschein bestätigt fünf Stück';
   await original.getByLabel('Begründung').fill(reason);
+  await original.getByRole('button',{name:'Korrektur buchen',exact:true}).click();
+  const progress='Korrektur wird gebucht …';
+  const correction=original.getByRole('button',{name:'Korrigieren',exact:true});
+  await expect(original.getByRole('status')).toHaveText(progress);
+  await expect(correction).toBeDisabled();
+  await expect(correction).toHaveAccessibleDescription(progress);
+  const filter=page.getByLabel('Bewegungsart filtern');
+  await filter.selectOption('issue');
+  await expect(page.getByText('Eine ausgeblendete Korrektur wird noch gebucht.')).toBeVisible();
+  await filter.selectOption('');
+  await expect(original.getByRole('status')).toHaveText(progress);
+  await settleResponse(page,await delayed.request,{error:'Korrektur vorübergehend abgelehnt.'},409);
+  await expect(page.getByRole('alert')).toContainText('Korrektur vorübergehend abgelehnt.');
+  await expect(correction).toBeEnabled();
+  await expect(original.getByText(progress,{exact:true})).toHaveCount(0);
+  await expect(original.getByLabel('Korrekturmenge')).toHaveValue('3');
+  await expect(original.getByLabel('Begründung')).toHaveValue(reason);
   await original.getByRole('button',{name:'Korrektur buchen',exact:true}).click();
   await expect(corrections.getByText(reason,{exact:true})).toBeVisible();
   await expect(original.getByText('8',{exact:true})).toBeVisible();

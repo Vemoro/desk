@@ -59,6 +59,7 @@ for(const [theme,width] of [['light',1280],['dark',1280],['light',390],['dark',3
       await check(page,title);
     }
     await navigate(page,width,'Einstellungen');
+    await page.getByRole('link',{name:/^Team /}).click();
     await page.getByRole('button',{name:'Konto sperren',exact:true}).first().click();
     await check(page,'Sperrdialog');
   });

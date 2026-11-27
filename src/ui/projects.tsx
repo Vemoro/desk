@@ -138,7 +138,9 @@ function filteredProjects(data:Data,filters:ProjectFilters,today:string) {
   return {filtered,contacts,selectedContact,projects,contactOptionLabel};
 }
 
-export function Project({project,data,run,flags,accountId,back,tab}:{project:Row;data:Data;run:Run;flags:Flags;accountId:string;back:()=>void;tab:ProjectView}) {
+export function Project({project,data,dataVersion,run,flags,accountId,back,tab}:{
+  project:Row;data:Data;dataVersion:number;run:Run;flags:Flags;accountId:string;back:()=>void;tab:ProjectView;
+}) {
   const title=useRef<HTMLHeadingElement>(null);
   useEffect(()=>{title.current?.focus();},[]);
   return <>
@@ -148,7 +150,8 @@ export function Project({project,data,run,flags,accountId,back,tab}:{project:Row
       <a key={key} href={projectHash(project.id,key)} aria-current={tab===key?'page':undefined}>{projectViews[key]}</a>
     )}</nav>
     {tab==='overview' && <Overview project={project} data={data} run={run} haben={flags.haben}/>}
-    {tab==='tasks' && <ProjectKanban projectId={project.id} tasks={data.tasks} users={data.users} run={run}/>}
+    {tab==='tasks' && <ProjectKanban projectId={project.id} accountId={accountId} tasks={data.tasks} dataVersion={dataVersion}
+      users={data.users} run={run}/>}
     {tab==='planning' && <Planning project={project} data={data} run={run} accountId={accountId}/>}
     {tab==='finance' && <Controlling project={project} data={data} run={run}/>}
     {tab==='communication' && <Communication project={project} zammad={flags.zammad} run={run}/>}
