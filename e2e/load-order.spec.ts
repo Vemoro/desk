@@ -35,11 +35,12 @@ test('ein älterer Abruf kann neuere Kontakte und Integrationsflags nicht übers
   const [oldContacts,oldFlags]=await Promise.all([olderContacts.request,olderFlags.request]);
   await exportButton.click();
   await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Kontakte',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Neuer Kontakt',exact:true})).toBeVisible();
+  const newestContact=page.getByRole('table').getByRole('button',{name:'Neuer Kontakt',exact:true});
+  await expect(newestContact).toBeVisible();
   await expect(page.getByRole('button',{name:'Aus Haben importieren',exact:true})).toBeVisible();
   await settleResponse(page,oldFlags,{haben:false,zammad:false});
   await settleResponse(page,oldContacts,contact('Alter Kontakt'));
-  await expect(page.getByRole('button',{name:'Neuer Kontakt',exact:true})).toBeVisible();
+  await expect(newestContact).toBeVisible();
   await expect(page.getByRole('button',{name:'Aus Haben importieren',exact:true})).toBeVisible();
 });
 
@@ -75,10 +76,11 @@ for(const staleStatus of [200,401]){
     await page.getByRole('button',{name:'Anmelden',exact:true}).click();
     const nav=page.getByRole('navigation',{name:'Hauptnavigation'});
     await nav.getByRole('button',{name:'Kontakte',exact:true}).click();
-    await expect(page.getByRole('button',{name:'Neuer Kontakt',exact:true})).toBeVisible();
+    const newestContact=page.getByRole('table').getByRole('button',{name:'Neuer Kontakt',exact:true});
+    await expect(newestContact).toBeVisible();
     if(secondOld){
       await settleResponse(page,old,contact('Alter Kontakt nach Anmeldung'));
-      await expect(page.getByRole('button',{name:'Neuer Kontakt',exact:true})).toBeVisible();
+      await expect(newestContact).toBeVisible();
       await expect(page.getByRole('alert')).toHaveCount(0);
     } else {
       await settleResponse(page,old,{error:'Alte Sitzung abgelaufen'},401);
