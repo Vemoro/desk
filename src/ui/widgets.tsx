@@ -3,7 +3,7 @@ import type { Row } from './client';
 
 export const noWrite = Symbol('noWrite');
 
-type RunOptions = { kind?:'read'|'write'; reportWriteRejection?:boolean; reportInlineError?:boolean };
+type RunOptions = { kind?:'read'|'write'; reportWriteRejection?:boolean; reportInlineError?:boolean; onSaved?:(version:number)=>void };
 export type Run = (operation:(isCurrent:()=>boolean)=>Promise<unknown>, feedback?:string, options?:RunOptions)=>Promise<boolean>;
 export function options(records:Row[], label:(record:Row)=>string = record=>record.name ?? record.label ?? record.id) {
   return records.map(record=>({value:record.id,label:label(record)}));
