@@ -1,9 +1,10 @@
 import { Field } from './field';
 import { useEffect, useId, useRef, useState, type FocusEvent } from 'react';
 import { missingStageReference } from '../project-references';
-import { api, calendarDate, downloadPositions, euros, inventoryLabel, inventoryName, moment, money, name, projectStages, reservationStages, type Row } from './client';
+import { api, calendarDate, euros, inventoryLabel, inventoryName, moment, money, name, projectStages, reservationStages, type Row } from './client';
 import { ConfirmDialog, Expand, Form, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
 import { ProjectHistory } from './project-history';
+import { OfferExport } from './offer-export';
 import { Communication } from './communication';
 import { ProjectKanban } from './project-kanban';
 import { projectHash, projectViews, type ProjectView } from './project-views';
@@ -217,6 +218,7 @@ function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) 
     && (!resourceFilter || (row.user_id?'user':'item')===resourceFilter)
     && (!statusFilter || row.status===statusFilter));
   const filtered=Boolean(resourceFilter || statusFilter);
+  const equipmentIds=new Set(data.items.filter(item=>item.kind==='equipment').map(item=>item.id));
 
   useEffect(()=>{
     const button=focusedStatusAction.current;
@@ -282,9 +284,10 @@ function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) 
         <p id={inventoryTimeZoneId} className="subtle wide">{timeZoneHint}</p>
       </Form></Expand>
     </div>{filtered && !visibleReservations.length ? <p className="empty">Keine Reservierungen für diese Filter.</p>
-    : <Table numeric={[2]} headers={['Ressource','Zeitraum','Menge','Status','Aktion']} rows={visibleReservations.map((row)=>({
+    : <Table numeric={[2,3]} headers={['Ressource','Zeitraum','Menge','Noch ausgegeben','Status','Aktion']} rows={visibleReservations.map((row)=>({
       key:row.id,cells:[row.user_id ? name(data.users,row.user_id) : <><span>{inventoryName(data.items,row.item_id)}</span><small>{name(data.locations,row.location_id)}</small></>,
         <>{moment(row.starts_at)}<small>bis {moment(row.ends_at)}</small></>,row.quantity,
+        equipmentIds.has(row.item_id) ? row.checked_out ?? '–' : '–',
         <Pill label={reservationStages[row.status]} tone={row.status==='firm'?'accent':'neutral'}/>,
         <div className="actions">{row.status==='tentative' && ['confirmed','running'].includes(project.stage) && (
           blockedPeople.has(row.user_id) ? <span className="subtle">Konto gesperrt</span>
@@ -294,16 +297,37 @@ function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) 
     }))}/>}</Panel>;
 }
 
+const calculationCurrency = new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'});
+
+function formatCalculationTotal(cents:bigint) {
+  const fraction=(cents%100n).toString().padStart(2,'0');
+  return calculationCurrency.formatToParts(cents/100n)
+    .map(part=>part.type==='fraction' ? fraction : part.value).join('');
+}
+
+function CalculationTotals({lines}:{lines:Row[]}) {
+  let buy=0n;
+  let sell=0n;
+  for(const line of lines){
+    const cents=BigInt(line.quantity)*BigInt(line.unit_cents);
+    if(line.kind==='buy') buy+=cents;
+    if(line.kind==='sell') sell+=cents;
+  }
+  return <div className="metrics calculation-totals" role="group" aria-label="Kalkulationssummen">
+    <div className="metric"><span>Einkauf netto</span><strong>{formatCalculationTotal(buy)}</strong></div>
+    <div className="metric"><span>Verkauf netto</span><strong>{formatCalculationTotal(sell)}</strong></div>
+  </div>;
+}
+
 function ProjectCalculation({project,data,run}:Omit<ProjectPlanningProps,'accountId'>) {
   const [confirmation,setConfirmation]=useState<Confirmation>();
   const calculationPanel=useRef<HTMLElement>(null);
   const lines=data.lines.filter((row)=>row.project_id===project.id);
   return <>
-    <Panel title="Kalkulation" focusRef={calculationPanel} action={<button onClick={()=>run(async(isCurrent)=>{
-      const positions=await api(`projects/${project.id}/offer-positions`);
-      if(isCurrent()) downloadPositions(project,positions);
-    },undefined,{kind:'read'})}>Angebotspositionen exportieren</button>}>
-      <div className="panel-body"><Expand title="Position anlegen"><Form caption="Position speichern" fields={[
+    <Panel title="Kalkulation" focusRef={calculationPanel} action={<OfferExport project={project} run={run}/>}>
+      <div className="panel-body">
+        <CalculationTotals lines={lines}/>
+        <Expand title="Position anlegen"><Form caption="Position speichern" fields={[
         {name:'kind',label:'Art',choices:[{value:'buy',label:'Einkauf'},{value:'sell',label:'Verkauf'}],required:true},
         {name:'name',label:'Position',required:true},{name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},
         {name:'unit',label:'Einzelpreis netto in Euro',required:true},
