@@ -8,6 +8,8 @@ Starte Desk danach über das blaue Desk-Symbol im Startmenü oder auf dem Home-B
 
 ## Ein Auftrag
 
+Die Kennzahl **Überfällige Aufgaben** in der **Übersicht** zählt alle offenen Aufgaben aktiver Projekte mit einem Termin vor dem heutigen Kalendertag des Browsers. Sie aktualisiert sich beim Tageswechsel und gilt unabhängig von den Filtern der Aufgabenliste.
+
 In der **Übersicht** zeigt **Fällige Aufgaben** bis zu zehn offene Aufgaben mit Termin aus aktiven Projekten. Unter **Aufgaben anzeigen** wählst du **Alle**, **Mir zugeordnet** oder **Ohne Zuständigkeit**. Unter **Aufgabentermine filtern** wählst du **Alle Termine**, **Überfällig**, **Heute** oder **Später**. Beide Auswahlen greifen vor der Zehn-Zeilen-Grenze. Die Trefferzahl berücksichtigt alle passenden Aufgaben. Sind es mehr als zehn, zeigt Desk zum Beispiel **10 von 17 Aufgaben angezeigt**. Die ältesten Termine stehen zuerst. **Überfällig**, **Heute** und **Später** richten sich nach dem Kalendertag des Browsers. Beim Tageswechsel bleiben die Auswahlen gesetzt und die Aufgaben werden für den neuen Tag angezeigt. Wähle den Projektnamen in einer Zeile, um den Projektüberblick zu öffnen.
 
 1. Einen Kontakt und ein Projekt anlegen. Aufgaben im Kanban verteilen und den Projektstatus auf Planung setzen.

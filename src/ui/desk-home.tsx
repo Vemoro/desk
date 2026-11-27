@@ -71,11 +71,13 @@ export function Dashboard({data,accountId,select,open}:{data:Data;accountId:stri
   const active=data.projects.filter((project)=>!['complete','cancelled'].includes(project.stage));
   const today=useLocalDay();
   const activeIds=new Set(active.map((project)=>project.id));
-  const matchingTasks=data.tasks
-    .filter((task)=>task.status!=='done' && task.due && activeIds.has(task.project_id)
-      && matchesDashboardAssignee(task.assignee_id,assignee,accountId))
-    .map((task)=>({task,due:task.due.slice(0,10)}))
-    .filter(({due})=>matchesDashboardPeriod(due,today,period))
+  const datedOpenTasks=data.tasks
+    .filter((task)=>task.status!=='done' && task.due && activeIds.has(task.project_id))
+    .map((task)=>({task,due:task.due.slice(0,10)}));
+  const overdueCount=datedOpenTasks.filter(({due})=>due<today).length;
+  const matchingTasks=datedOpenTasks
+    .filter(({task,due})=>matchesDashboardAssignee(task.assignee_id,assignee,accountId)
+      && matchesDashboardPeriod(due,today,period))
     .sort((first,second)=>first.due.localeCompare(second.due)
       || first.task.name.localeCompare(second.task.name,'de')
       || first.task.id.localeCompare(second.task.id));
@@ -85,10 +87,11 @@ export function Dashboard({data,accountId,select,open}:{data:Data;accountId:stri
     : taskCount===1 ? '1 Aufgabe' : `${taskCount} Aufgaben`;
   const metrics=[
     ['Aktive Projekte',active.length],['Offene Aufgaben',data.tasks.filter((task)=>task.status!=='done').length],
+    ['Überfällige Aufgaben',overdueCount],
     ['Feste Reservierungen',data.reservations.filter((entry)=>entry.status==='firm').length],['Kosten ohne Zuordnung',data.costs.filter((entry)=>!entry.project_id).length],
   ];
   return <>
-    <div className="metrics">{metrics.map(([label,value])=><div className="metric" key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>
+    <div className="metrics dashboard-metrics">{metrics.map(([label,value])=><div className="metric" key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>
     <Panel title="Aktive Projekte" action={<button className="primary" onClick={open}>Alle Projekte</button>}>
       <Table headers={['Projekt','Kontakt','Status','Termin']} rows={active.map((row)=>({key:row.id,cells:[
         <button className="text-button" onClick={()=>select(row.id)}>{row.name}</button>,name(data.contacts,row.contact_id),<Pill label={projectStages[row.stage]} tone="accent"/>,calendarDate(row.due),
