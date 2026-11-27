@@ -1,5 +1,5 @@
 import { Field } from './field';
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { deliveryReferenceError } from '../delivery-reference';
 import { api, inventoryLabel, inventoryName, moment, movementStages, name } from './client';
 import type { Data } from './projects';
@@ -141,16 +141,36 @@ function OpenCheckouts({data,bookings}:{data:Data;bookings:Bookings}) {
     </Panel>;
 }
 
-const defaultMovementFilters={query:'',kind:'',project:''};
+const defaultMovementFilters={query:'',kind:'',project:'',from:'',to:''};
 type MovementFilterValues=typeof defaultMovementFilters;
 
-function MovementFilters({filters,onChange,projects,count,total}:{
+function MovementFilters({filters,onChange,projects,count,total,invalidRange}:{
   filters:MovementFilterValues;onChange:(filters:MovementFilterValues)=>void;
-  projects:Data['projects'];count:number;total:number;
+  projects:Data['projects'];count:number;total:number;invalidRange:boolean;
 }) {
   const search=useRef<HTMLInputElement>(null);
+  const timeZoneId=useId();
+  const timeZone=Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  const fromDate=useRef<HTMLInputElement>(null);
+  const toDate=useRef<HTMLInputElement>(null);
+  const [incompleteDate,setIncompleteDate]=useState(false);
+
+  // Native date inputs can hold incomplete segments while their value is empty.
+  function trackDateInput() {
+    setIncompleteDate(Boolean(fromDate.current?.validity.badInput || toDate.current?.validity.badInput));
+  }
+
+  function resetFilters() {
+    for(const input of [fromDate.current,toDate.current]) {
+      if(input) input.value='';
+    }
+    setIncompleteDate(false);
+    onChange(defaultMovementFilters);
+    search.current?.focus();
+  }
   return <>
-    <div className="form-grid">
+    <div className="form-grid movement-filters">
       <Field label="Lagerbewegungen suchen">{props=><input {...props} ref={search} type="search" value={filters.query}
         onChange={event=>onChange({...filters,query:event.currentTarget.value})}/>}</Field>
       <Field label="Bewegungsart filtern">{props=><select {...props} value={filters.kind}
@@ -164,13 +184,26 @@ function MovementFilters({filters,onChange,projects,count,total}:{
         <option value="without-project">Ohne Projektbezug</option>
         {options(projects).map(({value,label})=><option key={value} value={value}>{label}</option>)}
       </select>}</Field>
+      <Field label="Vom Datum" describedBy={timeZoneId}>{props=><input {...props} type="date" ref={fromDate} value={filters.from} onInput={trackDateInput} onKeyUp={trackDateInput} onBlur={trackDateInput}
+        onChange={event=>onChange({...filters,from:event.currentTarget.value})}/>}</Field>
+      <Field label="Bis Datum" describedBy={timeZoneId} error={invalidRange?'Das Bis-Datum liegt vor dem Vom-Datum.':undefined}>
+        {props=><input {...props} type="date" ref={toDate} value={filters.to} onInput={trackDateInput} onKeyUp={trackDateInput} onBlur={trackDateInput}
+          onChange={event=>onChange({...filters,to:event.currentTarget.value})}/>}
+      </Field>
     </div>
     <div className="actions">
-      <button type="button" disabled={!filters.query && !filters.kind && !filters.project}
-        onClick={()=>{onChange(defaultMovementFilters);search.current?.focus();}}>Filter zurücksetzen</button>
-      <span className="subtle" role="status">{count} von {total} Bewegungen</span>
+      <button type="button" disabled={!incompleteDate && !Object.values(filters).some(Boolean)} onClick={resetFilters}>Filter zurücksetzen</button>
+      <span className="subtle" id={timeZoneId}>Browser-Zeitzone {timeZone}</span>
+      {!invalidRange && <span className="subtle" role="status">{count} von {total} Bewegungen</span>}
     </div>
   </>;
+}
+
+function matchesMovementDay(createdAt:string,from:number,to:number) {
+  if(!from && !to) return true;
+  const date=new Date(createdAt);
+  const day=date.getFullYear()*10000+(date.getMonth()+1)*100+date.getDate();
+  return day>=from && (!to || day<=to);
 }
 
 function WarehouseMovements({data,run,accountId}:WarehouseProps) {
@@ -179,11 +212,15 @@ function WarehouseMovements({data,run,accountId}:WarehouseProps) {
   const correctionProgress=writingCorrection ? `korrektur-laeuft-${writingCorrection}` : undefined;
   const [filters,setFilters]=useState(defaultMovementFilters);
   const {kind,project}=filters;
+  const from=Number(filters.from.replaceAll('-',''));
+  const to=Number(filters.to.replaceAll('-',''));
+  const invalidRange=Boolean(from && to && from>to);
   const term=filters.query.trim().toLowerCase();
   const items=new Map(data.items.map(item=>[item.id,item]));
-  const visibleMovements=data.movements.filter(row=>{
+  const visibleMovements=invalidRange ? [] : data.movements.filter(row=>{
     const item=items.get(row.item_id);
     return (!kind || row.action===kind)
+      && matchesMovementDay(row.created_at,from,to)
       && (!project || (project==='without-project' ? !row.project_id : row.project_id===project))
       && (!term || [item?.name,item?.code,item?.inventory_number,row.delivery_reference]
         .some(value=>value?.toLowerCase().includes(term)));
@@ -202,7 +239,7 @@ function WarehouseMovements({data,run,accountId}:WarehouseProps) {
   return <Panel title="Lagerbewegungen">
       <div className="panel-body">
         <MovementFilters filters={filters} onChange={setFilters} projects={data.projects}
-          count={visibleMovements.length} total={data.movements.length}/>
+          count={visibleMovements.length} total={data.movements.length} invalidRange={invalidRange}/>
         {progressOutsideRow && <p id={correctionProgress} className="subtle" role="status">Eine ausgeblendete Korrektur wird noch gebucht.</p>}
       </div>
       {renderedMovements.length > 0 && <Table numeric={[5]} hidden={visibleMovements.length===0}
@@ -249,6 +286,6 @@ function WarehouseMovements({data,run,accountId}:WarehouseProps) {
             : <span className="subtle">Vollständig korrigiert</span>),
         ]};
       })}/>}
-      {visibleMovements.length===0 && <p className="empty" role="status">{data.movements.length?'Keine Lagerbewegungen für diese Filter.':'Es gibt keine Lagerbewegungen.'}</p>}
+      {!invalidRange && visibleMovements.length===0 && <p className="empty" role="status">{data.movements.length?'Keine Lagerbewegungen für diese Filter.':'Es gibt keine Lagerbewegungen.'}</p>}
     </Panel>;
 }
