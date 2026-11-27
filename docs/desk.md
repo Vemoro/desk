@@ -33,7 +33,9 @@ Im **Kanban** erfasst du Aufgaben mit **Karte hinzufügen** direkt in der passen
 
 Unter **Aufgaben suchen** gibst du einen Teil des Titels ein. Groß- und Kleinschreibung sowie Leerzeichen am Anfang und Ende spielen dabei keine Rolle. Unter **Aufgaben anzeigen** wählst du **Alle**, **Mir zugeordnet** oder **Ohne Zuständigkeit**. Karten müssen beide Filter erfüllen, damit sie in ihrer Spalte und im Zähler erscheinen. **Suche leeren** erhält die gewählte Zuständigkeit. Beim nächsten Projekt beginnt die Suche leer und die Auswahl steht auf **Alle**.
 
-Wenn nur nach Zuständigkeit gefiltert wird und keine Karten erscheinen, setzt **Alle anzeigen** die Auswahl zurück. Zum Umordnen wähle **Alle** und leere einen aktiven Suchbegriff. Status und Zuständigkeit kannst du weiterhin im Kartendialog ändern. Du kannst auch bei laufender Suche eine Karte direkt in einer Spalte hinzufügen. Desk meldet nach dem Speichern, welche Filter du bei Bedarf ändern musst, um sie zu sehen.
+Wenn nur nach Zuständigkeit gefiltert wird und keine Karten erscheinen, setzt **Alle anzeigen** die Auswahl zurück. Unter **Aufgaben sortieren** ordnet **Frühester Termin zuerst** die sichtbaren Karten in jeder Spalte nach Fälligkeit. Karten mit demselben Termin behalten ihre Reihenfolge. Karten ohne Termin stehen am Ende. **Standard** zeigt wieder die gespeicherte Reihenfolge und ist beim nächsten Projekt voreingestellt.
+
+Zum manuellen Umordnen wähle **Standard** und **Alle** und leere einen aktiven Suchbegriff. Status und Zuständigkeit kannst du weiterhin im Kartendialog ändern. Du kannst auch bei laufender Suche eine Karte direkt in einer Spalte hinzufügen. Desk meldet nach dem Speichern, welche Filter du bei Bedarf ändern musst, um sie zu sehen.
 
 Wähle unter **Kontakte** den Namen eines Kontakts. Unter **Zugehörige Projekte** stehen seine Projekte mit Status und Termin. Wähle den Projektnamen, um das Projekt zu öffnen. Gleichnamige Kontakte zeigen jeweils ihre eigenen Projekte.
 
