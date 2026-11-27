@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { test, expect, type Page } from '@playwright/test';
-import { project, signIn } from './session';
+import { holdRoute, project, settleResponse, signIn } from './session';
 
 const installation={id:'musterinstallation',name:'Musterinstallation',stage:'planning'};
 const second={id:'buero',name:'Büroprojekt',stage:'planning'};
@@ -11,7 +11,7 @@ const positions=[
 
 async function openCalculation(page:Page,name:string){
   await project(page,name);
-  await page.getByRole('button',{name:'Ressourcen & Kalkulation',exact:true}).click();
+  await page.getByRole('link',{name:'Ressourcen & Kalkulation',exact:true}).click();
 }
 
 test.beforeEach(async({page})=>{
@@ -47,6 +47,10 @@ test('Angebots-CSV enthält genau die bestätigte Vorschau',async({page})=>{
 
   await open.click();
   await expect(dialog.getByRole('row')).toHaveCount(3);
+  await page.keyboard.press('Shift+Tab');
+  await expect(dialog.locator('.offer-preview-list')).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(dialog.getByRole('button',{name:'Schließen',exact:true})).toBeFocused();
   const downloaded=page.waitForEvent('download');
   await dialog.getByRole('button',{name:'CSV herunterladen',exact:true}).click();
   const file=await downloaded;
@@ -94,7 +98,68 @@ test('Angebotsvorschau kann nach einem Abruffehler erneut laden und bleibt beim 
   const old=page.waitForResponse((response)=>response.url().endsWith('/musterinstallation/offer-positions') && response.status()===401);
   release();
   await (await old).finished();
-  await page.getByRole('button',{name:'Ressourcen & Kalkulation',exact:true}).click();
+  await page.getByRole('link',{name:'Ressourcen & Kalkulation',exact:true}).click();
   await open.click();
   await expect(dialog.getByRole('status')).toHaveText('Für dieses Projekt sind keine Verkaufspositionen vorhanden.');
+});
+
+
+
+test('CSV bleibt auf dem bestätigten API-Abruf, auch wenn sich Positionen ändern',async({page})=>{
+  await page.unroute('**/api/v1/projects?*');
+  await page.unroute('**/api/v1/lines?*');
+  await signIn(page);
+  const headers={Origin:new URL(page.url()).origin};
+  const projects=await page.request.get('/api/v1/projects');
+  expect(projects.ok()).toBe(true);
+  const [sample]=await projects.json() as {contact_id:string}[];
+  const tag=crypto.randomUUID().slice(0,8);
+  async function create(path:string,data:object) {
+    const response=await page.request.post('/api/v1/'+path,{headers,data});
+    expect(response.status(),await response.text()).toBe(201);
+    return await response.json() as {id:string;name:string};
+  }
+  const target=await create('projects',{name:'Angebotsprüfung '+tag,contact_id:sample.contact_id});
+  const foreign=await create('projects',{name:'Fremdangebot '+tag,contact_id:sample.contact_id});
+  const expected='Montage "Nord"; Aufbau';
+  const sale=await create('lines',{project_id:target.id,kind:'sell',name:expected,quantity:2,unit_cents:10050});
+  await create('lines',{project_id:target.id,kind:'buy',name:'Nur Einkauf',quantity:2,unit_cents:4000});
+  await create('lines',{project_id:foreign.id,kind:'sell',name:'Nur Fremdprojekt',quantity:1,unit_cents:50});
+  await page.reload();
+  await expect(page.getByRole('heading',{name:'Übersicht',exact:true})).toBeVisible();
+  await openCalculation(page,target.name);
+  const path='/api/v1/projects/'+target.id+'/offer-positions';
+  let reads=0;
+  page.on('request',request=>{if(new URL(request.url()).pathname===path) reads++;});
+  await page.getByRole('button',{name:'Angebotspositionen exportieren',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'Angebotspositionen',exact:true});
+  await expect(dialog.getByRole('row')).toHaveCount(2);
+  await expect(dialog.getByRole('row').nth(1).getByRole('cell')).toHaveText([expected,'2','100,50 €']);
+  const updated=await page.request.patch('/api/v1/lines/'+sale.id,{headers,data:{name:'Neu seit Vorschau',quantity:3,unit_cents:20000}});
+  expect(updated.ok(),await updated.text()).toBe(true);
+
+  const download=page.waitForEvent('download');
+  await dialog.getByRole('button',{name:'CSV herunterladen',exact:true}).click();
+  const file=await download;
+  expect(await readFile(await file.path(),'utf8')).toBe('\uFEFFPosition;Menge;Einzelpreis EUR\r\n"Montage ""Nord""; Aufbau";2;100,50');
+  expect(reads).toBe(1);
+  await expect(dialog).toBeHidden();
+});
+
+test('eine verspätete Vorschau nach dem Schließen beendet die Sitzung nicht',async({page})=>{
+  const pending=holdRoute();
+  await page.route('**/api/v1/projects/musterinstallation/offer-positions',route=>pending.resolve(route));
+  await signIn(page);
+  await openCalculation(page,installation.name);
+  const trigger=page.getByRole('button',{name:'Angebotspositionen exportieren',exact:true});
+  await trigger.click();
+  const dialog=page.getByRole('dialog',{name:'Angebotspositionen',exact:true});
+  const request=await pending.request;
+  await expect(dialog.getByRole('button',{name:'Schließen',exact:true})).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(trigger).toBeFocused();
+  await settleResponse(page,request,{error:'Verspätete Antwort'},401);
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole('heading',{name:installation.name,exact:true})).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveCount(0);
 });
