@@ -77,7 +77,8 @@ export function Desk() {
           {refreshing?'Ansicht wird aktualisiert …':'Ansicht aktualisieren'}
         </button>
       </div>}
-      {section==='dashboard' && <Dashboard data={data} select={(id)=>navigate('projects',id)} open={()=>navigate('projects')}/>}
+      {section==='dashboard' && <Dashboard data={data} accountId={person.id}
+        select={(id)=>navigate('projects',id)} open={()=>navigate('projects')}/>}
       {section==='projects' && projectId && !project && <p className="notice" role="status">Dieses Projekt ist nicht verfügbar.</p>}
       {section==='projects' && (project?<Project key={project.id} tab={view} project={project} data={data} run={run} flags={flags} accountId={person.id} back={()=>navigate('projects')}/>
         :<Projects data={data} run={run} filters={projectFilters} onFilter={setProjectFilters} select={(id)=>navigate('projects',id)}/>)}
