@@ -71,15 +71,18 @@ export function Dashboard({data,accountId,select,open}:{data:Data;accountId:stri
   const active=data.projects.filter((project)=>!['complete','cancelled'].includes(project.stage));
   const today=useLocalDay();
   const activeIds=new Set(active.map((project)=>project.id));
-  const dueTasks=data.tasks
+  const matchingTasks=data.tasks
     .filter((task)=>task.status!=='done' && task.due && activeIds.has(task.project_id)
       && matchesDashboardAssignee(task.assignee_id,assignee,accountId))
     .map((task)=>({task,due:task.due.slice(0,10)}))
     .filter(({due})=>matchesDashboardPeriod(due,today,period))
     .sort((first,second)=>first.due.localeCompare(second.due)
       || first.task.name.localeCompare(second.task.name,'de')
-      || first.task.id.localeCompare(second.task.id))
-    .slice(0,10);
+      || first.task.id.localeCompare(second.task.id));
+  const dueTasks=matchingTasks.slice(0,10);
+  const taskCount=matchingTasks.length;
+  const taskCountLabel=taskCount>dueTasks.length ? `${dueTasks.length} von ${taskCount} Aufgaben angezeigt`
+    : taskCount===1 ? '1 Aufgabe' : `${taskCount} Aufgaben`;
   const metrics=[
     ['Aktive Projekte',active.length],['Offene Aufgaben',data.tasks.filter((task)=>task.status!=='done').length],
     ['Feste Reservierungen',data.reservations.filter((entry)=>entry.status==='firm').length],['Kosten ohne Zuordnung',data.costs.filter((entry)=>!entry.project_id).length],
@@ -101,12 +104,15 @@ export function Dashboard({data,accountId,select,open}:{data:Data;accountId:stri
         {Object.entries(dashboardPeriodChoices).map(([value,label])=><option key={value} value={value}>{label}</option>)}
       </select>}</Field>
     </div>}>
-      {dueTasks.length ? <Table headers={['Aufgabe','Projekt','Verantwortlich','Termin']} rows={dueTasks.map(({task,due})=>({
+      <p className={taskCount ? 'panel-body subtle' : 'empty'} role="status">
+        {taskCount ? taskCountLabel : dashboardEmptyTasks(assignee,period)}
+      </p>
+      {taskCount>0 && <Table headers={['Aufgabe','Projekt','Verantwortlich','Termin']} rows={dueTasks.map(({task,due})=>({
         key:task.id,cells:[task.name,<button className="text-button" onClick={()=>select(task.project_id)}>{name(data.projects,task.project_id)}</button>,
           name(data.users,task.assignee_id),<div className="actions">{calendarDate(due)}
             {due<=today && <Pill label={due<today?'Überfällig':'Heute'} tone="accent"/>}
           </div>],
-      }))}/> : <p className="empty">{dashboardEmptyTasks(assignee,period)}</p>}
+      }))}/>}
     </Panel>
   </>;
 }
