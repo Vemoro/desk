@@ -111,12 +111,13 @@ test('Die Vorschau liest aktuelle Belege und die echte Bestätigung erhält eine
     expect(added.status(),await added.text()).toBe(201);
     const [exported,manual]=await added.json() as {id:string}[];
     const invalid=reference+'-fehler';
-    const csv=['reference;name;amount;cost_center',[reference,'Export nachher','21,00',first.cost_center].join(';'),invalid+';Fehler;ungültig;'].join('\n');
+    const invalidText=reference+'-text';
+    const csv=['reference;name;amount;cost_center',[reference,'Export nachher','21,00',first.cost_center].join(';'),invalid+';Fehler;ungültig;',invalidText+';Aus\0lage;6;'].join('\n');
     const persisted=async()=>{
       const response=await request.get('/api/v1/costs?limit=200');
       expect(response.ok()).toBe(true);
       const costs=await response.json() as {id:string;reference:string;cents:number;project_id:string;source:string}[];
-      expect(costs.some(cost=>cost.reference===invalid)).toBe(false);
+      expect(costs.some(cost=>cost.reference===invalid || cost.reference===invalidText)).toBe(false);
       return costs.filter(cost=>cost.reference===reference);
     };
 
@@ -124,6 +125,7 @@ test('Die Vorschau liest aktuelle Belege und die echte Bestätigung erhält eine
     await inspect.click();
     const row=preview.getByRole('row').filter({has:page.getByRole('cell',{name:reference,exact:true})});
     await expect(row).toContainText('Aktualisierung');
+    await expect(preview.getByText('name: Ungültige Zeichen.',{exact:true})).toBeVisible();
     await expect(row).toContainText(first.name);
     await expect(preview.getByRole('heading')).toBeFocused();
     await preview.getByRole('button',{name:'Abbrechen',exact:true}).press('Enter');

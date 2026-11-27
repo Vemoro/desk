@@ -89,6 +89,10 @@ export function parseCostCsv(text:string):CostPreviewRow[] {
     }
     if(record.values.length>columns.length) problems.push(`Spalte ${columns.length+1}: Mehr Felder als in der Kopfzeile.`);
     if((references.get(row.reference) ?? 0)>1) problems.push('reference: Doppelte Belegreferenz.');
+    for(const field of ['reference','name','cost_center']){
+      const value=row[field] ?? '';
+      if(!value.isWellFormed() || value.includes('\0')) problems.push(field+': Ungültige Zeichen.');
+    }
     let cents:number|undefined;
     try { cents=money(row.amount); }
     catch { problems.push('amount: Betrag mit höchstens zwei Nachkommastellen eingeben.'); }
