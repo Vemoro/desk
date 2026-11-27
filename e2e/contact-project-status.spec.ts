@@ -43,5 +43,9 @@ test('Kontaktdetail trennt offene und beendete Aufträge und setzt den Filter be
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText('Musterwartung');
   await filter.selectOption({label:'Beendet'});
-  await expect(detail.getByText('Keine Projekte für diesen Filter.')).toBeVisible();
+  await expect(detail.getByRole('status')).toHaveText('Keine beendeten Projekte.');
+  await detail.getByRole('button',{name:'Filter zurücksetzen',exact:true}).press('Enter');
+  await expect(filter).toHaveValue('all');
+  await expect(filter).toBeFocused();
+  await expect(rows).toHaveCount(1);
 });

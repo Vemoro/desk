@@ -155,17 +155,23 @@ function ContactDetail({contact,projects,run,haben,comparison,sync,detailRef,ope
 
 function ContactProjects({projects,openProject}:{projects:Row[];openProject:(id:string)=>void}) {
   const [status,setStatus]=useState('all');
+  const statusFilter=useRef<HTMLSelectElement>(null);
   const visible=projects.filter(project=>status==='all' || isOpenProject(project.stage)===(status==='open'));
   return <section className="contact-projects" aria-labelledby="contact-projects-title">
     <div className="panel-body">
       <h3 id="contact-projects-title">Zugehörige Projekte</h3>
-      {projects.length>0&&<Field label="Projektstatus filtern" className="filter">{props=><select {...props} value={status}
+      {projects.length>0&&<Field label="Projektstatus filtern" className="filter">{props=><select {...props} ref={statusFilter} value={status}
         onChange={event=>setStatus(event.currentTarget.value)}>
         <option value="all">Alle</option><option value="open">Offen</option><option value="closed">Beendet</option>
       </select>}</Field>}
       {!projects.length&&<p className="subtle">Diesem Kontakt sind noch keine Projekte zugeordnet.</p>}
-      {projects.length>0&&!visible.length&&<p role="status" className="subtle">Keine Projekte für diesen Filter.</p>}
     </div>
+    {projects.length>0&&!visible.length&&<ListEmpty action={<button type="button" onClick={()=>{
+      setStatus('all');
+      statusFilter.current?.focus();
+    }}>Filter zurücksetzen</button>}>
+      {status==='open'?'Keine offenen Projekte.':'Keine beendeten Projekte.'}
+    </ListEmpty>}
     {visible.length>0&&<Table headers={['Projekt','Status','Termin']} rows={visible.map(project=>({key:project.id,cells:[
       <button type="button" className="text-button" onClick={()=>openProject(project.id)}>{project.name}</button>,
       <Pill label={projectStages[project.stage]} tone={project.stage==='confirmed'?'accent':'neutral'}/>,
