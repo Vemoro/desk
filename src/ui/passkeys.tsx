@@ -1,7 +1,8 @@
+import { Field } from './field';
 import { createAuthClient } from 'better-auth/client';
 import { passkeyClient } from '@better-auth/passkey/client';
-import { useEffect, useState, type FormEvent } from 'react';
-import { Panel } from './widgets';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { ConfirmDialog, Panel, type Confirmation, type Run } from './widgets';
 
 const authClient=createAuthClient({plugins:[passkeyClient()]});
 type Passkey = {id:string; name?:string | null};
@@ -29,11 +30,15 @@ export function PasskeyLogin({onSignIn}:{onSignIn:(authenticate:()=>Promise<void
   </div>;
 }
 
-export function PasskeySettings() {
+export function PasskeySettings({run}:{run:Run}) {
   const [passkeys,setPasskeys]=useState<Passkey[] | null>();
   const [label,setLabel]=useState('');
+  const [labelError,setLabelError]=useState('');
+  const labelField=useRef<HTMLInputElement>(null);
   const [busy,setBusy]=useState(false);
   const [notice,setNotice]=useState({message:'',error:false});
+  const [confirmation,setConfirmation]=useState<Confirmation>();
+  const panel=useRef<HTMLElement>(null);
 
   async function load() {
     setPasskeys(undefined);
@@ -51,7 +56,12 @@ export function PasskeySettings() {
   async function add(event:FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const name=label.trim();
-    if(!name || busy) return;
+    if(busy) return;
+    if(!name) {
+      setLabelError('Gib einen Namen für den Passkey ein.');
+      labelField.current?.focus();
+      return;
+    }
     setBusy(true);
     setNotice({message:'',error:false});
     try {
@@ -67,32 +77,22 @@ export function PasskeySettings() {
     }
   }
 
-  async function remove(key:Passkey) {
-    if(busy) return;
-    setBusy(true);
+  function confirmRemove(key:Passkey,trigger:HTMLButtonElement) {
     setNotice({message:'',error:false});
-    try {
-      const result=await authClient.passkey.deletePasskey({id:key.id});
-      if(result.error || !result.data) throw new Error();
-      setPasskeys((keys)=>keys?.filter((record)=>record.id!==key.id) ?? keys);
-      setNotice({message:'Passkey entfernt.',error:false});
-    } catch {
-      setNotice({message:'Der Passkey konnte nicht entfernt werden.',error:true});
-    } finally {
-      setBusy(false);
-    }
+    setConfirmation({actionKey:`passkey-remove:${key.id}`,title:'Passkey entfernen',actionLabel:'Passkey entfernen',danger:true,trigger,
+      description:`„${key.name || 'Passkey'}“ kann nach dem Entfernen nicht mehr für die Anmeldung verwendet werden.`,
+      submit:async isCurrent=>{
+        const result=await authClient.passkey.deletePasskey({id:key.id});
+        if(result.error || !result.data) throw new Error('Der Passkey konnte nicht entfernt werden.');
+        if(isCurrent()) setPasskeys(keys=>keys?.filter(record=>record.id!==key.id) ?? keys);
+      },feedback:'Passkey entfernt.'});
   }
 
-  return <Panel title="Passkeys"><div className="panel-body">
+  return <Panel title="Passkeys" focusRef={panel}><div className="panel-body">
     <p>Mit einem Passkey kannst du dich bei Desk anmelden. Dein Passwort bleibt verfügbar.</p>
-    <form className="form-grid passkey-form" onSubmit={add}>
-      <label><span>Name für den Passkey</span><input value={label} onChange={(event)=>setLabel(event.target.value)} maxLength={80} required/></label>
-      <button className="primary" disabled={busy || !label.trim()}>{busy?'Bitte warten …':'Passkey hinzufügen'}</button>
-    </form>
-    {notice.message && <p role={notice.error?'alert':'status'} className={notice.error?'inline-error':'subtle'}>{notice.message}</p>}
     {passkeys?.length ? <ul className="passkey-list">{passkeys.map((key)=><li key={key.id}>
-      <span>{key.name || 'Passkey'}</span><button type="button" disabled={busy} aria-label={`Passkey ${key.name || ''} entfernen`.replace('  ',' ')}
-        onClick={()=>void remove(key)}>Entfernen</button>
+      <span>{key.name || 'Passkey'}</span><button type="button" className="danger" disabled={busy} aria-label={`Passkey ${key.name || ''} entfernen`.replace('  ',' ')}
+        onClick={event=>confirmRemove(key,event.currentTarget)}>Entfernen</button>
     </li>)}</ul> : null}
     {passkeys?.length===0 && <p className="subtle">Noch keine Passkeys eingerichtet.</p>}
     {passkeys===undefined && <p className="subtle" role="status">Passkeys werden geladen …</p>}
@@ -100,5 +100,15 @@ export function PasskeySettings() {
       <p className="inline-error" role="alert">Passkeys konnten nicht geladen werden.</p>
       <button type="button" onClick={()=>void load()}>Erneut laden</button>
     </div>}
+    <form className="form-grid passkey-form" onSubmit={add} noValidate>
+      <Field label="Name für den Passkey" error={labelError}>{props=><input {...props} ref={labelField} value={label}
+        onChange={event=>{
+          setLabel(event.currentTarget.value);
+          if(event.currentTarget.value.trim()) setLabelError('');
+        }} maxLength={80} required disabled={busy}/>}</Field>
+      <button className="primary" disabled={busy}>{busy?'Bitte warten …':'Passkey hinzufügen'}</button>
+    </form>
+    {notice.message && <p role={notice.error?'alert':'status'} className={notice.error?'inline-error':'subtle'}>{notice.message}</p>}
+    {confirmation && <ConfirmDialog confirmation={confirmation} run={run} dismiss={()=>setConfirmation(undefined)} fallbackFocus={panel}/>}
   </div></Panel>;
 }

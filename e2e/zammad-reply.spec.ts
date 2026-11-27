@@ -7,11 +7,13 @@ test('Interne Notiz bleibt geöffnet und kann einen Beitrag zitieren',async({pag
   await page.route('**/api/v1/projects?*',route=>route.fulfill({json:[{id:'notiz',name:'Büroinstallation',stage:'planning',zammad_ticket_id:42}]}));
   await page.route('**/api/v1/integrations',route=>route.fulfill({json:{zammad:true,haben:false}}));
   const outgoing:object[]=[];
+  let notesWritten=0;
   let forwarded=false;
   await page.route(path,route=>route.fulfill({json:{
     ticket:{number:'42',title:'Büroinstallation',url:'https://zammad.example.test/'},articles,outgoing,
   }}));
   await page.route(path+'/notes',route=>{
+    notesWritten++;
     const {id,ticketId,body}=route.request().postDataJSON();
     expect(route.request().postDataJSON()).toEqual({id,ticketId:42,body:'Abstimmen\n\n> Anfrage\n> Termin am Freitag.'});
     expect(ticketId).toBe(42);
@@ -31,11 +33,32 @@ test('Interne Notiz bleibt geöffnet und kann einen Beitrag zitieren',async({pag
   await page.getByRole('link',{name:'Kommunikation',exact:true}).click();
   const note=page.getByRole('textbox',{name:'Interne Notiz'});
   await expect(note).toBeVisible();
+  const saveNote=page.getByRole('button',{name:'Notiz hinzufügen',exact:true});
+  await expect(saveNote).toBeEnabled();
+  await note.focus();
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  await expect(saveNote).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(note).toBeFocused();
+  await expect(note).toHaveAccessibleDescription('Schreibe zuerst eine interne Notiz.');
+  expect(notesWritten).toBe(0);
+  await page.getByRole('button',{name:'In Notiz zitieren'}).click();
+  await expect(note).not.toHaveAttribute('aria-invalid','true');
   await note.fill('Abstimmen');
+  await expect(note).not.toHaveAttribute('aria-invalid','true');
   await page.setViewportSize({width:390,height:844});
   const compose=page.getByRole('button',{name:'Antwort schreiben',exact:true});
-  const freeMessage=page.getByRole('region',{name:'Neue E-Mail'}).getByRole('textbox',{name:'Nachricht'});
+  const freeEditor=page.getByRole('region',{name:'Neue E-Mail'});
+  const freeMessage=freeEditor.getByRole('textbox',{name:'Nachricht'});
   await compose.click();
+  const longName='m'.repeat(180)+'.pdf';
+  await freeEditor.getByLabel('PDF-Anhang').setInputFiles({name:longName,mimeType:'application/pdf',buffer:Buffer.from('%PDF-Muster')});
+  expect(await freeEditor.getByText(longName,{exact:true}).evaluate(element=>{
+    const range=document.createRange();
+    range.selectNodeContents(element);
+    return Array.from(range.getClientRects()).every(rect=>rect.right<=window.innerWidth);
+  })).toBe(true);
   await freeMessage.fill('Separater E-Mail-Entwurf');
   await page.getByRole('button',{name:'In Notiz zitieren'}).click();
   await expect(note).toBeFocused();
@@ -52,6 +75,7 @@ test('Interne Notiz bleibt geöffnet und kann einen Beitrag zitieren',async({pag
   await expect(forwarding).toBeHidden();
   expect(forwarded).toBe(true);
   await page.getByRole('button',{name:'Notiz hinzufügen'}).click();
+  await expect.poll(()=>notesWritten).toBe(1);
   await expect(page.getByText('Neue interne Notiz',{exact:true})).toBeVisible();
   await expect(note).toBeVisible();
   await expect(note).toBeEmpty();
@@ -81,6 +105,7 @@ test('Zammad beantwortet die gewählte E-Mail mit nachvollziehbarem Empfänger u
       articles,outgoing:attempts,
     }}));
   await page.route(path+'/outgoing/*',route=>{
+    if(!attempts.length) return route.fulfill({status:404,json:{code:'zammad_attempt_not_found'}});
     if(route.request().postDataJSON().retry) {
       attempts[0]!.status='unknown';
       historyUnavailable=true;
@@ -138,9 +163,16 @@ test('Zammad beantwortet die gewählte E-Mail mit nachvollziehbarem Empfänger u
   await reply.click();
   await expect(editor.getByLabel('Betreff')).toHaveValue('Erste Anfrage');
   await editor.getByLabel('Nachricht',{exact:true}).fill('Bitte am Haupteingang melden.');
-  await editor.getByLabel('PDF-Anhang').setInputFiles({
+  await page.keyboard.press('Tab');
+  await expect(editor.getByLabel('PDF-Anhang')).toBeFocused();
+  const chooser=page.waitForEvent('filechooser');
+  await page.keyboard.press('Space');
+  await (await chooser).setFiles({
     name:'Muster.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-Muster'),
   });
+  await expect(editor.getByText('Muster.pdf',{exact:true})).toBeVisible();
+  await expect(editor.getByLabel('PDF-Anhang')).toHaveAccessibleDescription('Muster.pdf');
+  await expect(editor.getByLabel('PDF-Anhang')).toHaveAccessibleName('PDF-Anhang Andere PDF-Datei auswählen');
   await editor.getByRole('button',{name:'E-Mail über Zammad senden'}).click();
   await expect(editor.getByRole('alert')).toHaveText('Die Antwortadresse kann gerade nicht geprüft werden.');
   await expect(editor.getByLabel('Nachricht',{exact:true})).toHaveValue('Bitte am Haupteingang melden.');
@@ -153,6 +185,8 @@ test('Zammad beantwortet die gewählte E-Mail mit nachvollziehbarem Empfänger u
   await expect(editor.getByLabel('Nachricht',{exact:true})).toHaveValue('Bitte am Haupteingang melden.');
   await editor.getByRole('button',{name:'E-Mail über Zammad senden'}).click();
   await expect(editor.getByLabel('Nachricht',{exact:true})).toBeDisabled();
+  await editor.getByRole('button',{name:'Sendeversuch prüfen',exact:true}).click();
+  expect(outbound).toHaveLength(2);
   await editor.getByRole('button',{name:'Mit denselben Angaben fortfahren'}).click();
   await expect(editor.getByRole('alert').last()).toHaveText('Sendezustand prüfen. Der Versuch steht im Projektverlauf.');
   await expect(editor.getByLabel('Betreff')).toBeDisabled();

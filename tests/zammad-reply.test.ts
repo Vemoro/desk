@@ -76,6 +76,9 @@ test('Zammad ermittelt die Antwortadresse am ausgewählten Artikel und behält d
     expect(await invalidReference.json()).toMatchObject({code:'zammad_message_not_stored'});
     expect((await call('/messages',{...message,recipient:'mara@example.test'})).status).toBe(409);
     expect(sent).toHaveLength(0);
+    const missingAttempt=await call(`/outgoing/${message.id}`,{retry:false});
+    expect(missingAttempt.status).toBe(404);
+    expect(await missingAttempt.json()).toMatchObject({code:'zammad_attempt_not_found'});
     expect(await (await call('/messages',message)).json()).toMatchObject({status:'failed'});
     holdHistory=true;
     const retry=call(`/outgoing/${message.id}`,{retry:true});

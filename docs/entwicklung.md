@@ -4,6 +4,10 @@
 
 Prüfe vor einer Änderung [Produktumfang](roadmap.md), Status, Auftrag und erwartetes Ergebnis. Suche nach vorhandenen Lösungen und Abhängigkeiten. Bei einem Fehler belege am relevanten Stand, was aktuell passiert. Bei einer Integration gilt die Version der vorgesehenen Schnittstelle. Halte offene Entscheidungen des Maintainers in Issue oder PR fest.
 
+Fehlt für einen neuen Bereich eine passende Desk-Vorgabe zu Gestaltung oder Code, prüfe vor der Umsetzung übertragbare Regeln und Beispiele im [Haben-Repository](https://github.com/Speicherstadt/haben). Halte im zugehörigen PR einen begründeten Vorschlag mit Quelle und geprüftem Stand fest. Gibt es kein passendes Vorbild, dokumentiere das Ergebnis kurz im PR.
+
+Veröffentlichte SQL-Migrationen behalten Dateiname und Inhalt. Neue Migrationen stehen in Dateinamensreihenfolge hinter den veröffentlichten Dateien. Die CI ermittelt den zuletzt veröffentlichten Release aus `Vemoro/desk` und verifiziert das Upgrade mit synthetischen Kontakt-, Projekt- und Lagerdaten. Bei Pull Requests läuft die Prüfung auf dem zusammengeführten Stand. [Upgrade-Prüfung](../scripts/check-release-upgrade.py)
+
 Arbeite pro Thema auf einem eigenen Branch gegen die passende Git-Basis. Änderungen an `main` kommen über freigegebene Pull Requests. Wenn eine Vorarbeit in einem offenen PR steckt, nenne dessen Nummer, Basis und Head. Fremde Änderungen bleiben geschützt. Bestehende Routen, Daten und Exportformate sind Bestandteil der Abnahme, wenn die Änderung sie berührt.
 
 ## Umsetzung
@@ -11,6 +15,14 @@ Arbeite pro Thema auf einem eigenen Branch gegen die passende Git-Basis. Änderu
 Nutze vorhandene Komponenten und Abläufe, wenn ihr Verhalten passt. Halte Änderungen am Verhalten, passende Tests und die betroffene Nutzerdoku zusammen. Ein reproduzierbarer Bugfix beginnt mit einem Test, der aus dem erwarteten Grund fehlschlägt. Wähle Unit-Tests für Logik, Integrationstests für Datenbank und Schnittstellen und Browserfälle für kritische Bedienabläufe.
 
 Behandle gespeicherte Geldbeträge in ganzen Cent. Prüfe bei Schreibvorgängen Wiederholungen, mögliche Konkurrenz und den Zustand nach einem Fehler. Ergänze beim Ändern der Datenbank eine neue Migration. Bereits angewendete Migrationen bleiben stabil. Änderungen an gespeicherten Daten brauchen eine Probe mit repräsentativem Altbestand und belegtem Wiederanlauf. Für die Oberfläche gelten die [Gestaltungsregeln](../DESIGN.md).
+
+### Dateigröße und Funktionslänge
+
+Für TypeScript- und TSX-Quelldateien unter `src/` und `scripts/` gelten höchstens 400 physische Zeilen je Datei und 80 Codezeilen je Funktion. Tests, Deklarationsdateien und der generierte Router sind ausgenommen. Die Funktionsprüfung zählt Zeilen mit Code-Token im Rumpf. Leerzeilen, reine Kommentare, Textzeilen in JSX und Fortsetzungszeilen in Zeichenketten zählen nur, wenn auf derselben Zeile weiterer Code beginnt. Eine Aufteilung erhält Verhalten und Grenzen der vorhandenen Schnittstellen. [Habens Größenregeln](https://haben.app/mitwirken.html#automatische-prüfungen-der-regeln)
+
+`bun run check` prüft die Grenzen lokal und in der Anwendungs-CI. `bun run check:code-size --bestand` zeigt die noch zu langen Stellen. Die befristete Liste unter `.checks/code-size.json` führt die beim Umstieg gemessenen Höchstwerte. Die CI vergleicht Ausnahmen mit dem Git-Stand der Zielbasis. Sie lehnt neue oder vergrößerte Ausnahmen ab. Kürzere oder entfernte Stellen werden im selben PR aus der Liste gestrichen oder auf den neuen Wert gesetzt.
+
+Mit `bun run check:code-size --release` prüfst du den Stand für den Release. Ab `deskVersion` 0.2.0.0 erzwingt die Anwendungs-CI diese Prüfung auch beim regulären Aufruf. Vor der Freigabe müssen die Übergangsausnahmen abgebaut sein. [Release-Abnahme](release-abnahme.md)
 
 ## Issue-Review vor der Planung
 
@@ -78,6 +90,19 @@ Der manuell startbare Workflow „Doku-Screenshots erstellen“ stellt die Bilde
 Auf einem Stand mit Entwicklungsdoku allein prüfe die geänderten Regeln, Verweise, Skills und Beispiele. Halte dort offen fest, welche Anwendungstests mangels Anwendung auf dieser Zielbasis nicht laufen. Für Screenshots und Beispiele nutze fiktive oder anonymisierte Angaben. Zugangsdaten und personenbezogene Daten bleiben aus Repository, Issues, Prompts und Logs heraus.
 
 Doku, Oberfläche und Beiträge werden auf Deutsch geschrieben, Code-Bezeichner auf Englisch. Eine Regel steht an einer maßgeblichen Stelle. Der Skill verweist dorthin und beschreibt den Ablauf. Vorher-Nachher-Bilder nutzen vollständige Git-Stände, gleiche Daten und Viewports sowie Hell, Dunkel und bei betroffener Bedienung Smartphone. Der [Screenshot-Skill](../.agents/skills/desk-pr-screenshots/SKILL.md) beschreibt Aufnahme und Veröffentlichung.
+
+### Projektliste für einen PR vergleichen
+
+Starte die beiden zu prüfenden Git-Stände auf unterschiedlichen lokalen Ports. Verwende je Instanz eine eigene, frisch angelegte PostgreSQL-Datenbank mit Suffix `_demo`. Führe je Instanz `bun run migrate` und `bun run demo` mit demselben `DESK_DEMO_PASSWORD` aus. Setze die zum Port passende `DESK_ORIGIN` und lasse echte Integrationen aus. Verwende direkte Loopback-Adressen. Der Aufruf folgt keinen Weiterleitungen.
+
+Führe den Vergleich im Checkout aus, der `review:screenshots` enthält. Verwende dort installiertes Playwright-Chromium und dasselbe `DESK_DEMO_PASSWORD` wie für die Demo-Datenbanken.
+
+```sh
+bun run review:screenshots http://localhost:4193 http://localhost:4194
+bun run review:screenshots --nur-nachher http://localhost:4194
+```
+
+Der Vergleich erzeugt acht Bilder der Projektliste mit fester Uhrzeit auf Desktop und Smartphone in Hell und Dunkel. Bei `--nur-nachher` reicht eine Instanz. Der Aufruf erzeugt vier Nachher-Bilder. Das Terminal nennt den neuen Ausgabeordner unter `build/screenshots/`. Verlinke die gesichteten Bildpaare im PR. Bei einer neuen Ansicht vermerke den fehlenden Ausgangsstand. [PR-Screenshot-Workflow](../.agents/skills/desk-pr-screenshots/SKILL.md)
 
 ## Entwicklungsrunden für Agenten
 

@@ -94,3 +94,21 @@ test('Das Menü zeigt Beschriftungen auch auf einem sehr schmalen Smartphone vol
   await nav.getByRole('button',{name:'Einstellungen',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Einstellungen',exact:true})).toBeVisible();
 });
+
+test('Der aktive Kontobereich bleibt in kurzen Fenstern sichtbar',async({page})=>{
+  await page.setViewportSize({width:701,height:480});
+  await signIn(page);
+  await page.goto('/#account');
+  const active=page.getByRole('button',{name:'Mein Konto',exact:true});
+  await expect(active).toHaveAttribute('aria-current','page');
+  const inPanel=()=>active.evaluate(button=>{
+    const row=button.getBoundingClientRect();
+    const panel=button.closest('#desk-navigation')!.getBoundingClientRect();
+    return row.top>=panel.top && row.bottom<=panel.bottom;
+  });
+  await expect.poll(inPanel).toBe(true);
+
+  await page.setViewportSize({width:280,height:480});
+  await page.getByRole('button',{name:'Menü',exact:true}).click();
+  await expect.poll(inPanel).toBe(true);
+});

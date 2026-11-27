@@ -8,6 +8,33 @@ const ticket={id:42,number:'42',title:'Anfrage vom Musterbüro',url:'https://zam
 const path='**/api/v1/projects/muster/zammad';
 const outgoing=[{id:'attempt',subject:'Angebot gesendet',status:'sent'}];
 
+test('Der Fokus bleibt beim Tab-Umlauf im kleinen Ticketdialog sichtbar',async({page})=>{
+  await page.route('**/api/v1/projects?*',route=>route.fulfill({json:[{id:'muster',name:projectName,stage:'planning'}]}));
+  await page.route('**/api/v1/integrations',route=>route.fulfill({json:{zammad:true,haben:false}}));
+  await signIn(page);
+  await project(page,projectName);
+  await page.getByRole('link',{name:'Kommunikation',exact:true}).click();
+  await page.setViewportSize({width:390,height:320});
+  const trigger=page.getByRole('button',{name:'Ticket anlegen',exact:true});
+  await trigger.click();
+  const dialog=page.getByRole('dialog',{name:'Ticket anlegen'});
+  const first=dialog.getByLabel('Betreff');
+  await expect(first).toBeFocused();
+  for(let index=0;index<5;index++) {
+    await page.keyboard.press('Tab');
+    expect(await dialog.evaluate(element=>{
+      const focus=document.activeElement;
+      if(!focus || !element.contains(focus)) return false;
+      const bounds=focus.getBoundingClientRect();
+      return focus.contains(document.elementFromPoint(bounds.x+bounds.width/2,bounds.y+bounds.height/2));
+    })).toBe(true);
+  }
+  await expect(first).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(trigger).toBeFocused();
+});
+
 async function openTarget(page:Page) {
   const record={id:'muster',name:projectName,stage:'planning',zammad_ticket_id:42};
   await page.route('**/api/v1/projects?*',route=>route.fulfill({json:[record]}));
@@ -74,6 +101,85 @@ test('Fehler beim ersten Abruf zeigt keinen leeren Ticketverlauf',async({page})=
 
 function thread(subject:string) {
   return {ticket,outgoing:[],articles:[{id:1,kind:'internal-note',subject,body:'Synthetischer Ticketverlauf.'}]};
+}
+
+for(const fromOpening of [false,true]){
+  test(fromOpening ? 'Ein erneuter Abruf beim Öffnen behält den jüngsten Fehler'
+    : 'Eine ältere Antwort beendet den jüngsten manuellen Abruf nicht',async({page})=>{
+    const older=holdRoute();
+    const newer=holdRoute();
+    const previous={...thread('Bisheriger Verlauf'),outgoing};
+    const current=thread('Aktueller Verlauf');
+    const currentError='Aktueller Abruf fehlgeschlagen';
+    const olderTitle='Verspäteter Verlauf';
+    const oldRequests:Route[]=[];
+    let phase:'initial'|'older'|'newer'|'recovered'=fromOpening?'older':'initial';
+    await page.route(path,route=>{
+      expect(route.request().method()).toBe('GET');
+      if(phase==='initial') return route.fulfill({json:previous});
+      if(phase==='older'){
+        oldRequests.push(route);
+        return older.resolve(route);
+      }
+      if(phase==='newer') return newer.resolve(route);
+      return route.fulfill({json:current});
+    });
+    await openTarget(page);
+    const history=page.getByRole('region',{name:'Ticketverlauf',exact:true});
+    const loading=page.getByRole('status').filter({hasText:loadingLabel});
+    const refresh=page.getByRole('button',{name:'Verlauf aktualisieren',exact:true});
+    const visibleVersion=history.getByText('Aktueller Verlauf',{exact:true});
+    const previousVersion=history.getByText('Bisheriger Verlauf',{exact:true});
+    const outgoingStatus=page.getByRole('row',{name:/Angebot gesendet.*An Zammad übergeben/});
+    let newRequest:Route|undefined;
+    if(!fromOpening){
+      await expect(previousVersion).toBeVisible();
+      phase='older';
+      await refresh.click();
+    }
+    await older.request;
+    try {
+      await expect(loading).toBeVisible();
+      await expect(history).toHaveAttribute('aria-busy','true');
+      await expect(refresh).toBeEnabled();
+      phase='newer';
+      await refresh.press('Enter');
+      await expect(refresh).toBeFocused();
+      newRequest=await newer.request;
+
+      if(fromOpening){
+        await settleResponse(page,newRequest,{error:currentError},503);
+        await expect(history.getByRole('alert')).toHaveText(currentError);
+        await expect(loading).toHaveCount(0);
+        for(const request of oldRequests) await settleResponse(page,request,thread(olderTitle));
+        await expect(history.getByRole('alert')).toHaveText(currentError);
+      }else{
+        await expect(previousVersion).toBeVisible();
+        await expect(outgoingStatus).toBeVisible();
+        for(const request of oldRequests) await settleResponse(page,request,{error:'Alter Abruffehler'},503);
+        await expect(loading).toBeVisible();
+        await expect(history).toHaveAttribute('aria-busy','true');
+        await expect(history.getByRole('alert')).toHaveCount(0);
+        await expect(previousVersion).toBeVisible();
+        await expect(outgoingStatus).toBeVisible();
+        await settleResponse(page,newRequest,current);
+        await expect(visibleVersion).toBeVisible();
+      }
+      await expect(history.getByText(olderTitle,{exact:true})).toHaveCount(0);
+      await expect(loading).toHaveCount(0);
+      await expect(history).toHaveAttribute('aria-busy','false');
+
+      phase='recovered';
+      const recovery=page.waitForResponse(response=>response.url().endsWith('/api/v1/projects/muster/zammad'));
+      await refresh.click();
+      expect((await recovery).ok()).toBe(true);
+      await expect(visibleVersion).toBeVisible();
+      await expect(history.getByRole('alert')).toHaveCount(0);
+    } finally {
+      await Promise.all(oldRequests.map(request=>request.abort().catch(()=>{})));
+      await newRequest?.abort().catch(()=>{});
+    }
+  });
 }
 
 for(const staleStatus of [200,503]){
