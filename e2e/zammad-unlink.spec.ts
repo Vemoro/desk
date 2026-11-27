@@ -1,5 +1,45 @@
 import { expect, test } from '@playwright/test';
-import { project, signIn } from './session';
+import { holdRoute, project, settleResponse, signIn } from './session';
+
+test('Die Ticketdetails erklären die Sperre beim Laden und bei Versandhistorie',async({page})=>{
+  const name='Büroinstallation Westflügel';
+  const first=holdRoute();
+  const retry=holdRoute();
+  let attempts=0;
+  await page.route('**/api/v1/integrations',route=>route.fulfill({json:{haben:false,zammad:true}}));
+  await page.route(/\/api\/v1\/projects\?/,async route=>{
+    const response=await route.fetch();
+    const projects=await response.json() as {name:string}[];
+    await route.fulfill({response,json:projects.map(row=>row.name===name ? {...row,zammad_ticket_id:42} : row)});
+  });
+  await page.route('**/api/v1/projects/*/zammad',route=>{
+    (attempts++===0?first:retry).resolve(route);
+  });
+
+  await signIn(page);
+  await project(page,name);
+  await page.getByRole('link',{name:'Kommunikation',exact:true}).click();
+  const unlink=page.getByRole('button',{name:'Ticketverknüpfung lösen',exact:true});
+  const refresh=page.getByRole('button',{name:'Verlauf aktualisieren'});
+  const waiting='Die Verknüpfung lässt sich lösen, sobald der Ticketverlauf geprüft ist.';
+  await expect(unlink).toBeDisabled();
+  await expect(unlink).toHaveAccessibleDescription(waiting);
+  await settleResponse(page,await first.request,{error:'Verlauf vorübergehend nicht verfügbar.'},502);
+  await expect(page.getByRole('alert')).toContainText('Verlauf vorübergehend nicht verfügbar.');
+  await expect(unlink).toBeEnabled();
+  await expect(page.getByText(waiting,{exact:true})).toHaveCount(0);
+
+  await refresh.focus();
+  await page.keyboard.press('Enter');
+  await expect(unlink).toHaveAccessibleDescription(waiting);
+  await settleResponse(page,await retry.request,{
+    ticket:{id:42,number:'TEST-42',url:'https://example.test/#ticket/zoom/42'},articles:[],
+    outgoing:[{id:'sendeversuch-1',subject:'Musterangebot',status:'sent'}],
+  });
+  await expect(unlink).toHaveCount(0);
+  await expect(page.getByRole('complementary',{name:'Vorgangsdetails'}))
+    .toContainText('Die Verknüpfung bleibt bestehen, weil für dieses Ticket Sendeversuche vorliegen.');
+});
 
 test('Zammad-Zuordnung verlangt Bestätigung und erlaubt erneutes Verknüpfen',async({page})=>{
   const name='Büroinstallation Westflügel';

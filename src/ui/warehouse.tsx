@@ -124,7 +124,8 @@ function OpenCheckouts({data,bookings}:{data:Data;bookings:Bookings}) {
 
 function WarehouseMovements({data,run,accountId}:WarehouseProps) {
   const [correctionId,setCorrectionId]=useState('');
-  const [writingCorrection,setWritingCorrection]=useState(false);
+  const [writingCorrection,setWritingCorrection]=useState('');
+  const correctionProgress=writingCorrection ? `korrektur-laeuft-${writingCorrection}` : undefined;
   const [movementKind,setMovementKind]=useState('');
   const [movementProject,setMovementProject]=useState('');
   const visibleMovements=data.movements.filter(row=>
@@ -179,21 +180,23 @@ function WarehouseMovements({data,run,accountId}:WarehouseProps) {
             {row.correction_reason && <small>{row.correction_reason}</small>}</div>,
           inventoryName(data.items,row.item_id),name(data.locations,row.location_id),name(data.projects,row.project_id),row.quantity,name(data.users,row.actor_id),
           correctable && (remaining > 0 || hasPendingWrite(correctionScope) ? <div>
-            <button type="button" aria-expanded={correctionId===row.id} disabled={writingCorrection}
+            <button type="button" aria-expanded={correctionId===row.id} disabled={Boolean(writingCorrection)}
+              aria-describedby={correctionProgress}
               onClick={()=>setCorrectionId(current=>current===row.id?'':row.id)}>{remaining>0?'Korrigieren':'Korrektur prüfen'}</button>
+            {writingCorrection===row.id && <p id={correctionProgress} className="subtle" role="status">Korrektur wird gebucht …</p>}
             {correctionId===row.id && <div className="stock-correction-form"><Form caption="Korrektur buchen"
               retryScope={correctionScope} fields={[
                 {name:'quantity',label:'Korrekturmenge',type:'number',required:true,min:1,max:remaining,value:1},
                 {name:'reason',label:'Begründung',type:'textarea',required:true},
               ]} submit={async (input,key)=>{
-                setWritingCorrection(true);
+                setWritingCorrection(row.id);
                 try {
                   const saved=await run(()=>api(`movements/${row.id}/corrections`,'POST',
                     {quantity:Number(input.quantity),reason:input.reason},key),'Korrektur gebucht.',{reportWriteRejection:true});
                   if(saved) setCorrectionId(current=>current===row.id?'':current);
                   return saved;
                 } finally {
-                  setWritingCorrection(false);
+                  setWritingCorrection('');
                 }
               }}/></div>}
           </div>
