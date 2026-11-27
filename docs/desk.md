@@ -103,7 +103,7 @@ Ohne aktive Filter zeigt ein leerer Bestand den nächsten Schritt. **Wareneingan
 
 ### Ist-Kosten filtern
 
-In **Ist-Kosten** lassen sich Belege nach Referenz oder Bezeichnung suchen und zugleich nach Quelle und Projektzuordnung filtern. Wählst du unter **Zuordnung filtern** den Eintrag **Ohne Zuordnung** und weist einem Beleg ein Projekt zu, verschwindet er aus der gefilterten Liste. Die Filter bleiben gesetzt. **Filter zurücksetzen** zeigt wieder alle Belege.
+In **Ist-Kosten** lassen sich Belege nach Referenz oder Bezeichnung suchen und zugleich nach Quelle und Projektzuordnung filtern. Wählst du unter **Zuordnung filtern** den Eintrag **Ohne Zuordnung** und weist einem Beleg ein Projekt zu, verschwindet er aus der gefilterten Liste. Die Filter bleiben gesetzt. **Filter zurücksetzen** zeigt wieder alle Belege. Die Spalte **Kostenstelle** zeigt den am Beleg gespeicherten Wert. Bei einem Beleg ohne Kostenstelle steht dort „–“. Eine manuelle Projektzuordnung ändert diesen Belegwert nicht.
 
 ### Kosten aus CSV übernehmen
 
