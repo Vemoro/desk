@@ -4,6 +4,7 @@ export const projectStages: Record<string,string> = {
   inquiry:'Anfrage', planning:'Planung', offered:'Angebot', confirmed:'Bestätigt',
   running:'In Durchführung', complete:'Abgerechnet', cancelled:'Abgesagt',
 };
+export const isOpenProject = (stage:string) => stage!=='complete' && stage!=='cancelled';
 export const taskStages: Record<string,string> = {todo:'Offen',doing:'In Arbeit',review:'Prüfung',done:'Erledigt'};
 export const reservationStages: Record<string,string> = {tentative:'Vorgemerkt',firm:'Fest reserviert',released:'Freigegeben'};
 export const movementStages: Record<string,string> = {
