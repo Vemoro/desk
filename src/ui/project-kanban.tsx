@@ -187,21 +187,17 @@ function AddCard({projectId,status,run,filters}:{projectId:string;status:string;
 }
 
 type CardFocus={taskId:string;trigger:HTMLButtonElement;move?:boolean};
-type PendingCardFocus=CardFocus & {previous:TaskFields;next:TaskFields};
-
-function showsSavedEdit(current:TaskFields,pending:PendingCardFocus) {
-  return (Object.keys(pending.next) as (keyof TaskFields)[]).some(key=>
-    pending.next[key]!==pending.previous[key] && current[key]!==pending.previous[key]);
-}
+type PendingCardFocus=CardFocus & {version:number;previous:TaskFields;next:TaskFields};
 
 function editFocusFilter(task:TaskFields,pending:PendingCardFocus,accountId:string,filters:Filters) {
   const changedDeadline=task.due!==pending.previous.due || task.status!==pending.previous.status;
   return changedDeadline && !matchesDue(task,filters) ? 'due' : hiddenByFilter(task,accountId,filters);
 }
 
-function useKanbanFocus({board,filterControl,searchControl,dueControl,editing,allTasks,canReorder,filters,accountId}:{
+function useKanbanFocus({board,filterControl,searchControl,dueControl,editing,allTasks,dataVersion,canReorder,filters,accountId}:{
   board:RefObject<HTMLDivElement|null>;filterControl:RefObject<HTMLSelectElement|null>;searchControl:RefObject<HTMLInputElement|null>;
-  dueControl:RefObject<HTMLSelectElement|null>;editing:boolean;allTasks:Row[];canReorder:boolean;filters:Filters;accountId:string;
+  dueControl:RefObject<HTMLSelectElement|null>;editing:boolean;allTasks:Row[];dataVersion:number;
+  canReorder:boolean;filters:Filters;accountId:string;
 }) {
   const restoreFocus=useRef<CardFocus|undefined>(undefined);
   const pendingFocus=useRef<PendingCardFocus|undefined>(undefined);
@@ -211,7 +207,7 @@ function useKanbanFocus({board,filterControl,searchControl,dueControl,editing,al
     const pending=pendingFocus.current;
     const row=pending && allTasks.find(task=>task.id===pending.taskId);
     const current=row && taskFields(row);
-    const refreshed=pending && (!current || showsSavedEdit(current,pending));
+    const refreshed=pending && dataVersion>=pending.version;
     if(refreshed) {
       pendingFocus.current=undefined;
       if(!restoreFocus.current && document.activeElement===document.body) restoreFocus.current=pending;
@@ -226,12 +222,12 @@ function useKanbanFocus({board,filterControl,searchControl,dueControl,editing,al
     const filter=hiddenBy ? controls[hiddenBy] : filterControl;
     restoreFocus.current=undefined;
     (card ?? (canReorder ? board.current : filter.current))?.focus();
-  },[board,filterControl,searchControl,dueControl,editing,allTasks,canReorder,filters,accountId]);
+  },[board,filterControl,searchControl,dueControl,editing,allTasks,dataVersion,canReorder,filters,accountId]);
   return {restoreFocus,pendingFocus};
 }
 
-export function ProjectKanban({projectId,accountId,tasks:allTasks,users,run}:{
-  projectId:string;accountId:string;tasks:Row[];users:Row[];run:Run;
+export function ProjectKanban({projectId,accountId,tasks:allTasks,dataVersion,users,run}:{
+  projectId:string;accountId:string;tasks:Row[];dataVersion:number;users:Row[];run:Run;
 }) {
   const [assignee,setAssignee]=useState<AssigneeFilter>('all');
   const [search,setSearch]=useState('');
@@ -246,7 +242,7 @@ export function ProjectKanban({projectId,accountId,tasks:allTasks,users,run}:{
   const board=useRef<HTMLDivElement>(null);
   const [editor,setEditor]=useState<{task:Row;trigger:HTMLButtonElement;move?:boolean}>();
   const {restoreFocus,pendingFocus}=useKanbanFocus({board,filterControl,searchControl,dueControl,
-    editing:Boolean(editor),allTasks,canReorder,filters,accountId});
+    editing:Boolean(editor),allTasks,dataVersion,canReorder,filters,accountId});
   const dragging=useRef<string|undefined>(undefined);
   const [dropPosition,setDropPosition]=useState<DropPosition>();
 
@@ -306,9 +302,9 @@ export function ProjectKanban({projectId,accountId,tasks:allTasks,users,run}:{
       editor.move ? <MoveCardForm task={editor.task} columns={columns} submit={position=>save(()=>move(editor.task.id,position,true))}/>
       : <EditCardForm task={editor.task} users={users} submit={(changes,next)=>save(async()=>{
         if(!Object.keys(changes).length) return true;
-        const saved=await run(()=>api(`tasks/${editor.task.id}`,'PATCH',changes),'Karte gespeichert.',{reportInlineError:true});
-        if(saved) pendingFocus.current={taskId:editor.task.id,trigger:editor.trigger,previous:taskFields(editor.task),next};
-        return saved;
+        return run(()=>api(`tasks/${editor.task.id}`,'PATCH',changes),'Karte gespeichert.',{reportInlineError:true,onSaved:version=>{
+          pendingFocus.current={taskId:editor.task.id,trigger:editor.trigger,previous:taskFields(editor.task),next,version};
+        }});
       })}/>
     }</FormDialog>}
   </section>;

@@ -20,7 +20,7 @@ export function Desk() {
   const [projectFilters,setProjectFilters]=useState(defaultProjectFilters);
   const [planningWeek,setPlanningWeek]=useState<string>();
   const [theme,setTheme]=useState('light');
-  const {person,data,flags,notice,setNotice,refreshRequired,refreshing,confirmationRequests,signIn,logout,endSession,retryRefresh,run}=useDeskData(()=>{
+  const {person,data,dataVersion,flags,notice,setNotice,refreshRequired,refreshing,confirmationRequests,signIn,logout,endSession,retryRefresh,run}=useDeskData(()=>{
     setProjectFilters(defaultProjectFilters);
     setPlanningWeek(undefined);
   });
@@ -79,7 +79,8 @@ export function Desk() {
       </div>}
       {section==='dashboard' && <Dashboard data={data} select={(id)=>navigate('projects',id)} open={()=>navigate('projects')}/>}
       {section==='projects' && projectId && !project && <p className="notice" role="status">Dieses Projekt ist nicht verfügbar.</p>}
-      {section==='projects' && (project?<Project key={project.id} tab={view} project={project} data={data} run={run} flags={flags} accountId={person.id} back={()=>navigate('projects')}/>
+      {section==='projects' && (project?<Project key={project.id} tab={view} project={project} data={data} dataVersion={dataVersion}
+        run={run} flags={flags} accountId={person.id} back={()=>navigate('projects')}/>
         :<Projects data={data} run={run} filters={projectFilters} onFilter={setProjectFilters} select={(id)=>navigate('projects',id)}/>)}
       {section==='planning' && <WeeklyPlanning selectedWeek={planningWeek} onWeek={setPlanningWeek} onSessionExpired={()=>{
         endSession();

@@ -111,6 +111,25 @@ test('Nach Abruffehler und Mitternacht erhält die wieder sichtbare Karte den Fo
   await expect(card).toBeFocused();
 });
 
+test('Ein konkurrierender Schreibzugriff nach Abruffehler lässt den Fokus beim wirksamen Filter',async({page})=>{
+  const {board,date,dialog,search}=await fixture(page);
+  await date.selectOption('today');
+  await search.fill('prüfen');
+  await page.route('**/api/v1/tasks/kanban',route=>route.fulfill({status:503,json:{error:'Test-Abruffehler'}}),{times:1});
+  const card=board.getByRole('button',{name:/Material prüfen/});
+  const taskId=await card.getAttribute('data-task-id');
+  await card.press('Enter');
+  await dialog.getByLabel('Fällig am').fill('2028-05-18');
+  await dialog.getByRole('button',{name:'Karte speichern'}).click();
+  await expect(card).toBeFocused();
+  const response=await page.request.patch('/api/v1/tasks/'+taskId,
+    {headers:{Origin:new URL(page.url()).origin},data:{due:'2028-05-17',name:'Material inspizieren'}});
+  expect(response.ok()).toBeTruthy();
+  await page.getByRole('button',{name:'Ansicht aktualisieren'}).press('Enter');
+  await expect(card).toHaveCount(0);
+  await expect(search).toBeFocused();
+});
+
 test('Nach der Rückkehr zu Alle Termine und Standard lassen sich beide Positionswege speichern',async({page})=>{
   const {date,sort,todo}=await fixture(page);
   await date.selectOption('overdue');
