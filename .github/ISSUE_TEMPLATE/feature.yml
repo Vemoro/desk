@@ -1,0 +1,31 @@
+name: Verbesserung vorschlagen
+description: Einen Arbeitsablauf beschreiben, den Desk besser unterstützen soll.
+title: "[Vorschlag] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Prüfe zuerst die [vorhandenen Issues](https://github.com/Vemoro/desk/issues).
+        Verwende fiktive oder anonymisierte Angaben. Entferne Zugangsdaten und personenbezogene Daten auch aus Logs und Screenshots.
+  - type: textarea
+    id: audience
+    attributes:
+      label: Betroffene Nutzende
+      description: "Pflichtangabe. Wer braucht die Verbesserung und in welcher Situation?"
+    validations:
+      required: true
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Gewünschter Ablauf
+      description: "Pflichtangabe. Beschreibe den heutigen Ablauf und was sich daran ändern soll."
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Prüfbares Ergebnis
+      description: "Pflichtangabe. Woran lässt sich bei einem konkreten Beispiel erkennen, dass der Ablauf funktioniert?"
+    validations:
+      required: true

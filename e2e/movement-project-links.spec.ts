@@ -53,12 +53,13 @@ test('Bewegung öffnet das richtige Projekt und Browser-Zurück erhält die Filt
   await expect(from).toHaveValue('2028-05-18');
   await expect(to).toHaveValue('2028-05-18');
   await expect(checkoutLocation).toHaveValue('');
-  await expect(panel.getByText('1 Bewegung',{exact:true})).toBeVisible();
+  await expect(panel.getByText('1 von 4 Bewegungen',{exact:true})).toBeVisible();
   await expect(panel.getByText('LS-2028-018',{exact:true})).toBeVisible();
   await expect(panel.getByText('LS-2028-017',{exact:true})).toHaveCount(0);
 
   await panel.getByRole('button',{name:'Filter zurücksetzen'}).click();
-  await expect(panel.getByText('4 Bewegungen',{exact:true})).toBeVisible();
+  await expect(panel.getByText('4 von 4 Bewegungen',{exact:true})).toBeVisible();
+  await expect(search).toBeFocused();
   await expect(openProject).toHaveCount(2);
   for(const reference of ['LS-ohne-sichtbares-projekt','LS-ohne-projekt']){
     const projectCell=panel.getByRole('row').filter({has:page.getByText(reference,{exact:true})}).locator('td[data-label="Projekt"]');
@@ -81,7 +82,7 @@ test('Bewegung öffnet das richtige Projekt und Browser-Zurück erhält die Filt
   await page.getByLabel('E-Mail').fill('mira@example.test');
   await page.getByLabel('Passwort').fill(process.env.DESK_DEMO_PASSWORD!);
   await page.getByRole('button',{name:'Anmelden',exact:true}).click();
-  await expect(panel.getByText('4 Bewegungen',{exact:true})).toBeVisible();
+  await expect(panel.getByText('4 von 4 Bewegungen',{exact:true})).toBeVisible();
   await expect(search).toHaveValue('');
   await expect(action).toHaveValue('');
   await expect(project).toHaveValue('');
