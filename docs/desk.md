@@ -17,7 +17,7 @@ In der **Übersicht** zeigt **Fällige Aufgaben** bis zu zehn offene Aufgaben mi
 3. Eine Angebotsreferenz ergänzen. Bei eingerichteter Haben-Verbindung die ID des vorhandenen Angebots eintragen und abgleichen. Desk zeigt den Status des Angebots an und kann die Bestätigung übernehmen. Ohne Haben wird der Projektstatus von Hand gesetzt.
 4. Nach der Bestätigung Ressourcen fest reservieren. Personen können sich in festen Reservierungen zeitlich nicht überschneiden. Bei Geräten prüft Desk die am Lagerort verfügbare Menge im gewählten Zeitraum, bei Verbrauchsmaterial alle festen Reservierungen am Lagerort. Eine Freigabe gibt die reservierte Menge frei. Die Reservierung bleibt mit dem Status „Freigegeben“ sichtbar. Bereits ausgegebene Geräte bleiben bis zur Rückgabe sichtbar.
 5. Im Projektlager Wareneingang erfassen. Das Team kann fest reservierte Geräte im gebuchten Zeitfenster ausgeben und später zurücknehmen. Bei einer festen Reservierung kann es Verbrauchsmaterial ausbuchen. Die Bestandsübersicht zeigt bei Geräten die aktuell geltenden festen Reservierungen und bei Verbrauchsmaterial alle offenen festen Reservierungen. Unter **Offene Ausgaben** kannst du nach Projekt, Lagerort und Artikel filtern. Die Trefferzahl zählt die sichtbaren Ausgabezeilen. Nach einer Teilrückgabe steht in der Zeile die verbleibende Menge. Die Tabelle **Lagerbewegungen** zeigt den Lagerort jeder Buchung.
-6. Ist-Kosten importieren oder per Belegreferenz zuordnen. Im Controlling stehen Netto-Plan- und Ist-Kosten nebeneinander. **Kostenquelle filtern** grenzt die Belegliste des geöffneten Projekts ein. Die Kennzahlen berücksichtigen weiterhin alle zugeordneten Belege. Beim Projektwechsel oder wenn die gewählte Quelle nach dem Nachladen wegfällt, zeigt **Alle Quellen** wieder sämtliche Belege des geöffneten Projekts. Den Auftrag über „In Durchführung“ fortsetzen. Die in Haben oder einem anderen System erstellte Rechnung im Projekt referenzieren und den Projektstatus auf „Abgerechnet“ setzen.
+6. Ist-Kosten importieren oder per Belegreferenz zuordnen. Im Controlling stehen Netto-Plan- und Ist-Kosten nebeneinander. **Kostenquelle filtern** grenzt die Belegliste des geöffneten Projekts ein. Bei ausgewählter Quelle addiert **Summe der sichtbaren Belege** die angezeigten Nettobeträge einschließlich Gutschriften. Unter **Alle Quellen** entfällt diese Teilsumme. Die Kennzahlen berücksichtigen weiterhin alle zugeordneten Belege. Beim Projektwechsel oder wenn die gewählte Quelle nach dem Nachladen wegfällt, zeigt **Alle Quellen** wieder sämtliche Belege des geöffneten Projekts. Den Auftrag über „In Durchführung“ fortsetzen. Die in Haben oder einem anderen System erstellte Rechnung im Projekt referenzieren und den Projektstatus auf „Abgerechnet“ setzen.
 
 Im Projektüberblick unter **Auftrag und Abrechnung** zeigt Desk, welche Referenz für **Angebot** oder **Abgerechnet** noch fehlt. Trage sie ein und wähle **Referenzen speichern**, damit der Statuswechsel verfügbar wird. Eine bereits gespeicherte Haben-Angebots-ID genügt für **Angebot** auch bei deaktivierter Haben-Anbindung.
 
@@ -45,7 +45,7 @@ Unter **Aufgaben sortieren** ordnet **Frühester Termin zuerst** die sichtbaren 
 
 Zum manuellen Umordnen wähle **Standard**, **Alle** und **Alle Termine** und leere einen aktiven Suchbegriff. Status, Zuständigkeit und Fälligkeit kannst du weiterhin im Kartendialog ändern. In jeder Spalte kannst du auch bei aktiven Filtern eine undatierte Karte hinzufügen. Desk meldet nach dem Speichern, welche Filter du bei Bedarf ändern musst, um sie zu sehen.
 
-Wähle unter **Kontakte** den Namen eines Kontakts. Unter **Zugehörige Projekte** stehen seine Projekte mit Status und Termin. Wähle den Projektnamen, um das Projekt zu öffnen. Gleichnamige Kontakte zeigen jeweils ihre eigenen Projekte.
+Wähle unter **Kontakte** den Namen eines Kontakts. Unter **Zugehörige Projekte** stehen seine Projekte mit Status und Termin. **Projektstatus filtern** zeigt alle, offene oder beendete Projekte. **Beendet** umfasst abgerechnete und abgesagte Projekte. Beim Wechsel zu einem anderen Kontakt stehen wieder alle seine Projekte in der Liste. Wähle den Projektnamen, um das Projekt zu öffnen. Gleichnamige Kontakte zeigen jeweils ihre eigenen Projekte.
 
 Wenn Desk meldet, dass eine Änderung gespeichert wurde und die Ansicht nicht aktualisiert werden konnte, wähle **Ansicht aktualisieren**. Desk ruft die Daten erneut ab. Der Schreibvorgang wird dabei nicht wiederholt. Ist deine Sitzung abgelaufen, meldet Desk die erfolgreiche Speicherung in der Anmeldemaske. Nach der Anmeldung lädt Desk die aktuelle Ansicht.
 
@@ -59,7 +59,7 @@ Für den Tagesvergleich liefert `GET /api/v1/reservations` zusätzlich `ends_at_
 
 ### Offene Geräteausgaben in der Ressourcenplanung
 
-**Noch ausgegeben** zeigt bei einer Gerätereservierung, wie viele Geräte zurückgegeben werden müssen. Die Zahl bleibt auch unter **Freigegeben** sichtbar. Nach einer Teilrückgabe sinkt sie um die zurückgegebene Menge. Sind alle Geräte zurück, zeigt die Spalte **0**. Bei Personal und Verbrauchsmaterial steht ein Gedankenstrich. Rückgaben buchst du im **Projektlager**.
+**Noch ausgegeben** zeigt bei einer Gerätereservierung, wie viele Geräte zurückgegeben werden müssen. Die Zahl bleibt auch unter **Freigegeben** sichtbar. Nach einer Teilrückgabe sinkt sie um die zurückgegebene Menge. Sind alle Geräte zurück, zeigt die Spalte **0**. Bei Personal und Verbrauchsmaterial steht ein Gedankenstrich. Rückgaben buchst du im **Projektlager**. **Nur offene Geräteausgaben** grenzt die Ressourcenplanung auf Geräte mit mindestens einer ausstehenden Rückgabe ein. Die Auswahl lässt sich mit Ressourcentyp, Status und Datum kombinieren. Bei aktiver Auswahl entfallen vollständig zurückgegebene Reservierungen beim nächsten Laden der Daten. **Filter zurücksetzen** deaktiviert die Auswahl.
 
 ### Wochenplanung öffnen
 
@@ -105,7 +105,7 @@ Ohne aktive Filter zeigt ein leerer Bestand den nächsten Schritt. **Wareneingan
 
 ### Ist-Kosten filtern
 
-In **Ist-Kosten** lassen sich Belege nach Referenz oder Bezeichnung suchen und zugleich nach Quelle und Projektzuordnung filtern. Wählst du unter **Zuordnung filtern** den Eintrag **Ohne Zuordnung** und weist einem Beleg ein Projekt zu, verschwindet er aus der gefilterten Liste. Die Filter bleiben gesetzt. **Filter zurücksetzen** zeigt wieder alle Belege.
+In **Ist-Kosten** lassen sich Belege nach Referenz oder Bezeichnung suchen und zugleich nach Quelle und Projektzuordnung filtern. Wählst du unter **Zuordnung filtern** den Eintrag **Ohne Zuordnung** und weist einem Beleg ein Projekt zu, verschwindet er aus der gefilterten Liste. Die Filter bleiben gesetzt. **Filter zurücksetzen** zeigt wieder alle Belege. Die Spalte **Kostenstelle** zeigt den am Beleg gespeicherten Wert. Bei einem Beleg ohne Kostenstelle steht dort „–“. Eine manuelle Projektzuordnung ändert diesen Belegwert nicht.
 
 ### Kosten aus CSV übernehmen
 

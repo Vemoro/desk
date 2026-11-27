@@ -2,7 +2,7 @@ import { useId, useRef, useState, type RefObject } from 'react';
 import { reservationStages } from './client';
 import { Field } from './field';
 
-export const emptyReservationFilters={resource:'',status:'',day:''};
+export const emptyReservationFilters={resource:'',status:'',day:'',onlyCheckedOut:false};
 type ReservationFilterValues=typeof emptyReservationFilters;
 
 export function ReservationFilters({filters,onChange,resourceSelector,count,timeZone}:{
@@ -39,6 +39,8 @@ export function ReservationFilters({filters,onChange,resourceSelector,count,time
       <Field label="Am Datum" describedBy={dayZone}>{props=><input {...props} type="date" ref={dayInput}
         value={filters.day} onInput={trackDayInput} onKeyUp={trackDayInput} onBlur={trackDayInput}
         onChange={event=>onChange({...filters,day:event.currentTarget.value})}/>}</Field>
+      <Field label="Nur offene Geräteausgaben" className="checkbox-label reservation-open-filter">{props=><input {...props} type="checkbox"
+        checked={filters.onlyCheckedOut} onChange={event=>onChange({...filters,onlyCheckedOut:event.currentTarget.checked})}/>}</Field>
     </div>
     <div className="actions">
       <span className="subtle" role="status">{count} {count===1?'Reservierung':'Reservierungen'}</span>
