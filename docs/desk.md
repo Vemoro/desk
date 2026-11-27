@@ -91,7 +91,9 @@ Unter **Bestand je Lagerort** sucht **Bestand suchen** nach Teilen des Artikelna
 
 Ohne aktive Filter zeigt ein leerer Bestand den nächsten Schritt. **Wareneingang erfassen** öffnet das Buchungsformular. Fehlen die Stammdaten, öffnet **Neuer Artikel** oder **Neuer Lagerort** das passende Formular.
 
-In **Ist-Kosten** lassen sich Belege nach Referenz oder Bezeichnung suchen und zugleich nach Quelle und Projektzuordnung filtern. Wenn du einem Beleg unter **Ohne Zuordnung** ein Projekt zuweist, verschwindet er aus der gefilterten Liste. Die Filter bleiben gesetzt. **Filter zurücksetzen** zeigt wieder alle Belege.
+### Ist-Kosten filtern
+
+In **Ist-Kosten** lassen sich Belege nach Referenz oder Bezeichnung suchen und zugleich nach Quelle und Projektzuordnung filtern. Wählst du unter **Zuordnung filtern** den Eintrag **Ohne Zuordnung** und weist einem Beleg ein Projekt zu, verschwindet er aus der gefilterten Liste. Die Filter bleiben gesetzt. **Filter zurücksetzen** zeigt wieder alle Belege.
 
 ## Haben
 
