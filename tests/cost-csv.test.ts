@@ -35,3 +35,12 @@ test('Eine Referenz bleibt auch bei einem kaputten zweiten CSV-Datensatz doppelt
   expect(rows[1].problems).toContain('reference: Doppelte Belegreferenz.');
   expect(rows.every((row)=>!row.entry)).toBe(true);
 });
+
+test('CSV weist ungültige Zeichen dem jeweiligen Textfeld zu',()=>{
+  const rows=parseCostCsv('reference;name;amount;cost_center\nB-1;Gültig;1;\nB-\0;Fahrt;2;\nB-2;Aus\0lage;2;\nB-3;Fahrt;2;K-\uD800');
+  expect(rows[0].entry?.reference).toBe('B-1');
+  expect(rows.slice(1).map(row=>row.problems)).toEqual([
+    ['reference: Ungültige Zeichen.'],['name: Ungültige Zeichen.'],['cost_center: Ungültige Zeichen.'],
+  ]);
+  expect(rows.slice(1).every(row=>!row.entry)).toBe(true);
+});

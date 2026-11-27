@@ -24,8 +24,8 @@ async function openControlling(page:Page){
   });
   await signIn(page);
   await project(page,projectName);
-  await page.getByRole('button',{name:'Controlling',exact:true}).click();
-  return page.locator('.panel').filter({has:page.getByRole('heading',{name:'Belegbezogene Ist-Kosten',exact:true})});
+  await page.getByRole('link',{name:'Controlling',exact:true}).click();
+  return page.locator('section').filter({has:page.getByRole('heading',{name:'Belegbezogene Ist-Kosten',exact:true})});
 }
 
 test('Projektcontrolling summiert sichtbare Belege unabhängig von den Projektkennzahlen',async({page})=>{
@@ -40,6 +40,7 @@ test('Projektcontrolling summiert sichtbare Belege unabhängig von den Projektke
   await expect(metrics).toHaveText(projectAmounts);
   await filter.selectOption('haben-export');
   await expect(subtotal).toHaveText(/19,00\s*€/);
+  await expect(subtotal.locator('strong')).toHaveCSS('font-variant-numeric','tabular-nums');
   await expect(rows).toHaveCount(2);
   await expect(rows.first()).toContainText('RE-01');
   await expect(rows.last()).toContainText('GS-01');
