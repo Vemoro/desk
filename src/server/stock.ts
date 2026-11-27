@@ -13,7 +13,7 @@ type Reservation = {
 type Item = { id: string; kind: 'equipment' | 'consumable'; inventory_number: string | null };
 type Movement = {
   id: string; item_id: string; location_id: string; project_id: string | null; reservation_id: string | null;
-  actor_id: string; action: string; quantity: number; created_at: Date | string;
+  actor_id: string; action: string; quantity: number; created_at: Date | string; delivery_reference: string | null;
 };
 type Stock = { item_id: string; location_id: string; physical: number; reserved: number; free: number };
 type WriteRequest = { actorId:string; key:string };
@@ -140,7 +140,8 @@ async function planningWrite<T extends object>(operation:string, request:WriteRe
 
 export async function createMovement(input: z.infer<typeof movementInput>, actor: string, requestKey?:string) {
   const normalized = input.action==='receive' ? {...input,item_id:input.item_id.toLowerCase(),
-    location_id:input.location_id.toLowerCase(),project_id:input.project_id?.toLowerCase()} :
+    location_id:input.location_id.toLowerCase(),project_id:input.project_id?.toLowerCase(),
+    delivery_reference:input.delivery_reference || undefined} :
     {...input,reservation_id:input.reservation_id.toLowerCase()};
   return planningWrite('movements',requestKey ? {actorId:actor,key:requestKey} : undefined,normalized,async transaction=>{
     if (input.action === 'receive') {
@@ -151,7 +152,8 @@ export async function createMovement(input: z.infer<typeof movementInput>, actor
           FROM movements WHERE item_id=$1 AND action IN ('receive','correct_receive')`,[input.item_id]);
         if (input.quantity !== 1 || received?.count) throw new DeskError(409, 'Für dieses Einzelgerät besteht bereits ein wirksamer Wareneingang.');
       }
-      return insertMovement(transaction, input.item_id, input.location_id, input.project_id ?? null, null, actor, input.action, input.quantity);
+      return insertMovement(transaction, input.item_id, input.location_id, input.project_id ?? null, null, actor,
+        input.action, input.quantity, input.delivery_reference || null);
     }
     const current = await reservation(transaction, input.reservation_id);
     if (!current.item_id || !current.location_id) throw new DeskError(400, 'Diese Reservierung betrifft kein Material.');
@@ -207,9 +209,10 @@ export async function correctMovement(id: string, input: z.infer<typeof movement
   });
 }
 
-function insertMovement(query: Query, material: string, location: string, project: string | null, booking: string | null, actor: string, action: string, quantity: number) {
-  return first<Movement>(query, `INSERT INTO movements(item_id,location_id,project_id,reservation_id,actor_id,action,quantity)
-    VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [material,location,project,booking,actor,action,quantity]);
+function insertMovement(query: Query, material: string, location: string, project: string | null, booking: string | null,
+  actor: string, action: string, quantity: number, deliveryReference: string | null = null) {
+  return first<Movement>(query, `INSERT INTO movements(item_id,location_id,project_id,reservation_id,actor_id,action,quantity,delivery_reference)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`, [material,location,project,booking,actor,action,quantity,deliveryReference]);
 }
 
 export async function listStock() {

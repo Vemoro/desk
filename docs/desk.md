@@ -8,7 +8,9 @@ Starte Desk danach über das blaue Desk-Symbol im Startmenü oder auf dem Home-B
 
 ## Ein Auftrag
 
-In der **Übersicht** zeigt **Fällige Aufgaben** bis zu zehn offene Aufgaben mit Termin aus aktiven Projekten. Die ältesten Termine stehen zuerst. **Überfällig** und **Heute** richten sich nach dem Kalendertag des Browsers. Wähle den Projektnamen in einer Zeile, um den Projektüberblick zu öffnen.
+Die Kennzahl **Überfällige Aufgaben** in der **Übersicht** zählt alle offenen Aufgaben aktiver Projekte mit einem Termin vor dem heutigen Kalendertag des Browsers. Sie aktualisiert sich beim Tageswechsel und gilt unabhängig von den Filtern der Aufgabenliste.
+
+In der **Übersicht** zeigt **Fällige Aufgaben** bis zu zehn offene Aufgaben mit Termin aus aktiven Projekten. Unter **Aufgaben anzeigen** wählst du **Alle**, **Mir zugeordnet** oder **Ohne Zuständigkeit**. Unter **Aufgabentermine filtern** wählst du **Alle Termine**, **Überfällig**, **Heute** oder **Später**. Beide Auswahlen greifen vor der Zehn-Zeilen-Grenze. Die Trefferzahl berücksichtigt alle passenden Aufgaben. Sind es mehr als zehn, zeigt Desk zum Beispiel **10 von 17 Aufgaben angezeigt**. Die ältesten Termine stehen zuerst. **Überfällig**, **Heute** und **Später** richten sich nach dem Kalendertag des Browsers. Beim Tageswechsel bleiben die Auswahlen gesetzt und die Aufgaben werden für den neuen Tag angezeigt. Verschwindet dabei eine Zeile mit Tastaturfokus, springt der Fokus zum Terminfilter. Wähle den Projektnamen in einer Zeile, um den Projektüberblick zu öffnen.
 
 1. Einen Kontakt und ein Projekt anlegen. Aufgaben im Kanban verteilen und den Projektstatus auf Planung setzen.
 2. Personal und Inventar vormerken. Das Ende einer Vormerkung muss nach dem Beginn liegen. Bei **Von** und **Bis** zeigt das Formular die Browser-Zeitzone für neue Eingaben. Geplante Einkaufskosten und Verkaufspositionen erfassen. Die Verkaufspositionen können als CSV exportiert werden. Beim Entfernen einer Kalkulationsposition zeigt Desk ihren Namen zur Bestätigung.
@@ -63,6 +65,10 @@ Desk zeichnet Statuswechsel, Festlegungen und Freigaben ab Migration `007_projec
 
 Über die API liefert `GET /api/v1/projects/{id}/history` denselben Verlauf. Mit `limit` und `offset` kannst du seitenweise lesen. Im Feld `source` kennzeichnet `haben` den manuellen Haben-Abgleich und `project` die automatische Freigabe durch Statuswechsel. `desk` steht für die übrigen Ereignisse.
 
+### Wareneingang mit Lieferscheinreferenz
+
+Öffne im **Projektlager** den **Wareneingang** und gib bei Bedarf die **Lieferscheinreferenz** ein. Nach dem Buchen steht sie unter **Lagerbewegungen** in der Spalte **Lieferschein**. Buchungen ohne Referenz zeigen einen Gedankenstrich.
+
 ### Lagerbuchung korrigieren
 
 Öffne **Projektlager → Lagerbewegungen** und wähle beim ursprünglichen Wareneingang oder Verbrauch **Korrigieren**. Gib Menge und Begründung ein und wähle **Korrektur buchen**. Die neue Bewegung enthält die Begründung und einen Link zum sichtbaren Original. Ist dessen Zeile ausgeblendet, zeigt Desk das Datum der Originalbuchung. Teilkorrekturen können zusammen höchstens die ursprüngliche Menge erreichen. Für eine Ausgabe verwendest du die Rückgabe.
@@ -116,13 +122,17 @@ Bei einem verknüpften Ticket filtert **Ticketverlauf durchsuchen** die bereits 
 - Je nach Ticketbetrieb stehen drei Installationswege zur Auswahl. [Installationsplan mit und ohne Zammad](installation.md)
 - Für den Start aus dem Quellcheckout `bun run build`, `bun run migrate` und `bun run start` ausführen. Beim Docker-Image die Migration vor dem Dienststart über einen einmaligen Container aus dem neuen Image ausführen. Verwende dafür `bun scripts/migrate.ts`, dieselbe `DATABASE_URL` und denselben Netzwerkzugang zu PostgreSQL wie für den Dienst.
 - `DESK_ORIGIN` auf die externe HTTPS-Adresse setzen und `DESK_AUTH_SECRET` dauerhaft im Anwendungsprozess beziehungsweise im Docker-Dienst bereitstellen. Den Dienst hinter einem HTTPS-Reverse-Proxy betreiben. Für eine Demo eine separate Datenbank mit dem Suffix `_demo` verwenden.
-- Teamkonten und widerrufbare API-Tokens stehen in den Einstellungen. Wenn die Tokenliste nicht geladen werden konnte, starte unter **API-Zugriff** mit **Erneut laden** einen neuen Abruf. Der API-Vertrag ist unter `/api/v1/openapi.json` verfügbar. Schreibende Tickets, Kontakte und andere Vorgänge laufen über die jeweils eingerichteten Serverzugänge.
+- Die Administration findet **Team**, **API-Zugriff** und **Integrationen** in den Einstellungen. Am Smartphone öffnet die Bereichsliste eine eigene Ansicht mit dem Link **Zurück zu Einstellungen**. Die Adresse eines geöffneten Bereichs lässt sich direkt weitergeben. Wenn die Tokenliste nicht geladen werden konnte, starte unter **API-Zugriff** mit **Erneut laden** einen neuen Abruf. Der API-Vertrag ist unter `/api/v1/openapi.json` verfügbar. Schreibende Tickets, Kontakte und andere Vorgänge laufen über die jeweils eingerichteten Serverzugänge.
 - Bei `POST /api/v1/movements`, `POST /api/v1/movements/{id}/corrections` und `POST /api/v1/reservations` kann ein optionaler `Idempotency-Key` übermittelt werden. Bei unklarer Antwort denselben Schlüssel und dieselben Angaben vom selben Konto erneut an denselben Endpunkt senden. Desk gibt die ursprüngliche Buchung, Korrektur oder Vormerkung mit HTTP 201 zurück. Andere Angaben zum selben Schlüssel ergeben HTTP 409. Zeitangaben mit verschiedenen UTC-Offsets gelten als gleich, wenn sie denselben Zeitpunkt bezeichnen. Für einen neuen Vorgang einen neuen Schlüssel verwenden. Ohne Schlüssel behandelt Desk jeden Aufruf als eigenen Vorgang.
 - Bei offenen Lagerbuchungen und Vormerkungen behält die Oberfläche den Vorgang im Browser-Tab über das Neuladen hinweg. Bei unklarer Antwort im selben Formular „Letzten Vorgang erneut senden“ wählen. Bei Vormerkungen bleiben die ursprünglich bestätigten Zeitpunkte auch nach einem Wechsel der Browser-Zeitzone erhalten. „Neuen Vorgang beginnen“ startet einen separaten Vorgang.
 - Vor einem Update PostgreSQL sichern und die Wiederherstellung in einer getrennten Instanz prüfen. [PostgreSQL sichern und Wiederherstellung prüfen](sicherung.md)
 - Für Desktop und Smartphone dieselbe HTTPS-Adresse verwenden.
 - `curl -i http://127.0.0.1:3000/api/v1/ready` prüft die Bereitschaft ohne Anmeldung. Desk antwortet mit HTTP 200 und `{"ready":true}`, wenn PostgreSQL erreichbar ist und alle vom Build erwarteten Migrationen angewendet wurden. Bei fehlender Migration, einem Datenbankfehler oder nach Ablauf des Zeitbudgets von zwei Sekunden lautet die Antwort HTTP 503 mit `{"ready":false}`. Fehlt `DATABASE_URL`, bricht der Start ab. Wende nötige Migrationen vor dem Dienststart an. Verwende bei Bedarf einen anderen Port. Die Prüfung ist unabhängig von Haben und Zammad.
 - Vor der ersten Veröffentlichung den vorgesehenen Stand mit dem [Prüfleitfaden zur Release-Abnahme](release-abnahme.md) protokollieren.
+
+### Update für Lieferscheinreferenzen
+
+Wende `011_delivery_reference.sql` vor dem Start mit dem unter [Betrieb](#betrieb) beschriebenen Migrationsbefehl an. Vorhandene Buchungen behalten ihre Daten und zeigen einen leeren Referenzwert. Beim API-Aufruf für einen Wareneingang ist `delivery_reference` optional. Desk entfernt äußere Leerzeichen und akzeptiert bis zu 160 Zeichen.
 
 ### Update für Lagerkorrekturen
 
