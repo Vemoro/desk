@@ -2,6 +2,7 @@ import { Field } from './field';
 import { useEffect, useId, useRef, useState, type FocusEvent } from 'react';
 import { missingStageReference } from '../project-references';
 import { api, calendarDate, euros, inventoryLabel, inventoryName, moment, money, name, projectStages, reservationStages, type Row } from './client';
+import { calculationLineCents, formatCalculationTotal } from './calculation-money';
 import { ConfirmDialog, Expand, Form, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
 import { ProjectHistory } from './project-history';
 import { OfferExport } from './offer-export';
@@ -297,19 +298,11 @@ function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) 
     }))}/>}</Panel>;
 }
 
-const calculationCurrency = new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'});
-
-function formatCalculationTotal(cents:bigint) {
-  const fraction=(cents%100n).toString().padStart(2,'0');
-  return calculationCurrency.formatToParts(cents/100n)
-    .map(part=>part.type==='fraction' ? fraction : part.value).join('');
-}
-
 function CalculationTotals({lines}:{lines:Row[]}) {
   let buy=0n;
   let sell=0n;
   for(const line of lines){
-    const cents=BigInt(line.quantity)*BigInt(line.unit_cents);
+    const cents=calculationLineCents(line.quantity,line.unit_cents);
     if(line.kind==='buy') buy+=cents;
     if(line.kind==='sell') sell+=cents;
   }
