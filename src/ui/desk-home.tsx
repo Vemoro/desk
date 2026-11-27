@@ -2,7 +2,7 @@ import { Field } from './field';
 import type { ReactNode } from 'react';
 import { PasskeyLogin } from './passkeys';
 import { OidcLogin } from './oidc-login';
-import { useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { api, calendarDate, euros, name, projectStages } from './client';
 import type { Data } from './projects';
 import { Form, Panel, Pill, Table } from './widgets';
@@ -65,11 +65,32 @@ function dashboardEmptyTasks(assignee:DashboardAssignee,period:DashboardPeriod) 
   return assignee==='all' ? 'Keine offenen Aufgaben mit Termin.' : 'Keine offenen Aufgaben mit Termin für diese Zuständigkeit.';
 }
 
+function useDashboardDay() {
+  const taskList=useRef<HTMLDivElement>(null);
+  const periodField=useRef<HTMLSelectElement>(null);
+  const previouslyFocused=useRef<Element|null>(null);
+  const rememberFocus=useCallback(()=>{
+    const focused=document.activeElement;
+    previouslyFocused.current=taskList.current?.contains(focused) ? focused : null;
+  },[]);
+  const today=useLocalDay(rememberFocus);
+
+  useLayoutEffect(()=>{
+    const focused=previouslyFocused.current;
+    previouslyFocused.current=null;
+    if(focused && !focused.isConnected && document.activeElement===document.body) {
+      periodField.current?.focus();
+    }
+  },[today]);
+
+  return {today,taskList,periodField};
+}
+
 export function Dashboard({data,accountId,select,open}:{data:Data;accountId:string;select:(id:string)=>void;open:()=>void}) {
   const [assignee,setAssignee]=useState<DashboardAssignee>('all');
   const [period,setPeriod]=useState<DashboardPeriod>('all');
   const active=data.projects.filter((project)=>!['complete','cancelled'].includes(project.stage));
-  const today=useLocalDay();
+  const {today,taskList,periodField}=useDashboardDay();
   const activeIds=new Set(active.map((project)=>project.id));
   const datedOpenTasks=data.tasks
     .filter((task)=>task.status!=='done' && task.due && activeIds.has(task.project_id))
@@ -102,7 +123,7 @@ export function Dashboard({data,accountId,select,open}:{data:Data;accountId:stri
         onChange={event=>setAssignee(event.currentTarget.value as DashboardAssignee)}>
         {Object.entries(dashboardAssigneeChoices).map(([value,label])=><option key={value} value={value}>{label}</option>)}
       </select>}</Field>
-      <Field label="Aufgabentermine filtern">{props=><select {...props} value={period}
+      <Field label="Aufgabentermine filtern">{props=><select {...props} ref={periodField} value={period}
         onChange={event=>setPeriod(event.currentTarget.value as DashboardPeriod)}>
         {Object.entries(dashboardPeriodChoices).map(([value,label])=><option key={value} value={value}>{label}</option>)}
       </select>}</Field>
@@ -110,12 +131,14 @@ export function Dashboard({data,accountId,select,open}:{data:Data;accountId:stri
       <p className={taskCount ? 'panel-body subtle' : 'empty'} role="status">
         {taskCount ? taskCountLabel : dashboardEmptyTasks(assignee,period)}
       </p>
-      {taskCount>0 && <Table headers={['Aufgabe','Projekt','Verantwortlich','Termin']} rows={dueTasks.map(({task,due})=>({
-        key:task.id,cells:[task.name,<button className="text-button" onClick={()=>select(task.project_id)}>{name(data.projects,task.project_id)}</button>,
-          name(data.users,task.assignee_id),<div className="actions">{calendarDate(due)}
-            {due<=today && <Pill label={due<today?'Überfällig':'Heute'} tone="accent"/>}
-          </div>],
-      }))}/>}
+      {taskCount>0 && <div ref={taskList}>
+        <Table headers={['Aufgabe','Projekt','Verantwortlich','Termin']} rows={dueTasks.map(({task,due})=>({
+          key:task.id,cells:[task.name,<button className="text-button" onClick={()=>select(task.project_id)}>{name(data.projects,task.project_id)}</button>,
+            name(data.users,task.assignee_id),<div className="actions">{calendarDate(due)}
+              {due<=today && <Pill label={due<today?'Überfällig':'Heute'} tone="accent"/>}
+            </div>],
+        }))}/>
+      </div>}
     </Panel>
   </>;
 }
