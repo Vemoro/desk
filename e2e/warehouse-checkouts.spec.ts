@@ -397,7 +397,7 @@ test('Lagerkorrektur zeigt Begründung und Original und ändert den physischen B
   await expect(original.getByRole('status')).toHaveText(progress);
   await expect(correction).toBeDisabled();
   await expect(correction).toHaveAccessibleDescription(progress);
-  await settleResponse(page,await delayed.request,{error:'Korrektur vorübergehend abgelehnt.'},422);
+  await settleResponse(page,await delayed.request,{error:'Korrektur vorübergehend abgelehnt.'},409);
   await expect(page.getByRole('alert')).toContainText('Korrektur vorübergehend abgelehnt.');
   await expect(correction).toBeEnabled();
   await expect(original.getByText(progress,{exact:true})).toHaveCount(0);
