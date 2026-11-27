@@ -12,7 +12,7 @@ import { ProjectKanban } from './project-kanban';
 import { projectHash, projectViews, type ProjectView } from './project-views';
 import { localDayRange, useLocalDay } from './local-day';
 import { ListEmpty, PageHeading, openListForm } from './list-page';
-import { emptyReservationFilters, ReservationFilters } from './reservation-filters';
+import { emptyReservationFilters, matchesReservationQuery, ReservationFilters } from './reservation-filters';
 
 export type Data = Record<'contacts'|'projects'|'tasks'|'users'|'lines'|'reservations'|'locations'|'items'|'movements'|'costs'|'stock',Row[]>;
 type Flags = { haben:boolean; zammad:boolean };
@@ -223,6 +223,7 @@ function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) 
   const resourceSelector=useRef<HTMLSelectElement>(null);
   const focusedStatusAction=useRef<HTMLButtonElement>(null);
   const {resource,status,day,onlyCheckedOut}=filters;
+  const query=filters.query.trim().toLowerCase();
   const dayRange=day ? localDayRange(day) : undefined;
   const equipmentIds=new Set(data.items.filter(item=>item.kind==='equipment').map(item=>item.id));
   const visibleReservations=data.reservations.filter((row)=>
@@ -230,8 +231,9 @@ function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) 
     && (!resource || (row.user_id?'user':'item')===resource)
     && (!status || row.status===status)
     && (!onlyCheckedOut || (equipmentIds.has(row.item_id) && row.checked_out>0))
-    && (!dayRange || overlapsReservationDay(row,dayRange)));
-  const filtered=Object.values(filters).some(Boolean);
+    && (!dayRange || overlapsReservationDay(row,dayRange))
+    && (!query || matchesReservationQuery(row,data.users,data.items,query)));
+  const filtered=Boolean(query || resource || status || day || onlyCheckedOut);
 
   useEffect(()=>{
     const button=focusedStatusAction.current;
