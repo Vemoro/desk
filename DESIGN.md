@@ -6,6 +6,13 @@ Desk verwendet Blau für Navigation, Fokus und Primäraktionen in Hell und Dunke
 
 Verwende eine konsistente Icon-Komponente mit verständlichen Beschriftungen. Ein allein stehendes Symbol braucht einen zugänglichen Namen. Am Smartphone öffnet ein beschrifteter Menüknopf die Hauptnavigation. Der aktuelle Bereich bleibt erkennbar.
 
+### Seitenleiste
+
+- Die Seitenleiste beginnt mit der Übersicht. Darunter stehen Projekte, Wochenplanung und Kontakte in **Projektarbeit** sowie Projektlager und Ist-Kosten in **Bestände und Kosten**. Ordne neue fachliche Ziele zuerst einer passenden bestehenden Gruppe zu.
+- Der Fußbereich vereint Konto, Design, Einstellungen für Admins, Dokumentation, Quellcode, Abmelden und die installierte Desk-Version. **Quellcode** verwendet die konfigurierte Adresse des ausgelieferten Stands. Ohne diese Adresse führt **Desk-Projekt auf GitHub** zum Projekt-Repository.
+- Fachlinks verwenden 14 Pixel, Fußaktionen 13 Pixel sowie Gruppenüberschriften und Version 12 Pixel. Fach- und Fußaktionen haben am Smartphone mindestens 44 × 44 Pixel. Der Inhalt bleibt in kurzen Fenstern scrollbar.
+- Im geöffneten Handymenü schließt Escape das Menü und bringt den Fokus zum Menüknopf zurück. Beim Wechsel zu einer internen Ansicht schließt das Handymenü und fokussiert den Hauptinhalt. Beim Wechsel zur Desktopansicht bleibt die aktive Ansicht per Tastatur erreichbar. [Layout-Skill](.agents/skills/desk-layout/SKILL.md) · [Haben-Navigation](https://github.com/Speicherstadt/haben/blob/e3ece9cbc19c4b649d35693fd13e27bbf49a1f3a/apps/web/src/components/NavMenu.tsx)
+
 ## Aktionen und Formulare
 
 Prominente Aktionen entsprechen dem nächsten sinnvollen Schritt. Nebenaktionen bleiben erkennbar. Hat eine gefährliche Aktion bleibende Folgen, zeigt der Bestätigungsdialog die betroffenen Daten oder die konkrete Folge. Anordnung und Tab-Reihenfolge stimmen überein. Jedes Formularfeld hat ein zugängliches Label. Fokusmarkierungen, Texte und Bedienelemente brauchen ausreichenden Kontrast in beiden Themes.

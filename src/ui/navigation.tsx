@@ -15,6 +15,39 @@ export const sections = {
 export type Section = keyof typeof sections;
 export type Person = { id:string; name:string; role:'admin'|'member' };
 
+const workSections = [
+  {label:'Projektarbeit', sections:['projects','planning','contacts']},
+  {label:'Bestände und Kosten', sections:['warehouse','costs']},
+] as const;
+
+function revealActiveSection(panel:HTMLDivElement|null) {
+  const active=panel?.querySelector<HTMLElement>('nav [aria-current="page"]');
+  if(!panel || !active?.getClientRects().length) return;
+  const area=panel.getBoundingClientRect();
+  const item=active.getBoundingClientRect();
+  if(item.top<area.top) panel.scrollTop+=item.top-area.top;
+  else if(item.bottom>area.bottom) panel.scrollTop+=item.bottom-area.bottom;
+}
+
+function SidebarAccount({person,themeButton,children,onLogout}:{
+  person:Person; themeButton:ReactNode; children:ReactNode; onLogout:()=>Promise<void>;
+}) {
+  return <div className="sidebar-foot" role="group" aria-label="Konto und Hilfe">
+    <div className="account">
+      <span className="avatar" aria-hidden="true">{person.name.slice(0,1)}</span>
+      <div><strong>{person.name}</strong><small>{person.role==='admin'?'Administration':'Mitarbeit'}</small></div>
+      {themeButton}
+    </div>
+    {children}
+    <a href="https://vemoro.de/desk/dokumentation/" target="_blank" rel="noreferrer"><Icon name="docs"/>Dokumentation</a>
+    <a href={__DESK_SOURCE_URL__ || 'https://github.com/Vemoro/desk'} target="_blank" rel="noreferrer">
+      <Icon name="code"/>{__DESK_SOURCE_URL__ ? 'Quellcode' : 'Desk-Projekt auf GitHub'}
+    </a>
+    <button type="button" onClick={()=>void onLogout()}><Icon name="logout"/>Abmelden</button>
+    <small className="sidebar-version">Desk {__DESK_VERSION__}</small>
+  </div>;
+}
+
 export function Navigation({person, section, themeButton, onNavigate, onLogout}:{
   person:Person; section:Section; themeButton:ReactNode;
   onNavigate:(section:Section)=>void; onLogout:()=>Promise<void>;
@@ -22,6 +55,8 @@ export function Navigation({person, section, themeButton, onNavigate, onLogout}:
   const [open,setOpen]=useState(false);
   const toggle=useRef<HTMLButtonElement>(null);
   const panel=useRef<HTMLDivElement>(null);
+
+  useEffect(()=>{revealActiveSection(panel.current);},[open,section]);
 
   useEffect(()=>{
     if (!open) return;
@@ -55,6 +90,7 @@ export function Navigation({person, section, themeButton, onNavigate, onLogout}:
       }
       setOpen(false);
       if(focused===toggle.current) panel.current?.querySelector<HTMLButtonElement>('nav [aria-current="page"]')?.focus();
+      revealActiveSection(panel.current);
     }
     mobile.addEventListener('change',onViewport);
     document.addEventListener('focusin',recordFocus);
@@ -73,6 +109,12 @@ export function Navigation({person, section, themeButton, onNavigate, onLogout}:
     document.getElementById('desk-main')?.focus();
   }
 
+  function sectionButton(key:Section) {
+    const [label,icon]=sections[key];
+    return <button type="button" key={key} aria-current={section===key?'page':undefined}
+      onClick={()=>choose(key)}><Icon name={icon}/>{label}</button>;
+  }
+
   return <aside className="sidebar" data-menu-open={open || undefined}>
     <div className="sidebar-bar">
       <div className="brand"><img className="mark" src="/desk-bildmarke.svg" alt=""/><strong>Desk</strong></div>
@@ -82,20 +124,19 @@ export function Navigation({person, section, themeButton, onNavigate, onLogout}:
       </button>
     </div>
     <div className="sidebar-panel" id="desk-navigation" ref={panel}>
-      <nav aria-label="Hauptnavigation">{(Object.keys(sections) as Section[]).map((key)=>{
-        if(key==='settings' && person.role!=='admin') return null;
-        const [label,icon]=sections[key];
-        return <button type="button" key={key} aria-current={section===key?'page':undefined}
-          onClick={()=>choose(key)}><Icon name={icon}/>{label}</button>;
-      })}</nav>
-      <footer className="sidebar-foot">
-        <div className="account">
-          <span className="avatar" aria-hidden="true">{person.name.slice(0,1)}</span>
-          <div><strong>{person.name}</strong><small>{person.role==='admin'?'Administration':'Mitarbeit'}</small></div>
-          {themeButton}
+      <nav aria-label="Hauptnavigation">
+        <div className="sidebar-work">
+          {sectionButton('dashboard')}
+          {workSections.map(group=><div key={group.label} className="sidebar-group" role="group" aria-label={group.label}>
+            <span aria-hidden="true">{group.label}</span>
+            {group.sections.map(sectionButton)}
+          </div>)}
         </div>
-        <button type="button" onClick={()=>void onLogout()}>Abmelden</button>
-      </footer>
+        <SidebarAccount person={person} themeButton={themeButton} onLogout={onLogout}>
+          {sectionButton('account')}
+          {person.role==='admin' && sectionButton('settings')}
+        </SidebarAccount>
+      </nav>
     </div>
   </aside>;
 }

@@ -186,7 +186,7 @@ Bei einem Rückweg auf einen Desk-Stand vor der Kontensperre bleibt der gespeich
 
 ### Desk-Stand für Fehlerberichte
 
-Unter **Mein Konto → Desk-Version** lässt sich die Programmversion mit dem Git-Commit kopieren. Am Smartphone öffnest du **Mein Konto** über das Menü. Die angezeigte Desk-Programmversion stammt aus `deskVersion` in `package.json`. Das Feld `version` gibt die dreiteilige Version des internen Pakets an. Stelle den vollständigen Commit beim Bau des ausgecheckten Stands bereit.
+Die installierte Desk-Version steht unten in der Seitenleiste. Unter **Mein Konto → Desk-Version** lässt sie sich zusammen mit dem Git-Commit kopieren. Am Smartphone öffnest du die Seitenleiste über **Menü**. Die angezeigte Desk-Programmversion stammt aus `deskVersion` in `package.json`. Das Feld `version` gibt die dreiteilige Version des internen Pakets an. Stelle den vollständigen Commit beim Bau des ausgecheckten Stands bereit.
 
 ```sh
 build_commit="$(git rev-parse --verify HEAD)" &&
@@ -201,7 +201,7 @@ Für Docker Compose steht der Aufruf im [Installationsleitfaden](installation.md
 
 Stelle den Quellcode des ausgelieferten Desk-Stands unter einer dauerhaften HTTPS-Adresse ohne Anmeldung bereit. Gib diese Adresse beim Bau als `DESK_SOURCE_URL` an. Beim Build aus dem Checkout ist das eine Umgebungsvariable. Bei Docker übergibst du sie mit `--build-arg "DESK_SOURCE_URL=$source_url"`. Bei Compose setzt du den Wert in `.env.selfhost` vor dem [Bau des Desk-Images](installation.md#eigenständiger-start-mit-docker-compose).
 
-Mit gesetzter Adresse erscheint **Desk-Quellcode** auf der Anmeldeseite und unter **Mein Konto → Desk-Version**. Ohne die Angabe bleibt der Link ausgeblendet. Die Adresse gehört zum Build. Prüfe vor der Auslieferung, dass der verlinkte Quellstand der angezeigten Commit-ID entspricht und sich ohne Anmeldung abrufen lässt.
+Mit gesetzter Adresse erscheint **Quellcode** in der Seitenleiste und **Desk-Quellcode** auf der Anmeldeseite sowie unter **Mein Konto → Desk-Version**. Ohne die Angabe bietet die Seitenleiste **Desk-Projekt auf GitHub** als Link zum Projekt-Repository. Auf der Anmeldung und der Kontoseite erscheint der Link zum ausgelieferten Stand nur mit gesetzter Adresse. Die Adresse gehört zum Build. Prüfe vor der Auslieferung, dass der verlinkte Quellstand der angezeigten Commit-ID entspricht und sich ohne Anmeldung abrufen lässt.
 
 ### Rollback einer fehlgeschlagenen Migration prüfen
 
@@ -243,7 +243,7 @@ Für die Projektliste des fiktiven Muster Auftragsservice öffnet `GET /api/v1/p
 
 ## Navigation am Smartphone
 
-Die Kopfleiste zeigt **Menü**. Dahinter liegen die Hauptnavigation, Hell- und Dunkelmodus sowie der Kontobereich. Nach Auswahl eines Bereichs schließt das Menü und der Tastaturfokus wechselt zum Hauptinhalt. Escape schließt es und bringt den Tastaturfokus zurück zum Schalter.
+Über **Menü** öffnest du die gruppierten Arbeitsbereiche und den unteren Bereich für Konto und Hilfe. Dort findest du auch den Designwechsel, die Dokumentation und die installierte Version. Nach Auswahl eines internen Bereichs schließt das Menü und der Tastaturfokus wechselt zum Hauptinhalt. Escape schließt es und bringt den Tastaturfokus zurück zum Schalter.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="screenshots/navigation-dunkel-handy-offen.png">
