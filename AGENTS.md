@@ -14,7 +14,7 @@ Prüfe Auftrag und Zielbasis vor der Arbeit. Schütze fremde Änderungen und nut
 | Unabhängiges Code-Review | [desk-tdd-review](.agents/skills/desk-tdd-review/SKILL.md) |
 | Unabhängiges Doku-Review | [desk-doku-pruefen](.agents/skills/desk-doku-pruefen/SKILL.md) |
 | Lokale Prüfungen isoliert ausführen | [desk-checks](.agents/skills/desk-checks/SKILL.md) |
-| Seitenaufbau prüfen und neue Bereiche ohne passende Design- oder Codevorgaben vorbereiten | [desk-layout](.agents/skills/desk-layout/SKILL.md) |
+| Seitenleiste, Seitenaufbau und Typografie umsetzen oder prüfen, neue Bereiche ohne Design- oder Codevorgaben vorbereiten | [desk-layout](.agents/skills/desk-layout/SKILL.md) |
 | Vorher-Nachher-Aufnahmen vor der ersten UI-Änderung vorbereiten | [desk-pr-screenshots](.agents/skills/desk-pr-screenshots/SKILL.md) |
 | Offene und gestapelte PRs zur Entscheidung aufbereiten | [desk-prs-pruefen](.agents/skills/desk-prs-pruefen/SKILL.md) |
 

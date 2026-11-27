@@ -1,6 +1,6 @@
 ---
 name: desk-layout
-description: Leitet Desk-Layout und UI-Abnahme an und hilft bei neuen Bereichen, passende Design- oder Codevorgaben in Haben zu prüfen.
+description: Leitet Desk-Seitenleiste, Seitenaufbau, Typografie und UI-Abnahme an und prüft Vorbilder in Haben für neue Bereiche ohne passende Design- oder Codevorgaben.
 ---
 
 # Desk-Layout
@@ -15,7 +15,7 @@ Lies [Desk-Gestaltung](../../../DESIGN.md) und vergleiche die betroffene Ansicht
 
 ## Neue Bereiche ohne passende Desk-Regeln
 
-Fehlt für einen neuen Bereich eine passende Design- oder Codevorgabe in Desk, prüfe vor der Umsetzung die einschlägigen Regeln und vergleichbare Stellen im [Haben-Repository](https://github.com/Speicherstadt/haben). Halte im zugehörigen PR als Vorschlag fest, welches Muster sich für Desk übernehmen lässt, wie es angepasst werden soll und warum es zum Desk-Ablauf passt. Verlinke die konkrete Quelle am geprüften Stand. Findest du kein passendes Muster, halte das Ergebnis kurz im PR fest.
+Führe den [Haben-Abgleich](../../../docs/entwicklung.md#auftrag-und-arbeitsstand) durch. Prüfe bei Gestaltungsfragen zuerst Habens `DESIGN.md` und die betroffene Komponente, bei Codefragen die einschlägige Entwicklungsregel und einen vergleichbaren Aufrufweg. Beschreibe im PR-Vorschlag das gefundene Muster, die nötige Anpassung und den Nutzen für Desk.
 
 ## Abnahme
 
