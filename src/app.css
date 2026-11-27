@@ -144,6 +144,9 @@ tr:nth-last-child(1 of :not([hidden])) td { border-bottom:0; }
 .movement-filters { align-items:start; }
 .checkbox-label { display:flex; align-items:center; gap:8px; min-height:var(--control-h); }
 .checkbox-label input { width:18px; height:18px; min-height:0; margin:0; accent-color:var(--accent); }
+.reservation-open-filter input { order:-1; }
+.reservation-open-filter:has(input:focus-visible) { outline:2px solid var(--accent-ink); outline-offset:-2px; }
+.reservation-open-filter input:focus-visible { outline:none; }
 .wide,.form-action { grid-column:1/-1; }
 .expand { border:1px solid var(--border); border-radius:8px; min-width:0; }
 .expand summary { cursor:pointer; padding:12px 12px; font-size: var(--text-14); color:var(--accent-ink); font-weight:650; }

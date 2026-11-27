@@ -59,7 +59,7 @@ Für den Tagesvergleich liefert `GET /api/v1/reservations` zusätzlich `ends_at_
 
 ### Offene Geräteausgaben in der Ressourcenplanung
 
-**Noch ausgegeben** zeigt bei einer Gerätereservierung, wie viele Geräte zurückgegeben werden müssen. Die Zahl bleibt auch unter **Freigegeben** sichtbar. Nach einer Teilrückgabe sinkt sie um die zurückgegebene Menge. Sind alle Geräte zurück, zeigt die Spalte **0**. Bei Personal und Verbrauchsmaterial steht ein Gedankenstrich. Rückgaben buchst du im **Projektlager**. **Nur offene Geräteausgaben** grenzt die Ressourcenplanung auf Geräte mit mindestens einer ausstehenden Rückgabe ein. Die Auswahl lässt sich mit Ressourcentyp, Status und Datum kombinieren. Vollständig zurückgegebene Geräte entfallen beim nächsten Laden der Daten. **Filter zurücksetzen** deaktiviert die Auswahl.
+**Noch ausgegeben** zeigt bei einer Gerätereservierung, wie viele Geräte zurückgegeben werden müssen. Die Zahl bleibt auch unter **Freigegeben** sichtbar. Nach einer Teilrückgabe sinkt sie um die zurückgegebene Menge. Sind alle Geräte zurück, zeigt die Spalte **0**. Bei Personal und Verbrauchsmaterial steht ein Gedankenstrich. Rückgaben buchst du im **Projektlager**. **Nur offene Geräteausgaben** grenzt die Ressourcenplanung auf Geräte mit mindestens einer ausstehenden Rückgabe ein. Die Auswahl lässt sich mit Ressourcentyp, Status und Datum kombinieren. Bei aktiver Auswahl entfallen vollständig zurückgegebene Reservierungen beim nächsten Laden der Daten. **Filter zurücksetzen** deaktiviert die Auswahl.
 
 ### Wochenplanung öffnen
 

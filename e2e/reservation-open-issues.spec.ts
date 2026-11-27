@@ -50,6 +50,9 @@ test('Offene Geräteausgaben greifen mit Status, Datum und Ressourcentyp und rea
   await open.focus();
   await open.press('Space');
   await expect(open).toBeChecked();
+  const openField=panel.locator('label').filter({has:open});
+  await expect(openField).toHaveCSS('outline-style','solid');
+  await expect(openField).toHaveCSS('outline-offset','-2px');
   await status.selectOption('released');
   await date.fill('2028-05-17');
   await expect(panel.getByText('1 Reservierung',{exact:true})).toBeVisible();

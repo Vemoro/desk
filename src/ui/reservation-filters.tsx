@@ -39,7 +39,7 @@ export function ReservationFilters({filters,onChange,resourceSelector,count,time
       <Field label="Am Datum" describedBy={dayZone}>{props=><input {...props} type="date" ref={dayInput}
         value={filters.day} onInput={trackDayInput} onKeyUp={trackDayInput} onBlur={trackDayInput}
         onChange={event=>onChange({...filters,day:event.currentTarget.value})}/>}</Field>
-      <Field label="Nur offene Geräteausgaben" className="checkbox-label">{props=><input {...props} type="checkbox"
+      <Field label="Nur offene Geräteausgaben" className="checkbox-label reservation-open-filter">{props=><input {...props} type="checkbox"
         checked={filters.onlyCheckedOut} onChange={event=>onChange({...filters,onlyCheckedOut:event.currentTarget.checked})}/>}</Field>
     </div>
     <div className="actions">
