@@ -65,12 +65,12 @@ export function fieldError(field:NativeField) {
   return validity.valid ? undefined : 'Prüfe die Eingabe.';
 }
 
-export function invalidFormFields(form:HTMLFormElement) {
+export function invalidFormFields(form:HTMLFormElement,check=fieldError) {
   const errors:Record<string,string>=Object.create(null);
   let first:NativeField|undefined;
   for(const element of form.elements) {
     if(!isNativeField(element) || !element.name) continue;
-    const error=fieldError(element);
+    const error=check(element);
     if(!error) continue;
     errors[element.name]=error;
     first??=element;

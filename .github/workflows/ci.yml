@@ -45,6 +45,15 @@ jobs:
           bun run check
         env:
           DESK_CHECK_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+      - name: Veröffentlichte Migrationen und Upgrade prüfen
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DATABASE_URL: postgres://desk:desk@127.0.0.1:5438/desk_release_upgrade_test
+        run: |
+          docker exec "${{ job.services.postgres.id }}" createdb -U desk desk_release_upgrade_test
+          gh api repos/Vemoro/desk/releases --paginate --slurp > "$RUNNER_TEMP/desk-releases.json"
+          python3 scripts/check-release-upgrade.py "$RUNNER_TEMP/desk-releases.json"
       - run: bun run migrate
       - run: bun run test
       - run: bunx playwright install --with-deps chromium

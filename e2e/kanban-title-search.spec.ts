@@ -133,7 +133,7 @@ test('Bei abgelehnter Schnellerfassung bleiben Titel und Spalte erhalten',async(
   await input.press('Enter');
   await expect(doing.getByText('Test-Schreibablehnung')).toBeVisible();
   await expect(input).toHaveValue('Montage erneut prüfen');
-  await expect(doing.getByText('Karte angelegt.',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('Karte angelegt.',{exact:true})).toHaveCount(0);
 });
 
 test('Die Schnellerfassung erklärt die aktuell wirksamen Filter nach einem Abruffehler',async({page})=>{
@@ -161,13 +161,14 @@ test('Die Schnellerfassung erklärt die aktuell wirksamen Filter nach einem Abru
   } finally {
     releasePost();
   }
-  await expect(todo.getByText('Karte angelegt. Leere die Suche und wähle „Alle“ oder „Ohne Zuständigkeit“.')).toBeVisible();
+  await expect(page.getByText('Die Änderung wurde gespeichert. Die Ansicht konnte nicht aktualisiert werden.')).toBeVisible();
+  await expect(todo.getByText('Leere die Suche und wähle „Alle“ oder „Ohne Zuständigkeit“, damit die Karte erscheint.')).toBeVisible();
   await expect(assignee).toBeFocused();
   await assignee.selectOption('all');
-  await expect(todo.getByText('Karte angelegt. Leere die Suche, damit die Karte erscheint.')).toBeVisible();
+  await expect(todo.getByText('Leere die Suche, damit die Karte erscheint.')).toBeVisible();
   await assignee.selectOption('me');
   await page.getByRole('button',{name:'Suche leeren'}).click();
-  await expect(todo.getByText('Karte angelegt. Sie erscheint unter „Alle“ oder „Ohne Zuständigkeit“.')).toBeVisible();
+  await expect(todo.getByText('Die Karte erscheint unter „Alle“ oder „Ohne Zuständigkeit“.')).toBeVisible();
   await page.getByRole('button',{name:'Ansicht aktualisieren'}).click();
   await assignee.selectOption('unassigned');
   await expect(todo.getByRole('button',{name:title,exact:true})).toBeVisible();
