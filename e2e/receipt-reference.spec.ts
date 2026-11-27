@@ -31,13 +31,14 @@ test('Lieferscheinreferenz der richtigen Buchung bleibt nach Neuladen mobil sich
   page.on('request',request=>{
     if(request.method()==='POST' && request.url().endsWith('/api/v1/movements')) requests.push(request.url());
   });
-  await reference.fill('x'.repeat(161));
+  const normalizedReference='📦'.repeat(160);
+  await reference.fill(normalizedReference+'📦');
   await form.getByRole('button',{name:'Wareneingang buchen',exact:true}).click();
   await expect(reference).toBeFocused();
   await expect(reference).toHaveAttribute('aria-invalid','true');
   await expect(reference).toHaveAccessibleDescription('Die Lieferscheinreferenz darf höchstens 160 Zeichen haben.');
   expect(requests).toEqual([]);
-  await reference.fill('  LS-2028-42  ');
+  await reference.fill('  '+normalizedReference+'  ');
   await expect(reference).not.toHaveAttribute('aria-invalid');
   const saved=page.waitForResponse((response)=>response.url().endsWith('/api/v1/movements') && response.request().method()==='POST');
   await form.getByRole('button',{name:'Wareneingang buchen',exact:true}).click();
@@ -50,7 +51,7 @@ test('Lieferscheinreferenz der richtigen Buchung bleibt nach Neuladen mobil sich
   const cell=(quantity:string)=>rows.filter({has:page.locator('[data-label="Menge"]').getByText(quantity,{exact:true})})
     .locator('[data-label="Lieferschein"]');
   await expect(cell('3')).toBeVisible();
-  await expect(cell('3')).toHaveText('LS-2028-42');
+  await expect(cell('3')).toHaveText(normalizedReference);
   expect(await cell('3').evaluate((element)=>getComputedStyle(element,'::before').content)).toBe('"Lieferschein"');
   await expect(cell('2')).toBeVisible();
   await expect(cell('2')).toHaveText('–');

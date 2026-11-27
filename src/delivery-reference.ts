@@ -8,6 +8,6 @@ export function isDeliveryReferenceText(value:string) {
 
 export function deliveryReferenceError(value:string) {
   const trimmed=value.trim();
-  if(trimmed.length>deliveryReferenceLimit) return deliveryReferenceTooLong;
+  if(Array.from(trimmed).length>deliveryReferenceLimit) return deliveryReferenceTooLong;
   if(!isDeliveryReferenceText(trimmed)) return deliveryReferenceInvalid;
 }
