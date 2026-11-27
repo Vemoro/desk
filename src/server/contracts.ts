@@ -104,7 +104,9 @@ export const costInput = z.strictObject({
   project_id: id.nullable().optional(), source: title, reference: title,
   cost_center: short.optional(), name: title, cents,
 });
-export const costBatch = z.strictObject({ entries: z.array(costInput).min(1).max(500) });
+export type CostEntry = z.infer<typeof costInput>;
+export const costBatchLimit = 500;
+export const costBatch = z.strictObject({ entries: z.array(costInput).min(1).max(costBatchLimit) });
 export const costAssignment = z.strictObject({ project_id: id.nullable() });
 export const habenOfferInput = z.strictObject({ id });
 export const habenContactInput = z.strictObject({ link_id: id.optional(), prefer: z.enum(['desk','haben']).optional() });
