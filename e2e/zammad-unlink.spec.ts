@@ -1,19 +1,28 @@
 import { expect, test } from '@playwright/test';
-import { holdRoute, project, settleResponse, signIn } from './session';
+import { project, signIn } from './session';
 
 test('Die Ticketdetails erklären die Sperre beim Laden und bei Versandhistorie',async({page})=>{
   const name='Büroinstallation Westflügel';
-  const first=holdRoute();
-  const retry=holdRoute();
-  let attempts=0;
+  const first=Promise.withResolvers<void>();
+  const retry=Promise.withResolvers<void>();
+  let retrying=false;
   await page.route('**/api/v1/integrations',route=>route.fulfill({json:{haben:false,zammad:true}}));
   await page.route(/\/api\/v1\/projects\?/,async route=>{
     const response=await route.fetch();
     const projects=await response.json() as {name:string}[];
     await route.fulfill({response,json:projects.map(row=>row.name===name ? {...row,zammad_ticket_id:42} : row)});
   });
-  await page.route('**/api/v1/projects/*/zammad',route=>{
-    (attempts++===0?first:retry).resolve(route);
+  await page.route('**/api/v1/projects/*/zammad',async route=>{
+    // The development build can run mount effects twice before the explicit retry.
+    if(!retrying) {
+      await first.promise;
+      return route.fulfill({status:502,json:{error:'Verlauf vorübergehend nicht verfügbar.'}});
+    }
+    await retry.promise;
+    return route.fulfill({json:{
+      ticket:{id:42,number:'TEST-42',url:'https://example.test/#ticket/zoom/42'},articles:[],
+      outgoing:[{id:'sendeversuch-1',subject:'Musterangebot',status:'sent'}],
+    }});
   });
 
   await signIn(page);
@@ -24,18 +33,16 @@ test('Die Ticketdetails erklären die Sperre beim Laden und bei Versandhistorie'
   const waiting='Die Verknüpfung lässt sich lösen, sobald der Ticketverlauf geprüft ist.';
   await expect(unlink).toBeDisabled();
   await expect(unlink).toHaveAccessibleDescription(waiting);
-  await settleResponse(page,await first.request,{error:'Verlauf vorübergehend nicht verfügbar.'},502);
+  first.resolve();
   await expect(page.getByRole('alert')).toContainText('Verlauf vorübergehend nicht verfügbar.');
   await expect(unlink).toBeEnabled();
   await expect(page.getByText(waiting,{exact:true})).toHaveCount(0);
 
+  retrying=true;
   await refresh.focus();
   await page.keyboard.press('Enter');
   await expect(unlink).toHaveAccessibleDescription(waiting);
-  await settleResponse(page,await retry.request,{
-    ticket:{id:42,number:'TEST-42',url:'https://example.test/#ticket/zoom/42'},articles:[],
-    outgoing:[{id:'sendeversuch-1',subject:'Musterangebot',status:'sent'}],
-  });
+  retry.resolve();
   await expect(unlink).toHaveCount(0);
   await expect(page.getByRole('complementary',{name:'Vorgangsdetails'}))
     .toContainText('Die Verknüpfung bleibt bestehen, weil für dieses Ticket Sendeversuche vorliegen.');
