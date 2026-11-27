@@ -1,9 +1,12 @@
+import { csvFile, csvText } from './csv';
+
 export type Row = { id: string; [key: string]: any };
 
 export const projectStages: Record<string,string> = {
   inquiry:'Anfrage', planning:'Planung', offered:'Angebot', confirmed:'Bestätigt',
   running:'In Durchführung', complete:'Abgerechnet', cancelled:'Abgesagt',
 };
+export const isOpenProject = (stage:string) => stage!=='complete' && stage!=='cancelled';
 export const taskStages: Record<string,string> = {todo:'Offen',doing:'In Arbeit',review:'Prüfung',done:'Erledigt'};
 export const reservationStages: Record<string,string> = {tentative:'Vorgemerkt',firm:'Fest reserviert',released:'Freigegeben'};
 export const movementStages: Record<string,string> = {
@@ -15,6 +18,15 @@ export const date = (value?:string) => value ? new Intl.DateTimeFormat('de-DE',{
 export const calendarDate = (value?:string|null) => value ? new Intl.DateTimeFormat('de-DE',{dateStyle:'medium',timeZone:'UTC'}).format(new Date(value)) : '–';
 export const moment = (value?:string) => value ? new Intl.DateTimeFormat('de-DE',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value)) : '–';
 export const name = (collection:Row[], id?:string) => collection.find((row)=>row.id===id)?.name ?? '–';
+
+export function reservationDurationLabel(totalMinutes:number) {
+  const hours=Math.floor(totalMinutes/60);
+  const minutes=totalMinutes%60;
+  const minuteLabel=`${minutes} ${minutes===1?'Minute':'Minuten'}`;
+  if(!hours) return minuteLabel;
+  const hourLabel=`${hours} ${hours===1?'Stunde':'Stunden'}`;
+  return minutes ? `${hourLabel} ${minuteLabel}` : hourLabel;
+}
 
 export function inventoryLabel(item:Row):string {
   const articleName=item.name ?? '–';
@@ -73,12 +85,8 @@ export function money(value:string) {
 export type OfferPosition = { name:string; quantity:number; unit_cents:number };
 
 export function downloadPositions(project:Pick<Row,'id'>, rows:OfferPosition[]) {
-  const encode=(value:unknown)=>{
-    const string=String(value);
-    return '"'+(/^[=+\-@\t\r]/.test(string) ? "'"+string : string).replaceAll('"','""')+'"';
-  };
-  const csv=['Position;Menge;Einzelpreis EUR',...rows.map((row)=>[encode(row.name), row.quantity, (row.unit_cents/100).toFixed(2).replace('.',',')].join(';'))].join('\r\n');
-  downloadBlob(`angebotspositionen-${project.id.slice(0,8)}.csv`,new Blob(['\uFEFF',csv],{type:'text/csv;charset=utf-8'}));
+  const lines=rows.map(row=>[csvText(row.name),row.quantity,(row.unit_cents/100).toFixed(2).replace('.',',')].join(';'));
+  downloadBlob(`angebotspositionen-${project.id.slice(0,8)}.csv`,csvFile(['Position;Menge;Einzelpreis EUR',...lines]));
 }
 
 export function downloadBlob(filename:string,blob:Blob) {

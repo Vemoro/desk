@@ -2,7 +2,7 @@ import { Field } from './field';
 import { useEffect, useId, useRef, useState, type FocusEvent } from 'react';
 import { missingStageReference } from '../project-references';
 import { microsecondsWithinMillisecond } from '../time';
-import { api, calendarDate, euros, inventoryLabel, inventoryName, moment, money, name, projectStages, reservationStages, type Row } from './client';
+import { api, calendarDate, euros, inventoryLabel, inventoryName, isOpenProject, moment, money, name, projectStages, reservationDurationLabel, reservationStages, type Row } from './client';
 import { calculationLineCents, formatCalculationTotal } from './calculation-money';
 import { ConfirmDialog, Expand, Form, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
 import { ProjectHistory } from './project-history';
@@ -13,7 +13,7 @@ import { projectHash, projectViews, type ProjectView } from './project-views';
 import { Controlling } from './project-controlling';
 import { localDayRange, useLocalDay } from './local-day';
 import { ListEmpty, PageHeading, openListForm } from './list-page';
-import { emptyReservationFilters, ReservationFilters } from './reservation-filters';
+import { emptyReservationFilters, matchesReservationQuery, ReservationFilters } from './reservation-filters';
 
 export type Data = Record<'contacts'|'projects'|'tasks'|'users'|'lines'|'reservations'|'locations'|'items'|'movements'|'costs'|'stock',Row[]>;
 type Flags = { haben:boolean; zammad:boolean };
@@ -122,7 +122,7 @@ function filteredProjects(data:Data,filters:ProjectFilters,today:string) {
     if(filters.contactId && project.contact_id!==filters.contactId) return false;
     const matchesSearch=`${project.name} ${name(data.contacts,project.contact_id)}`.toLowerCase().includes(query)
       || [project.offer_ref,project.invoice_ref,project.cost_center].some(value=>value?.toLowerCase().includes(query));
-    const active=!['complete','cancelled'].includes(project.stage);
+    const active=isOpenProject(project.stage);
     const matchesStage=filters.stage==='all' || (filters.stage==='open'?active:project.stage===filters.stage);
     const dueDate=project.due?.slice(0,10);
     const matchesDue=filters.due==='all'
@@ -223,15 +223,18 @@ function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) 
   const [filters,setFilters]=useState(emptyReservationFilters);
   const resourceSelector=useRef<HTMLSelectElement>(null);
   const focusedStatusAction=useRef<HTMLButtonElement>(null);
-  const {resource,status,day}=filters;
+  const {resource,status,day,onlyCheckedOut}=filters;
+  const query=filters.query.trim().toLowerCase();
   const dayRange=day ? localDayRange(day) : undefined;
+  const equipmentIds=new Set(data.items.filter(item=>item.kind==='equipment').map(item=>item.id));
   const visibleReservations=data.reservations.filter((row)=>
     row.project_id===project.id
     && (!resource || (row.user_id?'user':'item')===resource)
     && (!status || row.status===status)
-    && (!dayRange || overlapsReservationDay(row,dayRange)));
-  const filtered=Boolean(resource || status || day);
-  const equipmentIds=new Set(data.items.filter(item=>item.kind==='equipment').map(item=>item.id));
+    && (!onlyCheckedOut || (equipmentIds.has(row.item_id) && row.checked_out>0))
+    && (!dayRange || overlapsReservationDay(row,dayRange))
+    && (!query || matchesReservationQuery(row,data.users,data.items,query)));
+  const filtered=Boolean(query || resource || status || day || onlyCheckedOut);
 
   useEffect(()=>{
     const button=focusedStatusAction.current;
@@ -282,7 +285,9 @@ function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) 
     </div>{filtered && !visibleReservations.length ? <p className="empty">Keine Reservierungen für diese Filter.</p>
     : <Table numeric={[2,3]} headers={['Ressource','Zeitraum','Menge','Noch ausgegeben','Status','Aktion']} rows={visibleReservations.map((row)=>({
       key:row.id,cells:[row.user_id ? name(data.users,row.user_id) : <><span>{inventoryName(data.items,row.item_id)}</span><small>{name(data.locations,row.location_id)}</small></>,
-        <>{moment(row.starts_at)}<small>bis {moment(row.ends_at)}</small></>,row.quantity,
+        <>{moment(row.starts_at)}<small>bis {moment(row.ends_at)}</small>
+          {Number.isSafeInteger(row.duration_minutes) && row.duration_minutes>=0 && <small>{reservationDurationLabel(row.duration_minutes)}</small>}
+        </>,row.quantity,
         equipmentIds.has(row.item_id) ? row.checked_out ?? '–' : '–',
         <Pill label={reservationStages[row.status]} tone={row.status==='firm'?'accent':'neutral'}/>,
         <div className="actions">{row.status==='tentative' && ['confirmed','running'].includes(project.stage) && (

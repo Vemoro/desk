@@ -1,9 +1,15 @@
 import { useId, useRef, useState, type RefObject } from 'react';
-import { reservationStages } from './client';
+import { reservationStages, type Row } from './client';
 import { Field } from './field';
 
-export const emptyReservationFilters={resource:'',status:'',day:''};
+export const emptyReservationFilters={query:'',resource:'',status:'',day:'',onlyCheckedOut:false};
 type ReservationFilterValues=typeof emptyReservationFilters;
+
+export function matchesReservationQuery(row:Row,people:Row[],items:Row[],query:string) {
+  const resource=(row.user_id?people:items).find(entry=>entry.id===(row.user_id??row.item_id));
+  const inventoryNumber=row.user_id?undefined:resource?.inventory_number;
+  return [resource?.name,inventoryNumber].some(value=>typeof value==='string' && value.toLowerCase().includes(query));
+}
 
 export function ReservationFilters({filters,onChange,resourceSelector,count,timeZone}:{
   filters:ReservationFilterValues;onChange:(value:ReservationFilterValues)=>void;
@@ -27,6 +33,8 @@ export function ReservationFilters({filters,onChange,resourceSelector,count,time
 
   return <div className="panel-body">
     <div className="form-grid">
+      <Field label="Ressourcen suchen">{props=><input {...props} type="search" value={filters.query}
+        onChange={event=>onChange({...filters,query:event.currentTarget.value})}/>}</Field>
       <Field label="Ressourcentyp">{props=><select {...props} ref={resourceSelector} value={filters.resource}
         onChange={event=>onChange({...filters,resource:event.currentTarget.value})}>
         <option value="">Alle</option><option value="user">Personal</option><option value="item">Inventar</option>
@@ -39,6 +47,8 @@ export function ReservationFilters({filters,onChange,resourceSelector,count,time
       <Field label="Am Datum" describedBy={dayZone}>{props=><input {...props} type="date" ref={dayInput}
         value={filters.day} onInput={trackDayInput} onKeyUp={trackDayInput} onBlur={trackDayInput}
         onChange={event=>onChange({...filters,day:event.currentTarget.value})}/>}</Field>
+      <Field label="Nur offene Geräteausgaben" className="checkbox-label reservation-open-filter">{props=><input {...props} type="checkbox"
+        checked={filters.onlyCheckedOut} onChange={event=>onChange({...filters,onlyCheckedOut:event.currentTarget.checked})}/>}</Field>
     </div>
     <div className="actions">
       <span className="subtle" role="status">{count} {count===1?'Reservierung':'Reservierungen'}</span>

@@ -1,6 +1,6 @@
 import { Field } from './field';
 import { useEffect, useRef, useState, type RefObject } from 'react';
-import { api, calendarDate, projectStages, type Row } from './client';
+import { api, calendarDate, isOpenProject, projectStages, type Row } from './client';
 import type { Data } from './projects';
 import { ListEmpty, PageHeading, openListForm } from './list-page';
 import { ConfirmDialog, Expand, Form, noWrite, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
@@ -149,18 +149,42 @@ function ContactDetail({contact,projects,run,haben,comparison,sync,detailRef,ope
         {comparison&&comparison.action!=='conflict'&&<p role="status">Abgleich abgeschlossen.</p>}
       </Expand>}
     </div>
-      <section className="contact-projects" aria-labelledby="contact-projects-title">
-        <div className="panel-body">
-          <h3 id="contact-projects-title">Zugehörige Projekte</h3>
-          {!projects.length&&<p className="subtle">Diesem Kontakt sind noch keine Projekte zugeordnet.</p>}
-        </div>
-        {projects.length>0&&<Table headers={['Projekt','Status','Termin']} rows={projects.map((project)=>({key:project.id,cells:[
-          <button type="button" className="text-button" onClick={()=>openProject(project.id)}>{project.name}</button>,
-          <Pill label={projectStages[project.stage]} tone={project.stage==='confirmed'?'accent':'neutral'}/>,
-          calendarDate(project.due),
-        ]}))}/>}
-      </section>
+      <ContactProjects key={contact.id} projects={projects} openProject={openProject}/>
     </Panel>;
+}
+
+function ContactProjects({projects,openProject}:{projects:Row[];openProject:(id:string)=>void}) {
+  const [search,setSearch]=useState('');
+  const [status,setStatus]=useState('all');
+  const searchFilter=useRef<HTMLInputElement>(null);
+  const statusFilter=useRef<HTMLSelectElement>(null);
+  const term=search.trim().toLowerCase();
+  const visible=projects.filter(project=>project.name.toLowerCase().includes(term)
+    && (status==='all' || isOpenProject(project.stage)===(status==='open')));
+  return <section className="contact-projects" aria-labelledby="contact-projects-title">
+    <div className="panel-body">
+      <h3 id="contact-projects-title">Zugehörige Projekte</h3>
+      {projects.length>0&&<Field label="Projektnamen suchen" className="filter">{props=><input {...props} ref={searchFilter}
+        type="search" value={search} onChange={event=>setSearch(event.currentTarget.value)}/>}</Field>}
+      {projects.length>0&&<Field label="Projektstatus filtern" className="filter">{props=><select {...props} ref={statusFilter} value={status}
+        onChange={event=>setStatus(event.currentTarget.value)}>
+        <option value="all">Alle</option><option value="open">Offen</option><option value="closed">Beendet</option>
+      </select>}</Field>}
+      {!projects.length&&<p className="subtle">Diesem Kontakt sind noch keine Projekte zugeordnet.</p>}
+    </div>
+    {projects.length>0&&!visible.length&&<ListEmpty action={<button type="button" onClick={()=>{
+      setSearch('');
+      setStatus('all');
+      (term?searchFilter:statusFilter).current?.focus();
+    }}>Filter zurücksetzen</button>}>
+      {term?'Keine Projekte für diese Suche.':status==='open'?'Keine offenen Projekte.':'Keine beendeten Projekte.'}
+    </ListEmpty>}
+    {visible.length>0&&<Table headers={['Projekt','Status','Termin']} rows={visible.map(project=>({key:project.id,cells:[
+      <button type="button" className="text-button" onClick={()=>openProject(project.id)}>{project.name}</button>,
+      <Pill label={projectStages[project.stage]} tone={project.stage==='confirmed'?'accent':'neutral'}/>,
+      calendarDate(project.due),
+    ]}))}/>}
+  </section>;
 }
 
 function Duplicates({warningRef,duplicates,openContact,setConfirmation,saveContact}:{

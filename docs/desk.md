@@ -45,7 +45,7 @@ Unter **Aufgaben sortieren** ordnet **Frühester Termin zuerst** die sichtbaren 
 
 Zum manuellen Umordnen wähle **Standard**, **Alle** und **Alle Termine** und leere einen aktiven Suchbegriff. Status, Zuständigkeit und Fälligkeit kannst du weiterhin im Kartendialog ändern. In jeder Spalte kannst du auch bei aktiven Filtern eine undatierte Karte hinzufügen. Desk meldet nach dem Speichern, welche Filter du bei Bedarf ändern musst, um sie zu sehen.
 
-Wähle unter **Kontakte** den Namen eines Kontakts. Unter **Zugehörige Projekte** stehen seine Projekte mit Status und Termin. Wähle den Projektnamen, um das Projekt zu öffnen. Gleichnamige Kontakte zeigen jeweils ihre eigenen Projekte.
+Wähle unter **Kontakte** den Namen eines Kontakts. Unter **Zugehörige Projekte** stehen seine Projekte mit Status und Termin. Unter **Projektnamen suchen** reicht ein Teil des Namens. Groß- und Kleinschreibung sowie Leerzeichen am Anfang und Ende spielen keine Rolle. **Projektstatus filtern** schränkt die Treffer zusätzlich auf offene oder beendete Projekte ein. **Beendet** umfasst abgerechnete und abgesagte Projekte. Beim Leeren des Suchfelds bleibt der gewählte Status aktiv. **Filter zurücksetzen** im Leerergebnis hebt beide Einschränkungen auf. Beim Wechsel zu einem anderen Kontakt stehen wieder alle seine Projekte in der Liste. Wähle den Projektnamen, um das Projekt zu öffnen. Gleichnamige Kontakte zeigen jeweils ihre eigenen Projekte.
 
 Wenn Desk meldet, dass eine Änderung gespeichert wurde und die Ansicht nicht aktualisiert werden konnte, wähle **Ansicht aktualisieren**. Desk ruft die Daten erneut ab. Der Schreibvorgang wird dabei nicht wiederholt. Ist deine Sitzung abgelaufen, meldet Desk die erfolgreiche Speicherung in der Anmeldemaske. Nach der Anmeldung lädt Desk die aktuelle Ansicht.
 
@@ -53,13 +53,15 @@ In der Ressourcenplanung und im Projektlager steht die Inventarnummer eines Einz
 
 ### Reservierungen im Projekt filtern
 
-Öffne im Projekt **Ressourcen & Kalkulation**. Unter **Ressourcenplanung** kannst du **Ressourcentyp**, **Status filtern** und **Am Datum** kombinieren. Das Datum wählt in der angezeigten Browser-Zeitzone alle Reservierungen aus, die den gewählten Tag überlappen. Endet eine Reservierung genau zum Tagesbeginn oder beginnt sie zum Tagesbeginn des Folgetags, erscheint sie bei dieser Auswahl nicht. Die Trefferzahl zählt nur die angezeigten Reservierungen. Nach einer Freigabe oder festen Reservierung bleiben die Filter aktiv. Mit **Filter zurücksetzen** siehst du wieder alle Reservierungen des Projekts.
+Öffne im Projekt **Ressourcen & Kalkulation**. Unter **Ressourcenplanung** findet **Ressourcen suchen** Teile von Personen- und Artikelnamen oder Inventarnummern. Die Suche lässt sich mit **Ressourcentyp**, **Status filtern**, **Am Datum** und **Nur offene Geräteausgaben** kombinieren. Das Datum wählt in der angezeigten Browser-Zeitzone alle Reservierungen aus, die den gewählten Tag überlappen. Endet eine Reservierung genau zum Tagesbeginn oder beginnt sie zum Tagesbeginn des Folgetags, erscheint sie bei dieser Auswahl nicht. Die Trefferzahl zählt nur die angezeigten Reservierungen. Nach einer Freigabe oder festen Reservierung bleiben die Filter aktiv. Mit **Filter zurücksetzen** siehst du wieder alle Reservierungen des Projekts.
 
 Für den Tagesvergleich liefert `GET /api/v1/reservations` zusätzlich `ends_at_submillisecond`. Das Feld enthält als Ganzzahl von 0 bis 999 die Mikrosekunden innerhalb der in `ends_at` angegebenen Millisekunde. Die Zeitdarstellung von `starts_at` und `ends_at` bleibt gleich.
 
+Unter **Zeitraum** steht die verstrichene Dauer in Stunden und Minuten. Desk rundet auf volle Minuten ab. Mehr als 24 Stunden bleiben als Stunden sichtbar. Die Dauer ist unabhängig von der Browser-Zeitzone und berücksichtigt Zeitumstellungen. `GET /api/v1/reservations` liefert sie als ganze Minuten im Zahlenfeld `duration_minutes`.
+
 ### Offene Geräteausgaben in der Ressourcenplanung
 
-**Noch ausgegeben** zeigt bei einer Gerätereservierung, wie viele Geräte zurückgegeben werden müssen. Die Zahl bleibt auch unter **Freigegeben** sichtbar. Nach einer Teilrückgabe sinkt sie um die zurückgegebene Menge. Sind alle Geräte zurück, zeigt die Spalte **0**. Bei Personal und Verbrauchsmaterial steht ein Gedankenstrich. Rückgaben buchst du im **Projektlager**.
+**Noch ausgegeben** zeigt bei einer Gerätereservierung, wie viele Geräte zurückgegeben werden müssen. Die Zahl bleibt auch unter **Freigegeben** sichtbar. Nach einer Teilrückgabe sinkt sie um die zurückgegebene Menge. Sind alle Geräte zurück, zeigt die Spalte **0**. Bei Personal und Verbrauchsmaterial steht ein Gedankenstrich. Rückgaben buchst du im **Projektlager**. **Nur offene Geräteausgaben** grenzt die Ressourcenplanung auf Geräte mit mindestens einer ausstehenden Rückgabe ein. Die Auswahl lässt sich mit Ressourcentyp, Status und Datum kombinieren. Bei aktiver Auswahl entfallen vollständig zurückgegebene Reservierungen beim nächsten Laden der Daten. **Filter zurücksetzen** deaktiviert die Auswahl.
 
 ### Wochenplanung öffnen
 
@@ -85,11 +87,13 @@ Desk zeichnet Statuswechsel, Festlegungen und Freigaben ab Migration `007_projec
 
 Öffne **Projektlager → Lagerbewegungen** und wähle beim ursprünglichen Wareneingang oder Verbrauch **Korrigieren**. Gib Menge und Begründung ein und wähle **Korrektur buchen**. Die neue Bewegung enthält die Begründung und einen Link zum sichtbaren Original. Ist dessen Zeile ausgeblendet, zeigt Desk das Datum der Originalbuchung. Teilkorrekturen können zusammen höchstens die ursprüngliche Menge erreichen. Für eine Ausgabe verwendest du die Rückgabe.
 
-Unter **Lagerbewegungen suchen** findest du Bewegungen anhand von Teilen des Artikelnamens, der Artikelnummer, der Inventarnummer oder der Lieferscheinreferenz. Die Suche und die Filter für Bewegungsart und Projekt wirken zusammen. Wähle **Ohne Projektbezug**, um Buchungen ohne Projektzuordnung zu sehen. Die Trefferzahl zählt die sichtbaren Bewegungen. **Filter zurücksetzen** zeigt wieder alle Bewegungen an und setzt den Fokus ins Suchfeld. Auch ausgeblendete Korrekturen zählen zur bereits korrigierten Menge. Wenn du die Zeile eines geöffneten Korrekturformulars kurz ausblendest, bleiben deine Eingaben erhalten. Läuft die Buchung einer ausgeblendeten Korrektur noch, zeigt Desk den Fortschritt oberhalb der Tabelle.
+Unter **Lagerbewegungen suchen** findest du Bewegungen anhand von Teilen des Artikelnamens, der Artikelnummer, der Inventarnummer oder der Lieferscheinreferenz. Die Suche und die Filter für Bewegungsart, Projekt und Lagerort wirken zusammen. Mit **Alle Lagerorte** siehst du Bewegungen von jedem Standort, auf den die übrigen Filter zutreffen. Wähle **Ohne Projektbezug**, um Buchungen ohne Projektzuordnung zu sehen. Die Trefferzahl zählt die sichtbaren Bewegungen. **Filter zurücksetzen** zeigt wieder alle Bewegungen an und setzt den Fokus ins Suchfeld. Auch ausgeblendete Korrekturen zählen zur bereits korrigierten Menge. Wenn du die Zeile eines geöffneten Korrekturformulars kurz ausblendest, bleiben deine Eingaben erhalten. Läuft die Buchung einer ausgeblendeten Korrektur noch, zeigt Desk den Fortschritt oberhalb der Tabelle.
 
-Mit **Vom Datum** und **Bis Datum** grenzt du die Bewegungen nach Buchungstagen ein. Beide Grenzen sind optional und schließen den jeweiligen Tag ein. Die angezeigte Browser-Zeitzone gilt auch für die Spalte **Zeitpunkt**. Der Datumsbereich wirkt zusammen mit der Suche sowie den Filtern für Bewegungsart und Projekt. Liegt **Bis Datum** vor **Vom Datum**, korrigiere die Eingabe am markierten Feld oder setze die Filter zurück.
+Mit **Vom Datum** und **Bis Datum** grenzt du die Bewegungen nach Buchungstagen ein. Beide Grenzen sind optional und schließen den jeweiligen Tag ein. Die angezeigte Browser-Zeitzone gilt auch für die Spalte **Zeitpunkt**. Der Datumsbereich wirkt zusammen mit der Suche sowie den Filtern für Bewegungsart, Projekt und Lagerort. Liegt **Bis Datum** vor **Vom Datum**, korrigiere die Eingabe am markierten Feld oder setze die Filter zurück.
 
 Wähle in der Spalte **Projekt** den Namen des Auftrags, um ihn zu öffnen. Beim Zurückgehen zur Lageransicht bleiben die Bewegungsfilter innerhalb derselben Sitzung erhalten. Nach einer neuen Anmeldung sind die Filter leer. Buchungen ohne sichtbaren Projektbezug zeigen einen Gedankenstrich.
+
+Mit **CSV herunterladen** exportierst du die gefilterten Lagerbewegungen über alle geladenen Seiten in der Reihenfolge der Liste. Die Datei enthält Zeitpunkt in UTC, Bewegung, Artikel, Lagerort, Projekt, Menge, Lieferschein und die erfassende Person. Bei einem leeren Ergebnis oder einem ungültigen Datumsbereich ist der Download deaktiviert.
 
 Eine Verbrauchskorrektur schreibt die Menge dem Lagerort gut. Bei fester Reservierung steht die korrigierte Menge wieder für diese Reservierung bereit. Bei einer Korrektur des Wareneingangs prüft Desk den physischen Bestand. Für Geräte zählt die höchste gleichzeitige Restmenge aus laufenden und zukünftigen festen Reservierungen. Für Verbrauchsmaterial zählt der offene Bedarf aller festen Reservierungen. Ein vollständig zurückgenommener Wareneingang eines Einzelgeräts lässt sich anschließend neu buchen.
 
@@ -103,7 +107,7 @@ Ohne aktive Filter zeigt ein leerer Bestand den nächsten Schritt. **Wareneingan
 
 ### Ist-Kosten filtern
 
-In **Ist-Kosten** lassen sich Belege nach Referenz oder Bezeichnung suchen und zugleich nach Quelle und Projektzuordnung filtern. Wählst du unter **Zuordnung filtern** den Eintrag **Ohne Zuordnung** und weist einem Beleg ein Projekt zu, verschwindet er aus der gefilterten Liste. Die Filter bleiben gesetzt. **Filter zurücksetzen** zeigt wieder alle Belege.
+In **Ist-Kosten** lassen sich Belege nach Referenz oder Bezeichnung suchen und zugleich nach Quelle und Projektzuordnung filtern. Wählst du unter **Zuordnung filtern** den Eintrag **Ohne Zuordnung** und weist einem Beleg ein Projekt zu, verschwindet er aus der gefilterten Liste. Die Filter bleiben gesetzt. **Filter zurücksetzen** zeigt wieder alle Belege. Die Spalte **Kostenstelle** zeigt den am Beleg gespeicherten Wert. Bei einem Beleg ohne Kostenstelle steht dort „–“. Eine manuelle Projektzuordnung ändert diesen Belegwert nicht.
 
 ### Kosten aus CSV übernehmen
 

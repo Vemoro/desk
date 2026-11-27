@@ -1,7 +1,8 @@
 import { Field } from './field';
 import { useId, useRef, useState } from 'react';
 import { deliveryReferenceError } from '../delivery-reference';
-import { api, inventoryLabel, inventoryName, moment, movementStages, name } from './client';
+import { api, downloadBlob, inventoryLabel, inventoryName, moment, movementStages, name } from './client';
+import { csvFile, csvText } from './csv';
 import type { Data } from './projects';
 import { Expand, Form, hasPendingWrite, options, Panel, Table, type Run } from './widgets';
 import { ListEmpty, PageHeading, openListForm } from './list-page';
@@ -143,12 +144,12 @@ function OpenCheckouts({data,bookings}:{data:Data;bookings:Bookings}) {
     </Panel>;
 }
 
-export const defaultMovementFilters={query:'',kind:'',project:'',from:'',to:''};
+export const defaultMovementFilters={query:'',kind:'',project:'',location:'',from:'',to:''};
 type MovementFilterValues=typeof defaultMovementFilters;
 
-function MovementFilters({filters,onChange,projects,count,total,invalidRange}:{
+function MovementFilters({filters,onChange,projects,locations,count,total,invalidRange}:{
   filters:MovementFilterValues;onChange:(filters:MovementFilterValues)=>void;
-  projects:Data['projects'];count:number;total:number;invalidRange:boolean;
+  projects:Data['projects'];locations:Data['locations'];count:number;total:number;invalidRange:boolean;
 }) {
   const search=useRef<HTMLInputElement>(null);
   const timeZoneId=useId();
@@ -186,6 +187,11 @@ function MovementFilters({filters,onChange,projects,count,total,invalidRange}:{
         <option value="without-project">Ohne Projektbezug</option>
         {options(projects).map(({value,label})=><option key={value} value={value}>{label}</option>)}
       </select>}</Field>
+      <Field label="Lagerort filtern">{props=><select {...props} value={filters.location}
+        onChange={event=>onChange({...filters,location:event.currentTarget.value})}>
+        <option value="">Alle Lagerorte</option>
+        {options(locations).map(({value,label})=><option key={value} value={value}>{label}</option>)}
+      </select>}</Field>
       <Field label="Vom Datum" describedBy={timeZoneId}>{props=><input {...props} type="date" ref={fromDate} value={filters.from} onInput={trackDateInput} onKeyUp={trackDateInput} onBlur={trackDateInput}
         onChange={event=>onChange({...filters,from:event.currentTarget.value})}/>}</Field>
       <Field label="Bis Datum" describedBy={timeZoneId} error={invalidRange?'Das Bis-Datum liegt vor dem Vom-Datum.':undefined}>
@@ -208,11 +214,27 @@ function matchesMovementDay(createdAt:string,from:number,to:number) {
   return day>=from && (!to || day<=to);
 }
 
+function downloadMovements(rows:Data['movements'],data:Data) {
+  const lines=rows.map(row=>[
+    csvText(new Date(row.created_at).toISOString()),
+    csvText(movementStages[row.action]),
+    csvText(inventoryName(data.items,row.item_id)),
+    csvText(name(data.locations,row.location_id)),
+    csvText(name(data.projects,row.project_id)),
+    row.quantity,
+    csvText(row.delivery_reference || '–'),
+    csvText(name(data.users,row.actor_id)),
+  ].join(';'));
+  downloadBlob('lagerbewegungen.csv',csvFile([
+    'Zeitpunkt (UTC);Bewegung;Artikel;Lagerort;Projekt;Menge;Lieferschein;Erfasst durch',...lines,
+  ]));
+}
+
 function WarehouseMovements({data,run,accountId,filters,onFilter}:WarehouseMovementProps) {
   const [correctionId,setCorrectionId]=useState('');
   const [writingCorrection,setWritingCorrection]=useState('');
   const correctionProgress=writingCorrection ? `korrektur-laeuft-${writingCorrection}` : undefined;
-  const {kind,project}=filters;
+  const {kind,project,location}=filters;
   const from=Number(filters.from.replaceAll('-',''));
   const to=Number(filters.to.replaceAll('-',''));
   const invalidRange=Boolean(from && to && from>to);
@@ -224,6 +246,7 @@ function WarehouseMovements({data,run,accountId,filters,onFilter}:WarehouseMovem
     return (!kind || row.action===kind)
       && matchesMovementDay(row.created_at,from,to)
       && (!project || (project==='without-project' ? !row.project_id : row.project_id===project))
+      && (!location || row.location_id===location)
       && (!term || [item?.name,item?.code,item?.inventory_number,row.delivery_reference]
         .some(value=>value?.toLowerCase().includes(term)));
   });
@@ -238,9 +261,10 @@ function WarehouseMovements({data,run,accountId,filters,onFilter}:WarehouseMovem
       corrected.set(row.corrects_movement_id,(corrected.get(row.corrects_movement_id) ?? 0)+row.quantity);
     }
   }
-  return <Panel title="Lagerbewegungen">
+  return <Panel title="Lagerbewegungen" action={<button type="button" disabled={!visibleMovements.length}
+    onClick={()=>downloadMovements(visibleMovements,data)}>CSV herunterladen</button>}>
       <div className="panel-body">
-          <MovementFilters filters={filters} onChange={onFilter} projects={data.projects}
+          <MovementFilters filters={filters} onChange={onFilter} projects={data.projects} locations={data.locations}
           count={visibleMovements.length} total={data.movements.length} invalidRange={invalidRange}/>
         {progressOutsideRow && <p id={correctionProgress} className="subtle" role="status">Eine ausgeblendete Korrektur wird noch gebucht.</p>}
       </div>
