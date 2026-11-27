@@ -28,11 +28,11 @@ async function openTarget(page:Page){
   await page.route('**/api/v1/users',route=>route.fulfill({json:[{id:'worker',name:'Mira Muster'}]}));
   await signIn(page);
   await openPlanning(page,projectName);
-  return page.locator('.panel').filter({has:page.getByRole('heading',{name:'Ressourcenplanung',exact:true})});
+  return page.locator('section').filter({has:page.getByRole('heading',{name:'Ressourcenplanung',exact:true})});
 }
 async function openPlanning(page:Page,name:string){
   await project(page,name);
-  await page.getByRole('button',{name:'Ressourcen & Kalkulation',exact:true}).click();
+  await page.getByRole('link',{name:'Ressourcen & Kalkulation',exact:true}).click();
 }
 
 test('Ressourcensuche kombiniert Name und Inventarnummer mit allen vorhandenen Filtern',async({page})=>{
@@ -45,6 +45,10 @@ test('Ressourcensuche kombiniert Name und Inventarnummer mit allen vorhandenen F
   const open=panel.getByRole('checkbox',{name:'Nur offene Geräteausgaben'});
   const reset=panel.getByRole('button',{name:'Filter zurücksetzen'});
   const empty=panel.getByText('Keine Reservierungen für diese Filter.');
+  await expect(rows).toHaveCount(4);
+  await expect(search).toBeVisible();
+  await search.fill('   ');
+  await expect(rows).toHaveCount(4);
   await search.fill('  IRA MUS  ');
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText('Mira Muster');
@@ -54,8 +58,11 @@ test('Ressourcensuche kombiniert Name und Inventarnummer mit allen vorhandenen F
   await search.fill('Montagekoffer');
   await expect(rows).toHaveCount(2);
   await expect(panel.getByText('2 Reservierungen',{exact:true})).toBeVisible();
+  await search.fill('Montagekoffer (INV-1001)');
+  await expect(empty).toBeVisible();
   await search.fill('inv-1002');
   await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText('INV-1002');
   await expect(panel.getByText('1 Reservierung',{exact:true})).toBeVisible();
 
   await type.selectOption('user');
@@ -75,7 +82,9 @@ test('Ressourcensuche kombiniert Name und Inventarnummer mit allen vorhandenen F
   await search.fill('INV-1001');
   await expect(rows).toHaveCount(1);
 
-  await reset.click();
+  await reset.focus();
+  await reset.press('Enter');
+  await expect(type).toBeFocused();
   await expect(search).toHaveValue('');
   await expect(rows).toHaveCount(4);
   await search.fill('INV-1001');
