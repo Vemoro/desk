@@ -53,6 +53,7 @@ for(const timezoneId of ['Europe/Berlin','UTC']){
         await type.selectOption('user');
         await expect(rows).toHaveCount(2);
         await expect(rows.filter({hasText:'Mira Muster'}).getByText('1 Stunde',{exact:true})).toBeVisible();
+        await expect(rows.filter({hasText:'Nora Beispiel'}).getByText('45 Minuten',{exact:true})).toBeVisible();
         await type.selectOption('item');
         await status.selectOption('released');
         await expect(rows).toHaveCount(1);
@@ -60,6 +61,8 @@ for(const timezoneId of ['Europe/Berlin','UTC']){
         await status.selectOption('');
         await date.fill('2027-03-27');
         await expect(rows).toHaveCount(2);
+        await expect(rows.filter({hasText:'Montagekoffer'}).getByText('1 Stunde 30 Minuten',{exact:true})).toBeVisible();
+        await expect(rows.filter({hasText:'Messgerät'}).getByText('1 Stunde',{exact:true})).toBeVisible();
         await panel.getByRole('checkbox',{name:'Nur offene Geräteausgaben'}).check();
         await expect(rows).toHaveCount(1);
         await expect(rows.first().getByText('1 Stunde 30 Minuten',{exact:true})).toBeVisible();
