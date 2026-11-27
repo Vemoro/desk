@@ -6,12 +6,13 @@ test('Die Projektsuche bleibt auf den gewählten Kontakt und Status begrenzt',as
     {id:'first',name:'Mira Muster',email:'mira@example.test'},
     {id:'second',name:'Nora Beispiel',email:'nora@example.test'},
     {id:'empty',name:'Kulturhaus am Park',email:'kulturhaus@example.test'},
+    {id:'foreign',name:'Kontor West',email:'buero@kontor.example.test'},
   ]}));
   await page.route('**/api/v1/projects?*',route=>route.fulfill({json:[
     {id:'office',contact_id:'first',name:'Musterinstallation Büro',stage:'planning'},
     {id:'stage',contact_id:'first',name:'Musterinstallation Bühne',stage:'complete'},
     {id:'cancelled',contact_id:'first',name:'Musterabsage',stage:'cancelled'},
-    {id:'unassigned',name:'Musterinstallation Lager',stage:'planning'},
+    {id:'foreign-project',contact_id:'foreign',name:'Musterinstallation Lager',stage:'planning'},
     {id:'maintenance',contact_id:'second',name:'Musterwartung',stage:'running'},
   ]}));
 
