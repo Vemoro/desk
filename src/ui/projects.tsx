@@ -1,5 +1,5 @@
 import { Field } from './field';
-import { useEffect, useId, useRef, useState, type FocusEvent, type RefObject } from 'react';
+import { useEffect, useId, useRef, useState, type FocusEvent } from 'react';
 import { missingStageReference } from '../project-references';
 import { microsecondsWithinMillisecond } from '../time';
 import { api, calendarDate, downloadPositions, euros, inventoryLabel, inventoryName, moment, money, name, projectStages, reservationStages, type Row } from './client';
@@ -10,6 +10,7 @@ import { ProjectKanban } from './project-kanban';
 import { projectHash, projectViews, type ProjectView } from './project-views';
 import { localDayRange, useLocalDay } from './local-day';
 import { ListEmpty, PageHeading, openListForm } from './list-page';
+import { emptyReservationFilters, ReservationFilters } from './reservation-filters';
 
 export type Data = Record<'contacts'|'projects'|'tasks'|'users'|'lines'|'reservations'|'locations'|'items'|'movements'|'costs'|'stock',Row[]>;
 type Flags = { haben:boolean; zammad:boolean };
@@ -208,57 +209,11 @@ function Planning(props:ProjectPlanningProps) {
   return <><ProjectReservations {...props}/><ProjectCalculation project={props.project} data={props.data} run={props.run}/></>;
 }
 
-const emptyReservationFilters={resource:'',status:'',day:''};
-type ReservationFilterValues=typeof emptyReservationFilters;
-
 function overlapsReservationDay(row:Row,{start,end}:ReturnType<typeof localDayRange>) {
   const bookingEnd=Date.parse(row.ends_at);
   const submillisecond=row.ends_at_submillisecond ?? microsecondsWithinMillisecond(row.ends_at);
   return start<end && Date.parse(row.starts_at)<end
     && (bookingEnd>start || (bookingEnd===start && submillisecond>0));
-}
-
-function ReservationFilters({filters,onChange,resourceSelector,count,timeZone}:{
-  filters:ReservationFilterValues;onChange:(value:ReservationFilterValues)=>void;
-  resourceSelector:RefObject<HTMLSelectElement|null>;count:number;timeZone:string;
-}) {
-  const dayInput=useRef<HTMLInputElement>(null);
-  const dayZone=useId();
-  const [incompleteDay,setIncompleteDay]=useState(false);
-
-  // A partially entered native date can have an empty value.
-  function trackDayInput() {
-    setIncompleteDay(dayInput.current?.validity.badInput ?? false);
-  }
-
-  function reset() {
-    if(dayInput.current) dayInput.current.value='';
-    setIncompleteDay(false);
-    onChange(emptyReservationFilters);
-    resourceSelector.current?.focus();
-  }
-
-  return <div className="panel-body">
-    <div className="form-grid">
-      <Field label="Ressourcentyp">{props=><select {...props} ref={resourceSelector} value={filters.resource}
-        onChange={event=>onChange({...filters,resource:event.currentTarget.value})}>
-        <option value="">Alle</option><option value="user">Personal</option><option value="item">Inventar</option>
-      </select>}</Field>
-      <Field label="Status filtern">{props=><select {...props} value={filters.status}
-        onChange={event=>onChange({...filters,status:event.currentTarget.value})}>
-        <option value="">Alle</option>
-        {Object.entries(reservationStages).map(([value,label])=><option key={value} value={value}>{label}</option>)}
-      </select>}</Field>
-      <Field label="Am Datum" describedBy={dayZone}>{props=><input {...props} type="date" ref={dayInput}
-        value={filters.day} onInput={trackDayInput} onKeyUp={trackDayInput} onBlur={trackDayInput}
-        onChange={event=>onChange({...filters,day:event.currentTarget.value})}/>}</Field>
-    </div>
-    <div className="actions">
-      <span className="subtle" role="status">{count} {count===1?'Reservierung':'Reservierungen'}</span>
-      <button type="button" disabled={!incompleteDay && !Object.values(filters).some(Boolean)} onClick={reset}>Filter zurücksetzen</button>
-      <span className="subtle" id={dayZone}>Browser-Zeitzone {timeZone}</span>
-    </div>
-  </div>;
 }
 
 function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) {
