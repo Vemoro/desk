@@ -106,6 +106,7 @@ small { display: block; color: var(--muted); margin-top: 4px; font-size: var(--t
 .breadcrumb,.subtle { color:var(--muted); font-size: var(--text-14); }
 .breadcrumb { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
 .metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
+.metrics.calculation-totals { grid-template-columns:repeat(2,minmax(0,1fr)); margin-block-end:16px; }
 @media (1020px < width <= 1200px) { .dashboard-metrics { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 @media (width > 1200px) { .dashboard-metrics { grid-template-columns:repeat(5,minmax(0,1fr)); } }
 .metric { background:var(--paper); border:1px solid var(--border); border-radius:var(--radius); padding:20px; min-width:0; container-type:inline-size; }
