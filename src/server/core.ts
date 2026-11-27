@@ -1,7 +1,11 @@
 import type { z } from 'zod';
+import { missingStageReference } from '../project-references';
 import { db, first, rows, type Query } from './db';
 import { DeskError, required } from './errors';
-import { schemas, type costInput, type projectStage, type stages } from './contracts';
+import { requireAvailableAssignee } from './accounts';
+import { schemas, type costInput, type projectStage, type stages, type TaskStatus } from './contracts';
+import { appendKanbanPosition, lockKanban, setKanbanPosition } from './kanban-order';
+import { recordStage, releaseProjectReservations } from './project-history';
 
 export type Collection = keyof typeof schemas;
 type Stage = typeof stages[number];
@@ -37,14 +41,38 @@ export async function saveCore(table: Collection, data: Record<string, unknown>,
   if (id && ['tasks', 'lines'].includes(table) && 'project_id' in data) {
     throw new DeskError(400, 'Die Projektzuordnung ist nach der Anlage fest.');
   }
-  const keys = Object.keys(data);
-  if (!keys.length && id) return getCore(table, id);
-  const values = keys.map((key) => data[key]);
-  const placeholders = keys.map((_, index) => `$${index + 1}`);
-  const statement = id
-    ? `UPDATE ${table} SET ${keys.map((key, index) => `${key}=${placeholders[index]}`).join(',')} WHERE id=$${keys.length + 1}`
-    : `INSERT INTO ${table}(${keys.join(',')}) VALUES (${placeholders.join(',')})`;
-  return required(await first<{id:string} & Record<string,unknown>>(db, `${statement} RETURNING ${selected[table]}`, id ? [...values, id] : values));
+  if (!Object.keys(data).length && id) return getCore(table, id);
+  const save=async (query:Query,fields:Record<string,unknown>)=>{
+    const keys=Object.keys(fields);
+    const values=keys.map(key=>fields[key]);
+    const placeholders=keys.map((_,index)=>`$${index+1}`);
+    const statement=id
+      ? `UPDATE ${table} SET ${keys.map((key,index)=>`${key}=${placeholders[index]}`).join(',')} WHERE id=$${keys.length+1}`
+      : `INSERT INTO ${table}(${keys.join(',')}) VALUES (${placeholders.join(',')})`;
+    return required(await first<{id:string} & Record<string,unknown>>(query,`${statement} RETURNING ${selected[table]}`,
+      id ? [...values,id] : values));
+  };
+  if (table !== 'tasks') return save(db,data);
+  return db.begin(async transaction=>{
+    // The project never changes after task creation. Lock it before reading or writing card state.
+    const projectId=id ? required(await first<{project_id:string}>(transaction,
+      'SELECT project_id FROM tasks WHERE id=$1',[id])).project_id : data.project_id as string;
+    if(!(await lockKanban(transaction,projectId))) throw new DeskError(409,'Unzulässige Zuordnung oder ungültiger Wert.');
+    const prior=id ? required(await first<{assignee_id:string|null;status:TaskStatus}>(transaction,
+      'SELECT assignee_id,status FROM tasks WHERE id=$1 FOR UPDATE',[id])) : undefined;
+    const assignee=data.assignee_id;
+    if(typeof assignee==='string' && prior?.assignee_id!==assignee.toLowerCase()) {
+      await requireAvailableAssignee(transaction,assignee);
+    }
+    const status=(data.status ?? prior?.status ?? 'todo') as TaskStatus;
+    if(!prior || status!==prior.status) {
+      const position=await appendKanbanPosition(transaction,projectId,status);
+      const task=await save(transaction,data);
+      await setKanbanPosition(transaction,task.id,position);
+      return task;
+    }
+    return save(transaction,data);
+  });
 }
 
 const transitions: Record<Stage, Stage[]> = {
@@ -61,20 +89,18 @@ export async function lockPlanning(query: Query) {
   await query.unsafe('SELECT pg_advisory_xact_lock(61274)');
 }
 
-export async function changeStage(id: string, stage: z.infer<typeof projectStage>['stage']) {
+export async function changeStage(id: string, stage: z.infer<typeof projectStage>['stage'], actorId?: string) {
   return db.begin(async (transaction) => {
     await lockPlanning(transaction);
     const existing = await getProject(id, transaction);
     if (stage === existing.stage) return existing;
     if (!transitions[existing.stage].includes(stage)) throw new DeskError(409, 'Dieser Projektstatus folgt auf eine andere Phase.');
-    if (stage === 'offered' && !existing.offer_ref && !existing.haben_offer_id) {
-      throw new DeskError(409, 'Zuerst eine Angebotsreferenz erfassen.');
-    }
-    if (stage === 'complete' && !existing.invoice_ref) throw new DeskError(409, 'Zuerst eine Rechnungsreferenz erfassen.');
-    if (stage === 'cancelled' || stage === 'complete') {
-      await transaction.unsafe("UPDATE reservations SET status='released' WHERE project_id=$1 AND status<>'released'", [id]);
-    }
-    return first(transaction, 'UPDATE projects SET stage=$1 WHERE id=$2 RETURNING *', [stage, id]);
+    const reference=missingStageReference(stage,existing);
+    if(reference) throw new DeskError(409, `Zuerst eine ${reference} erfassen.`);
+    const project = await first(transaction, 'UPDATE projects SET stage=$1 WHERE id=$2 RETURNING *', [stage, id]);
+    await recordStage(transaction,id,actorId,existing.stage,stage,'desk');
+    if (stage === 'cancelled' || stage === 'complete') await releaseProjectReservations(transaction,id,actorId);
+    return project;
   });
 }
 

@@ -27,6 +27,8 @@ test('Kontaktdetail trennt offene und beendete Aufträge und setzt den Filter be
   await expect(rows.first()).toContainText('Planung');
   await filter.selectOption({label:'Beendet'});
   await expect(rows).toHaveCount(2);
+  await expect(rows.filter({has:page.getByText('Abgesagt',{exact:true})})).toContainText('Musterabsage');
+  await expect(rows.filter({has:page.getByText('Planung',{exact:true})})).toHaveCount(0);
   await rows.filter({has:page.getByText('Abgerechnet',{exact:true})}).getByRole('button',{name:'Musterinstallation'}).click();
   await expect(page.getByRole('heading',{name:'Musterinstallation',exact:true})).toBeVisible();
   await expect(page).toHaveURL(/#projects\/billed$/);
@@ -41,5 +43,9 @@ test('Kontaktdetail trennt offene und beendete Aufträge und setzt den Filter be
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText('Musterwartung');
   await filter.selectOption({label:'Beendet'});
-  await expect(detail.getByText('Keine Projekte für diesen Filter.')).toBeVisible();
+  await expect(detail.getByRole('status')).toHaveText('Keine beendeten Projekte.');
+  await detail.getByRole('button',{name:'Filter zurücksetzen',exact:true}).press('Enter');
+  await expect(filter).toHaveValue('all');
+  await expect(filter).toBeFocused();
+  await expect(rows).toHaveCount(1);
 });
