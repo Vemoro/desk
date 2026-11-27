@@ -1,7 +1,8 @@
 import { Field } from './field';
 import { useId, useRef, useState } from 'react';
 import { deliveryReferenceError } from '../delivery-reference';
-import { api, inventoryLabel, inventoryName, moment, movementStages, name } from './client';
+import { api, downloadBlob, inventoryLabel, inventoryName, moment, movementStages, name } from './client';
+import { csvFile, csvText } from './csv';
 import type { Data } from './projects';
 import { Expand, Form, hasPendingWrite, options, Panel, Table, type Run } from './widgets';
 import { ListEmpty, PageHeading, openListForm } from './list-page';
@@ -213,6 +214,22 @@ function matchesMovementDay(createdAt:string,from:number,to:number) {
   return day>=from && (!to || day<=to);
 }
 
+function downloadMovements(rows:Data['movements'],data:Data) {
+  const lines=rows.map(row=>[
+    csvText(new Date(row.created_at).toISOString()),
+    csvText(movementStages[row.action]),
+    csvText(inventoryName(data.items,row.item_id)),
+    csvText(name(data.locations,row.location_id)),
+    csvText(name(data.projects,row.project_id)),
+    row.quantity,
+    csvText(row.delivery_reference || '–'),
+    csvText(name(data.users,row.actor_id)),
+  ].join(';'));
+  downloadBlob('lagerbewegungen.csv',csvFile([
+    'Zeitpunkt (UTC);Bewegung;Artikel;Lagerort;Projekt;Menge;Lieferschein;Erfasst durch',...lines,
+  ]));
+}
+
 function WarehouseMovements({data,run,accountId,filters,onFilter}:WarehouseMovementProps) {
   const [correctionId,setCorrectionId]=useState('');
   const [writingCorrection,setWritingCorrection]=useState('');
@@ -244,7 +261,8 @@ function WarehouseMovements({data,run,accountId,filters,onFilter}:WarehouseMovem
       corrected.set(row.corrects_movement_id,(corrected.get(row.corrects_movement_id) ?? 0)+row.quantity);
     }
   }
-  return <Panel title="Lagerbewegungen">
+  return <Panel title="Lagerbewegungen" action={<button type="button" disabled={!visibleMovements.length}
+    onClick={()=>downloadMovements(visibleMovements,data)}>CSV herunterladen</button>}>
       <div className="panel-body">
           <MovementFilters filters={filters} onChange={onFilter} projects={data.projects} locations={data.locations}
           count={visibleMovements.length} total={data.movements.length} invalidRange={invalidRange}/>

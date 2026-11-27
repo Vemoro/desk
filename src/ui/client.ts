@@ -1,3 +1,5 @@
+import { csvFile, csvText } from './csv';
+
 export type Row = { id: string; [key: string]: any };
 
 export const projectStages: Record<string,string> = {
@@ -74,12 +76,8 @@ export function money(value:string) {
 export type OfferPosition = { name:string; quantity:number; unit_cents:number };
 
 export function downloadPositions(project:Pick<Row,'id'>, rows:OfferPosition[]) {
-  const encode=(value:unknown)=>{
-    const string=String(value);
-    return '"'+(/^[=+\-@\t\r]/.test(string) ? "'"+string : string).replaceAll('"','""')+'"';
-  };
-  const csv=['Position;Menge;Einzelpreis EUR',...rows.map((row)=>[encode(row.name), row.quantity, (row.unit_cents/100).toFixed(2).replace('.',',')].join(';'))].join('\r\n');
-  downloadBlob(`angebotspositionen-${project.id.slice(0,8)}.csv`,new Blob(['\uFEFF',csv],{type:'text/csv;charset=utf-8'}));
+  const lines=rows.map(row=>[csvText(row.name),row.quantity,(row.unit_cents/100).toFixed(2).replace('.',',')].join(';'));
+  downloadBlob(`angebotspositionen-${project.id.slice(0,8)}.csv`,csvFile(['Position;Menge;Einzelpreis EUR',...lines]));
 }
 
 export function downloadBlob(filename:string,blob:Blob) {

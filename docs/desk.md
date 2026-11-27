@@ -91,6 +91,8 @@ Mit **Vom Datum** und **Bis Datum** grenzt du die Bewegungen nach Buchungstagen 
 
 Wähle in der Spalte **Projekt** den Namen des Auftrags, um ihn zu öffnen. Beim Zurückgehen zur Lageransicht bleiben die Bewegungsfilter innerhalb derselben Sitzung erhalten. Nach einer neuen Anmeldung sind die Filter leer. Buchungen ohne sichtbaren Projektbezug zeigen einen Gedankenstrich.
 
+Mit **CSV herunterladen** exportierst du die gefilterten Lagerbewegungen über alle geladenen Seiten in der Reihenfolge der Liste. Die Datei enthält Zeitpunkt in UTC, Bewegung, Artikel, Lagerort, Projekt, Menge, Lieferschein und die erfassende Person. Bei einem leeren Ergebnis oder einem ungültigen Datumsbereich ist der Download deaktiviert.
+
 Eine Verbrauchskorrektur schreibt die Menge dem Lagerort gut. Bei fester Reservierung steht die korrigierte Menge wieder für diese Reservierung bereit. Bei einer Korrektur des Wareneingangs prüft Desk den physischen Bestand. Für Geräte zählt die höchste gleichzeitige Restmenge aus laufenden und zukünftigen festen Reservierungen. Für Verbrauchsmaterial zählt der offene Bedarf aller festen Reservierungen. Ein vollständig zurückgenommener Wareneingang eines Einzelgeräts lässt sich anschließend neu buchen.
 
 War die Antwort auf eine bereits gespeicherte Vollkorrektur unklar, öffne an der Originalbuchung **Korrektur prüfen** und wähle **Letzten Vorgang erneut senden**. Desk zeigt das Ergebnis der ursprünglichen Buchung.
