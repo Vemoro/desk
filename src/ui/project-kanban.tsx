@@ -144,7 +144,7 @@ function MoveCardForm({task,columns,submit}:{task:Row;columns:Record<string,Row[
   ]} submit={({status,before})=>submit({status,beforeTaskId:before===columnEnd?null:before})}/>;
 }
 
-function quickAddFeedback(title:string,filters:Filters) {
+function quickAddHint(title:string,filters:Filters) {
   const hiddenByTitle=!matchesTitle(title,filters.term);
   if(filters.due==='today' || filters.due==='overdue') {
     const steps=[
@@ -152,29 +152,28 @@ function quickAddFeedback(title:string,filters:Filters) {
       filters.assignee==='me' ? 'wähle bei „Aufgaben anzeigen“ „Alle“ oder „Ohne Zuständigkeit“' : '',
       'wähle bei „Aufgabentermine filtern“ „Alle Termine“ oder „Ohne Termin“',
     ].filter(Boolean);
-    return `Karte ohne Termin angelegt. Damit sie erscheint, ${new Intl.ListFormat('de').format(steps)}.`;
+    return `Die Karte hat keinen Termin. Damit sie erscheint, ${new Intl.ListFormat('de').format(steps)}.`;
   }
-  if(hiddenByTitle && filters.assignee==='me') return 'Karte angelegt. Leere die Suche und wähle „Alle“ oder „Ohne Zuständigkeit“.';
-  if(hiddenByTitle) return 'Karte angelegt. Leere die Suche, damit die Karte erscheint.';
-  if(filters.assignee==='me') return 'Karte angelegt. Sie erscheint unter „Alle“ oder „Ohne Zuständigkeit“.';
-  return 'Karte angelegt.';
+  if(hiddenByTitle && filters.assignee==='me') return 'Leere die Suche und wähle „Alle“ oder „Ohne Zuständigkeit“, damit die Karte erscheint.';
+  if(hiddenByTitle) return 'Leere die Suche, damit die Karte erscheint.';
+  if(filters.assignee==='me') return 'Die Karte erscheint unter „Alle“ oder „Ohne Zuständigkeit“.';
 }
 
 function AddCard({projectId,status,run,filters}:{projectId:string;status:string;run:Run;filters:Filters}) {
   const disclosure=useRef<HTMLDetailsElement>(null);
   const [savedTitle,setSavedTitle]=useState<string>();
 
-  return <>
+  return <div>
     <details className="kanban-add" ref={disclosure} onToggle={event=>{
       if(event.currentTarget.open) event.currentTarget.querySelector('input')?.focus();
+      else setSavedTitle(undefined);
     }}>
       <summary>Karte hinzufügen</summary>
       <Form className="kanban-add-form" caption="Karte anlegen" fields={[
         {name:'name',label:'Kartentitel',required:true},
       ]} submit={async({name})=>{
         setSavedTitle(undefined);
-        const saved=await run(()=>api('tasks','POST',{project_id:projectId,status,name}),undefined,{reportInlineError:true});
-        if(!saved) return;
+        if(!await run(()=>api('tasks','POST',{project_id:projectId,status,name}),'Karte angelegt.',{reportInlineError:true})) return;
         setSavedTitle(name);
         const details=disclosure.current;
         const title=details?.querySelector('input');
@@ -182,8 +181,8 @@ function AddCard({projectId,status,run,filters}:{projectId:string;status:string;
         if(details?.open && (details.contains(document.activeElement) || document.activeElement===document.body)) title?.focus();
       }}/>
     </details>
-    {savedTitle!==undefined && <p className="subtle" role="status">{quickAddFeedback(savedTitle,filters)}</p>}
-  </>;
+    <div className="subtle" role="status">{savedTitle!==undefined?quickAddHint(savedTitle,filters):null}</div>
+  </div>;
 }
 
 type CardFocus={taskId:string;trigger:HTMLButtonElement;move?:boolean};
@@ -290,9 +289,9 @@ export function ProjectKanban({projectId,accountId,tasks:allTasks,dataVersion,us
   return <section className="project-kanban">
     <KanbanHeading count={tasks.length} filters={filters} search={search} sort={sort}
       filterControl={filterControl} searchControl={searchControl} dueControl={dueControl}
-      onFilter={value=>{clearDrop();pendingFocus.current=undefined;setAssignee(value);}}
-      onSearch={value=>{clearDrop();pendingFocus.current=undefined;setSearch(value);}}
-      onDue={value=>{clearDrop();pendingFocus.current=undefined;setDue(value);}}
+      onFilter={value=>{clearDrop();setAssignee(value);}}
+      onSearch={value=>{clearDrop();setSearch(value);}}
+      onDue={value=>{clearDrop();setDue(value);}}
       onSort={value=>{clearDrop();setSort(value);}}/>
     <KanbanColumns board={board} columns={columns} dropPosition={dropPosition} dragging={dragging} projectId={projectId}
       canReorder={canReorder} filters={filters}

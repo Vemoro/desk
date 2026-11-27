@@ -5,7 +5,7 @@ import { Field, fieldError, invalidFormFields } from './field';
 type FormFieldDefinition = {
   name:string; label:string; type?:string; placeholder?:string; value?:string|number;
   required?:boolean; choices?:{value:string;label:string}[]; min?:number; max?:number; autoComplete?:string; onChange?:(value:string)=>void; describedBy?:string;
-  minLength?:number; maxLength?:number; hint?:string;
+  minLength?:number; maxLength?:number; hint?:string; validate?:(value:string)=>string|undefined;
 };
 
 type Fields = Record<string,string>;
@@ -115,10 +115,14 @@ export function Form({fields,caption,submit,children,className='form-grid',retry
   const storageKey=retryScope && `desk-pending-write:${retryScope}`;
   const {pending,setPending,formRef,attempt,clearAttempt}=useFormAttempt(storageKey,fields);
   const fieldsLocked=disabled || Boolean(storageKey && (busy || pending));
+  function validateField(control:HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement) {
+    return fieldError(control) ?? fields.find(field=>field.name===control.name)?.validate?.(control.value);
+  }
+
   async function onSubmit(event:FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if(disabled || submitting.current) return;
-    const {errors,first}=invalidFormFields(event.currentTarget);
+    const {errors,first}=invalidFormFields(event.currentTarget,validateField);
     setFieldErrors(errors);
     if(first) {
       setError('');
@@ -162,7 +166,7 @@ export function Form({fields,caption,submit,children,className='form-grid',retry
   }
   function recheck(control:HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement) {
     if(!Object.hasOwn(fieldErrors,control.name)) return;
-    const error=fieldError(control);
+    const error=validateField(control);
     setFieldErrors(current=>{
       const next={...current};
       if(error) next[control.name]=error;

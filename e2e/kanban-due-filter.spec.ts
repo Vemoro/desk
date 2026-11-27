@@ -168,11 +168,11 @@ test('Schnellerfassung nennt nach dem Speichern auch den Terminfilter',async({pa
   await title.fill('Lageplan übertragen');
   await title.press('Enter');
   const status=todo.getByRole('status');
-  await expect(status).toHaveText(/Karte ohne Termin angelegt.*leere die Suche.*Ohne Zuständigkeit.*Alle Termine.*Ohne Termin/);
+  await expect(status).toHaveText(/Die Karte hat keinen Termin.*leere die Suche.*Ohne Zuständigkeit.*Alle Termine.*Ohne Termin/);
   await expect(page.getByText('Die Änderung wurde gespeichert. Die Ansicht konnte nicht aktualisiert werden.')).toBeVisible();
   await page.getByRole('button',{name:'Suche leeren'}).click();
   await assignee.selectOption('unassigned');
-  await expect(status).toHaveText('Karte ohne Termin angelegt. Damit sie erscheint, wähle bei „Aufgabentermine filtern“ „Alle Termine“ oder „Ohne Termin“.');
+  await expect(status).toHaveText('Die Karte hat keinen Termin. Damit sie erscheint, wähle bei „Aufgabentermine filtern“ „Alle Termine“ oder „Ohne Termin“.');
   await page.getByRole('button',{name:'Ansicht aktualisieren'}).click();
   await expect(todo.getByRole('button',{name:'Lageplan übertragen',exact:true})).toHaveCount(0);
   await date.selectOption('undated');

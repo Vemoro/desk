@@ -80,12 +80,16 @@ export function FormDialog({title,trigger,dismiss,children}:{
   </dialog>;
 }
 
-export function Panel({title,subtitle,headingIcon,children,action,focusRef}:{title:string;subtitle?:string;headingIcon?:ReactNode;children:ReactNode;action?:ReactNode;focusRef?:RefObject<HTMLElement|null>}) {
+export function Panel({title,subtitle,headingIcon,children,action,focusRef,headingRef}:{
+  title:string; subtitle?:string; headingIcon?:ReactNode; children:ReactNode; action?:ReactNode;
+  focusRef?:RefObject<HTMLElement|null>; headingRef?:RefObject<HTMLHeadingElement|null>;
+}) {
   const titleId=useId();
+  const heading=<h2 id={focusRef?titleId:undefined} title={subtitle?title:undefined}
+    ref={headingRef} tabIndex={headingRef?-1:undefined}>{title}</h2>;
   return <section className="panel" ref={focusRef} tabIndex={focusRef?-1:undefined} aria-labelledby={focusRef?titleId:undefined}>
     <header className="panel-head">
-      {subtitle ? <div className="panel-heading">{headingIcon}<h2 id={focusRef?titleId:undefined} title={title}>{title}</h2><p className="subtle">{subtitle}</p></div>
-        : <h2 id={focusRef?titleId:undefined}>{title}</h2>}
+      {subtitle ? <div className="panel-heading">{headingIcon}{heading}<p className="subtle">{subtitle}</p></div> : heading}
       {action}
     </header>{children}
   </section>;
