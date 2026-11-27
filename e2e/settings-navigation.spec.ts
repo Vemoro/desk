@@ -30,6 +30,13 @@ test('Einstellungsbereiche haben Direktlinks und fokussieren ihren Titel',async(
   await page.setViewportSize({width:390,height:844});
   await expect(nav).toBeHidden();
   await expect(api).toBeFocused();
+  await page.getByRole('link',{name:'Zurück zu Einstellungen'}).focus();
+  await page.setViewportSize({width:1280,height:900});
+  await expect(api).toBeFocused();
+  await page.goto('/#settings');
+  await page.getByText('Konto anlegen',{exact:true}).focus();
+  await page.setViewportSize({width:390,height:844});
+  await expect(nav.getByRole('link',{name:/^Team /})).toBeFocused();
 });
 
 test('Das mobile Einstellungsmenü kehrt zum gewählten Bereich zurück',async({page})=>{

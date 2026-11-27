@@ -28,6 +28,8 @@ export function SettingsLayout({area,heading,children}:{
 }) {
   const previousArea=useRef<SettingsArea|undefined>(undefined);
   const navigation=useRef<HTMLElement>(null);
+  const content=useRef<HTMLDivElement>(null);
+  const back=useRef<HTMLAnchorElement>(null);
   const [desktop,setDesktop]=useState(false);
   const selected=area ?? (desktop ? 'team' : undefined);
 
@@ -46,7 +48,11 @@ export function SettingsLayout({area,heading,children}:{
       wasMobile=event.matches;
       setDesktop(!wasMobile);
       const focused=document.activeElement===document.body ? lastFocused : document.activeElement;
-      if(wasMobile && area && navigation.current?.contains(focused)) heading.current?.focus();
+      if(wasMobile && !area && content.current?.contains(focused)) {
+        navigation.current?.querySelector('a')?.focus();
+      } else if((wasMobile && area && navigation.current?.contains(focused)) || (!wasMobile && back.current && focused===back.current)) {
+        heading.current?.focus();
+      }
     }
     mobile.addEventListener('change',sync);
     document.addEventListener('focusin',trackFocus);
@@ -76,8 +82,8 @@ export function SettingsLayout({area,heading,children}:{
         </a>
       )}
     </nav>
-    <div className="settings-content">
-      {area && <a className="settings-back" href="#settings" onClick={event=>{
+    <div className="settings-content" ref={content}>
+      {area && <a className="settings-back" ref={back} href="#settings" onClick={event=>{
         if(event.button===0 && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey &&
           history.state?.deskSettingsFromList) {
           event.preventDefault();
