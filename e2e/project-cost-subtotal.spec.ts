@@ -24,8 +24,8 @@ async function openControlling(page:Page){
   });
   await signIn(page);
   await project(page,projectName);
-  await page.getByRole('button',{name:'Controlling',exact:true}).click();
-  return page.locator('.panel').filter({has:page.getByRole('heading',{name:'Belegbezogene Ist-Kosten',exact:true})});
+  await page.getByRole('link',{name:'Controlling',exact:true}).click();
+  return page.locator('section').filter({has:page.getByRole('heading',{name:'Belegbezogene Ist-Kosten',exact:true})});
 }
 
 test('Projektcontrolling summiert sichtbare Belege unabhängig von den Projektkennzahlen',async({page})=>{
