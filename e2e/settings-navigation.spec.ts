@@ -79,3 +79,24 @@ test('Direktlinks laden keine administrativen Bereiche für Mitarbeitende',async
   expect(requests).toEqual([]);
   expect((await page.request.get('/api/v1/tokens')).status()).toBe(403);
 });
+
+test('Ein offener Teamsperrdialog bleibt beim Wechsel ins schmale Layout bedienbar',async({page})=>{
+  await signIn(page);
+  await page.getByRole('button',{name:'Einstellungen',exact:true}).click();
+  const person=page.getByRole('row').filter({hasText:'Noah'});
+  const trigger=person.getByRole('button',{name:'Konto sperren',exact:true});
+  await trigger.click();
+  const dialog=page.getByRole('dialog',{name:'Konto sperren',exact:true});
+  const cancel=dialog.getByRole('button',{name:'Abbrechen',exact:true});
+  await expect(cancel).toBeFocused();
+
+  await page.setViewportSize({width:390,height:844});
+  await expect(dialog).toBeVisible();
+  await expect(page).toHaveURL(/#settings\/team$/);
+  await expect(cancel).toBeFocused();
+  await cancel.click();
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await page.getByRole('link',{name:'Zurück zu Einstellungen'}).click();
+  await expect(page.getByRole('link',{name:/^Team /})).toBeFocused();
+});

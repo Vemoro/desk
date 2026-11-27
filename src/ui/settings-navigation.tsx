@@ -48,7 +48,9 @@ export function SettingsLayout({area,heading,children}:{
       wasMobile=event.matches;
       setDesktop(!wasMobile);
       const focused=document.activeElement===document.body ? lastFocused : document.activeElement;
-      if(wasMobile && !area && content.current?.contains(focused)) {
+      if(wasMobile && !area && content.current?.querySelector('dialog[open]')) {
+        location.replace('#settings/team');
+      } else if(wasMobile && !area && content.current?.contains(focused)) {
         navigation.current?.querySelector('a')?.focus();
       } else if((wasMobile && area && navigation.current?.contains(focused)) || (!wasMobile && back.current && focused===back.current)) {
         heading.current?.focus();
@@ -65,8 +67,9 @@ export function SettingsLayout({area,heading,children}:{
   },[area,heading]);
 
   useEffect(()=>{
-    if(area) heading.current?.focus();
-    else if(previousArea.current) {
+    if(area) {
+      if(!content.current?.querySelector('dialog[open]')) heading.current?.focus();
+    } else if(previousArea.current) {
       navigation.current?.querySelector<HTMLAnchorElement>(`a[href="#settings/${previousArea.current}"]`)?.focus();
     }
     previousArea.current=area;

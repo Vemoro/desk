@@ -27,30 +27,40 @@ export function Settings({data,run,flags,accountId,area}:{
   data:Data; run:Run; flags:{haben:boolean;zammad:boolean}; accountId:string; area?:SettingsArea;
 }) {
   const heading=useRef<HTMLHeadingElement>(null);
-  const [issued,setIssued]=useState('');
+  const [issued,setIssued]=useState<{id:string;token:string}|null>(null);
+  const [tokenRevision,setTokenRevision]=useState(0);
   const [creatingToken,setCreatingToken]=useState(false);
+  function refreshTokens() {
+    setTokenRevision(current=>current+1);
+  }
   async function createToken(input:Record<string,string>) {
     setCreatingToken(true);
     try {
       return await run(async(isCurrent)=>{
-        const result=await api('tokens','POST',input);
-        if(isCurrent()) setIssued(result.token);
+        const result=await api<{id:string;token:string}>('tokens','POST',input);
+        if(isCurrent()) setIssued(result);
       },'API-Token erzeugt.');
     } finally {
       setCreatingToken(false);
     }
   }
   return <SettingsLayout area={area} heading={heading}>
-    {(area===undefined || area==='team') && <TeamSettings users={data.users} run={run} accountId={accountId} heading={heading}/>}
-    {area==='api' && <ApiAccess run={run} heading={heading} issued={issued} creating={creatingToken}
-      createToken={createToken} clearIssued={()=>setIssued('')}/>}
-    {area==='integrations' && <Integrations flags={flags} run={run} heading={heading}/>}
+    {(area===undefined || area==='team') && <TeamSettings users={data.users} run={run} accountId={accountId}
+      heading={heading} accountBlocked={refreshTokens}/>}
+    {area==='api' && <ApiAccess run={run} heading={heading} issued={issued?.token} creating={creatingToken}
+      createToken={createToken} tokenRevision={tokenRevision} tokenRevoked={id=>{
+        setIssued(current=>current?.id===id ? null : current);
+        refreshTokens();
+      }}/>}
+    <div hidden={area!=='integrations'}>
+      <Integrations flags={flags} run={run} heading={area==='integrations'?heading:undefined}/>
+    </div>
   </SettingsLayout>;
 }
 
-function ApiAccess({run,heading,issued,creating,createToken,clearIssued}:{
-  run:Run; heading:SettingsHeading; issued:string; creating:boolean;
-  createToken:(input:Record<string,string>)=>Promise<boolean>; clearIssued:()=>void;
+function ApiAccess({run,heading,issued,creating,createToken,tokenRevision,tokenRevoked}:{
+  run:Run; heading:SettingsHeading; issued?:string; creating:boolean; tokenRevision:number;
+  createToken:(input:Record<string,string>)=>Promise<boolean>; tokenRevoked:(id:string)=>void;
 }) {
   const [tokenList,setTokenList]=useState<{status:'loading'|'failed'}|{status:'loaded';tokens:Row[]}>({status:'loading'});
   const [revocation,setRevocation]=useState<Confirmation>();
@@ -71,7 +81,7 @@ function ApiAccess({run,heading,issued,creating,createToken,clearIssued}:{
   useEffect(()=>{
     void refresh();
     return ()=>{tokenRequest.current++;};
-  },[issued]);
+  },[issued,tokenRevision]);
   useEffect(()=>{
     if(tokenList.status==='loading' || !returnTokenFocus.current) return;
     returnTokenFocus.current=false;
@@ -103,10 +113,7 @@ function ApiAccess({run,heading,issued,creating,createToken,clearIssued}:{
           trigger:event.currentTarget,
           submit:async isCurrent=>{
             await api("tokens/"+row.id,"DELETE");
-            if(isCurrent()) {
-              if(issued) clearIssued();
-              else await refresh();
-            }
+            if(isCurrent()) tokenRevoked(row.id);
           },feedback:"Token widerrufen.",
         })}>Widerrufen</button>,
       ]}))}/>
@@ -116,7 +123,7 @@ function ApiAccess({run,heading,issued,creating,createToken,clearIssued}:{
   </>;
 }
 
-function Integrations({flags,run,heading}:{flags:{haben:boolean;zammad:boolean};run:Run;heading:SettingsHeading}) {
+function Integrations({flags,run,heading}:{flags:{haben:boolean;zammad:boolean};run:Run;heading?:SettingsHeading}) {
   const [checkedTicket,setCheckedTicket]=useState<number>();
   return <Panel title="Integrationen" headingRef={heading}><div className="panel-body actions">
       <Pill label={flags.haben?'Haben eingerichtet':'Haben optional'} tone={flags.haben?'accent':'neutral'}/>
@@ -135,7 +142,9 @@ function Integrations({flags,run,heading}:{flags:{haben:boolean;zammad:boolean};
     </div></Panel>;
 }
 
-function TeamSettings({users,run,accountId,heading}:{users:Row[];run:Run;accountId:string;heading:SettingsHeading}) {
+function TeamSettings({users,run,accountId,heading,accountBlocked}:{
+  users:Row[];run:Run;accountId:string;heading:SettingsHeading;accountBlocked:()=>void;
+}) {
   const [confirmation,setConfirmation]=useState<Confirmation>();
   const teamPanel=useRef<HTMLElement>(null);
 
@@ -160,7 +169,11 @@ function TeamSettings({users,run,accountId,heading}:{users:Row[];run:Run;account
           actionKey:"access-block:"+row.id,title:"Konto sperren",actionLabel:"Konto sperren",danger:true,
           description:"Desk widerruft die Sitzungen und API-Tokens für „"+row.name+"“. Projektzuordnungen bleiben erhalten."
             +(row.id===accountId?" Du wirst abgemeldet.":""),
-          trigger:event.currentTarget,submit:()=>saveAccess(row,true),feedback:"Konto gesperrt.",
+          trigger:event.currentTarget,submit:async(isCurrent)=>{
+            const result=await saveAccess(row,true);
+            if(isCurrent()) accountBlocked();
+            return result;
+          },feedback:"Konto gesperrt.",
         });
       }}>{row.blocked?"Konto freigeben":"Konto sperren"}</button>,
     ]}))}/></Panel>
