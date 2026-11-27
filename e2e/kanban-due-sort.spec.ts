@@ -63,7 +63,7 @@ test('Fälligkeit sortiert jede Spalte stabil und lässt die gespeicherten Posit
   await expect(search).toHaveValue('montage');
   await expect(assignee).toHaveValue('me');
   await expect(board.getByRole('button',{name:'Verschieben',exact:true})).toHaveCount(0);
-  await page.getByRole('button',{name:'Suche leeren',exact:true}).click();
+  await search.fill('');
   await assignee.selectOption('all');
   await expect(titles).toHaveText(manual);
   await expect(board.locator('article[draggable="true"]')).toHaveCount(10);

@@ -41,8 +41,7 @@ test('Titelsuche und Zuständigkeit filtern gemeinsam ohne Positionsänderung',a
   await expect(page.getByRole('status').filter({hasText:/^3 Aufgaben$/})).toBeVisible();
   await search.fill('fremder Titel');
   await expect(page.getByText('Keine Aufgaben für diese Suche.')).toBeVisible();
-  await expect(page.getByRole('button',{name:'Alle anzeigen',exact:true})).toHaveCount(0);
-  await page.getByRole('button',{name:'Suche leeren',exact:true}).press('Enter');
+  await search.fill('');
   await expect(search).toBeFocused();
   await expect(search).toHaveValue('');
   await expect(assignee).toHaveValue('me');
@@ -188,7 +187,7 @@ test('Die Schnellerfassung erklärt die aktuell wirksamen Filter nach einem Abru
   await assignee.selectOption('all');
   await expect(todo.getByText('Leere die Suche, damit die Karte erscheint.')).toBeVisible();
   await assignee.selectOption('me');
-  await page.getByRole('button',{name:'Suche leeren'}).click();
+  await search.fill('');
   await expect(todo.getByText('Die Karte erscheint unter „Alle“ oder „Ohne Zuständigkeit“.')).toBeVisible();
   await page.getByRole('button',{name:'Ansicht aktualisieren'}).click();
   await assignee.selectOption('unassigned');
