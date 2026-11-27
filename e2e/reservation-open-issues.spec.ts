@@ -38,7 +38,8 @@ test('Offene Geräteausgaben greifen mit Status, Datum und Ressourcentyp und rea
   await project(page,'Musterinstallation');
   await page.getByRole('link',{name:'Ressourcen & Kalkulation',exact:true}).click();
   const panel=page.locator('section').filter({has:page.getByRole('heading',{name:'Ressourcenplanung',exact:true})});
-  const open=panel.getByRole('checkbox',{name:'Nur offene Geräteausgaben'});
+  const openField=panel.locator('label').filter({has:page.getByRole('checkbox',{name:'Nur offene Geräteausgaben',exact:true})});
+  const open=openField.getByRole('checkbox');
   const type=panel.getByLabel('Ressourcentyp');
   const status=panel.getByLabel('Status filtern');
   const date=panel.getByLabel('Am Datum');
@@ -50,7 +51,6 @@ test('Offene Geräteausgaben greifen mit Status, Datum und Ressourcentyp und rea
   await open.focus();
   await open.press('Space');
   await expect(open).toBeChecked();
-  const openField=panel.locator('label').filter({has:open});
   await expect(openField).toHaveCSS('outline-style','solid');
   await expect(openField).toHaveCSS('outline-offset','-2px');
   await status.selectOption('released');
