@@ -52,7 +52,7 @@ test('Terminfilter kombiniert die Auswahl und aktualisiert Heute zur lokalen Mit
   await expect(page.getByText(/Zum Umordnen.*„Standard“.*„Alle“.*„Alle Termine“/)).toBeVisible();
   await search.fill('Schlüssel');
   await expect(page.getByText('Keine Aufgaben für diese Filter.',{exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'Suche leeren'}).click();
+  await search.fill('');
   await assignee.selectOption('all');
   await date.selectOption('all');
   await expect(board.getByRole('button',{name:'Verschieben',exact:true})).toHaveCount(0);
@@ -170,7 +170,7 @@ test('Schnellerfassung nennt nach dem Speichern auch den Terminfilter',async({pa
   const status=todo.getByRole('status');
   await expect(status).toHaveText(/Karte ohne Termin angelegt.*leere die Suche.*Ohne Zuständigkeit.*Alle Termine.*Ohne Termin/);
   await expect(page.getByText('Die Änderung wurde gespeichert. Die Ansicht konnte nicht aktualisiert werden.')).toBeVisible();
-  await page.getByRole('button',{name:'Suche leeren'}).click();
+  await search.fill('');
   await assignee.selectOption('unassigned');
   await expect(status).toHaveText('Karte ohne Termin angelegt. Damit sie erscheint, wähle bei „Aufgabentermine filtern“ „Alle Termine“ oder „Ohne Termin“.');
   await page.getByRole('button',{name:'Ansicht aktualisieren'}).click();

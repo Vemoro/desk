@@ -87,9 +87,9 @@ test('Die Schnellerfassung erklärt ausgeblendete Karten und der Leerzustand lä
   await expect(input).toBeFocused();
   await expect(todo.getByRole('heading')).toHaveText('Offen 0');
   await expect(todo.getByRole('button',{name:'Musterkarte aus der Schnellerfassung',exact:true})).toHaveCount(0);
-  await page.getByRole('button',{name:'Alle anzeigen',exact:true}).press('Enter');
+  await page.getByRole('button',{name:'Filter zurücksetzen',exact:true}).press('Enter');
   await expect(filter).toHaveValue('all');
-  await expect(filter).toBeFocused();
+  await expect(page.getByRole('searchbox',{name:'Aufgaben suchen'})).toBeFocused();
   await expect(todo.getByRole('heading')).toHaveText('Offen 2');
   await filter.selectOption('unassigned');
   await expect(todo.getByRole('heading')).toHaveText('Offen 1');
