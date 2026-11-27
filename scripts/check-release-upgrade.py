@@ -43,11 +43,13 @@ SELECT item.id,location.id,project.id,actor.id,'receive',7 FROM item,location,pr
 SNAPSHOT = """
 SELECT c.id AS contact_id,c.name AS contact,p.id AS project_id,p.name AS project,
        m.id AS movement_id,m.item_id,m.location_id,m.actor_id,m.action,m.quantity,
+       i.name AS item,l.name AS location,u.email AS actor,
        (SELECT sum(CASE WHEN action IN ('receive','return','correct_consume')
                         THEN quantity ELSE -quantity END)
         FROM movements WHERE item_id=m.item_id AND location_id=m.location_id)::int AS physical
 FROM movements m JOIN projects p ON p.id=m.project_id JOIN contacts c ON c.id=p.contact_id
-JOIN items i ON i.id=m.item_id WHERE i.code='UPGRADE-01'
+JOIN items i ON i.id=m.item_id JOIN locations l ON l.id=m.location_id JOIN users u ON u.id=m.actor_id
+WHERE i.code='UPGRADE-01'
 ORDER BY m.id;
 """
 ROLLBACK_MARKER = "absichtlicher_desk_upgrade_fehler"
@@ -209,13 +211,15 @@ def verify_rollback(env, temp, applied, before):
     shutil.copy2(ROOT / "scripts/migrate.ts", probe / "scripts/migrate.ts")
     last = max((row["name"] for row in applied), key=runner_order)
     prefix = last.removesuffix(".sql")
-    (probe / "migrations" / f"{prefix}_probe_a.sql").write_text(
+    first = f"{prefix}_probe_a.sql"
+    (probe / "migrations" / first).write_text(
         "CREATE TABLE desk_upgrade_probe_a (id integer);", encoding="utf-8")
     (probe / "migrations" / f"{prefix}_probe_b.sql").write_text(
         f"CREATE TABLE desk_upgrade_probe_b (id integer); SELECT '{ROLLBACK_MARKER}'::integer;",
         encoding="utf-8")
     result = migrate(probe, env, fail=True)
-    if result.returncode == 0 or ROLLBACK_MARKER not in result.stderr:
+    if (result.returncode == 0 or first not in result.stdout.splitlines()
+            or ROLLBACK_MARKER not in result.stderr):
         raise ValueError("Die absichtlich fehlerhafte Migration scheiterte nicht am vorgesehenen Schritt.")
     probe_tables = sql("SELECT tablename FROM pg_tables WHERE schemaname='public' "
                        "AND tablename IN ('desk_upgrade_probe_a','desk_upgrade_probe_b')", env)
