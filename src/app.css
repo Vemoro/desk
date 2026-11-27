@@ -340,6 +340,9 @@ tr:nth-last-child(1 of :not([hidden])) td { border-bottom:0; }
 .confirm-dialog { max-block-size:calc(100dvh - 32px); }
 .confirm-dialog[open] { display:grid; grid-template-rows:auto minmax(0,1fr); overflow:hidden; }
 .dialog-content { min-height:0; overflow:auto; overscroll-behavior:contain; padding:4px; margin:-4px; }
+.offer-preview { width:min(620px,calc(100% - 32px)); }
+.offer-preview-body { display:grid; grid-template-rows:minmax(0,1fr) auto; min-height:0; }
+.offer-preview-list { margin-top:12px; overflow-wrap:anywhere; }
 th[data-numeric],td[data-numeric] > div { text-align:right; font-variant-numeric:tabular-nums; }
 .danger { color:var(--danger); }
 button.destructive,button.destructive:not(:disabled):hover { background:var(--danger); border-color:var(--danger); color:var(--paper); }

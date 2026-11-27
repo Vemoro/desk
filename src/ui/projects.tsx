@@ -1,9 +1,10 @@
 import { Field } from './field';
 import { useEffect, useId, useRef, useState, type FocusEvent } from 'react';
 import { missingStageReference } from '../project-references';
-import { api, calendarDate, downloadPositions, euros, inventoryLabel, inventoryName, moment, money, name, projectStages, reservationStages, type Row } from './client';
+import { api, calendarDate, euros, inventoryLabel, inventoryName, moment, money, name, projectStages, reservationStages, type Row } from './client';
 import { ConfirmDialog, Expand, Form, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
 import { ProjectHistory } from './project-history';
+import { OfferExport } from './offer-export';
 import { Communication } from './communication';
 import { ProjectKanban } from './project-kanban';
 import { projectHash, projectViews, type ProjectView } from './project-views';
@@ -323,10 +324,7 @@ function ProjectCalculation({project,data,run}:Omit<ProjectPlanningProps,'accoun
   const calculationPanel=useRef<HTMLElement>(null);
   const lines=data.lines.filter((row)=>row.project_id===project.id);
   return <>
-    <Panel title="Kalkulation" focusRef={calculationPanel} action={<button onClick={()=>run(async(isCurrent)=>{
-      const positions=await api(`projects/${project.id}/offer-positions`);
-      if(isCurrent()) downloadPositions(project,positions);
-    },undefined,{kind:'read'})}>Angebotspositionen exportieren</button>}>
+    <Panel title="Kalkulation" focusRef={calculationPanel} action={<OfferExport project={project} run={run}/>}>
       <div className="panel-body">
         <CalculationTotals lines={lines}/>
         <Expand title="Position anlegen"><Form caption="Position speichern" fields={[
