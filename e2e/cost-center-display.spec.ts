@@ -2,36 +2,57 @@ import { test, expect } from '@playwright/test';
 import { signIn } from './session';
 
 test('Beleg-Kostenstelle bleibt bei manueller Zuordnung sichtbar',async({page})=>{
-  await page.setViewportSize({width:375,height:812});
-  const costs=[
-    {id:'b1',reference:'B-1',name:'Material',source:'haben-export',cost_center:'LIEF-42',project_id:null as string|null,cents:1200},
-    {id:'b2',reference:'B-2',name:'Fahrt',source:'manual',cost_center:'',project_id:null,cents:3200},
-  ];
-  await page.route('**/api/v1/costs?*',route=>route.fulfill({json:costs}));
-  await page.route('**/api/v1/projects?*',route=>route.fulfill({json:[
-    {id:'p1',name:'Musterinstallation',cost_center:'PROJEKT-02'},
-  ]}));
-  await page.route('**/api/v1/costs/b1',route=>{
-    expect(route.request().method()).toBe('PATCH');
-    expect(route.request().postDataJSON()).toEqual({project_id:'p1'});
-    costs[0].project_id='p1';
-    return route.fulfill({json:costs[0]});
-  });
   await signIn(page);
+  const origin=new URL(page.url()).origin;
+  const projects=await page.request.get('/api/v1/projects');
+  expect(projects.ok()).toBe(true);
+  const [project]=(await projects.json() as {id:string;name:string;cost_center:string}[])
+    .filter(row=>row.cost_center);
+  expect(project).toBeTruthy();
+  const suffix=crypto.randomUUID().slice(0,8);
+  const reference='BELEG-'+suffix;
+  const withoutCenter='OHNE-'+suffix;
+  const center='LIEFERANT-'+suffix+'X'.repeat(190);
+  expect(center).not.toBe(project.cost_center);
+  const inserted=await page.request.post('/api/v1/costs',{headers:{Origin:origin},data:{entries:[
+    {source:'haben-export',reference,name:'Montagematerial',cents:1200,cost_center:center},
+    {source:'haben-export',reference:withoutCenter,name:'Fahrt',cents:3200},
+  ]}});
+  expect(inserted.status(),await inserted.text()).toBe(201);
+  const [created]=await inserted.json() as {id:string;cost_center:string;project_id:string|null}[];
+  expect(created.cost_center).toBe(center);
+  expect(created.project_id).toBeNull();
+
   await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Ist-Kosten',exact:true}).click();
-  const b1=page.locator('tr').filter({hasText:'B-1'});
-  const b2=page.locator('tr').filter({hasText:'B-2'});
-  const center=(row:typeof b1)=>row.locator('[data-label="Kostenstelle"]');
-  await expect(center(b1)).toBeVisible();
-  await expect(center(b1)).toHaveText('LIEF-42');
-  expect(await center(b1).evaluate((cell)=>getComputedStyle(cell,'::before').content)).toBe('"Kostenstelle"');
-  await expect(center(b2)).toHaveText('–');
+  const imported=page.getByRole('row').filter({has:page.getByText(reference,{exact:true})});
+  const missing=page.getByRole('row').filter({has:page.getByText(withoutCenter,{exact:true})});
+  const cell=(row:typeof imported)=>row.locator('[data-label="Kostenstelle"]');
   const assignment=page.getByRole('combobox',{name:'Zuordnung filtern'});
+  const search=page.getByRole('searchbox',{name:'Belege suchen'});
+  await expect(cell(imported)).toHaveText(center);
+  await expect(cell(missing)).toHaveText('–');
+  expect(await cell(imported).evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
+
+  await search.fill(center);
+  await expect(imported).toHaveCount(0);
+  await search.fill('');
+  await page.setViewportSize({width:375,height:812});
+  await expect(cell(imported)).toBeVisible();
+  expect(await cell(imported).evaluate(element=>getComputedStyle(element,'::before').content)).toBe('"Kostenstelle"');
+  expect(await cell(imported).evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
+
   await assignment.selectOption({label:'Ohne Zuordnung'});
-  await b1.getByRole('combobox',{name:'Projekt für B-1'}).selectOption({label:'Musterinstallation'});
-  await expect(b1).toHaveCount(0);
+  const projectSelect=imported.getByRole('combobox',{name:'Projekt für '+reference});
+  await projectSelect.focus();
+  const response=page.waitForResponse(reply=>reply.url().endsWith('/api/v1/costs/'+created.id) && reply.request().method()==='PATCH');
+  await projectSelect.selectOption(project.id);
+  const updated=await response;
+  expect(updated.ok()).toBe(true);
+  expect(await updated.json()).toMatchObject({project_id:project.id,cost_center:center});
+  await expect(imported).toHaveCount(0);
   await expect(assignment).toHaveValue('unassigned');
+  await expect(assignment).toBeFocused();
   await assignment.selectOption({label:'Alle Belege'});
-  await expect(b1.getByRole('combobox',{name:'Projekt für B-1'})).toHaveValue('p1');
-  await expect(center(b1)).toHaveText('LIEF-42');
+  await expect(projectSelect).toHaveValue(project.id);
+  await expect(cell(imported)).toHaveText(center);
 });
