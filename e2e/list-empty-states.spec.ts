@@ -31,14 +31,17 @@ test('Leere Projektliste führt in das bestehende Formular und erhält Filter',a
 });
 
 test('Ohne Kontakte führen Projektliste und Kontaktleerstand zur Erfassung',async({page})=>{
+  await page.setViewportSize({width:390,height:320});
   await page.route('**/api/v1/projects?*',route=>route.fulfill({json:[]}));
   await page.route('**/api/v1/contacts?*',route=>route.fulfill({json:[]}));
   await signIn(page);
   await openList(page,'Projekte');
   await expect(page.getByText('Lege zuerst einen Kontakt an, um ein Projekt zu erstellen.')).toBeVisible();
   await expect(page.getByText('Projekt anlegen',{exact:true})).toHaveCount(0);
-  await page.locator('.page-title').getByRole('button',{name:'Zu den Kontakten'}).click();
+  const projects=page.locator('.panel').filter({has:page.getByRole('heading',{name:'Projekte',level:2,exact:true})});
+  await projects.getByRole('button',{name:'Zu den Kontakten'}).press('Enter');
   await expect(page.getByRole('main')).toBeFocused();
+  await expect(page.getByRole('heading',{name:'Kontakte',level:1,exact:true})).toBeInViewport({ratio:1});
   const list=page.getByRole('region',{name:'Interessenten und Kontakte'});
   await expect(list.getByText('Hier erscheinen deine Interessenten und Kontakte.')).toBeVisible();
   await list.getByRole('button',{name:'Neuer Kontakt'}).click();

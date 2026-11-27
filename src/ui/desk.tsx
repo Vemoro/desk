@@ -84,7 +84,8 @@ export function Desk() {
         :<Projects data={data} run={run} filters={projectFilters} onFilter={setProjectFilters}
           select={(id)=>navigate('projects',id)} openContacts={()=>{
             navigate('contacts');
-            document.getElementById('desk-main')?.focus();
+            document.getElementById('desk-main')?.focus({preventScroll:true});
+            window.scrollTo(0,0);
           }}/>)}
       {section==='planning' && <WeeklyPlanning selectedWeek={planningWeek} onWeek={setPlanningWeek} onSessionExpired={()=>{
         endSession();
