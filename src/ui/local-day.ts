@@ -44,3 +44,14 @@ export function useLocalDayWithFocus(container:RefObject<HTMLElement|null>,fallb
   },[today,fallback]);
   return today;
 }
+
+export function localDayRange(value:string) {
+  const [year,month,day]=value.split('-').map(Number);
+  function midnight(dayOfMonth:number) {
+    // Normalize the calendar date before resolving midnight in the browser zone.
+    const calendar=new Date(0);
+    calendar.setUTCFullYear(year,month-1,dayOfMonth);
+    return Number.isFinite(calendar.getTime()) ? Date.parse(calendar.toISOString().slice(0,-1)) : NaN;
+  }
+  return {start:midnight(day),end:midnight(day+1)};
+}

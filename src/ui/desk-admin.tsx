@@ -1,7 +1,8 @@
 import { Field } from './field';
+import { CostImport } from './cost-import';
 import { ListEmpty } from './list-page';
 import { useEffect, useRef, useState, type RefObject } from 'react';
-import { api, compileCsv, euros, money, type Row } from './client';
+import { api, euros, money, type Row } from './client';
 import type { Data } from './projects';
 import { Expand, Form, ConfirmDialog, noWrite, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
 import { SettingsLayout, type SettingsArea } from './settings-navigation';
@@ -49,9 +50,7 @@ export function Costs({data,run}:{data:Data;run:Run}) {
   return <Panel title="Belege und Zuordnung" action={<span className="subtle" role="status">
     {visibleCosts.length} von {data.costs.length} {data.costs.length===1?'Beleg':'Belegen'}
   </span>}><div className="panel-body compact-actions">
-    <Expand title="Kosten aus CSV übernehmen"><Form caption="Kosten übernehmen" fields={[
-      {name:'csv',label:'CSV-Inhalt mit reference, name, amount und optional cost_center',type:'textarea',required:true},
-    ]} submit={({csv})=>run(()=>api('costs','POST',{entries:compileCsv(csv)}),'Kosten übernommen.')}/></Expand>
+    <CostImport run={run}/>
     <Expand title="Kosten einzeln erfassen"><Form caption="Beleg speichern" fields={[
       {name:'reference',label:'Belegreferenz',required:true},{name:'name',label:'Bezeichnung',required:true},
       {name:'amount',label:'Netto in Euro',required:true},{name:'project_id',label:'Projekt',choices:options(data.projects)},
