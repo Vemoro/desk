@@ -77,7 +77,7 @@ export function Projects({data,run,select,filters,onFilter,openContacts}:{data:D
             search.current?.focus();
           }}>Filter zurücksetzen</button>
         </div>
-        <Expand title="Projekt anlegen" detailsRef={creation}>
+        {canCreate && <Expand title="Projekt anlegen" detailsRef={creation}>
           <Form caption="Projekt speichern" fields={[
             { name:'name',label:'Projektname',required:true },
             { name:'contact_id',label:'Interessent',choices:options(data.contacts),required:true },
@@ -87,7 +87,7 @@ export function Projects({data,run,select,filters,onFilter,openContacts}:{data:D
             const project=await api('projects','POST',{...fields,due:fields.due||null});
             if(isCurrent()) select(project.id);
           },'Projekt angelegt.')}/>
-        </Expand>
+        </Expand>}
       </div>
       {!projects.length ? filtered ? <ListEmpty>Keine Projekte entsprechen den Filtern.</ListEmpty>
         : <ListEmpty action={<button type="button" onClick={openCreation}>{actionLabel}</button>}>

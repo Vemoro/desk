@@ -18,7 +18,7 @@ test('Leere Projektliste führt in das bestehende Formular und erhält Filter',a
   await expect(list.getByText('Hier erscheinen deine Projekte.')).toBeVisible();
   await list.getByRole('button',{name:'Neues Projekt',exact:true}).press('Enter');
   await expect(name).toBeFocused();
-  await expect(name).toBeInViewport();
+  await expect(name).toBeInViewport({ratio:1});
   const search=page.getByRole('searchbox',{name:'Projekte suchen'});
   await search.fill('Westflügel');
   await expect(list.getByText('Keine Projekte entsprechen den Filtern.')).toBeVisible();
@@ -36,6 +36,7 @@ test('Ohne Kontakte führen Projektliste und Kontaktleerstand zur Erfassung',asy
   await signIn(page);
   await openList(page,'Projekte');
   await expect(page.getByText('Lege zuerst einen Kontakt an, um ein Projekt zu erstellen.')).toBeVisible();
+  await expect(page.getByText('Projekt anlegen',{exact:true})).toHaveCount(0);
   await page.locator('.page-title').getByRole('button',{name:'Zu den Kontakten'}).click();
   await expect(page.getByRole('main')).toBeFocused();
   const list=page.getByRole('region',{name:'Interessenten und Kontakte'});
@@ -100,7 +101,7 @@ for(const [missing,label,summary,field] of [
     await stock.getByRole('button',{name:label,exact:true}).press('Enter');
     const form=stock.locator('details').filter({has:page.locator('summary').getByText(summary,{exact:true})});
     await expect(form.getByLabel(field,{exact:true})).toBeFocused();
-    await expect(form.getByLabel(field,{exact:true})).toBeInViewport();
+    await expect(form.getByLabel(field,{exact:true})).toBeInViewport({ratio:1});
     await expect(page.getByRole('heading',{name:'Offene Ausgaben'})).toBeVisible();
     await expect(page.getByRole('heading',{name:'Lagerbewegungen'})).toBeVisible();
   });
