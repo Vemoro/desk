@@ -5,10 +5,12 @@ import { api, inventoryLabel, inventoryName, moment, movementStages, name } from
 import type { Data } from './projects';
 import { Expand, Form, hasPendingWrite, options, Panel, Table, type Run } from './widgets';
 import { ListEmpty, PageHeading, openListForm } from './list-page';
+import { projectHash } from './project-views';
 
 type WarehouseProps={data:Data;run:Run;accountId:string};
+type WarehouseMovementProps=WarehouseProps & {filters:MovementFilterValues;onFilter:(filters:MovementFilterValues)=>void};
 
-export function Warehouse(props:WarehouseProps) {
+export function Warehouse(props:WarehouseMovementProps) {
   const bookings=props.data.reservations.filter(row=>row.item_id&&(row.status==='firm'||row.checked_out>0));
   return <>
     <WarehouseStock {...props} bookings={bookings}/>
@@ -141,7 +143,7 @@ function OpenCheckouts({data,bookings}:{data:Data;bookings:Bookings}) {
     </Panel>;
 }
 
-const defaultMovementFilters={query:'',kind:'',project:'',from:'',to:''};
+export const defaultMovementFilters={query:'',kind:'',project:'',from:'',to:''};
 type MovementFilterValues=typeof defaultMovementFilters;
 
 function MovementFilters({filters,onChange,projects,count,total,invalidRange}:{
@@ -206,17 +208,17 @@ function matchesMovementDay(createdAt:string,from:number,to:number) {
   return day>=from && (!to || day<=to);
 }
 
-function WarehouseMovements({data,run,accountId}:WarehouseProps) {
+function WarehouseMovements({data,run,accountId,filters,onFilter}:WarehouseMovementProps) {
   const [correctionId,setCorrectionId]=useState('');
   const [writingCorrection,setWritingCorrection]=useState('');
   const correctionProgress=writingCorrection ? `korrektur-laeuft-${writingCorrection}` : undefined;
-  const [filters,setFilters]=useState(defaultMovementFilters);
   const {kind,project}=filters;
   const from=Number(filters.from.replaceAll('-',''));
   const to=Number(filters.to.replaceAll('-',''));
   const invalidRange=Boolean(from && to && from>to);
   const term=filters.query.trim().toLowerCase();
   const items=new Map(data.items.map(item=>[item.id,item]));
+  const projectsById=new Map(data.projects.map(project=>[project.id,project]));
   const visibleMovements=invalidRange ? [] : data.movements.filter(row=>{
     const item=items.get(row.item_id);
     return (!kind || row.action===kind)
@@ -238,13 +240,14 @@ function WarehouseMovements({data,run,accountId}:WarehouseProps) {
   }
   return <Panel title="Lagerbewegungen">
       <div className="panel-body">
-        <MovementFilters filters={filters} onChange={setFilters} projects={data.projects}
+          <MovementFilters filters={filters} onChange={onFilter} projects={data.projects}
           count={visibleMovements.length} total={data.movements.length} invalidRange={invalidRange}/>
         {progressOutsideRow && <p id={correctionProgress} className="subtle" role="status">Eine ausgeblendete Korrektur wird noch gebucht.</p>}
       </div>
       {renderedMovements.length > 0 && <Table numeric={[5]} hidden={visibleMovements.length===0}
       headers={['Zeitpunkt','Bewegung','Artikel','Lagerort','Projekt','Menge','Lieferschein','Erfasst durch','Aktion']}
       rows={renderedMovements.map(row=>{
+          const linkedProject=projectsById.get(row.project_id);
         const remaining=row.quantity-(corrected.get(row.id) ?? 0);
         const original=movements.get(row.corrects_movement_id);
         const originalLabel=original && `Original vom ${moment(original.created_at)}`;
@@ -260,7 +263,8 @@ function WarehouseMovements({data,run,accountId}:WarehouseProps) {
               target?.scrollIntoView({block:'center'});
             }}>{originalLabel}</a> : originalLabel}</small>}
             {row.correction_reason && <small>{row.correction_reason}</small>}</div>,
-          inventoryName(data.items,row.item_id),name(data.locations,row.location_id),name(data.projects,row.project_id),row.quantity,
+          inventoryName(data.items,row.item_id),name(data.locations,row.location_id),
+          linkedProject ? <a href={projectHash(linkedProject.id)}>{linkedProject.name}</a> : '–',row.quantity,
           row.delivery_reference ? <span className="delivery-reference">{row.delivery_reference}</span> : '–',name(data.users,row.actor_id),
           correctable && (remaining > 0 || hasPendingWrite(correctionScope) ? <div>
             <button type="button" aria-expanded={correctionId===row.id} disabled={Boolean(writingCorrection)}

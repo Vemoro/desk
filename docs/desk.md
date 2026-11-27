@@ -89,6 +89,8 @@ Unter **Lagerbewegungen suchen** findest du Bewegungen anhand von Teilen des Art
 
 Mit **Vom Datum** und **Bis Datum** grenzt du die Bewegungen nach Buchungstagen ein. Beide Grenzen sind optional und schließen den jeweiligen Tag ein. Die angezeigte Browser-Zeitzone gilt auch für die Spalte **Zeitpunkt**. Der Datumsbereich wirkt zusammen mit der Suche sowie den Filtern für Bewegungsart und Projekt. Liegt **Bis Datum** vor **Vom Datum**, korrigiere die Eingabe am markierten Feld oder setze die Filter zurück.
 
+Wähle in der Spalte **Projekt** den Namen des Auftrags, um ihn zu öffnen. Beim Zurückgehen zur Lageransicht bleiben die Bewegungsfilter innerhalb derselben Sitzung erhalten. Nach einer neuen Anmeldung sind die Filter leer. Buchungen ohne sichtbaren Projektbezug zeigen einen Gedankenstrich.
+
 Eine Verbrauchskorrektur schreibt die Menge dem Lagerort gut. Bei fester Reservierung steht die korrigierte Menge wieder für diese Reservierung bereit. Bei einer Korrektur des Wareneingangs prüft Desk den physischen Bestand. Für Geräte zählt die höchste gleichzeitige Restmenge aus laufenden und zukünftigen festen Reservierungen. Für Verbrauchsmaterial zählt der offene Bedarf aller festen Reservierungen. Ein vollständig zurückgenommener Wareneingang eines Einzelgeräts lässt sich anschließend neu buchen.
 
 War die Antwort auf eine bereits gespeicherte Vollkorrektur unklar, öffne an der Originalbuchung **Korrektur prüfen** und wähle **Letzten Vorgang erneut senden**. Desk zeigt das Ergebnis der ursprünglichen Buchung.
