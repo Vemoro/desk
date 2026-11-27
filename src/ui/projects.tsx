@@ -2,7 +2,7 @@ import { Field } from './field';
 import { useEffect, useId, useRef, useState, type FocusEvent } from 'react';
 import { missingStageReference } from '../project-references';
 import { microsecondsWithinMillisecond } from '../time';
-import { api, calendarDate, euros, inventoryLabel, inventoryName, moment, money, name, projectStages, reservationStages, type Row } from './client';
+import { api, calendarDate, euros, inventoryLabel, inventoryName, isOpenProject, moment, money, name, projectStages, reservationStages, type Row } from './client';
 import { calculationLineCents, formatCalculationTotal } from './calculation-money';
 import { ConfirmDialog, Expand, Form, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
 import { ProjectHistory } from './project-history';
@@ -121,7 +121,7 @@ function filteredProjects(data:Data,filters:ProjectFilters,today:string) {
     if(filters.contactId && project.contact_id!==filters.contactId) return false;
     const matchesSearch=`${project.name} ${name(data.contacts,project.contact_id)}`.toLowerCase().includes(query)
       || [project.offer_ref,project.invoice_ref,project.cost_center].some(value=>value?.toLowerCase().includes(query));
-    const active=!['complete','cancelled'].includes(project.stage);
+    const active=isOpenProject(project.stage);
     const matchesStage=filters.stage==='all' || (filters.stage==='open'?active:project.stage===filters.stage);
     const dueDate=project.due?.slice(0,10);
     const matchesDue=filters.due==='all'
@@ -222,15 +222,16 @@ function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) 
   const [filters,setFilters]=useState(emptyReservationFilters);
   const resourceSelector=useRef<HTMLSelectElement>(null);
   const focusedStatusAction=useRef<HTMLButtonElement>(null);
-  const {resource,status,day}=filters;
+  const {resource,status,day,onlyCheckedOut}=filters;
   const dayRange=day ? localDayRange(day) : undefined;
+  const equipmentIds=new Set(data.items.filter(item=>item.kind==='equipment').map(item=>item.id));
   const visibleReservations=data.reservations.filter((row)=>
     row.project_id===project.id
     && (!resource || (row.user_id?'user':'item')===resource)
     && (!status || row.status===status)
+    && (!onlyCheckedOut || (equipmentIds.has(row.item_id) && row.checked_out>0))
     && (!dayRange || overlapsReservationDay(row,dayRange)));
-  const filtered=Boolean(resource || status || day);
-  const equipmentIds=new Set(data.items.filter(item=>item.kind==='equipment').map(item=>item.id));
+  const filtered=Object.values(filters).some(Boolean);
 
   useEffect(()=>{
     const button=focusedStatusAction.current;

@@ -118,6 +118,7 @@ small { display: block; color: var(--muted); margin-top: 4px; font-size: var(--t
 .panel-body { padding:16px 20px; display:grid; gap:12px; }
 .cost-subtotal { font-variant-numeric:tabular-nums; }
 .table-wrap { overflow:auto; }
+.cost-center-value { overflow-wrap:anywhere; }
 table { border-collapse:collapse; width:100%; text-align:left; }
 th,td { border-bottom:1px solid var(--border); padding:12px 16px; vertical-align:top; }
 th { font-size: var(--text-14); font-weight:650; color:var(--muted); background:var(--soft); }
@@ -142,9 +143,12 @@ tr:nth-last-child(1 of :not([hidden])) td { border-bottom:0; }
 }
 .stock-correction-form { margin-top:12px; }
 .form-grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr)); align-items:end; }
-.movement-filters { align-items:start; }
+.movement-filters { grid-template-columns:repeat(auto-fit,minmax(min(100%,168px),1fr)); align-items:start; }
 .checkbox-label { display:flex; align-items:center; gap:8px; min-height:var(--control-h); }
 .checkbox-label input { width:18px; height:18px; min-height:0; margin:0; accent-color:var(--accent); }
+.reservation-open-filter input { order:-1; }
+.reservation-open-filter:has(input:focus-visible) { outline:2px solid var(--accent-ink); outline-offset:-2px; }
+.reservation-open-filter input:focus-visible { outline:none; }
 .wide,.form-action { grid-column:1/-1; }
 .expand { border:1px solid var(--border); border-radius:8px; min-width:0; }
 .expand summary { cursor:pointer; padding:12px 12px; font-size: var(--text-14); color:var(--accent-ink); font-weight:650; }
@@ -260,6 +264,7 @@ tr:nth-last-child(1 of :not([hidden])) td { border-bottom:0; }
 
 .contact-projects { border-top:1px solid var(--border); }
 .contact-projects h3 { margin:0; font-size: var(--text-16); }
+.contact-projects .filter { margin-top:12px; }
 
 /* Project communication */
 .communication-layout { display:grid; grid-template-columns:minmax(0,1fr) minmax(220px,280px); gap:16px; align-items:start; }
