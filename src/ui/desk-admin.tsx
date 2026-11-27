@@ -1,8 +1,9 @@
 import { Field } from './field';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { api, compileCsv, euros, money, type Row } from './client';
 import type { Data } from './projects';
 import { Expand, Form, ConfirmDialog, noWrite, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
+import { SettingsLayout, type SettingsArea } from './settings-navigation';
 
 export function Costs({data,run}:{data:Data;run:Run}) {
   return <Panel title="Belege und Zuordnung"><div className="panel-body">
@@ -20,9 +21,48 @@ export function Costs({data,run}:{data:Data;run:Run}) {
   ]}))}/></Panel>;
 }
 
-export function Settings({data,run,flags,accountId}:{data:Data;run:Run;flags:{haben:boolean;zammad:boolean};accountId:string}) {
+type SettingsHeading=RefObject<HTMLHeadingElement|null>;
+
+export function Settings({data,run,flags,accountId,area}:{
+  data:Data; run:Run; flags:{haben:boolean;zammad:boolean}; accountId:string; area?:SettingsArea;
+}) {
+  const heading=useRef<HTMLHeadingElement>(null);
+  const [issued,setIssued]=useState<{id:string;token:string}|null>(null);
+  const [tokenRevision,setTokenRevision]=useState(0);
+  const [creatingToken,setCreatingToken]=useState(false);
+  function refreshTokens() {
+    setTokenRevision(current=>current+1);
+  }
+  async function createToken(input:Record<string,string>) {
+    setCreatingToken(true);
+    try {
+      return await run(async(isCurrent)=>{
+        const result=await api<{id:string;token:string}>('tokens','POST',input);
+        if(isCurrent()) setIssued(result);
+      },'API-Token erzeugt.');
+    } finally {
+      setCreatingToken(false);
+    }
+  }
+  return <SettingsLayout area={area} heading={heading}>
+    {(area===undefined || area==='team') && <TeamSettings users={data.users} run={run} accountId={accountId}
+      heading={heading} accountBlocked={refreshTokens}/>}
+    {area==='api' && <ApiAccess run={run} heading={heading} issued={issued?.token} creating={creatingToken}
+      createToken={createToken} tokenRevision={tokenRevision} tokenRevoked={id=>{
+        setIssued(current=>current?.id===id ? null : current);
+        refreshTokens();
+      }}/>}
+    <div hidden={area!=='integrations'}>
+      <Integrations flags={flags} run={run} heading={area==='integrations'?heading:undefined}/>
+    </div>
+  </SettingsLayout>;
+}
+
+function ApiAccess({run,heading,issued,creating,createToken,tokenRevision,tokenRevoked}:{
+  run:Run; heading:SettingsHeading; issued?:string; creating:boolean; tokenRevision:number;
+  createToken:(input:Record<string,string>)=>Promise<boolean>; tokenRevoked:(id:string)=>void;
+}) {
   const [tokenList,setTokenList]=useState<{status:'loading'|'failed'}|{status:'loaded';tokens:Row[]}>({status:'loading'});
-  const [issued,setIssued]=useState('');
   const [revocation,setRevocation]=useState<Confirmation>();
   const tokenRequest=useRef(0);
   const tokenPanel=useRef<HTMLElement>(null);
@@ -41,7 +81,7 @@ export function Settings({data,run,flags,accountId}:{data:Data;run:Run;flags:{ha
   useEffect(()=>{
     void refresh();
     return ()=>{tokenRequest.current++;};
-  },[]);
+  },[issued,tokenRevision]);
   useEffect(()=>{
     if(tokenList.status==='loading' || !returnTokenFocus.current) return;
     returnTokenFocus.current=false;
@@ -50,14 +90,11 @@ export function Settings({data,run,flags,accountId}:{data:Data;run:Run;flags:{ha
     }
   },[tokenList.status]);
   return <>
-    <TeamSettings users={data.users} run={run} accountId={accountId} onChange={async ownAccount=>{
-      setIssued('');
-      if(!ownAccount) await refresh();
-    }}/>
-    <Panel title="API-Zugriff" focusRef={tokenPanel} action={<a href="/api/v1/openapi.json" target="_blank" rel="noreferrer">OpenAPI</a>}><div className="panel-body">
-      <Expand title="API-Token erzeugen"><Form caption="Token erzeugen" fields={[
+    <Panel title="API-Zugriff" headingRef={heading} focusRef={tokenPanel}
+      action={<a href="/api/v1/openapi.json" target="_blank" rel="noreferrer">OpenAPI</a>}><div className="panel-body">
+      <Expand title="API-Token erzeugen"><Form caption="Token erzeugen" disabled={creating} fields={[
         {name:'label',label:'Name',required:true},{name:'scope',label:'Berechtigung',choices:[{value:'read',label:'Lesen'},{value:'write',label:'Lesen und schreiben'}],required:true},
-      ]} submit={(input)=>run(async(isCurrent)=>{const result=await api('tokens','POST',input);if(isCurrent()) {setIssued(result.token);await refresh();}},'API-Token erzeugt.')}/></Expand>
+      ]} submit={createToken}/></Expand>
       {issued&&<Field label="Token jetzt kopieren">{props=><input {...props} value={issued} readOnly onFocus={(e)=>e.target.select()}/>}</Field>}
     </div>
     {tokenList.status==='loading'&&<p className="empty" role="status">API-Token werden geladen …</p>}
@@ -76,20 +113,19 @@ export function Settings({data,run,flags,accountId}:{data:Data;run:Run;flags:{ha
           trigger:event.currentTarget,
           submit:async isCurrent=>{
             await api("tokens/"+row.id,"DELETE");
-            if(isCurrent()) {setIssued("");await refresh();}
+            if(isCurrent()) tokenRevoked(row.id);
           },feedback:"Token widerrufen.",
         })}>Widerrufen</button>,
       ]}))}/>
       : <p className="empty" role="status">Keine API-Token erstellt.</p>)}
     </Panel>
-    <Integrations flags={flags} run={run}/>
     {revocation && <ConfirmDialog confirmation={revocation} run={run} dismiss={()=>setRevocation(undefined)} fallbackFocus={tokenPanel}/>}
   </>;
 }
 
-function Integrations({flags,run}:{flags:{haben:boolean;zammad:boolean};run:Run}) {
+function Integrations({flags,run,heading}:{flags:{haben:boolean;zammad:boolean};run:Run;heading?:SettingsHeading}) {
   const [checkedTicket,setCheckedTicket]=useState<number>();
-  return <Panel title="Integrationen"><div className="panel-body actions">
+  return <Panel title="Integrationen" headingRef={heading}><div className="panel-body actions">
       <Pill label={flags.haben?'Haben eingerichtet':'Haben optional'} tone={flags.haben?'accent':'neutral'}/>
       <Pill label={flags.zammad?'Zammad eingerichtet':'Zammad optional'} tone={flags.zammad?'accent':'neutral'}/>
     </div><div className="panel-body">
@@ -106,17 +142,18 @@ function Integrations({flags,run}:{flags:{haben:boolean;zammad:boolean};run:Run}
     </div></Panel>;
 }
 
-function TeamSettings({users,run,accountId,onChange}:{users:Row[];run:Run;accountId:string;onChange:(own:boolean)=>Promise<void>}) {
+function TeamSettings({users,run,accountId,heading,accountBlocked}:{
+  users:Row[];run:Run;accountId:string;heading:SettingsHeading;accountBlocked:()=>void;
+}) {
   const [confirmation,setConfirmation]=useState<Confirmation>();
   const teamPanel=useRef<HTMLElement>(null);
 
-  async function saveAccess(row:Row,blocked:boolean,isCurrent:()=>boolean) {
-    await api("users/"+row.id+"/access","PATCH",{blocked});
-    if(isCurrent()) await onChange(row.id===accountId);
+  function saveAccess(row:Row,blocked:boolean) {
+    return api("users/"+row.id+"/access","PATCH",{blocked});
   }
 
   return <>
-    <Panel title="Team" focusRef={teamPanel}><div className="panel-body"><Expand title="Konto anlegen"><Form caption="Konto speichern" fields={[
+    <Panel title="Team" headingRef={heading} focusRef={teamPanel}><div className="panel-body"><Expand title="Konto anlegen"><Form caption="Konto speichern" fields={[
       {name:'name',label:'Name',required:true},{name:'email',label:'E-Mail',type:'email',required:true},
       {name:'password',label:'Passwort',hint:'Mindestens 12 Zeichen',minLength:12,maxLength:200,type:'password',required:true,autoComplete:'new-password'},
       {name:'role',label:'Rolle',choices:[{value:'member',label:'Mitarbeit'},{value:'admin',label:'Administration'}],required:true},
@@ -125,14 +162,18 @@ function TeamSettings({users,run,accountId,onChange}:{users:Row[];run:Run;accoun
       row.name,row.role==='admin'?'Administration':'Mitarbeit',row.blocked?'Gesperrt':'Aktiv',
       <button type="button" className={row.blocked?undefined:"danger"} onClick={event=>{
         if(row.blocked) {
-          void run(isCurrent=>saveAccess(row,false,isCurrent),"Konto freigegeben.");
+          void run(()=>saveAccess(row,false),"Konto freigegeben.");
           return;
         }
         setConfirmation({
           actionKey:"access-block:"+row.id,title:"Konto sperren",actionLabel:"Konto sperren",danger:true,
           description:"Desk widerruft die Sitzungen und API-Tokens für „"+row.name+"“. Projektzuordnungen bleiben erhalten."
             +(row.id===accountId?" Du wirst abgemeldet.":""),
-          trigger:event.currentTarget,submit:isCurrent=>saveAccess(row,true,isCurrent),feedback:"Konto gesperrt.",
+          trigger:event.currentTarget,submit:async(isCurrent)=>{
+            const result=await saveAccess(row,true);
+            if(isCurrent()) accountBlocked();
+            return result;
+          },feedback:"Konto gesperrt.",
         });
       }}>{row.blocked?"Konto freigeben":"Konto sperren"}</button>,
     ]}))}/></Panel>
