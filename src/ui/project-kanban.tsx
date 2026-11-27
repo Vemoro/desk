@@ -2,10 +2,55 @@ import { useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction, 
 import { api, ApiError, calendarDate, name, taskStages, type Row } from './client';
 import { Icon } from './icons';
 import { Form, FormDialog, options, type Run } from './widgets';
+import { Field } from './field';
 
 const statusChoices=Object.entries(taskStages).map(([value,label])=>({value,label}));
 const columnEnd='end';
 type DropPosition={status:string;beforeTaskId:string|null};
+const assigneeFilters={all:'Alle',me:'Mir zugeordnet',unassigned:'Ohne Zuständigkeit'};
+type AssigneeFilter=keyof typeof assigneeFilters;
+
+function filteredBoard(allTasks:Row[],projectId:string,accountId:string,filter:AssigneeFilter) {
+  const tasks=allTasks.filter(task=>task.project_id===projectId && (
+    filter==='all' || (filter==='me' ? task.assignee_id===accountId : task.assignee_id==null)
+  ));
+  const columns=Object.fromEntries(statusChoices.map(({value})=>[value,tasks.filter(task=>task.status===value)
+    .sort((left,right)=>(left.kanban_position ?? Infinity)-(right.kanban_position ?? Infinity))]));
+  return {tasks,columns};
+}
+
+function positionAtPointer(event:DragEvent<HTMLElement>,status:string,draggedTaskId:string):DropPosition {
+  for(const card of event.currentTarget.querySelectorAll<HTMLElement>(':scope > article[data-kanban-card]')) {
+    const id=card.dataset.kanbanCard;
+    if(!id || id===draggedTaskId) continue;
+    const bounds=card.getBoundingClientRect();
+    if(event.clientY<bounds.top+bounds.height/2) return {status,beforeTaskId:id};
+  }
+  return {status,beforeTaskId:null};
+}
+
+function KanbanHeading({count,filter,filterControl,onFilter}:{
+  count:number;filter:AssigneeFilter;filterControl:RefObject<HTMLSelectElement|null>;onFilter:(value:AssigneeFilter)=>void;
+}) {
+  return <>
+    <header className="kanban-heading"><h2>Aufgaben</h2>
+      <div className="actions">
+        <Field label="Aufgaben anzeigen">{props=><select {...props} ref={filterControl} value={filter}
+          onChange={event=>onFilter(event.currentTarget.value as AssigneeFilter)}>
+          {Object.entries(assigneeFilters).map(([value,label])=><option key={value} value={value}>{label}</option>)}
+        </select>}</Field>
+        <span className="subtle" role="status">{count} {count===1?'Aufgabe':'Aufgaben'}</span>
+      </div>
+    </header>
+    {filter!=='all' && <div className="kanban-filter-feedback">
+      <p className="subtle">Zum Umordnen wähle „Alle“.</p>
+      {count===0 && <div className="actions">
+        <p>Keine Aufgaben für diesen Filter.</p>
+        <button type="button" onClick={()=>{onFilter('all');filterControl.current?.focus();}}>Alle anzeigen</button>
+      </div>}
+    </div>}
+  </>;
+}
 
 function MoveCardForm({task,columns,submit}:{task:Row;columns:Record<string,Row[]>;submit:(position:DropPosition)=>Promise<boolean>}) {
   const [status,setStatus]=useState<string>(task.status);
@@ -26,8 +71,9 @@ function MoveCardForm({task,columns,submit}:{task:Row;columns:Record<string,Row[
   ]} submit={({status,before})=>submit({status,beforeTaskId:before===columnEnd?null:before})}/>;
 }
 
-function AddCard({projectId,status,run}:{projectId:string;status:string;run:Run}) {
+function AddCard({projectId,status,run,onlyMine}:{projectId:string;status:string;run:Run;onlyMine:boolean}) {
   const disclosure=useRef<HTMLDetailsElement>(null);
+  const feedback=onlyMine?'Karte angelegt. Sie erscheint unter „Alle“ oder „Ohne Zuständigkeit“.':'Karte angelegt.';
 
   return <details className="kanban-add" ref={disclosure} onToggle={(event)=>{
     if(event.currentTarget.open) event.currentTarget.querySelector('input')?.focus();
@@ -36,7 +82,7 @@ function AddCard({projectId,status,run}:{projectId:string;status:string;run:Run}
     <Form className="kanban-add-form" caption="Karte anlegen" fields={[
       {name:'name',label:'Kartentitel',required:true},
     ]} submit={async({name})=>{
-      const saved=await run(()=>api('tasks','POST',{project_id:projectId,status,name}),'Karte angelegt.',{reportInlineError:true});
+      const saved=await run(()=>api('tasks','POST',{project_id:projectId,status,name}),feedback,{reportInlineError:true});
       if(!saved) return;
       const details=disclosure.current;
       const title=details?.querySelector('input');
@@ -46,10 +92,13 @@ function AddCard({projectId,status,run}:{projectId:string;status:string;run:Run}
   </details>;
 }
 
-export function ProjectKanban({projectId,tasks:allTasks,users,run}:{projectId:string;tasks:Row[];users:Row[];run:Run}) {
-  const tasks=allTasks.filter(task=>task.project_id===projectId);
-  const columns=Object.fromEntries(statusChoices.map(({value})=>[value,tasks.filter(task=>task.status===value)
-    .sort((left,right)=>(left.kanban_position ?? Infinity)-(right.kanban_position ?? Infinity))]));
+export function ProjectKanban({projectId,accountId,tasks:allTasks,users,run}:{
+  projectId:string;accountId:string;tasks:Row[];users:Row[];run:Run;
+}) {
+  const [filter,setFilter]=useState<AssigneeFilter>('all');
+  const filterControl=useRef<HTMLSelectElement>(null);
+  const canReorder=filter==='all';
+  const {tasks,columns}=filteredBoard(allTasks,projectId,accountId,filter);
   const board=useRef<HTMLDivElement>(null);
   const restoreFocus=useRef<{taskId:string;trigger:HTMLButtonElement;move?:boolean}|undefined>(undefined);
   const [editor,setEditor]=useState<{task:Row;trigger:HTMLButtonElement;move?:boolean}>();
@@ -63,8 +112,8 @@ export function ProjectKanban({projectId,tasks:allTasks,users,run}:{projectId:st
     const selector=wasMove ? `[data-kanban-card="${id}"] .task-move` : `[data-task-id="${id}"]`;
     const card=trigger.isConnected ? trigger : board.current?.querySelector<HTMLButtonElement>(selector);
     restoreFocus.current=undefined;
-    (card ?? board.current)?.focus();
-  },[editor]);
+    (card ?? (canReorder ? board.current : filterControl.current))?.focus();
+  },[editor,canReorder]);
 
   function dismiss() {
     if(!editor) return;
@@ -83,16 +132,6 @@ export function ProjectKanban({projectId,tasks:allTasks,users,run}:{projectId:st
         throw error;
       }
     },'Karte verschoben.',{reportInlineError:inlineError});
-  }
-
-  function positionAtPointer(event:DragEvent<HTMLElement>,status:string):DropPosition {
-    for(const card of event.currentTarget.querySelectorAll<HTMLElement>(':scope > article[data-kanban-card]')) {
-      const id=card.dataset.kanbanCard;
-      if(!id || id===dragging.current) continue;
-      const bounds=card.getBoundingClientRect();
-      if(event.clientY<bounds.top+bounds.height/2) return {status,beforeTaskId:id};
-    }
-    return {status,beforeTaskId:null};
   }
 
   function markDrop(event:DragEvent,position:DropPosition) {
@@ -114,13 +153,17 @@ export function ProjectKanban({projectId,tasks:allTasks,users,run}:{projectId:st
     event.preventDefault();
     event.stopPropagation();
     clearDrop();
-    if(tasks.some(task=>task.id===taskId)) void move(taskId,position);
+    if(canReorder && tasks.some(task=>task.id===taskId)) void move(taskId,position);
   }
 
   return <section className="project-kanban">
-    <header className="kanban-heading"><h2>Aufgaben</h2><span className="subtle">{tasks.length} {tasks.length===1?'Aufgabe':'Aufgaben'}</span></header>
+    <KanbanHeading count={tasks.length} filter={filter} filterControl={filterControl} onFilter={value=>{
+      clearDrop();
+      setFilter(value);
+    }}/>
     <KanbanColumns board={board} columns={columns} dropPosition={dropPosition} dragging={dragging} projectId={projectId}
-      run={run} users={users} setEditor={setEditor} markDrop={markDrop} positionAtPointer={positionAtPointer}
+      canReorder={canReorder} onlyMine={filter==='me'}
+      run={run} users={users} setEditor={setEditor} markDrop={markDrop}
       setDropPosition={setDropPosition} drop={drop} clearDrop={clearDrop}/>
     {editor && <FormDialog title={editor.move?'Karte verschieben':'Karte bearbeiten'} trigger={editor.trigger} dismiss={dismiss}>{save=>
       editor.move ? <MoveCardForm task={editor.task} columns={columns} submit={position=>save(()=>move(editor.task.id,position,true))}/>
@@ -143,11 +186,11 @@ export function ProjectKanban({projectId,tasks:allTasks,users,run}:{projectId:st
   </section>;
 }
 
-function KanbanColumns({board,columns,dropPosition,dragging,projectId,run,users,setEditor,markDrop,positionAtPointer,
+function KanbanColumns({board,columns,dropPosition,dragging,projectId,canReorder,onlyMine,run,users,setEditor,markDrop,
   setDropPosition,drop,clearDrop}:{
   board:RefObject<HTMLDivElement|null>; columns:Record<string,Row[]>; dropPosition?:DropPosition; dragging:RefObject<string|undefined>;
-  projectId:string; run:Run; users:Row[]; setEditor:(editor:{task:Row;trigger:HTMLButtonElement;move?:boolean})=>void;
-  markDrop:(event:DragEvent,position:DropPosition)=>void; positionAtPointer:(event:DragEvent<HTMLElement>,status:string)=>DropPosition;
+  projectId:string; canReorder:boolean; onlyMine:boolean; run:Run; users:Row[]; setEditor:(editor:{task:Row;trigger:HTMLButtonElement;move?:boolean})=>void;
+  markDrop:(event:DragEvent,position:DropPosition)=>void;
   setDropPosition:Dispatch<SetStateAction<DropPosition|undefined>>; drop:(event:DragEvent,position:DropPosition)=>void; clearDrop:()=>void;
 }) {
   return <div className="board" ref={board} tabIndex={0} role="region" aria-label="Kanban">
@@ -155,30 +198,30 @@ function KanbanColumns({board,columns,dropPosition,dragging,projectId,run,users,
         const cards=columns[status];
         return <section key={status} className="board-column" aria-label={label}
           data-drop-end={dropPosition?.status===status && dropPosition.beforeTaskId===null ? '' : undefined}
-          onDragOver={event=>{ if(dragging.current) markDrop(event,positionAtPointer(event,status)); }}
+          onDragOver={event=>{ if(dragging.current) markDrop(event,positionAtPointer(event,status,dragging.current)); }}
           onDragLeave={event=>{
             if(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return;
             setDropPosition(current=>current?.status===status?undefined:current);
-          }} onDrop={event=>{ if(dragging.current) drop(event,positionAtPointer(event,status)); }}>
+          }} onDrop={event=>{ if(dragging.current) drop(event,positionAtPointer(event,status,dragging.current)); }}>
           <h3>{label} <span>{cards.length}</span></h3>
-          {cards.map(task=><article key={task.id} className="task" data-kanban-card={task.id} draggable
+          {cards.map(task=><article key={task.id} className="task" data-kanban-card={task.id} draggable={canReorder}
             data-drop-before={dropPosition?.beforeTaskId===task.id?'':undefined}
-            onDragStart={event=>{
+            onDragStart={canReorder ? event=>{
               dragging.current=task.id;
               event.dataTransfer.effectAllowed='move';
               event.dataTransfer.setData('text/plain',task.id);
-            }} onDragEnd={clearDrop}>
+            } : undefined} onDragEnd={clearDrop}>
             <button type="button" className="task-card" data-task-id={task.id} onClick={event=>setEditor({task,trigger:event.currentTarget})}>
               <strong id={`kanban-title-${task.id}`}>{task.name}</strong>
               {task.assignee_id && <span className="subtle">{name(users,task.assignee_id)}</span>}
               {task.due && <span className="subtle">Fällig am {calendarDate(task.due)}</span>}
             </button>
-            <button type="button" className="task-move" aria-label="Verschieben" aria-describedby={`kanban-title-${task.id}`}
+            {canReorder && <button type="button" className="task-move" aria-label="Verschieben" aria-describedby={`kanban-title-${task.id}`}
               title="Verschieben" onClick={event=>setEditor({task,move:true,trigger:event.currentTarget})}>
               <Icon name="move"/>
-            </button>
+            </button>}
           </article>)}
-          <AddCard projectId={projectId} status={status} run={run}/>
+          <AddCard projectId={projectId} status={status} run={run} onlyMine={onlyMine}/>
         </section>;
       })}
     </div>;

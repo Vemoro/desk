@@ -31,6 +31,8 @@ Wenn du aus einem Projekt etwa **Kanban**, **Controlling** oder **Verlauf** teil
 
 Im **Kanban** erfasst du Aufgaben mit **Karte hinzufügen** direkt in der passenden Spalte. Nach dem Speichern kannst du dort gleich den nächsten Titel eingeben. Wähle eine Karte oder öffne sie mit Enter, um Titel, Zuständigkeit, Fälligkeit oder Status zu ändern. Ziehe eine Karte auf die gewünschte Position innerhalb einer Spalte oder in eine andere Spalte. Der Einfügehinweis zeigt, wo sie abgelegt wird. Für Tastatur und Touch öffnet **Verschieben** an der Karte die Auswahl von Zielspalte und Zielposition. Desk speichert die Reihenfolge je Spalte. Auf schmalen Bildschirmen lässt sich das Board horizontal scrollen.
 
+Unter **Aufgaben anzeigen** wählst du **Alle**, **Mir zugeordnet** oder **Ohne Zuständigkeit**. Die Zähler zeigen die sichtbaren Karten. Zum Umordnen wählst du **Alle**. Status und Zuständigkeit kannst du weiterhin im Kartendialog ändern. Neu angelegte Karten erscheinen zunächst unter **Alle** und **Ohne Zuständigkeit**.
+
 Wähle unter **Kontakte** den Namen eines Kontakts. Unter **Zugehörige Projekte** stehen seine Projekte mit Status und Termin. Wähle den Projektnamen, um das Projekt zu öffnen. Gleichnamige Kontakte zeigen jeweils ihre eigenen Projekte.
 
 Wenn Desk meldet, dass eine Änderung gespeichert wurde und die Ansicht nicht aktualisiert werden konnte, wähle **Ansicht aktualisieren**. Desk ruft die Daten erneut ab. Der Schreibvorgang wird dabei nicht wiederholt. Ist deine Sitzung abgelaufen, meldet Desk die erfolgreiche Speicherung in der Anmeldemaske. Nach der Anmeldung lädt Desk die aktuelle Ansicht.
