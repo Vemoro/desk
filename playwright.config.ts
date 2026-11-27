@@ -1,6 +1,9 @@
 import { defineConfig,devices } from '@playwright/test';
 
-const baseURL=process.env.DESK_E2E_URL ?? 'http://127.0.0.1:4173';
+const baseURL=process.env.DESK_E2E_URL ?? 'http://localhost:4173';
+const screenshotSpec='**/screenshots.spec.ts';
+const runtimeImageSpec='**/runtime-image.spec.ts';
+
 export default defineConfig({
   testDir:'./e2e',
   use:{baseURL,locale:'de-DE',timezoneId:'Europe/Berlin',trace:'retain-on-failure'},
@@ -10,7 +13,13 @@ export default defineConfig({
     env:{DESK_ORIGIN:baseURL},reuseExistingServer:!process.env.CI,
   },
   projects:[
-    {name:'core',testMatch:['core.spec.ts','reservation-duration.spec.ts','reservation-open-issues.spec.ts','reservation-day-filter.spec.ts','reservation-outstanding.spec.ts','reservation-filters.spec.ts'],use:{...devices['Desktop Chrome']}},
-    {name:'screenshots',testMatch:'screenshots.spec.ts',use:{...devices['Desktop Chrome']}},
+    {
+      name:'core',
+      testMatch:'**/*.spec.ts',
+      testIgnore:[screenshotSpec,runtimeImageSpec],
+      use:{...devices['Desktop Chrome']},
+    },
+    {name:'screenshots',testMatch:screenshotSpec,use:{...devices['Desktop Chrome']}},
+    {name:'runtime-image',testMatch:runtimeImageSpec,outputDir:'test-results/runtime-image',use:{...devices['Desktop Chrome'],trace:'off'}},
   ],
 });
