@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { TicketEntry, type TicketArticle, type useAttachmentDownloads } from './communication-articles';
 import { attemptLabels, type Conversation, type RequestZammad, type useSendingAttempt } from './communication-delivery';
 import { moment } from './client';
@@ -42,13 +42,20 @@ export function SendingAttempts({entries,attempt,request,refresh,run,outgoingKey
   const {retryVersion,retryInProgress,applyAttemptResult,draft,setUnresolvedRetry}=attempt;
   const focusedAttempt=useAttemptFocus(entries);
   if(!entries.length) return null;
+  const counts=new Map<string,number>();
+  for(const entry of entries) {
+    const label=attemptContextKey(entry);
+    counts.set(label,(counts.get(label)??0)+1);
+  }
   return <div className="communication-outgoing" onBlur={event=>{if(event.relatedTarget) focusedAttempt.current=undefined;}}>
     <h3>Sendeversuche</h3><Table headers={['Sendeversuch','Status','Letzter Versuch','Aktion']} rows={entries.map(entry=>{
     const subjectId=`sendeversuch-${entry.id}`;
     const timeId=`sendezeit-${entry.id}`;
     const timestamp=entry.attempted_at?moment(entry.attempted_at):'';
+    const reference=(counts.get(attemptContextKey(entry))??0)>1?entry.id:undefined;
     const context=[subjectId,timestamp?timeId:undefined].filter(Boolean).join(' ');
-    return {key:entry.id,cells:[<span id={subjectId} tabIndex={-1}>{entry.subject}</span>,attemptLabels[entry.status],
+    return {key:entry.id,cells:[<span id={subjectId} tabIndex={-1}>{entry.subject}
+      {reference && <small className="booking-details">Referenz {reference}</small>}</span>,attemptLabels[entry.status],
           timestamp ? <time id={timeId} dateTime={entry.attempted_at}>{timestamp}</time> : '–',
         entry.status==='sent' ? '–' : <RowActions>
           <button type="button" aria-describedby={context} onFocus={()=>{focusedAttempt.current=entry.id;}} onClick={()=>run(async(isCurrent)=>{
@@ -63,7 +70,7 @@ export function SendingAttempts({entries,attempt,request,refresh,run,outgoingKey
           <button type="button" aria-describedby={context} onFocus={()=>{focusedAttempt.current=entry.id;}} onClick={event=>setConfirmation({
             actionKey:`${outgoingKey}${entry.id}`,
             title:'Zammad-Sendeversuch wiederholen',
-            description:`Desk sucht im Ticketverlauf nach der Referenz des Sendeversuchs „${entry.subject}“${timestamp?` vom ${timestamp}`:''}. Fehlt ein Versandnachweis und ist eine Wiederholung zulässig, sendet Zammad die Nachricht erneut.`,
+            description:`Desk sucht im Ticketverlauf nach der Referenz des Sendeversuchs „${entry.subject}“${timestamp?` vom ${timestamp}`:''}${reference?` (Referenz ${reference})`:''}. Fehlt ein Versandnachweis und ist eine Wiederholung zulässig, sendet Zammad die Nachricht erneut.`,
             actionLabel:'Erneut senden',
             trigger:event.currentTarget,
             submit:async isCurrent=>{
@@ -93,8 +100,19 @@ export function SendingAttempts({entries,attempt,request,refresh,run,outgoingKey
     })}/></div>;
 }
 
+function attemptContextKey(entry:Conversation['outgoing'][number]) {
+  return `${entry.subject}\n${entry.attempted_at?moment(entry.attempted_at):''}`;
+}
+
 function useAttemptFocus(entries:Conversation['outgoing']) {
   const focused=useRef<string|undefined>(undefined);
+  useEffect(()=>{
+    function clearOnOutsideClick(event:PointerEvent) {
+      if(event.target instanceof Node && !document.activeElement?.contains(event.target)) focused.current=undefined;
+    }
+    document.addEventListener('pointerdown',clearOnOutsideClick,true);
+    return ()=>document.removeEventListener('pointerdown',clearOnOutsideClick,true);
+  },[]);
   useLayoutEffect(()=>{
     const id=focused.current;
     if(!id || !entries.some(entry=>entry.id===id && entry.status==='sent')) return;
