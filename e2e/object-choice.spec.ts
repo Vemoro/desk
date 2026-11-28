@@ -152,3 +152,26 @@ test('Gleichnamige Projekte bleiben hinter der ersten Trefferseite auswählbar',
   await last.click();
   await expect(choice).toHaveValue('Wartung · M-160 · muster-062');
 });
+
+test('Eine nach dem Speichern geladene Zuordnung hat Vorrang vor der eigenen Änderung',async({page})=>{
+  const projects=[
+    {id:'muster-a',name:'Büroinstallation',stage:'planning'},
+    {id:'muster-b',name:'Bürowartung',stage:'planning'},
+  ];
+  const serverRow={id:'muster-kosten',reference:'M-215',name:'Material',source:'manual',project_id:'muster-a',cents:1800};
+  await page.route('**/api/v1/projects?*',route=>route.fulfill({json:projects}));
+  await page.route('**/api/v1/costs?*',route=>route.fulfill({json:[serverRow]}));
+  let writes=0;
+  await page.route('**/api/v1/costs/muster-kosten',route=>{
+    expect(route.request().postDataJSON().project_id).toBe('muster-b');
+    writes++;
+    return route.fulfill({json:{...serverRow,project_id:'muster-b'}});
+  });
+  await signIn(page);
+  await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Ist-Kosten',exact:true}).click();
+  const choice=page.getByRole('combobox',{name:'Projekt für M-215'});
+  await chooseObject(page,choice,'Bürowartung');
+  await expect.poll(()=>writes).toBe(1);
+  await expect(choice).not.toHaveAttribute('aria-disabled','true');
+  await expect(choice).toHaveValue('Büroinstallation');
+});
