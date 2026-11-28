@@ -1,9 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { TicketEntry, type TicketArticle, type useAttachmentDownloads } from './communication-articles';
-import { attemptLabels, type Conversation, type RequestZammad, type useSendingAttempt } from './communication-delivery';
+import { attemptLabels, type AttemptStatus, type Conversation, type RequestZammad, type useSendingAttempt } from './communication-delivery';
 import { moment } from './client';
 import { Field } from './field';
 import { RowActions, Table, type Confirmation, type Run } from './widgets';
+import { WorkStatus, type WorkStatusRole } from './work-status';
+
+const deliveryStatus:Record<AttemptStatus,{role:WorkStatusRole;detail?:string}> = {
+  pending:{role:'waiting'},
+  sent:{role:'active'},
+  unknown:{role:'attention',detail:'Mit „Prüfen“ im Ticketverlauf nach dem Versand suchen.'},
+  failed:{role:'failed',detail:'Zammad hat den Versuch abgelehnt. Den Ticketverlauf mit „Prüfen“ abgleichen.'},
+};
 
 type ArticleAction = (article:TicketArticle,trigger:HTMLButtonElement)=>void;
 
@@ -55,7 +63,7 @@ export function SendingAttempts({entries,attempt,request,refresh,run,outgoingKey
     const reference=(counts.get(attemptContextKey(entry))??0)>1?entry.id:undefined;
     const context=[subjectId,timestamp?timeId:undefined].filter(Boolean).join(' ');
     return {key:entry.id,cells:[<span id={subjectId} tabIndex={-1}>{entry.subject}
-      {reference && <small className="booking-details">Referenz {reference}</small>}</span>,attemptLabels[entry.status],
+      {reference && <small className="booking-details">Referenz {reference}</small>}</span>,<WorkStatus label={attemptLabels[entry.status]} {...deliveryStatus[entry.status]}/>,
           timestamp ? <time id={timeId} dateTime={entry.attempted_at}>{timestamp}</time> : '–',
         entry.status==='sent' ? '–' : <RowActions>
           <button type="button" aria-describedby={context} onFocus={()=>{focusedAttempt.current=entry.id;}} onClick={()=>run(async(isCurrent)=>{

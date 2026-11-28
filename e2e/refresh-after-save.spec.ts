@@ -1,5 +1,5 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
-import { signIn } from './session';
+import { chooseObject, signIn } from './session';
 import { triggerDeskRead } from './desk-refresh';
 
 async function createWithFailedRefresh(page:Page,status:401|503) {
@@ -25,7 +25,7 @@ async function createWithFailedRefresh(page:Page,status:401|503) {
   await page.getByText('Projekt anlegen',{exact:true}).click();
   const name='Muster Aktualisierung '+crypto.randomUUID().slice(0,8);
   await page.getByLabel('Projektname').fill(name);
-  await page.getByLabel('Interessent').selectOption({label:'Kulturhaus am Park'});
+  await chooseObject(page,page.getByLabel('Interessent'),'Kulturhaus am Park');
   await page.getByRole('button',{name:'Projekt speichern'}).click();
   return {name,writes:()=>writes};
 }
@@ -96,7 +96,7 @@ test('Ein älterer Abruf kann den Hinweis nach einer weiteren Speicherung nicht 
   const save=page.getByRole('button',{name:'Projekt speichern',exact:true});
   const retry=page.getByRole('button',{name:'Ansicht aktualisieren',exact:true});
   await name.fill(first);
-  await page.getByLabel('Interessent').selectOption({label:'Kulturhaus am Park'});
+  await chooseObject(page,page.getByLabel('Interessent'),'Kulturhaus am Park');
   await save.click();
   await retry.click();
 

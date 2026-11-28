@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useEffectEvent, useId, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { createContext, useContext, useEffect, useEffectEvent, useId, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import type { Row } from './client';
 
 export const noWrite = Symbol('noWrite');
@@ -133,6 +133,18 @@ export type Confirmation = {
   feedback?:string;
 };
 
+function cycleConfirmationFocus(event:KeyboardEvent<HTMLDialogElement>,content:HTMLElement|null,actions:(HTMLElement|null)[]) {
+  if(event.key!=='Tab') return;
+  const scrollable=content && content.scrollHeight>content.clientHeight ? content : null;
+  const stops=[scrollable,...actions].filter(element=>element!==null);
+  if(!stops.length) return;
+  const active=event.currentTarget.ownerDocument.activeElement;
+  const index=stops.findIndex(element=>element===active);
+  const next=event.shiftKey ? (index<=0 ? stops.length-1 : index-1) : (index+1)%stops.length;
+  event.preventDefault();
+  stops[next]?.focus();
+}
+
 export function ConfirmDialog({confirmation,run,dismiss,fallbackFocus}:{
   confirmation:Confirmation;
   run:Run;
@@ -142,6 +154,7 @@ export function ConfirmDialog({confirmation,run,dismiss,fallbackFocus}:{
   const titleId=useId();
   const descriptionId=useId();
   const dialogRef=useRef<HTMLDialogElement>(null);
+  const contentRef=useRef<HTMLDivElement>(null);
   const cancelRef=useRef<HTMLButtonElement>(null);
   const confirmRef=useRef<HTMLButtonElement>(null);
   const submitting=useRef(false);
@@ -202,28 +215,19 @@ export function ConfirmDialog({confirmation,run,dismiss,fallbackFocus}:{
     cancelRef.current?.focus();
   }
 
-  return <dialog ref={dialogRef} className="confirm-dialog" aria-labelledby={titleId} aria-describedby={descriptionId}
+  return <dialog ref={dialogRef} className="confirm-dialog action-confirmation" aria-labelledby={titleId} aria-describedby={descriptionId}
     onCancel={(event)=>{event.preventDefault();close();}}
-    onKeyDown={(event)=>{
-      if(event.key!=='Tab') return;
-      const first=cancelRef.current;
-      const last=confirmRef.current;
-      if(request || problem || (event.shiftKey && document.activeElement===first) || (!event.shiftKey && document.activeElement===last)) {
-        event.preventDefault();
-        if(event.shiftKey && !request && !problem) last?.focus();
-        else first?.focus();
-      }
-    }}>
+    onKeyDown={event=>cycleConfirmationFocus(event,contentRef.current,[cancelRef.current,request || problem ? null : confirmRef.current])}>
     <header className="confirm-dialog-title"><h2 id={titleId}>{confirmation.title}</h2></header>
-    <div className="dialog-content">
+    <div className="dialog-content" ref={contentRef} role="region" aria-label="Folgen der Aktion" tabIndex={-1}>
       <p id={descriptionId}>{confirmation.description}</p>
       {message && <p className="inline-error" role="alert">{message}</p>}
-      <div className="actions">
-        <button type="button" ref={cancelRef} aria-disabled={pending || undefined} onClick={()=>close()}>{message?'Schließen':'Abbrechen'}</button>
-        <button type="button" ref={confirmRef} className={confirmation.danger?'primary destructive':'primary'} onClick={confirm} disabled={Boolean(request || problem)}>
-          {pending?'Wird ausgeführt …':confirmation.actionLabel}
-        </button>
-      </div>
+    </div>
+    <div className="actions">
+      <button type="button" ref={cancelRef} aria-disabled={pending || undefined} onClick={()=>close()}>{message?'Schließen':'Abbrechen'}</button>
+      <button type="button" ref={confirmRef} className={confirmation.danger?'primary destructive':'primary'} onClick={confirm} disabled={Boolean(request || problem)}>
+        {pending?'Wird ausgeführt …':confirmation.actionLabel}
+      </button>
     </div>
   </dialog>;
 }

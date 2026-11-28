@@ -1,5 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
-import { holdRoute, settleResponse, signIn } from './session';
+import { chooseObject, holdRoute, settleResponse, signIn } from './session';
 import { triggerDeskRead } from './desk-refresh';
 async function openOfferPreview(page:Page){
   await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Projekte',exact:true}).click();
@@ -145,7 +145,7 @@ for(const operation of ['download','unauthorized-preview','project'] as const){
       await page.getByText('Projekt anlegen',{exact:true}).click();
       await page.getByLabel('Projektname').fill('Auftrag des ersten Kontos');
       const contact=page.getByLabel('Interessent');
-      await contact.selectOption({label:'Kulturhaus am Park'});
+      await chooseObject(page,contact,'Kulturhaus am Park');
       await page.getByRole('button',{name:'Projekt speichern',exact:true}).click();
     }
     const request=await delayed.request;

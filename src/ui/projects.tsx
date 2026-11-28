@@ -14,6 +14,8 @@ import { Controlling } from './project-controlling';
 import { localDayRange, useLocalDay } from './local-day';
 import { ListEmpty, PageHeading, openListForm } from './list-page';
 import { emptyReservationFilters, matchesReservationQuery, ReservationFilters } from './reservation-filters';
+import { WorkStatus } from './work-status';
+import { contactChoices } from './object-choice';
 
 export type Data = Record<'contacts'|'projects'|'tasks'|'users'|'lines'|'reservations'|'locations'|'items'|'movements'|'costs'|'stock',Row[]>;
 type Flags = { haben:boolean; zammad:boolean };
@@ -85,7 +87,7 @@ export function Projects({data,run,select,filters,onFilter,openContacts}:{data:D
         {canCreate && <Expand title="Projekt anlegen" detailsRef={creation}>
           <Form caption="Projekt speichern" fields={[
             { name:'name',label:'Projektname',required:true },
-            { name:'contact_id',label:'Interessent',choices:options(data.contacts),required:true },
+            { name:'contact_id',label:'Interessent',searchChoices:contactChoices(data.contacts),required:true },
             { name:'due',label:'Termin',type:'date' },
             { name:'notes',label:'Notiz',type:'textarea' },
           ]} submit={(fields)=>run(async(isCurrent)=>{
@@ -100,9 +102,20 @@ export function Projects({data,run,select,filters,onFilter,openContacts}:{data:D
         </ListEmpty>
       : <Table headers={['Projekt','Kontakt','Status','Termin']} rows={projects
         .map((project)=>({key:project.id,cells:[<button className="text-button" onClick={()=>select(project.id)}>{project.name}</button>,
-          name(data.contacts,project.contact_id),<Pill label={projectStages[project.stage]} tone={project.stage==='confirmed'?'accent':'neutral'}/>,calendarDate(project.due)]}))}/>}
+          name(data.contacts,project.contact_id),<ProjectListStatus project={project} today={today}/>,calendarDate(project.due)]}))}/>}
     </Panel>
   </>;
+}
+
+function isProjectOverdue(project:Row,today:string) {
+  const due=project.due?.slice(0,10);
+  return Boolean(due && due<today && isOpenProject(project.stage));
+}
+
+function ProjectListStatus({project,today}:{project:Row;today:string}) {
+  const overdue=isProjectOverdue(project,today);
+  return <WorkStatus label={projectStages[project.stage]} detail={overdue?'Überfällig':undefined}
+    role={overdue?'attention':project.stage==='confirmed'?'active':'neutral'}/>;
 }
 
 function filteredProjects(data:Data,filters:ProjectFilters,today:string) {
@@ -126,7 +139,7 @@ function filteredProjects(data:Data,filters:ProjectFilters,today:string) {
     const matchesStage=filters.stage==='all' || (filters.stage==='open'?active:project.stage===filters.stage);
     const dueDate=project.due?.slice(0,10);
     const matchesDue=filters.due==='all'
-      || (filters.due==='overdue' && active && Boolean(dueDate) && dueDate<today)
+      || (filters.due==='overdue' && isProjectOverdue(project,today))
       || (filters.due==='today' && dueDate===today)
       || (filters.due==='missing' && !dueDate);
     return matchesSearch && matchesStage && matchesDue;
@@ -291,7 +304,7 @@ function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) 
           {Number.isSafeInteger(row.duration_minutes) && row.duration_minutes>=0 && <small>{reservationDurationLabel(row.duration_minutes)}</small>}
         </>,row.quantity,
         equipmentIds.has(row.item_id) ? row.checked_out ?? '–' : '–',
-        <Pill label={reservationStages[row.status]} tone={row.status==='firm'?'accent':'neutral'}/>,
+        <WorkStatus label={reservationStages[row.status]} role={row.status==='tentative'?'waiting':row.status==='firm'?'active':'neutral'}/>,
         <ReservationActions row={row} resource={row.user_id?name(data.users,row.user_id):inventoryName(data.items,row.item_id)}
           location={row.item_id?name(data.locations,row.location_id):undefined}
           canBook={['confirmed','running'].includes(project.stage)} blocked={blockedPeople.has(row.user_id)}

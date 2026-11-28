@@ -1,5 +1,5 @@
 import { expect,test,type Page,type Route } from '@playwright/test';
-import { signIn } from './session';
+import { chooseObject, signIn } from './session';
 
 async function warehouseBooking(page:Page,kind:'consumable'|'equipment'){
   await signIn(page);
@@ -148,7 +148,7 @@ test('Die bestätigte Buchung gibt das erneut geöffnete Formular nach einem Les
   const receive=page.getByText('Wareneingang',{exact:true}).first();
   const form=page.locator('details').filter({has:page.locator('summary').getByText('Wareneingang',{exact:true})});
   await receive.click();
-  await form.getByLabel('Artikel').selectOption({label:'Kabelbinder, Packung'});
+  await chooseObject(page,form.getByLabel('Artikel'),'Kabelbinder, Packung');
   await form.getByLabel('Lagerort').selectOption({label:'Hauptlager'});
   await form.getByRole('button',{name:'Wareneingang buchen'}).click();
   const request=await delayed;

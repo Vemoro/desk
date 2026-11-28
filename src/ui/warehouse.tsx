@@ -7,6 +7,7 @@ import type { Data } from './projects';
 import { Expand, Form, hasPendingWrite, options, Panel, RowActions, Table, type Run } from './widgets';
 import { ListEmpty, PageHeading, openListForm } from './list-page';
 import { projectHash } from './project-views';
+import { articleChoices } from './object-choice';
 
 type WarehouseProps={data:Data;run:Run;accountId:string};
 type WarehouseMovementProps=WarehouseProps & {filters:MovementFilterValues;onFilter:(filters:MovementFilterValues)=>void};
@@ -63,7 +64,7 @@ function WarehouseStock({data,run,accountId,bookings}:WarehouseProps & {bookings
         {name:'inventory_number',label:'Inventarnummer für Einzelgerät'},
       ]} submit={(input)=>run(()=>api('items','POST',{...input,inventory_number:input.inventory_number||null}),'Artikel angelegt.')}/></Expand>
       <Expand title="Wareneingang" detailsRef={receive}><Form caption="Wareneingang buchen" retryScope={`movements:${accountId}:receive`} fields={[
-        {name:'item_id',label:'Artikel',choices:options(data.items,inventoryLabel),required:true},{name:'location_id',label:'Lagerort',choices:options(data.locations),required:true},
+        {name:'item_id',label:'Artikel',searchChoices:articleChoices(data.items),required:true},{name:'location_id',label:'Lagerort',choices:options(data.locations),required:true},
         {name:'quantity',label:'Menge',type:'number',min:1,value:1,required:true},{name:'project_id',label:'Projektbezug',choices:options(data.projects)},
         {name:'delivery_reference',label:'Lieferscheinreferenz',validate:deliveryReferenceError},
       ]} submit={(input,key)=>run(()=>api('movements','POST',{action:'receive',item_id:input.item_id,location_id:input.location_id,

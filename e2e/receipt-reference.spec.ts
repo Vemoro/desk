@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { signIn } from './session';
+import { chooseObject, signIn } from './session';
 
 test('Lieferscheinreferenz der richtigen Buchung bleibt nach Neuladen mobil sichtbar',async({page})=>{
   await page.setViewportSize({width:375,height:812});
@@ -22,7 +22,7 @@ test('Lieferscheinreferenz der richtigen Buchung bleibt nach Neuladen mobil sich
   await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Projektlager',exact:true}).click();
   await page.getByText('Wareneingang',{exact:true}).first().click();
   const form=page.locator('form').filter({has:page.getByRole('button',{name:'Wareneingang buchen',exact:true})});
-  await form.getByRole('combobox',{name:'Artikel',exact:true}).selectOption(item.id);
+  await chooseObject(page,form.getByRole('combobox',{name:'Artikel',exact:true}),itemName);
   await form.getByRole('combobox',{name:'Lagerort',exact:true}).selectOption(location.id);
   await form.getByLabel('Menge',{exact:true}).fill('3');
   const reference=form.getByLabel('Lieferscheinreferenz',{exact:true});
