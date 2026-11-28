@@ -299,5 +299,5 @@ Für die Projektliste des fiktiven Muster Auftragsservice öffnet `GET /api/v1/p
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="screenshots/navigation-dunkel-handy-offen.png">
-  <img src="screenshots/navigation-hell-handy-offen.png" width="375" alt="Geöffnetes Handymenü mit Hauptnavigation, Designwechsel und Kontobereich">
+  <img src="screenshots/navigation-hell-handy-offen.png" width="375" alt="Geöffnetes Handymenü mit Suche, Hauptnavigation, Designwechsel und Kontobereich">
 </picture>
