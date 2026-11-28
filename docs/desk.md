@@ -6,6 +6,12 @@
 
 Starte Desk danach über das blaue Desk-Symbol im Startmenü oder auf dem Home-Bildschirm und melde dich wie gewohnt an. Die installierte App benötigt eine Verbindung zu deiner Desk-Instanz.
 
+## In Desk navigieren und suchen
+
+Öffne **Suchen** in der Seitenleiste oder verwende **Strg+K** beziehungsweise **⌘ K** auf einem Mac. Die Suche findet Arbeitsbereiche, Projekte und Kontakte. Bei gleichen Namen helfen Angaben wie Kontakt, Kostenstelle, E-Mail oder Telefonnummer bei der Auswahl. Mit den Pfeiltasten wechselst du zwischen Treffern. **Enter** öffnet den gewählten Treffer, **Escape** schließt die Suche.
+
+Am Desktop schaltest du die Seitenleiste mit **Seitenleiste einklappen** auf Symbole um. Die Beschriftung erscheint beim Zeigen auf ein Symbol. Desk merkt sich die Darstellung im Browser. Am Smartphone öffnest du die Navigation über **Menü**.
+
 ## Ein Auftrag
 
 Die Kennzahl **Überfällige Aufgaben** in der **Übersicht** zählt alle offenen Aufgaben aktiver Projekte mit einem Termin vor dem heutigen Kalendertag des Browsers. Sie aktualisiert sich beim Tageswechsel und gilt unabhängig von den Filtern der Aufgabenliste.
