@@ -82,3 +82,34 @@ test('Interessent ist Pflicht und die Objektauswahl speichert das Formular noch 
   await submit.click();
   await expect.poll(()=>writes).toBe(1);
 });
+
+test('Ein Wareneingang verwendet nach verlorener Antwort dieselbe Artikelwahl',async({page})=>{
+  await signIn(page);
+  await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Projektlager',exact:true}).click();
+  const open=page.getByRole('button',{name:'Wareneingang erfassen',exact:true});
+  await open.click();
+  const item=page.getByLabel('Artikel',{exact:true});
+  await chooseObject(page,item,'Kabelbinder, Packung');
+  await page.getByLabel('Lagerort',{exact:true}).selectOption({label:'Hauptlager'});
+  const received:{id:string;item:string;key:string|undefined}[]=[];
+  await page.route('**/api/v1/movements',async route=>{
+    const response=await route.fetch();
+    expect(response.status()).toBe(201);
+    const body=await response.json();
+    received.push({id:body.id,item:route.request().postDataJSON().item_id,key:route.request().headers()['idempotency-key']});
+    if(received.length===1) await route.abort('failed');
+    else await route.fulfill({response});
+  });
+  await page.getByRole('button',{name:'Wareneingang buchen',exact:true}).click();
+  const retry=page.getByRole('button',{name:'Letzten Vorgang erneut senden',exact:true});
+  await expect(retry).toBeVisible();
+  await page.reload();
+  await open.click();
+  await expect(item).toHaveValue('Kabelbinder, Packung');
+  await retry.click();
+  await expect(retry).toHaveCount(0);
+  expect(received).toHaveLength(2);
+  expect(received[0].key).toBeTruthy();
+  expect(received[0].item).toBeTruthy();
+  expect(received[1]).toEqual(received[0]);
+});
