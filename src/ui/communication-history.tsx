@@ -1,9 +1,17 @@
 import type { ReactNode } from 'react';
 import { TicketEntry, type TicketArticle, type useAttachmentDownloads } from './communication-articles';
-import { attemptLabels, type Conversation, type RequestZammad, type useSendingAttempt } from './communication-delivery';
+import { attemptLabels, type AttemptStatus, type Conversation, type RequestZammad, type useSendingAttempt } from './communication-delivery';
 import { moment } from './client';
 import { Field } from './field';
 import { Table, type Confirmation, type Run } from './widgets';
+import { WorkStatus, type WorkStatusRole } from './work-status';
+
+const deliveryStatus:Record<AttemptStatus,{role:WorkStatusRole;detail?:string}> = {
+  pending:{role:'waiting'},
+  sent:{role:'active'},
+  unknown:{role:'attention',detail:'Mit „Prüfen“ im Ticketverlauf nach dem Versand suchen.'},
+  failed:{role:'failed',detail:'Zammad hat den Versuch abgelehnt. Den Ticketverlauf mit „Prüfen“ abgleichen.'},
+};
 
 type ArticleAction = (article:TicketArticle,trigger:HTMLButtonElement)=>void;
 
@@ -42,7 +50,7 @@ export function SendingAttempts({entries,attempt,request,refresh,run,outgoingKey
   const {retryVersion,retryInProgress,applyAttemptResult,draft,setUnresolvedRetry}=attempt;
   if(!entries.length) return null;
   return <div className="communication-outgoing"><h3>Sendeversuche</h3><Table headers={['Sendeversuch','Status','Letzter Versuch','Aktion']} rows={entries.map(entry=>({
-      key:entry.id,cells:[entry.subject,attemptLabels[entry.status],
+      key:entry.id,cells:[entry.subject,<WorkStatus label={attemptLabels[entry.status]} {...deliveryStatus[entry.status]}/>,
           entry.attempted_at ? <time dateTime={entry.attempted_at}>{moment(entry.attempted_at)}</time> : '–',
         entry.status==='sent' ? '–' : <div className="actions">
           <button onClick={()=>run(async(isCurrent)=>{
