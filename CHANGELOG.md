@@ -2,6 +2,33 @@
 
 Jeder veröffentlichte Eintrag nennt Version und Datum. Er fasst Änderungen für Nutzende, Schritte für die Aktualisierung und bekannte Einschränkungen zusammen.
 
+## 0.3.0.0
+
+Desk erleichtert die Navigation und die tägliche Arbeit mit Projekten, Reservierungen, Lagerbewegungen und Belegen. Die Desktop-Seitenleiste lässt sich einklappen. Auf kleinen Bildschirmen bleiben die Aktionen in Bestätigungsdialogen beim Scrollen sichtbar.
+
+### Projekte und Planung
+
+- Öffne Arbeitsbereiche, Projekte und Kontakte über die globale Suche mit Strg+K oder ⌘ K. Zusätzliche Angaben helfen, gleichnamige Treffer zu unterscheiden.
+- Filtere Kanban-Aufgaben nach Titel, Zuständigkeit oder Fälligkeit. Die Übersicht zeigt anstehende und überfällige Aufgaben, und die Projektliste hebt überfällige aktive Projekte hervor.
+- Grenze Reservierungen im Projekt nach Kalendertag, Ressource oder Lagerort ein. Die Tabelle zeigt die Dauer und noch ausgegebene Mengen. Vor der endgültigen Freigabe zeigt Desk die betroffene Ressource und den Zeitraum, bei Inventar auch den Lagerort.
+- Durchsuche längere Listen bei der Auswahl von Interessenten, Artikeln und Projekten. In den Ist-Kosten speichert Desk die Zuordnung erst nach bestätigter Auswahl.
+
+### Projektlager und Controlling
+
+- Erfasse beim Wareneingang optional eine Lieferscheinreferenz. Lagerbewegungen lassen sich nach Datum, Lagerort und Projekt eingrenzen, nach Artikel oder Lieferschein durchsuchen und als CSV exportieren.
+- Prüfe die Netto-Einkaufs- und Verkaufssummen in der Kalkulation und die Angebotspositionen vor dem CSV-Export.
+- Prüfe beim Ist-Kosten-Import die Belege und ihre Projektzuordnungen in einer Vorschau. Im Projekt lässt sich die Ist-Kosten-Teilsumme auf die aktuell sichtbaren Belege eingrenzen.
+
+### Projektkommunikation
+
+- Hinweise bei unklarem oder abgelehntem Zammad-Versand zeigen den nächsten Schritt. Aktionen stehen beim jeweiligen Sendeversuch. Gleichnamige Versuche lassen sich anhand des Zeitpunkts unterscheiden.
+
+### Aktualisierung
+
+Sichere vor dem Update die Datenbank und die Laufzeitkonfiguration. Führe vor dem Start die Migration `011_delivery_reference.sql` aus. Sie ergänzt das Feld für die optionale Lieferscheinreferenz. [Installation](docs/installation.md) · [Sicherung und Wiederanlauf](docs/sicherung.md)
+
+Die PWA-Geräteabnahme auf einem iPhone bleibt offen. [Issue #85](https://github.com/Vemoro/desk/issues/85)
+
 ## 0.2.0.0
 
 Desk 0.2.0.0 verbessert die tägliche Arbeit in der Projektliste, im Kanban und in der Projektkommunikation. Die Oberfläche verwendet ein einheitliches Raster, verständliche Feldmeldungen und nachprüfbare Tastaturführung in Hell und Dunkel.
