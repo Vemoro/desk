@@ -59,6 +59,13 @@ export function GlobalSearch({allowed,projects,contacts,stale,dismiss,select}:{
     }
     const buttons=Array.from(resultList.current?.querySelectorAll('button')??[]);
     const focused=event.currentTarget.ownerDocument.activeElement;
+    if(event.key==='Tab') {
+      const first=event.currentTarget.querySelector('button');
+      const last=buttons.at(-1)??search.current;
+      const boundary=event.shiftKey?first:last;
+      if(focused===boundary) {event.preventDefault();(event.shiftKey?last:first)?.focus();}
+      return;
+    }
     if(focused===search.current && event.key==='Enter' && visible[0]) {
       event.preventDefault();
       selectItem(visible[0]);

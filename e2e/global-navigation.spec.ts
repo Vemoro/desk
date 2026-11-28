@@ -24,7 +24,13 @@ test('Globale Suche unterscheidet Treffer und gibt den Fokus an den Hauptinhalt'
   await expect(dialog.getByRole('button',{name:/M-130/})).toBeFocused();
   await expect(dialog.getByRole('button',{name:/M-130/})).toHaveCSS('outline-color','rgb(33, 79, 147)');
   await page.keyboard.press('ArrowDown');
-  await expect(dialog.getByRole('button',{name:/M-131/})).toBeFocused();
+  const last=dialog.getByRole('button',{name:/M-131/});
+  const close=dialog.getByRole('button',{name:'Suche schließen'});
+  await expect(last).toBeFocused();
+  await last.press('Tab');
+  await expect(close).toBeFocused();
+  await close.press('Shift+Tab');
+  await expect(last).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#projects\/muster-b$/);
   await expect(main).toBeFocused();
