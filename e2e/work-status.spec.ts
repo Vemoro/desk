@@ -1,14 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
 import { signIn } from './session';
 
-const selected = {id:'muster-buero',name:'Büroinstallation Westflügel',stage:'confirmed',due:'2026-11-27',zammad_ticket_id:42};
+const selected = {id:'muster-buero',name:'Büroinstallation Westflügel',stage:'confirmed',due:'2026-11-27T00:00:00.000Z',zammad_ticket_id:42};
 const projects = [selected,
-  {id:'muster-laufend',name:'Aufbau für Muster Auftragsservice',stage:'running',due:'2026-11-28'},
-  {id:'muster-fertig',name:'Abgerechneter Musterauftrag',stage:'complete',due:'2026-11-27'},
-  {id:'muster-abgesagt',name:'Abgesagter Musterauftrag',stage:'cancelled',due:'2026-11-27'},
+  {id:'muster-laufend',name:'Aufbau für Muster Auftragsservice',stage:'running',due:'2026-11-28T00:00:00.000Z'},
+  {id:'muster-fertig',name:'Abgerechneter Musterauftrag',stage:'complete',due:'2026-11-27T00:00:00.000Z'},
+  {id:'muster-abgesagt',name:'Abgesagter Musterauftrag',stage:'cancelled',due:'2026-11-27T00:00:00.000Z'},
 ];
 const reservations = ['tentative','firm','released'].map((status,index)=>({
-  id:'muster-reservierung-'+index, project_id:selected.id, status, quantity:index+1,
+  id:'muster-reservierung-'+index, project_id:selected.id, status, quantity:1,
   starts_at:'2026-12-03T08:00:00Z', ends_at:'2026-12-03T12:00:00Z',
   user_id:'muster-person',duration_minutes:240,
 }));
@@ -53,7 +53,9 @@ for(const [theme,width] of [['light',1440],['dark',390]] as const){
     const deadline=overdue.getByRole('cell',{name:/27\.11\.2026/});
     await expect(deadline).toHaveCount(1);
     for(const name of projects.slice(1).map(row=>row.name)){
-      await expect(page.getByRole('row').filter({hasText:name}).getByText('Überfällig',{exact:true})).toHaveCount(0);
+      const row=page.getByRole('row').filter({hasText:name});
+      await expect(row).toBeVisible();
+      await expect(row.getByText('Überfällig',{exact:true})).toHaveCount(0);
     }
 
     await project.press('Enter');
