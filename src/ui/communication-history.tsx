@@ -55,7 +55,10 @@ export function SendingAttempts({entries,attempt,request,refresh,run,outgoingKey
             const version=retryVersion.current;
             const result=await request(`outgoing/${entry.id}`,{retry:false});
             if(!isCurrent()) return;
-            if(result.status==='sent' && trigger.ownerDocument.activeElement===trigger) trigger.ownerDocument.getElementById(subjectId)?.focus();
+            const {activeElement}=trigger.ownerDocument;
+            if(result.status==='sent' && trigger.closest('.row-actions')?.contains(activeElement)) {
+              trigger.ownerDocument.getElementById(subjectId)?.focus();
+            }
             const refreshed=await refresh();
             if(isCurrent() && retryVersion.current===version && retryInProgress.current!==entry.id) {
               applyAttemptResult(entry.id,result.status,refreshed);

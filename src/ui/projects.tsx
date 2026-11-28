@@ -309,7 +309,7 @@ function ReservationActions({row,resource,location,canBook,blocked,onFocus,onBlu
   const reservation=[resource,location,`${moment(row.starts_at)} bis ${moment(row.ends_at)}`].filter(Boolean).join(' · ');
   return <RowActions>
     <span id={context} className="sr-only">{reservation}</span>
-    <button type="button" className="danger" aria-describedby={context} onClick={event=>confirm({
+    <button type="button" className="danger" aria-describedby={context} onFocus={onFocus} onBlur={onBlur} onClick={event=>confirm({
       actionKey:`reservation-release:${row.id}`,title:'Reservierung freigeben',actionLabel:'Reservierung freigeben',danger:true,
       description:`Die Reservierung „${reservation}“ wird freigegeben. Wenn du die Ressource wieder einplanen möchtest, lege eine neue Reservierung an.`,
       trigger:event.currentTarget,submit:()=>api(`reservations/${row.id}`,'PATCH',{status:'released'}),feedback:'Reservierung freigegeben.',
