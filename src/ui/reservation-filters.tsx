@@ -1,8 +1,9 @@
 import { useId, useRef, useState, type RefObject } from 'react';
 import { reservationStages, type Row } from './client';
 import { Field } from './field';
+import { options } from './widgets';
 
-export const emptyReservationFilters={query:'',resource:'',status:'',day:'',onlyCheckedOut:false};
+export const emptyReservationFilters={query:'',resource:'',location:'',status:'',day:'',onlyCheckedOut:false};
 type ReservationFilterValues=typeof emptyReservationFilters;
 
 export function matchesReservationQuery(row:Row,people:Row[],items:Row[],query:string) {
@@ -11,9 +12,9 @@ export function matchesReservationQuery(row:Row,people:Row[],items:Row[],query:s
   return [resource?.name,inventoryNumber].some(value=>typeof value==='string' && value.toLowerCase().includes(query));
 }
 
-export function ReservationFilters({filters,onChange,resourceSelector,count,timeZone}:{
+export function ReservationFilters({filters,onChange,resourceSelector,locations,count,timeZone}:{
   filters:ReservationFilterValues;onChange:(value:ReservationFilterValues)=>void;
-  resourceSelector:RefObject<HTMLSelectElement|null>;count:number;timeZone:string;
+  resourceSelector:RefObject<HTMLSelectElement|null>;locations:Row[];count:number;timeZone:string;
 }) {
   const dayInput=useRef<HTMLInputElement>(null);
   const dayZone=useId();
@@ -38,6 +39,11 @@ export function ReservationFilters({filters,onChange,resourceSelector,count,time
       <Field label="Ressourcentyp">{props=><select {...props} ref={resourceSelector} value={filters.resource}
         onChange={event=>onChange({...filters,resource:event.currentTarget.value})}>
         <option value="">Alle</option><option value="user">Personal</option><option value="item">Inventar</option>
+      </select>}</Field>
+      <Field label="Lagerort">{props=><select {...props} value={filters.location}
+        onChange={event=>onChange({...filters,location:event.currentTarget.value})}>
+        <option value="">Alle Lagerorte</option>
+        {options(locations).map(({value,label})=><option key={value} value={value}>{label}</option>)}
       </select>}</Field>
       <Field label="Status filtern">{props=><select {...props} value={filters.status}
         onChange={event=>onChange({...filters,status:event.currentTarget.value})}>

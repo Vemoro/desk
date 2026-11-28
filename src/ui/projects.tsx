@@ -223,18 +223,19 @@ function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) 
   const [filters,setFilters]=useState(emptyReservationFilters);
   const resourceSelector=useRef<HTMLSelectElement>(null);
   const focusedStatusAction=useRef<HTMLButtonElement>(null);
-  const {resource,status,day,onlyCheckedOut}=filters;
+  const {resource,location,status,day,onlyCheckedOut}=filters;
   const query=filters.query.trim().toLowerCase();
   const dayRange=day ? localDayRange(day) : undefined;
   const equipmentIds=new Set(data.items.filter(item=>item.kind==='equipment').map(item=>item.id));
   const visibleReservations=data.reservations.filter((row)=>
     row.project_id===project.id
     && (!resource || (row.user_id?'user':'item')===resource)
+    && (!location || (!row.user_id && row.location_id===location))
     && (!status || row.status===status)
     && (!onlyCheckedOut || (equipmentIds.has(row.item_id) && row.checked_out>0))
     && (!dayRange || overlapsReservationDay(row,dayRange))
     && (!query || matchesReservationQuery(row,data.users,data.items,query)));
-  const filtered=Boolean(query || resource || status || day || onlyCheckedOut);
+  const filtered=Boolean(query || resource || location || status || day || onlyCheckedOut);
 
   useEffect(()=>{
     const button=focusedStatusAction.current;
@@ -268,7 +269,7 @@ function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) 
   ];
   return <Panel title="Ressourcenplanung">
       <ReservationFilters filters={filters} onChange={setFilters} resourceSelector={resourceSelector}
-        count={visibleReservations.length} timeZone={timeZone}/>
+        locations={data.locations} count={visibleReservations.length} timeZone={timeZone}/>
       <div className="panel-body compact-actions">
       <Expand title="Personal vormerken"><Form caption="Person vormerken" retryScope={`reservations:${accountId}:${project.id}:person`} prepare={reservationTimes} retryNote={retryNote} fields={[
         {name:'user_id',label:'Person',choices:activePeople,required:true},...timeFields(personTimeZoneId),
