@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { signIn } from './session';
+import { chooseObject, signIn } from './session';
 
 test('Buchungsoptionen unterscheiden Lagerort und Zeitraum und behalten ihre Zuordnung',async({page})=>{
   await page.setViewportSize({width:375,height:812});
@@ -90,9 +90,11 @@ test('Gleichnamige Einzelgeräte bleiben anhand der Inventarnummer in Planung un
   await expect(panel('Lagerbewegungen').getByText(secondLabel,{exact:true})).toBeVisible();
 
   await page.locator('summary').filter({hasText:/^Wareneingang$/}).click();
-  const receiveChoices=page.locator('details[open] select[name="item_id"] option');
-  await expect(receiveChoices.filter({hasText:firstNumber})).toHaveAttribute('value',first.id);
-  await expect(receiveChoices.filter({hasText:secondNumber})).toHaveAttribute('value',second.id);
+  const receiveChoice=panel('Bestand je Lagerort').getByRole('combobox',{name:'Artikel',exact:true});
+  await chooseObject(page,receiveChoice,firstLabel);
+  await expect(receiveChoice).toHaveAttribute('data-choice-value',first.id);
+  await chooseObject(page,receiveChoice,secondLabel);
+  await expect(receiveChoice).toHaveAttribute('data-choice-value',second.id);
   await page.getByText('Ausgabe, Rückgabe oder Verbrauch',{exact:true}).click();
   const booking=page.locator('select[name="reservation_id"]');
   await expect(booking.locator('option').filter({hasText:firstLabel})).toHaveAttribute('value',firstBooking);
