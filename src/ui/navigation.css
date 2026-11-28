@@ -4,8 +4,10 @@
   min-width:36px; min-height:36px; padding:4px 8px;
   border-color:var(--side-active); background:transparent; color:var(--side-text);
 }
-.sidebar-search { grid-column:1/-1; justify-content:flex-start; font-size:var(--text-14); }
-.sidebar-search kbd { margin-inline-start:auto; font:inherit; font-size:var(--text-12); }
+.sidebar-search-row { position:relative; grid-column:1/-1; }
+.sidebar-search { width:100%; justify-content:flex-start; font-size:var(--text-14); }
+.sidebar-search-row kbd { position:absolute; inset-inline-end:8px; inset-block-start:50%; transform:translateY(-50%);
+  font:inherit; font-size:var(--text-12); pointer-events:none; }
 .sidebar-compact-toggle:hover,.sidebar-search:hover { background:var(--side-active); }
 .global-search .form-dialog-head { margin-bottom:12px; }
 .global-search-content { display:grid; align-content:start; gap:12px; }
@@ -18,7 +20,7 @@
   .sidebar[data-compact] { padding-inline:8px; }
   .sidebar[data-compact] .sidebar-bar { grid-template-columns:1fr; }
   .sidebar[data-compact] .brand { justify-content:center; padding-inline:0; }
-  .sidebar[data-compact] .sidebar-label,.sidebar[data-compact] .sidebar-search kbd,
+  .sidebar[data-compact] .sidebar-label,.sidebar[data-compact] .sidebar-search-row kbd,
   .sidebar[data-compact] .sidebar-group>span,.sidebar[data-compact] .account>div,
   .sidebar[data-compact] .avatar { display:none; }
   .sidebar[data-compact] :is(.sidebar-work button,.sidebar-foot>button,.sidebar-foot>a,.sidebar-search) {
@@ -32,8 +34,9 @@
 @media(max-width:700px) {
   .sidebar .sidebar-bar { display:flex; gap:8px; }
   .sidebar .sidebar-compact-toggle { display:none; }
-  .sidebar .sidebar-search { margin-inline-start:auto; min-width:var(--control-h); min-height:var(--control-h); justify-content:center; }
-  .sidebar .sidebar-search :is(.sidebar-label,kbd) { display:none; }
+  .sidebar .sidebar-search-row { margin-inline-start:auto; }
+  .sidebar .sidebar-search { min-width:var(--control-h); min-height:var(--control-h); justify-content:center; }
+  .sidebar .sidebar-search-row :is(.sidebar-label,kbd) { display:none; }
 }
 
 @media(max-width:319px) {
