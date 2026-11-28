@@ -4,7 +4,7 @@ import { missingStageReference } from '../project-references';
 import { microsecondsWithinMillisecond } from '../time';
 import { api, calendarDate, euros, inventoryLabel, inventoryName, isOpenProject, moment, money, name, projectStages, reservationDurationLabel, reservationStages, type Row } from './client';
 import { calculationLineCents, formatCalculationTotal } from './calculation-money';
-import { ConfirmDialog, Expand, Form, options, Panel, Pill, Table, type Confirmation, type Run } from './widgets';
+import { ConfirmDialog, Expand, Form, options, Panel, Pill, RowActions, Table, type Confirmation, type Run } from './widgets';
 import { ProjectHistory } from './project-history';
 import { OfferExport } from './offer-export';
 import { Communication } from './communication';
@@ -220,6 +220,7 @@ function overlapsReservationDay(row:Row,{start,end}:ReturnType<typeof localDayRa
 }
 
 function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) {
+  const [confirmation,setConfirmation]=useState<Confirmation>();
   const [filters,setFilters]=useState(emptyReservationFilters);
   const resourceSelector=useRef<HTMLSelectElement>(null);
   const focusedStatusAction=useRef<HTMLButtonElement>(null);
@@ -291,12 +292,30 @@ function ProjectReservations({project,data,run,accountId}:ProjectPlanningProps) 
         </>,row.quantity,
         equipmentIds.has(row.item_id) ? row.checked_out ?? '–' : '–',
         <Pill label={reservationStages[row.status]} tone={row.status==='firm'?'accent':'neutral'}/>,
-        <div className="actions">{row.status==='tentative' && ['confirmed','running'].includes(project.stage) && (
-          blockedPeople.has(row.user_id) ? <span className="subtle">Konto gesperrt</span>
-            : <button type="button" onFocus={rememberStatusFocus} onBlur={forgetStatusFocus} onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'firm'}),'Fest reserviert.')}>Fest reservieren</button>
-        )}
-          {row.status!=='released' && <button type="button" onFocus={rememberStatusFocus} onBlur={forgetStatusFocus} onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'released'}),'Reservierung freigegeben.')}>Freigeben</button>}</div>],
-    }))}/>}</Panel>;
+        <ReservationActions row={row} resource={row.user_id?name(data.users,row.user_id):inventoryName(data.items,row.item_id)}
+          canBook={['confirmed','running'].includes(project.stage)} blocked={blockedPeople.has(row.user_id)}
+          onFocus={rememberStatusFocus} onBlur={forgetStatusFocus} run={run} confirm={setConfirmation}/>],
+    }))}/>}{confirmation && <ConfirmDialog confirmation={confirmation} run={run}
+      dismiss={()=>setConfirmation(undefined)} fallbackFocus={resourceSelector}/>}</Panel>;
+}
+
+function ReservationActions({row,resource,canBook,blocked,onFocus,onBlur,run,confirm}:{
+  row:Row;resource:string;canBook:boolean;blocked:boolean;run:Run;confirm:(confirmation:Confirmation)=>void;
+  onFocus:(event:FocusEvent<HTMLButtonElement>)=>void;onBlur:(event:FocusEvent<HTMLButtonElement>)=>void;
+}) {
+  const context=useId();
+  if(row.status==='released') return null;
+  return <RowActions>
+    <span id={context} className="sr-only">{resource}, Beginn {moment(row.starts_at)}</span>
+    <button type="button" className="danger" aria-describedby={context} onClick={event=>confirm({
+      actionKey:`reservation-release:${row.id}`,title:'Reservierung freigeben',actionLabel:'Reservierung freigeben',danger:true,
+      description:`Die Reservierung für ${resource} ab ${moment(row.starts_at)} wird freigegeben. Wenn du die Ressource wieder einplanen möchtest, lege eine neue Reservierung an.`,
+      trigger:event.currentTarget,submit:()=>api(`reservations/${row.id}`,'PATCH',{status:'released'}),feedback:'Reservierung freigegeben.',
+    })}>Freigeben</button>
+    {row.status==='tentative' && canBook && (blocked ? <span className="subtle">Konto gesperrt</span>
+      : <button type="button" aria-describedby={context} onFocus={onFocus} onBlur={onBlur}
+        onClick={()=>run(()=>api(`reservations/${row.id}`,'PATCH',{status:'firm'}),'Fest reserviert.')}>Fest reservieren</button>)}
+  </RowActions>;
 }
 
 function CalculationTotals({lines}:{lines:Row[]}) {

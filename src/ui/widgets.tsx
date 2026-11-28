@@ -115,6 +115,10 @@ export function Pill({label,tone='neutral'}:{label:string;tone?:string}) {
   return <span className={`pill ${tone}`}>{label}</span>;
 }
 
+export function RowActions({children}:{children:ReactNode}) {
+  return <div className="actions row-actions">{children}</div>;
+}
+
 export const ConfirmationRequests = createContext(new Map<string,Promise<boolean>>());
 const alreadyRunning = 'Diese Aktion läuft bereits.';
 

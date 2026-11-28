@@ -127,6 +127,7 @@ tr:nth-last-child(1 of :not([hidden])) td { border-bottom:0; }
 .pill { display:inline-flex; align-items:baseline; gap:8px; color:var(--ink); font-size: var(--text-13); font-weight:650; }
 .pill::before { content:''; align-self:center; flex:none; width:8px; height:8px; border-radius:50%; background:var(--muted); }
 .pill.accent::before { background:var(--accent-ink); }
+.row-actions { align-items:flex-start; }
 .empty { color:var(--muted); padding:24px 20px; }
 .booking-details { overflow-wrap:anywhere; }
 .delivery-reference { overflow-wrap:anywhere; }

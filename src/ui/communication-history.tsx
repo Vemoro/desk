@@ -3,7 +3,7 @@ import { TicketEntry, type TicketArticle, type useAttachmentDownloads } from './
 import { attemptLabels, type Conversation, type RequestZammad, type useSendingAttempt } from './communication-delivery';
 import { moment } from './client';
 import { Field } from './field';
-import { Table, type Confirmation, type Run } from './widgets';
+import { RowActions, Table, type Confirmation, type Run } from './widgets';
 
 type ArticleAction = (article:TicketArticle,trigger:HTMLButtonElement)=>void;
 
@@ -42,10 +42,10 @@ export function SendingAttempts({entries,attempt,request,refresh,run,outgoingKey
   const {retryVersion,retryInProgress,applyAttemptResult,draft,setUnresolvedRetry}=attempt;
   if(!entries.length) return null;
   return <div className="communication-outgoing"><h3>Sendeversuche</h3><Table headers={['Sendeversuch','Status','Letzter Versuch','Aktion']} rows={entries.map(entry=>({
-      key:entry.id,cells:[entry.subject,attemptLabels[entry.status],
+      key:entry.id,cells:[<span id={`sendeversuch-${entry.id}`}>{entry.subject}</span>,attemptLabels[entry.status],
           entry.attempted_at ? <time dateTime={entry.attempted_at}>{moment(entry.attempted_at)}</time> : '–',
-        entry.status==='sent' ? '–' : <div className="actions">
-          <button onClick={()=>run(async(isCurrent)=>{
+        entry.status==='sent' ? '–' : <RowActions>
+          <button type="button" aria-describedby={`sendeversuch-${entry.id}`} onClick={()=>run(async(isCurrent)=>{
             const version=retryVersion.current;
             const result=await request(`outgoing/${entry.id}`,{retry:false});
             if(!isCurrent()) return;
@@ -54,7 +54,7 @@ export function SendingAttempts({entries,attempt,request,refresh,run,outgoingKey
               applyAttemptResult(entry.id,result.status,refreshed);
             }
           })}>Prüfen</button>
-          <button onClick={event=>setConfirmation({
+          <button type="button" aria-describedby={`sendeversuch-${entry.id}`} onClick={event=>setConfirmation({
             actionKey:`${outgoingKey}${entry.id}`,
             title:'Zammad-Sendeversuch wiederholen',
             description:`Desk sucht im Ticketverlauf nach der Referenz des Sendeversuchs „${entry.subject}“. Fehlt ein Versandnachweis und ist eine Wiederholung zulässig, sendet Zammad die Nachricht erneut.`,
@@ -83,6 +83,6 @@ export function SendingAttempts({entries,attempt,request,refresh,run,outgoingKey
             },
             feedback:'Sendeversuch bestätigt.',
           })}>Erneut senden</button>
-        </div>],
+        </RowActions>],
     }))}/></div>;
 }

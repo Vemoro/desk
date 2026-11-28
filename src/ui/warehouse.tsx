@@ -1,10 +1,10 @@
 import { Field } from './field';
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { deliveryReferenceError } from '../delivery-reference';
 import { api, downloadBlob, inventoryLabel, inventoryName, moment, movementStages, name } from './client';
 import { csvFile, csvText } from './csv';
 import type { Data } from './projects';
-import { Expand, Form, hasPendingWrite, options, Panel, Table, type Run } from './widgets';
+import { Expand, Form, hasPendingWrite, options, Panel, RowActions, Table, type Run } from './widgets';
 import { ListEmpty, PageHeading, openListForm } from './list-page';
 import { projectHash } from './project-views';
 
@@ -230,9 +230,25 @@ function downloadMovements(rows:Data['movements'],data:Data) {
   ]));
 }
 
+function useCorrectionFocus(movements:Data['movements'],opened:string,writing:string) {
+  const restore=useRef<{id:string;before:Data['movements']}|undefined>(undefined);
+  useEffect(()=>{
+    const pending=restore.current;
+    if(!pending || opened===pending.id || writing) return;
+    restore.current=undefined;
+    if(document.activeElement!==document.body) return;
+    const anchor=document.getElementById(`bewegung-${pending.id}`);
+    if(!anchor?.getClientRects().length) return;
+    const action=movements===pending.before?null:anchor.closest('tr')?.querySelector<HTMLButtonElement>('[data-correction-action]:not(:disabled)');
+    (action??anchor).focus();
+  },[movements,opened,writing]);
+  return restore;
+}
+
 function WarehouseMovements({data,run,accountId,filters,onFilter}:WarehouseMovementProps) {
   const [correctionId,setCorrectionId]=useState('');
   const [writingCorrection,setWritingCorrection]=useState('');
+  const restoreFocus=useCorrectionFocus(data.movements,correctionId,writingCorrection);
   const correctionProgress=writingCorrection ? `korrektur-laeuft-${writingCorrection}` : undefined;
   const {kind,project,location}=filters;
   const from=Number(filters.from.replaceAll('-',''));
@@ -287,13 +303,13 @@ function WarehouseMovements({data,run,accountId,filters,onFilter}:WarehouseMovem
               target?.scrollIntoView({block:'center'});
             }}>{originalLabel}</a> : originalLabel}</small>}
             {row.correction_reason && <small>{row.correction_reason}</small>}</div>,
-          inventoryName(data.items,row.item_id),name(data.locations,row.location_id),
+          <span id={`artikel-bewegung-${row.id}`}>{inventoryName(data.items,row.item_id)}</span>,name(data.locations,row.location_id),
           linkedProject ? <a href={projectHash(linkedProject.id)}>{linkedProject.name}</a> : '–',row.quantity,
           row.delivery_reference ? <span className="delivery-reference">{row.delivery_reference}</span> : '–',name(data.users,row.actor_id),
           correctable && (remaining > 0 || hasPendingWrite(correctionScope) ? <div>
-            <button type="button" aria-expanded={correctionId===row.id} disabled={Boolean(writingCorrection)}
-              aria-describedby={correctionProgress}
-              onClick={()=>setCorrectionId(current=>current===row.id?'':row.id)}>{remaining>0?'Korrigieren':'Korrektur prüfen'}</button>
+            <RowActions><button type="button" data-correction-action aria-expanded={correctionId===row.id} disabled={Boolean(writingCorrection)}
+              aria-describedby={correctionProgress??`artikel-bewegung-${row.id} bewegung-${row.id}`}
+              onClick={()=>setCorrectionId(current=>current===row.id?'':row.id)}>{remaining>0?'Korrigieren':'Korrektur prüfen'}</button></RowActions>
             {writingCorrection===row.id && !progressOutsideRow && <p id={correctionProgress} className="subtle" role="status">Korrektur wird gebucht …</p>}
             {correctionId===row.id && <div className="stock-correction-form"><Form caption="Korrektur buchen"
               retryScope={correctionScope} fields={[
@@ -304,7 +320,10 @@ function WarehouseMovements({data,run,accountId,filters,onFilter}:WarehouseMovem
                 try {
                   const saved=await run(()=>api(`movements/${row.id}/corrections`,'POST',
                     {quantity:Number(input.quantity),reason:input.reason},key),'Korrektur gebucht.',{reportWriteRejection:true});
-                  if(saved) setCorrectionId(current=>current===row.id?'':current);
+                  if(saved) {
+                    restoreFocus.current={id:row.id,before:data.movements};
+                    setCorrectionId(current=>current===row.id?'':current);
+                  }
                   return saved;
                 } finally {
                   setWritingCorrection('');
