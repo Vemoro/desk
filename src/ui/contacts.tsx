@@ -96,8 +96,8 @@ export function Contacts({data,run,haben,selected,selectContact,openProject}:{da
       <ContactResults contacts={data.contacts} search={search} openContact={openContact} openCreation={openCreation}
         resetSearch={()=>{setSearch('');contactSearch.current?.focus();}}/>
     </Panel>
-    {contact&&<ContactDetail contact={contact} projects={projects} run={run} haben={haben}
-      comparison={comparison} sync={sync} detailRef={contactDetail} openProject={openProject}/>}
+    {contact&&<div id="desk-contact-detail"><ContactDetail contact={contact} projects={projects} run={run} haben={haben}
+      comparison={comparison} sync={sync} detailRef={contactDetail} openProject={openProject}/></div>}
     {confirmation&&<ConfirmDialog confirmation={confirmation} run={run} dismiss={(confirmed)=>{
       setConfirmation(undefined);
       if(confirmed) setDuplicates(undefined);

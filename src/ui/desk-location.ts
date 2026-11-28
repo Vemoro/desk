@@ -7,7 +7,7 @@ export function useDeskLocation(setNotice:(notice:{message:string;error:boolean}
   const [section,setSection]=useState<Section>('dashboard');
   const [detailId,setDetailId]=useState('');
   const [view,setView]=useState<ProjectView>('overview');
-  const [searchFocus,setSearchFocus]=useState(0);
+  const [searchFocus,setSearchFocus]=useState<SearchTarget>();
 
   useEffect(()=>{
     function onHash(event?:HashChangeEvent) {
@@ -29,7 +29,10 @@ export function useDeskLocation(setNotice:(notice:{message:string;error:boolean}
     if(!searchFocus) return;
     const frame=requestAnimationFrame(()=>{
       document.getElementById('desk-main')?.focus({preventScroll:true});
-      window.scrollTo(0,0);
+      const contact=searchFocus.section==='contacts' && searchFocus.id
+        ? document.querySelector('#desk-contact-detail header') : null;
+      if(contact) contact.scrollIntoView({block:'nearest'});
+      else window.scrollTo(0,0);
     });
     return ()=>cancelAnimationFrame(frame);
   },[searchFocus]);
@@ -44,7 +47,7 @@ export function useDeskLocation(setNotice:(notice:{message:string;error:boolean}
 
   function searchNavigate(target:SearchTarget) {
     navigate(target.section,target.id);
-    setSearchFocus(value=>value+1);
+    setSearchFocus({...target});
   }
 
   return {section,detailId,view,navigate,searchNavigate};

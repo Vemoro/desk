@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from './icons';
 import type { Row } from './client';
 import { GlobalSearch, type SearchTarget } from './global-search';
@@ -177,8 +178,8 @@ export function Navigation({person,section,themeButton,onNavigate,onLogout,onSea
         </SidebarAccount>
       </nav>
     </div>
-    {searching && <GlobalSearch projects={projects} contacts={contacts} stale={stale} allowed={allowed}
+    {searching && createPortal(<GlobalSearch projects={projects} contacts={contacts} stale={stale} allowed={allowed}
       dismiss={()=>{setSearching(false);searchTrigger.current?.focus();}}
-      select={target=>{setSearching(false);setOpen(false);onSearch(target);}}/>}
+      select={target=>{setSearching(false);setOpen(false);onSearch(target);}}/>,document.body)}
   </aside>;
 }

@@ -6,6 +6,10 @@ test('Globale Suche unterscheidet Treffer und gibt den Fokus an den Hauptinhalt'
     {id:'muster-a',name:'Büroinstallation',stage:'planning',cost_center:'M-130'},
     {id:'muster-b',name:'Büroinstallation',stage:'planning',cost_center:'M-131'},
   ]}));
+  await page.route('**/api/v1/contacts?*',route=>route.fulfill({json:[
+    ...Array.from({length:24},(_,index)=>({id:`muster-${index}`,name:`Musterkontakt ${index}`})),
+    {id:'kontor-west',name:'Kontor West',email:'buero@kontor.example.test'},
+  ]}));
   await signIn(page);
   const trigger=page.getByRole('button',{name:'Suchen in Desk',exact:true});
   const main=page.getByRole('main');
@@ -18,6 +22,7 @@ test('Globale Suche unterscheidet Treffer und gibt den Fokus an den Hauptinhalt'
   await expect(dialog.getByRole('button',{name:/Büroinstallation/})).toHaveCount(2);
   await input.press('ArrowDown');
   await expect(dialog.getByRole('button',{name:/M-130/})).toBeFocused();
+  await expect(dialog.getByRole('button',{name:/M-130/})).toHaveCSS('outline-color','rgb(33, 79, 147)');
   await page.keyboard.press('ArrowDown');
   await expect(dialog.getByRole('button',{name:/M-131/})).toBeFocused();
   await page.keyboard.press('Enter');
@@ -29,6 +34,14 @@ test('Globale Suche unterscheidet Treffer und gibt den Fokus an den Hauptinhalt'
   await input.press('Enter');
   await expect(page).toHaveURL(/#contacts\//);
   await expect(main).toBeFocused();
+  const detail=main.locator('#desk-contact-detail').getByRole('heading').first();
+  await expect(detail).toBeInViewport();
+  await page.evaluate(()=>window.scrollTo(0,0));
+  await trigger.click();
+  await input.fill('Kontor West');
+  await input.press('Enter');
+  await expect(main).toBeFocused();
+  await expect(detail).toBeInViewport();
   await trigger.click();
   await input.fill('Kein Mustertreffer');
   await expect(dialog.getByText('Keine passenden Treffer.')).toBeVisible();
