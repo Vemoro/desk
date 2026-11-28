@@ -117,6 +117,7 @@ small { display: block; color: var(--muted); margin-top: 4px; font-size: var(--t
 .panel-head { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; padding:16px 20px; border-bottom:1px solid var(--border); }
 .panel-body { padding:16px 20px; display:grid; gap:12px; }
 .cost-subtotal { font-variant-numeric:tabular-nums; }
+.project-cost-reset { justify-self:start; }
 .table-wrap { overflow:auto; }
 .cost-center-value { overflow-wrap:anywhere; }
 table { border-collapse:collapse; width:100%; text-align:left; }

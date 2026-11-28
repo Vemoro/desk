@@ -86,3 +86,67 @@ test('Belegsuche im Projekt kombiniert Quelle und Suchbegriff und summiert nur T
   await expect(subtotal).toHaveCount(0);
   await expect(filteredEmpty).toHaveCount(0);
 });
+
+test('Gemeinsamer Reset entfernt beide Belegfilter und gibt den Fokus an die Suche zurück',async({page})=>{
+  const target=await openTarget(page);
+  const reset=target.getByRole('button',{name:'Filter zurücksetzen',exact:true});
+  const search=target.getByRole('searchbox',{name:'Belege suchen'});
+  const source=target.getByLabel('Kostenquelle filtern');
+  const refs=target.locator('tbody tr td:first-child');
+  const subtotal=target.getByText('Summe der sichtbaren Belege',{exact:false});
+  const filteredEmpty=target.getByRole('status').filter({hasText:'Keine Belege für diese Filter.'});
+  const metrics=page.locator('.metrics .metric strong');
+  const totals=['25,00 €','17,00 €','-8,00 €','60,00 €'];
+  const allRefs=['RE-M-24','GS-M-24','RE-25','RE-26'];
+  await expect(refs).toHaveText(allRefs);
+  await expect(metrics).toHaveText(totals);
+  await expect(reset).toBeVisible();
+  await expect(reset).toBeDisabled();
+
+  async function resetAndCheck(key:'Enter'|'Space'='Enter'){
+    await expect(reset).toBeEnabled();
+    await reset.press(key);
+    await expect(search).toBeFocused();
+    await expect(search).toHaveValue('');
+    await expect(source).toHaveValue('');
+    await expect(refs).toHaveText(allRefs);
+    await expect(subtotal).toHaveCount(0);
+    await expect(filteredEmpty).toHaveCount(0);
+    await expect(reset).toBeDisabled();
+    await expect(metrics).toHaveText(totals);
+  }
+
+  await source.selectOption('manual');
+  await expect(refs).toHaveText(['RE-25','RE-26']);
+  await expect(subtotal.locator('strong')).toHaveText('17,00 €');
+  await resetAndCheck('Space');
+
+  await search.fill('Montage');
+  await expect(refs).toHaveText(['RE-M-24','RE-25']);
+  await expect(subtotal.locator('strong')).toHaveText('37,00 €');
+  await resetAndCheck();
+
+  await search.fill('   ');
+  await expect(refs).toHaveText(allRefs);
+  await expect(subtotal).toHaveCount(0);
+  await resetAndCheck();
+
+  await source.selectOption('haben-export');
+  await search.fill('Verwaltung');
+  await expect(filteredEmpty).toBeVisible();
+  await expect(refs).toHaveCount(0);
+  await resetAndCheck();
+
+  await show(page,third);
+  const empty=target.getByText('Noch keine Einträge.',{exact:true});
+  await expect(empty).toBeVisible();
+  await search.fill('Montage');
+  await expect(empty).toBeVisible();
+  await expect(filteredEmpty).toHaveCount(0);
+  await reset.press('Enter');
+  await expect(search).toBeFocused();
+  await expect(search).toHaveValue('');
+  await expect(reset).toBeDisabled();
+  await expect(empty).toBeVisible();
+  await expect(subtotal).toHaveCount(0);
+});
