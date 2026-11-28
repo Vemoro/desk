@@ -23,6 +23,7 @@ export function Desk() {
   const [movementFilters,setMovementFilters]=useState(defaultMovementFilters);
   const [planningWeek,setPlanningWeek]=useState<string>();
   const [theme,setTheme]=useState('light');
+  const [searchFocus,setSearchFocus]=useState(0);
   const {person,data,dataVersion,flags,notice,setNotice,refreshRequired,refreshing,confirmationRequests,signIn,logout,endSession,retryRefresh,run}=useDeskData(()=>{
     setProjectFilters(defaultProjectFilters);
     setMovementFilters(defaultMovementFilters);
@@ -51,6 +52,15 @@ export function Desk() {
 
   useEffect(()=>{document.documentElement.dataset.theme=theme;localStorage.setItem('desk-theme',theme);},[theme]);
 
+  useEffect(()=>{
+    if(!searchFocus) return;
+    const frame=requestAnimationFrame(()=>{
+      document.getElementById('desk-main')?.focus({preventScroll:true});
+      window.scrollTo(0,0);
+    });
+    return ()=>cancelAnimationFrame(frame);
+  },[searchFocus]);
+
   function navigate(to:Section,id='') {
     setNotice({message:'',error:false});
     setSection(to);
@@ -70,7 +80,11 @@ export function Desk() {
       event.preventDefault();
       document.getElementById('desk-main')?.focus();
     }}>Zum Inhalt</a>
-    <Navigation person={person} section={section} themeButton={themeButton} onNavigate={navigate} onLogout={logout}/>
+    <Navigation person={person} section={section} themeButton={themeButton} onNavigate={navigate} onLogout={logout}
+      projects={data.projects} contacts={data.contacts} stale={refreshRequired} onSearch={({section,id})=>{
+        navigate(section,id);
+        setSearchFocus(value=>value+1);
+      }}/>
     <main id="desk-main" tabIndex={-1} className="main">
       {section!=='projects' && section!=='contacts' && section!=='warehouse' && <PageHeading title={sections[section][0]}/>}
       {alert}

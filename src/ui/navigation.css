@@ -1,0 +1,41 @@
+.sidebar .sidebar-bar { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px 8px; }
+.sidebar-compact-toggle,.sidebar-search {
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  min-width:36px; min-height:36px; padding:4px 8px;
+  border-color:var(--side-active); background:transparent; color:var(--side-text);
+}
+.sidebar-search { grid-column:1/-1; justify-content:flex-start; font-size:var(--text-14); }
+.sidebar-search kbd { margin-inline-start:auto; font:inherit; font-size:var(--text-12); }
+.sidebar-compact-toggle:hover,.sidebar-search:hover { background:var(--side-active); }
+.global-search .form-dialog-head { margin-bottom:12px; }
+.global-search-content { display:grid; align-content:start; gap:12px; }
+.global-search-results { display:grid; gap:4px; margin:0; padding:0; list-style:none; }
+.global-search-results button { display:flex; width:100%; height:auto; gap:12px; align-items:center; text-align:start; overflow-wrap:anywhere; }
+.global-search-results button small { margin-top:2px; }
+
+@media(min-width:701px) {
+  .frame:has(>.sidebar[data-compact]) { grid-template-columns:72px minmax(0,1fr); }
+  .sidebar[data-compact] { padding-inline:10px; }
+  .sidebar[data-compact] .sidebar-bar { grid-template-columns:1fr; }
+  .sidebar[data-compact] .brand { justify-content:center; padding-inline:0; }
+  .sidebar[data-compact] .sidebar-label,.sidebar[data-compact] .sidebar-search kbd,
+  .sidebar[data-compact] .sidebar-group>span,.sidebar[data-compact] .account>div,
+  .sidebar[data-compact] .avatar { display:none; }
+  .sidebar[data-compact] :is(.sidebar-work button,.sidebar-foot>button,.sidebar-foot>a,.sidebar-search) {
+    justify-content:center; padding-inline:4px;
+  }
+  .sidebar[data-compact] .sidebar-foot .account { justify-content:center; padding-inline:0; }
+  .sidebar[data-compact] .sidebar-foot .theme { margin-inline-start:0; }
+  .sidebar[data-compact] .sidebar-version { padding-inline:0; text-align:center; }
+}
+
+@media(max-width:700px) {
+  .sidebar .sidebar-bar { display:flex; gap:8px; }
+  .sidebar .sidebar-compact-toggle { display:none; }
+  .sidebar .sidebar-search { margin-inline-start:auto; min-width:var(--control-h); min-height:var(--control-h); justify-content:center; }
+  .sidebar .sidebar-search :is(.sidebar-label,kbd) { display:none; }
+}
+
+@media(max-width:319px) {
+  .sidebar .sidebar-bar .brand { padding-inline:0; gap:6px; }
+}
