@@ -245,6 +245,14 @@ function useCorrectionFocus(movements:Data['movements'],opened:string,writing:st
   return restore;
 }
 
+function correctionTotals(movements:Data['movements']) {
+  const totals=new Map<string,number>();
+  for(const row of movements) {
+    if(row.corrects_movement_id) totals.set(row.corrects_movement_id,(totals.get(row.corrects_movement_id)??0)+row.quantity);
+  }
+  return totals;
+}
+
 function WarehouseMovements({data,run,accountId,filters,onFilter}:WarehouseMovementProps) {
   const [correctionId,setCorrectionId]=useState('');
   const [writingCorrection,setWritingCorrection]=useState('');
@@ -271,12 +279,7 @@ function WarehouseMovements({data,run,accountId,filters,onFilter}:WarehouseMovem
   // Keep an open correction mounted until it closes, including while its row is filtered out.
   const renderedMovements=data.movements.filter(row=>visibleMovementIds.has(row.id) || row.id===correctionId);
   const movements=new Map(data.movements.map(row=>[row.id,row]));
-  const corrected=new Map<string,number>();
-  for(const row of data.movements) {
-    if(row.corrects_movement_id) {
-      corrected.set(row.corrects_movement_id,(corrected.get(row.corrects_movement_id) ?? 0)+row.quantity);
-    }
-  }
+  const corrected=correctionTotals(data.movements);
   return <Panel title="Lagerbewegungen" action={<button type="button" disabled={!visibleMovements.length}
     onClick={()=>downloadMovements(visibleMovements,data)}>CSV herunterladen</button>}>
       <div className="panel-body">
