@@ -20,19 +20,23 @@ test('Reservierungsseiten behalten die Zeitfolge bei Offset-Gleichstand und Mikr
   });
   if (!actor) throw new Error('Das Testkonto konnte nicht angelegt werden.');
   const data = await fixture(saveCore, 'Muster Reservierungsfolge');
-  const firstStart = '2048-02-13T08:00:00.000050Z';
-  const { count: offset } = required(await first<{ count: number }>(db,
-    'SELECT count(*)::int AS count FROM reservations WHERE starts_at < $1', [firstStart]));
-  const base = { project_id: data.project, quantity: 1, ends_at: '2048-02-13T10:00:00Z' };
+  // Use an empty day after existing fixtures so this test can run again on the same database.
+  const { count: offset, day } = required(await first<{ count: number; day: string }>(db, `
+    SELECT count(*)::int AS count,
+      to_char(greatest(current_date, max(starts_at AT TIME ZONE 'UTC')::date) + 1, 'YYYY-MM-DD') AS day
+    FROM reservations
+  `));
+  const firstStart = `${day}T08:00:00.000050Z`;
+  const base = { project_id: data.project, quantity: 1, ends_at: `${day}T10:00:00Z` };
   const item = { item_id: data.material, location_id: data.location };
   const reserve = async (input: Parameters<typeof createReservation>[0]) => {
     const reservation = required(await createReservation(input));
     return reservation.id;
   };
-  const last = await reserve({ ...base, ...item, starts_at: '2048-02-13T08:00:00.000900Z' });
-  const tiedItem = await reserve({ ...base, ...item, starts_at: '2048-02-13T09:00:00.000100+01:00' });
-  const secondTiedItem = await reserve({ ...base, ...item, starts_at: '2048-02-13T08:00:00.000100Z' });
-  const tiedPerson = await reserve({ ...base, user_id: actor.id, starts_at: '2048-02-13T08:00:00.000100Z' });
+  const last = await reserve({ ...base, ...item, starts_at: `${day}T08:00:00.000900Z` });
+  const tiedItem = await reserve({ ...base, ...item, starts_at: `${day}T09:00:00.000100+01:00` });
+  const secondTiedItem = await reserve({ ...base, ...item, starts_at: `${day}T08:00:00.000100Z` });
+  const tiedPerson = await reserve({ ...base, user_id: actor.id, starts_at: `${day}T08:00:00.000100Z` });
   const firstItem = await reserve({ ...base, ...item, starts_at: firstStart });
 
   const { token } = await createToken(actor, { label: 'Reservierungen lesen', scope: 'read' });
