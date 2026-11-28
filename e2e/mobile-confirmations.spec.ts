@@ -4,13 +4,13 @@ import { holdRoute, settleResponse, signIn } from './session';
 const token = {
   id:'muster-token',
   scope:'read',
-  label:'Muster Auftragsservice – Integration für Bestandsübersicht, Veranstaltungsbetreuung und Einsatzplanung der Büroinstallation',
+  label:'Muster Auftragsservice – Schnittstelle für Lager, Büroinstallation und Veranstaltungsbetreuung',
 };
 const refusal = 'Der Widerruf konnte nicht gespeichert werden. '.repeat(18).trim();
 
 for (const {name,width,height,theme} of [
-  {name:'Hochformat',width:390,height:250,theme:'light'},
-  {name:'Querformat',width:844,height:220,theme:'dark'},
+  {name:'Hochformat',width:390,height:205,theme:'light'},
+  {name:'Querformat',width:844,height:160,theme:'dark'},
 ]) {
   test.describe(name, () => {
     test.use({viewport:{width,height},hasTouch:true,isMobile:true});
@@ -38,6 +38,7 @@ for (const {name,width,height,theme} of [
       const dialog = page.getByRole('dialog',{name:'API-Token widerrufen',exact:true});
       const cancel = dialog.getByRole('button',{name:'Abbrechen',exact:true});
       const confirm = dialog.getByRole('button',{name:'Token widerrufen',exact:true});
+      const content = dialog.getByRole('region',{name:'Folgen der Aktion'});
 
       await trigger.tap();
       await expect(cancel).toBeFocused();
@@ -46,6 +47,11 @@ for (const {name,width,height,theme} of [
       if (!sheet || !button) throw new Error('Bestätigung oder Aktion ist nicht sichtbar.');
       expect(sheet.y + sheet.height).toBeCloseTo(height,0);
       expect(height - (button.y + button.height)).toBeGreaterThanOrEqual(28);
+      await page.keyboard.press('Shift+Tab');
+      await expect(content).toBeFocused();
+      await page.keyboard.press('End');
+      await expect.poll(()=>content.evaluate(node=>node.scrollTop)).toBeGreaterThan(0);
+      expect(await confirm.boundingBox()).toEqual(button);
       await page.keyboard.press('Escape');
       await expect(dialog).toBeHidden();
       await expect(trigger).toBeFocused();
@@ -65,7 +71,6 @@ for (const {name,width,height,theme} of [
       await expect(dialog.getByRole('alert')).toHaveText(refusal);
       await expect(confirm).toBeDisabled();
       const close = dialog.getByRole('button',{name:'Schließen',exact:true});
-      const content = dialog.getByRole('region',{name:'Folgen der Aktion'});
       await expect(close).toBeFocused();
       await page.keyboard.press('Shift+Tab');
       await expect(content).toBeFocused();
