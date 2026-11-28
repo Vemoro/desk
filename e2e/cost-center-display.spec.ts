@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { signIn } from './session';
+import { chooseObject, signIn } from './session';
 
 test('Beleg-Kostenstelle bleibt bei manueller Zuordnung sichtbar',async({page})=>{
   await signIn(page);
@@ -47,7 +47,7 @@ test('Beleg-Kostenstelle bleibt bei manueller Zuordnung sichtbar',async({page})=
   const projectSelect=imported.getByRole('combobox',{name:'Projekt für '+reference});
   await projectSelect.focus();
   const response=page.waitForResponse(reply=>reply.url().endsWith('/api/v1/costs/'+created.id) && reply.request().method()==='PATCH');
-  await projectSelect.selectOption(project.id);
+  await chooseObject(page,projectSelect,project.name);
   const updated=await response;
   expect(updated.ok()).toBe(true);
   expect(await updated.json()).toMatchObject({project_id:project.id,cost_center:center});
@@ -55,6 +55,6 @@ test('Beleg-Kostenstelle bleibt bei manueller Zuordnung sichtbar',async({page})=
   await expect(assignment).toHaveValue('unassigned');
   await expect(assignment).toBeFocused();
   await assignment.selectOption({label:'Alle Belege'});
-  await expect(projectSelect).toHaveValue(project.id);
+  await expect(projectSelect).toHaveValue(project.name);
   await expect(cell(imported)).toHaveText(center);
 });

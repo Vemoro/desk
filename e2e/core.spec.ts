@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { signIn } from './session';
+import { chooseObject, signIn } from './session';
 
 for(const topic of ['Veranstaltungsbetreuung','Büroinstallation']) {
   test(`${topic} vom Kontakt bis zum Projektabschluss`,async({page})=>{
@@ -14,7 +14,7 @@ for(const topic of ['Veranstaltungsbetreuung','Büroinstallation']) {
     await page.getByRole('button',{name:'Projekte',exact:true}).first().click();
     await page.getByText('Projekt anlegen',{exact:true}).click();
     await page.getByLabel('Projektname').fill(project);
-    await page.getByLabel('Interessent').selectOption({label:`Musterkunde ${suffix}`});
+    await chooseObject(page,page.getByLabel('Interessent'),`Musterkunde ${suffix}`);
     await page.getByRole('button',{name:'Projekt speichern'}).click();
     await expect(page.getByRole('heading',{name:project})).toBeVisible();
     await page.waitForURL(/#projects\/[a-f0-9-]+$/);

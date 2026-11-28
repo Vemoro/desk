@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { holdRoute, signIn } from './session';
+import { chooseObject, holdRoute, signIn } from './session';
 
 test('Ist-Kosten filtern und einen sichtbaren Beleg zuordnen',async({page})=>{
   const costs=[
@@ -45,7 +45,7 @@ test('Ist-Kosten filtern und einen sichtbaren Beleg zuordnen',async({page})=>{
 
   const project=page.getByLabel('Projekt für B-410');
   await project.focus();
-  await project.selectOption('projekt');
+  await chooseObject(page,project,'Büroinstallation');
   await expect(page.getByRole('alert')).toContainText('Zuordnung vorübergehend nicht möglich.');
   await expect(project).toHaveValue('');
   await expect(project).toBeFocused();
@@ -54,7 +54,7 @@ test('Ist-Kosten filtern und einen sichtbaren Beleg zuordnen',async({page})=>{
   await expect(source).toHaveValue('manual');
   await expect(assignment).toHaveValue('unassigned');
 
-  await project.selectOption('projekt');
+  await chooseObject(page,project,'Büroinstallation');
   await expect(page.getByText('Keine Belege für diese Filter.',{exact:true})).toBeVisible();
   await expect(result(0)).toBeVisible();
   await expect(assignment).toBeFocused();
@@ -64,7 +64,7 @@ test('Ist-Kosten filtern und einen sichtbaren Beleg zuordnen',async({page})=>{
   await page.getByRole('button',{name:'Filter zurücksetzen',exact:true}).press('Enter');
   await expect(search).toBeFocused();
   await expect(result(5)).toBeVisible();
-  await expect(project).toHaveValue('projekt');
+  await expect(project).toHaveValue('Büroinstallation');
 });
 
 test('Eine leere Ist-Kosten-Liste erklärt, wo Belege erscheinen',async({page})=>{
@@ -94,11 +94,11 @@ test('Der Fokus folgt bei zwei laufenden Zuordnungen der zuletzt fokussierten Be
   const first=page.getByLabel('Projekt für B-11');
   const second=page.getByLabel('Projekt für B-12');
   await first.focus();
-  await first.press('ArrowDown');
+  await chooseObject(page,first,'Büroinstallation');
   const requestA=await firstPatch.request;
   await first.press('Tab');
   await expect(second).toBeFocused();
-  await second.press('ArrowDown');
+  await chooseObject(page,second,'Büroinstallation');
   const requestB=await secondPatch.request;
   await second.press('Shift+Tab');
   await expect(first).toBeFocused();
