@@ -90,7 +90,7 @@ test('Ein Wareneingang verwendet nach verlorener Antwort dieselbe Artikelwahl',a
   await open.click();
   const item=page.getByLabel('Artikel',{exact:true});
   await chooseObject(page,item,'Kabelbinder, Packung');
-  await page.getByLabel('Lagerort',{exact:true}).selectOption({label:'Hauptlager'});
+  await page.getByRole('combobox',{name:'Lagerort',exact:true}).selectOption({label:'Hauptlager'});
   const received:{id:string;item:string;key:string|undefined}[]=[];
   await page.route('**/api/v1/movements',async route=>{
     const response=await route.fetch();
