@@ -41,23 +41,30 @@ export function SendingAttempts({entries,attempt,request,refresh,run,outgoingKey
 }) {
   const {retryVersion,retryInProgress,applyAttemptResult,draft,setUnresolvedRetry}=attempt;
   if(!entries.length) return null;
-  return <div className="communication-outgoing"><h3>Sendeversuche</h3><Table headers={['Sendeversuch','Status','Letzter Versuch','Aktion']} rows={entries.map(entry=>({
-      key:entry.id,cells:[<span id={`sendeversuch-${entry.id}`}>{entry.subject}</span>,attemptLabels[entry.status],
-          entry.attempted_at ? <time dateTime={entry.attempted_at}>{moment(entry.attempted_at)}</time> : '–',
+  return <div className="communication-outgoing"><h3>Sendeversuche</h3><Table headers={['Sendeversuch','Status','Letzter Versuch','Aktion']} rows={entries.map(entry=>{
+    const subjectId=`sendeversuch-${entry.id}`;
+    const timeId=`sendezeit-${entry.id}`;
+    const timestamp=entry.attempted_at?moment(entry.attempted_at):'';
+    const context=[subjectId,timestamp?timeId:undefined].filter(Boolean).join(' ');
+    return {key:entry.id,cells:[<span id={subjectId} tabIndex={-1}>{entry.subject}</span>,attemptLabels[entry.status],
+          timestamp ? <time id={timeId} dateTime={entry.attempted_at}>{timestamp}</time> : '–',
         entry.status==='sent' ? '–' : <RowActions>
-          <button type="button" aria-describedby={`sendeversuch-${entry.id}`} onClick={()=>run(async(isCurrent)=>{
+          <button type="button" aria-describedby={context} onClick={event=>{
+            const trigger=event.currentTarget;
+            return run(async(isCurrent)=>{
             const version=retryVersion.current;
             const result=await request(`outgoing/${entry.id}`,{retry:false});
             if(!isCurrent()) return;
+            if(result.status==='sent' && trigger.ownerDocument.activeElement===trigger) trigger.ownerDocument.getElementById(subjectId)?.focus();
             const refreshed=await refresh();
             if(isCurrent() && retryVersion.current===version && retryInProgress.current!==entry.id) {
               applyAttemptResult(entry.id,result.status,refreshed);
             }
-          })}>Prüfen</button>
-          <button type="button" aria-describedby={`sendeversuch-${entry.id}`} onClick={event=>setConfirmation({
+          });}}>Prüfen</button>
+          <button type="button" aria-describedby={context} onClick={event=>setConfirmation({
             actionKey:`${outgoingKey}${entry.id}`,
             title:'Zammad-Sendeversuch wiederholen',
-            description:`Desk sucht im Ticketverlauf nach der Referenz des Sendeversuchs „${entry.subject}“. Fehlt ein Versandnachweis und ist eine Wiederholung zulässig, sendet Zammad die Nachricht erneut.`,
+            description:`Desk sucht im Ticketverlauf nach der Referenz des Sendeversuchs „${entry.subject}“${timestamp?` vom ${timestamp}`:''}. Fehlt ein Versandnachweis und ist eine Wiederholung zulässig, sendet Zammad die Nachricht erneut.`,
             actionLabel:'Erneut senden',
             trigger:event.currentTarget,
             submit:async isCurrent=>{
@@ -83,6 +90,6 @@ export function SendingAttempts({entries,attempt,request,refresh,run,outgoingKey
             },
             feedback:'Sendeversuch bestätigt.',
           })}>Erneut senden</button>
-        </RowActions>],
-    }))}/></div>;
+        </RowActions>]};
+    })}/></div>;
 }

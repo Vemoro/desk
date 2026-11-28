@@ -1,14 +1,15 @@
 import { test, expect, type Page } from '@playwright/test';
 import { holdRoute, project, settleResponse, signIn } from './session';
 
-async function planning(page:Page, holdStatus=false) {
+async function planning(page:Page, holdStatus=false, sameArticle=false) {
   const window={starts_at:'2028-04-15T08:00:00Z',ends_at:'2028-04-15T09:00:00Z',quantity:1};
   const reservations=[
     {...window,id:'r1',project_id:'montage',user_id:'mira',status:'tentative'},
-    {...window,id:'r2',project_id:'montage',item_id:'kit',status:'tentative'},
+    {...window,id:'r2',project_id:'montage',item_id:'kit',location_id:'north',status:'tentative'},
     {...window,id:'r3',project_id:'event',user_id:'other',status:'tentative'},
     {...window,id:'r4',project_id:'montage',user_id:'other',status:'firm'},
   ];
+  if(sameArticle) reservations.push({...window,id:'r5',project_id:'montage',item_id:'kit',location_id:'south',status:'tentative'});
   const mocks={
     projects:[
       {id:'montage',name:'Musterinstallation',stage:'confirmed'},
@@ -16,6 +17,7 @@ async function planning(page:Page, holdStatus=false) {
     ],
     reservations,
     items:[{id:'kit',name:'Montagekoffer'}],
+    locations:[{id:'north',name:'Lager Nord'},{id:'south',name:'Lager Süd'}],
   };
   for(const [resource,json] of Object.entries(mocks)){
     await page.route('**/api/v1/'+resource+'?*',route=>route.fulfill({json}));
@@ -153,4 +155,17 @@ test('Reservierungsfreigabe bestätigt einmal und gibt den Fokus bei Abbruch ode
   await settleResponse(page,saved,reservation);
   await expect(panel.getByText('Keine Reservierungen für diese Filter.')).toBeVisible();
   await expect(type).toBeFocused();
+});
+
+test('Freigabe unterscheidet denselben Artikel an zwei Lagerorten',async({page})=>{
+  const {panel}=await planning(page,false,true);
+  const row=(location:string)=>panel.getByRole('row').filter({hasText:location}).getByRole('button',{name:'Freigeben',exact:true});
+  await expect(row('Lager Nord')).toHaveAccessibleDescription(/Montagekoffer · Lager Nord/);
+  const release=row('Lager Süd');
+  await expect(release).toHaveAccessibleDescription(/Montagekoffer · Lager Süd/);
+  await release.press('Enter');
+  const dialog=page.getByRole('dialog',{name:'Reservierung freigeben'});
+  await expect(dialog).toHaveAccessibleDescription(/Montagekoffer · Lager Süd/);
+  await page.keyboard.press('Escape');
+  await expect(release).toBeFocused();
 });
