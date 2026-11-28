@@ -1,9 +1,9 @@
-import type { ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { TicketEntry, type TicketArticle, type useAttachmentDownloads } from './communication-articles';
 import { attemptLabels, type AttemptStatus, type Conversation, type RequestZammad, type useSendingAttempt } from './communication-delivery';
 import { moment } from './client';
 import { Field } from './field';
-import { Table, type Confirmation, type Run } from './widgets';
+import { RowActions, Table, type Confirmation, type Run } from './widgets';
 import { WorkStatus, type WorkStatusRole } from './work-status';
 
 const deliveryStatus:Record<AttemptStatus,{role:WorkStatusRole;detail?:string}> = {
@@ -48,12 +48,25 @@ export function SendingAttempts({entries,attempt,request,refresh,run,outgoingKey
   refresh:()=>Promise<Conversation|undefined>; run:Run; outgoingKey:string; setConfirmation:(confirmation:Confirmation)=>void;
 }) {
   const {retryVersion,retryInProgress,applyAttemptResult,draft,setUnresolvedRetry}=attempt;
+  const focusedAttempt=useAttemptFocus(entries);
   if(!entries.length) return null;
-  return <div className="communication-outgoing"><h3>Sendeversuche</h3><Table headers={['Sendeversuch','Status','Letzter Versuch','Aktion']} rows={entries.map(entry=>({
-      key:entry.id,cells:[entry.subject,<WorkStatus label={attemptLabels[entry.status]} {...deliveryStatus[entry.status]}/>,
-          entry.attempted_at ? <time dateTime={entry.attempted_at}>{moment(entry.attempted_at)}</time> : '–',
-        entry.status==='sent' ? '–' : <div className="actions">
-          <button onClick={()=>run(async(isCurrent)=>{
+  const counts=new Map<string,number>();
+  for(const entry of entries) {
+    const label=attemptContextKey(entry);
+    counts.set(label,(counts.get(label)??0)+1);
+  }
+  return <div className="communication-outgoing" onBlur={event=>{if(event.relatedTarget) focusedAttempt.current=undefined;}}>
+    <h3>Sendeversuche</h3><Table headers={['Sendeversuch','Status','Letzter Versuch','Aktion']} rows={entries.map(entry=>{
+    const subjectId=`sendeversuch-${entry.id}`;
+    const timeId=`sendezeit-${entry.id}`;
+    const timestamp=entry.attempted_at?moment(entry.attempted_at):'';
+    const reference=(counts.get(attemptContextKey(entry))??0)>1?entry.id:undefined;
+    const context=[subjectId,timestamp?timeId:undefined].filter(Boolean).join(' ');
+    return {key:entry.id,cells:[<span id={subjectId} tabIndex={-1}>{entry.subject}
+      {reference && <small className="booking-details">Referenz {reference}</small>}</span>,<WorkStatus label={attemptLabels[entry.status]} {...deliveryStatus[entry.status]}/>,
+          timestamp ? <time id={timeId} dateTime={entry.attempted_at}>{timestamp}</time> : '–',
+        entry.status==='sent' ? '–' : <RowActions>
+          <button type="button" aria-describedby={context} onFocus={()=>{focusedAttempt.current=entry.id;}} onClick={()=>run(async(isCurrent)=>{
             const version=retryVersion.current;
             const result=await request(`outgoing/${entry.id}`,{retry:false});
             if(!isCurrent()) return;
@@ -62,10 +75,10 @@ export function SendingAttempts({entries,attempt,request,refresh,run,outgoingKey
               applyAttemptResult(entry.id,result.status,refreshed);
             }
           })}>Prüfen</button>
-          <button onClick={event=>setConfirmation({
+          <button type="button" aria-describedby={context} onFocus={()=>{focusedAttempt.current=entry.id;}} onClick={event=>setConfirmation({
             actionKey:`${outgoingKey}${entry.id}`,
             title:'Zammad-Sendeversuch wiederholen',
-            description:`Desk sucht im Ticketverlauf nach der Referenz des Sendeversuchs „${entry.subject}“. Fehlt ein Versandnachweis und ist eine Wiederholung zulässig, sendet Zammad die Nachricht erneut.`,
+            description:`Desk sucht im Ticketverlauf nach der Referenz des Sendeversuchs „${entry.subject}“${timestamp?` vom ${timestamp}`:''}${reference?` (Referenz ${reference})`:''}. Fehlt ein Versandnachweis und ist eine Wiederholung zulässig, sendet Zammad die Nachricht erneut.`,
             actionLabel:'Erneut senden',
             trigger:event.currentTarget,
             submit:async isCurrent=>{
@@ -91,6 +104,28 @@ export function SendingAttempts({entries,attempt,request,refresh,run,outgoingKey
             },
             feedback:'Sendeversuch bestätigt.',
           })}>Erneut senden</button>
-        </div>],
-    }))}/></div>;
+        </RowActions>]};
+    })}/></div>;
+}
+
+function attemptContextKey(entry:Conversation['outgoing'][number]) {
+  return `${entry.subject}\n${entry.attempted_at?moment(entry.attempted_at):''}`;
+}
+
+function useAttemptFocus(entries:Conversation['outgoing']) {
+  const focused=useRef<string|undefined>(undefined);
+  useEffect(()=>{
+    function clearOnOutsideClick(event:PointerEvent) {
+      if(event.target instanceof Node && !document.activeElement?.contains(event.target)) focused.current=undefined;
+    }
+    document.addEventListener('pointerdown',clearOnOutsideClick,true);
+    return ()=>document.removeEventListener('pointerdown',clearOnOutsideClick,true);
+  },[]);
+  useLayoutEffect(()=>{
+    const id=focused.current;
+    if(!id || !entries.some(entry=>entry.id===id && entry.status==='sent')) return;
+    focused.current=undefined;
+    if(document.hasFocus() && document.activeElement===document.body) document.getElementById(`sendeversuch-${id}`)?.focus();
+  },[entries]);
+  return focused;
 }

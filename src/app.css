@@ -136,6 +136,7 @@ tr:nth-last-child(1 of :not([hidden])) td { border-bottom:0; }
 .work-status[data-work-status=failed] .work-status-detail { color:var(--danger); background:var(--danger-bg); }
 .work-status[data-work-status=attention] .work-status-detail,
 .work-status[data-work-status=failed] .work-status-detail { padding:4px 8px; border-radius:4px; }
+.row-actions { align-items:flex-start; }
 .empty { color:var(--muted); padding:24px 20px; }
 .booking-details { overflow-wrap:anywhere; }
 .delivery-reference { overflow-wrap:anywhere; }

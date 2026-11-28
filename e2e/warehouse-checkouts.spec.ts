@@ -410,9 +410,10 @@ test('Lagerkorrektur zeigt Begründung und Original und ändert den physischen B
   await expect(original.getByLabel('Begründung')).toHaveValue(reason);
   await original.getByRole('button',{name:'Korrektur buchen',exact:true}).click();
   await expect(corrections.getByText(reason,{exact:true})).toBeVisible();
+  await expect(correction).toBeFocused();
   await expect(original.getByText('8',{exact:true})).toBeVisible();
   await corrections.getByRole('link',{name:/Original vom/}).click();
-  await expect(original.locator('span[id]')).toBeFocused();
+  await expect(original.locator('span[id^="bewegung-"]')).toBeFocused();
   const stock=page.locator('.panel').filter({has:page.getByRole('heading',{name:'Bestand je Lagerort',exact:true})});
   const stockRow=stock.getByRole('row').filter({has:page.getByText(item.name,{exact:true})});
   await expect(stockRow.getByRole('cell').nth(2)).toHaveText('5');
@@ -438,6 +439,7 @@ test('Eine unklare Vollkorrektur lässt sich nach Neuladen mit demselben Schlüs
   await original.getByRole('button',{name:'Korrektur prüfen',exact:true}).click();
   await original.getByRole('button',{name:'Letzten Vorgang erneut senden'}).click();
   await expect(original.getByText('Vollständig korrigiert',{exact:true})).toBeVisible();
+  await expect(original.locator('span[id^="bewegung-"]')).toBeFocused();
   await expect(corrections).toHaveCount(1);
   expect(calls).toHaveLength(2);
   expect(calls[0].key).toBeTruthy();

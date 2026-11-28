@@ -55,6 +55,7 @@ test('Ressourcenplanung zeigt die Ausgabemenge bei Freigabe und Rückgabe',async
   await expect(quantity('Mira Muster')).toHaveText('–');
 
   await row(device).getByRole('button',{name:'Freigeben',exact:true}).click();
+  await page.getByRole('dialog',{name:'Reservierung freigeben'}).getByRole('button',{name:'Reservierung freigeben'}).click();
   await expect(row(device)).toContainText('Freigegeben');
   await expect(quantity(device)).toHaveText('3');
 

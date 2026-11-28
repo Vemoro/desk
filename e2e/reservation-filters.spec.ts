@@ -1,14 +1,15 @@
 import { test, expect, type Page } from '@playwright/test';
 import { holdRoute, project, settleResponse, signIn } from './session';
 
-async function planning(page:Page, holdStatus=false) {
+async function planning(page:Page, holdStatus=false, sameArticle=false) {
   const window={starts_at:'2028-04-15T08:00:00Z',ends_at:'2028-04-15T09:00:00Z',quantity:1};
   const reservations=[
     {...window,id:'r1',project_id:'montage',user_id:'mira',status:'tentative'},
-    {...window,id:'r2',project_id:'montage',item_id:'kit',status:'tentative'},
+    {...window,id:'r2',project_id:'montage',item_id:'kit',location_id:'north',status:'tentative'},
     {...window,id:'r3',project_id:'event',user_id:'other',status:'tentative'},
     {...window,id:'r4',project_id:'montage',user_id:'other',status:'firm'},
   ];
+  if(sameArticle) reservations.push({...window,id:'r5',project_id:'montage',item_id:'kit',location_id:'south',status:'tentative'});
   const mocks={
     projects:[
       {id:'montage',name:'Musterinstallation',stage:'confirmed'},
@@ -16,6 +17,7 @@ async function planning(page:Page, holdStatus=false) {
     ],
     reservations,
     items:[{id:'kit',name:'Montagekoffer'}],
+    locations:[{id:'north',name:'Lager Nord'},{id:'south',name:'Lager Süd'}],
   };
   for(const [resource,json] of Object.entries(mocks)){
     await page.route('**/api/v1/'+resource+'?*',route=>route.fulfill({json}));
@@ -51,6 +53,7 @@ test('Ressourcenfilter kombinieren, nach Freigabe behalten und zurücksetzen',as
   await expect(panel.getByRole('cell',{name:'Noah Beispiel',exact:true})).toBeHidden();
 
   await panel.getByRole('button',{name:'Freigeben',exact:true}).press('Enter');
+  await page.getByRole('dialog',{name:'Reservierung freigeben'}).getByRole('button',{name:'Reservierung freigeben'}).click();
   await expect(panel.getByText('Keine Reservierungen für diese Filter.')).toBeVisible();
   await expect(type).toHaveValue('user');
   await expect(status).toHaveValue('tentative');
@@ -97,15 +100,17 @@ test('Statusaktion erhält Fokus nach überlappender Aktualisierung',async({page
   const releaseButton=row.getByRole('button',{name:'Freigeben',exact:true});
   await firmButton.press('Enter');
   const first=await firm.request;
-  await page.keyboard.press('Tab');
+  await page.keyboard.press('Shift+Tab');
   await expect(releaseButton).toBeFocused();
   await page.keyboard.press('Enter');
+  const modal=page.getByRole('dialog',{name:'Reservierung freigeben'});
+  await modal.getByRole('button',{name:'Reservierung freigeben'}).click();
   const second=await released.request;
 
   reservation.status='firm';
   await settleResponse(page,first,reservation);
   await expect(row.getByText('Fest reserviert',{exact:true})).toBeVisible();
-  await expect(releaseButton).toBeFocused();
+  await expect(modal).toBeVisible();
 
   reservation.status='released';
   await settleResponse(page,second,reservation);
@@ -114,50 +119,53 @@ test('Statusaktion erhält Fokus nach überlappender Aktualisierung',async({page
   await expect(type).toBeFocused({timeout:2000});
 });
 
-test('Fokus bleibt nach Erfolg eines wiederholten Tastendrucks erhalten',async({page})=>{
+test('Reservierungsfreigabe bestätigt einmal und gibt den Fokus bei Abbruch oder Fehler zurück',async({page})=>{
   const {panel,reservation}=await planning(page);
   const type=panel.getByLabel('Ressourcentyp');
   const status=panel.getByLabel('Status filtern');
   await type.selectOption('user');
   await status.selectOption('tentative');
   const first=holdRoute(),second=holdRoute();
-  let requestCount=0;
-  await page.route('**/api/v1/reservations/r1',route=>
-    (requestCount++===0 ? first : second).resolve(route));
-  const button=panel.getByRole('button',{name:'Freigeben',exact:true});
-  await button.press('Enter');
-  const failed=await first.request;
-  await page.keyboard.press('Enter');
+  let requests=0;
+  await page.route('**/api/v1/reservations/r1',route=>(requests++===0?first:second).resolve(route));
+  const release=panel.getByRole('button',{name:'Freigeben',exact:true});
+  const modal=page.getByRole('dialog',{name:'Reservierung freigeben'});
+  const confirm=modal.getByRole('button',{name:'Reservierung freigeben',exact:true});
+
+  await release.press('Enter');
+  await expect(modal.getByRole('button',{name:'Abbrechen',exact:true})).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(release).toBeFocused();
+  expect(requests).toBe(0);
+
+  await release.press('Enter');
+  await confirm.evaluate(button=>{button.click();button.click();});
+  const rejected=await first.request;
+  expect(requests).toBe(1);
+  await settleResponse(page,rejected,{error:'Kurzzeitig nicht erreichbar.'},503);
+  await expect(modal.getByRole('alert')).toHaveText('Kurzzeitig nicht erreichbar.');
+  await modal.getByRole('button',{name:'Schließen',exact:true}).click();
+  await expect(release).toBeFocused();
+
+  await release.press('Enter');
+  await confirm.click();
   const saved=await second.request;
-  await settleResponse(page,failed,{error:'Kurzzeitig nicht erreichbar.'},503);
-  await expect(page.getByText('Kurzzeitig nicht erreichbar.',{exact:true})).toBeVisible();
-  await expect(button).toBeFocused();
+  expect(requests).toBe(2);
   reservation.status='released';
   await settleResponse(page,saved,reservation);
-  await expect(panel.getByText('Keine Reservierungen für diese Filter.',{exact:true})).toBeVisible();
-  await expect(type).toBeFocused({timeout:2000});
+  await expect(panel.getByText('Keine Reservierungen für diese Filter.')).toBeVisible();
+  await expect(type).toBeFocused();
 });
 
-test('Fokus bleibt nach früher ausgelöster Aktion mit späterer Antwort erhalten',async({page})=>{
-  const {panel,reservation}=await planning(page);
-  const type=panel.getByLabel('Ressourcentyp');
-  const status=panel.getByLabel('Status filtern');
-  await type.selectOption('user');
-  await status.selectOption('tentative');
-  const first=holdRoute(),second=holdRoute();
-  let requestCount=0;
-  await page.route('**/api/v1/reservations/r1',route=>
-    (requestCount++===0 ? first : second).resolve(route));
-  const button=panel.getByRole('button',{name:'Freigeben',exact:true});
-  await button.press('Enter');
-  const saved=await first.request;
-  await page.keyboard.press('Enter');
-  const failed=await second.request;
-  await settleResponse(page,failed,{error:'Kurzzeitig nicht erreichbar.'},503);
-  await expect(page.getByText('Kurzzeitig nicht erreichbar.',{exact:true})).toBeVisible();
-  await expect(button).toBeFocused();
-  reservation.status='released';
-  await settleResponse(page,saved,reservation);
-  await expect(panel.getByText('Keine Reservierungen für diese Filter.',{exact:true})).toBeVisible();
-  await expect(type).toBeFocused({timeout:2000});
+test('Freigabe unterscheidet denselben Artikel an zwei Lagerorten',async({page})=>{
+  const {panel}=await planning(page,false,true);
+  const row=(location:string)=>panel.getByRole('row').filter({hasText:location}).getByRole('button',{name:'Freigeben',exact:true});
+  await expect(row('Lager Nord')).toHaveAccessibleDescription(/Montagekoffer · Lager Nord/);
+  const release=row('Lager Süd');
+  await expect(release).toHaveAccessibleDescription(/Montagekoffer · Lager Süd/);
+  await release.press('Enter');
+  const dialog=page.getByRole('dialog',{name:'Reservierung freigeben'});
+  await expect(dialog).toHaveAccessibleDescription(/Montagekoffer · Lager Süd/);
+  await page.keyboard.press('Escape');
+  await expect(release).toBeFocused();
 });
