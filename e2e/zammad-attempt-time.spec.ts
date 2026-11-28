@@ -5,6 +5,7 @@ test('Zammad zeigt den letzten Sendeversuch und aktualisiert ihn beim Wiederhole
   const record={id:'muster',name:'Büroinstallation Westflügel',stage:'planning',zammad_ticket_id:42};
   const path='**/api/v1/projects/muster/zammad';
   const firstTime='2028-05-17T11:25:00Z';
+  const secondTime='2028-05-17T11:25:51Z';
   const articleTime='2028-05-17T09:00:00Z';
   const retriedTime='2028-05-17T12:49:00Z';
   let retries=0;
@@ -17,7 +18,7 @@ test('Zammad zeigt den letzten Sendeversuch und aktualisiert ihn beim Wiederhole
       created_at:articleTime,body:'Bitte um Rückmeldung.'}],
     outgoing:[
       {id:'offer',subject:'Angebot für die Installation',status:retries?'sent':'unknown',attempted_at:retries?retriedTime:firstTime},
-      {id:'confirmation',subject:'Angebot für die Installation',status:reconciled?'sent':'unknown',attempted_at:articleTime},
+      {id:'confirmation',subject:'Angebot für die Installation',status:reconciled?'sent':'unknown',attempted_at:secondTime},
       {id:'note',subject:'Ältere Notiz',status:'sent',attempted_at:null},
     ],
   }}));
@@ -46,7 +47,7 @@ test('Zammad zeigt den letzten Sendeversuch und aktualisiert ihn beim Wiederhole
   const date=dateCell(first).locator('time');
   await expect(date).toHaveAttribute('datetime',firstTime);
   await expect(date).toHaveText('17.05.2028, 13:25');
-  await expect(dateCell(second)).toHaveText('17.05.2028, 11:00');
+  await expect(dateCell(second)).toHaveText('17.05.2028, 13:25');
   await expect(page.getByRole('region',{name:'Ticketverlauf',exact:true}).locator('time[datetime="'+articleTime+'"]'))
     .toHaveText('17.05.2028, 11:00');
   await expect(dateCell(missing)).toHaveText('–');
@@ -76,11 +77,11 @@ test('Zammad zeigt den letzten Sendeversuch und aktualisiert ihn beim Wiederhole
   expect(retries).toBe(0);
 
   const retry=first.getByRole('button',{name:'Erneut senden',exact:true});
-  await expect(retry).toHaveAccessibleDescription(/Angebot für die Installation 17.05.2028, 13:25/);
-  await expect(second.getByRole('button',{name:'Erneut senden',exact:true})).toHaveAccessibleDescription(/Angebot für die Installation 17.05.2028, 11:00/);
+  await expect(retry).toHaveAccessibleDescription(/Angebot für die Installation Referenz offer 17.05.2028, 13:25/);
+  await expect(second.getByRole('button',{name:'Erneut senden',exact:true})).toHaveAccessibleDescription(/Angebot für die Installation Referenz confirmation 17.05.2028, 13:25/);
   await retry.click();
   const confirm=page.getByRole('dialog',{name:'Zammad-Sendeversuch wiederholen'});
-  await expect(confirm).toHaveAccessibleDescription(/Angebot für die Installation.*17.05.2028, 13:25/);
+  await expect(confirm).toHaveAccessibleDescription(/Angebot für die Installation.*17.05.2028, 13:25.*Referenz offer/);
   await confirm.getByRole('button',{name:'Erneut senden',exact:true}).click();
   await expect(confirm).toHaveCount(0);
   await expect(date).toHaveAttribute('datetime',retriedTime);
@@ -91,6 +92,6 @@ test('Zammad zeigt den letzten Sendeversuch und aktualisiert ihn beim Wiederhole
   await second.getByRole('button',{name:'Prüfen',exact:true}).press('Enter');
   await expect(second.getByText('Angebot für die Installation',{exact:true})).toBeFocused();
   await expect(second.getByText('An Zammad übergeben',{exact:true})).toBeVisible();
-  await expect(dateCell(second).locator('time')).toHaveAttribute('datetime',articleTime);
-  await expect(dateCell(second)).toHaveText('17.05.2028, 11:00');
+  await expect(dateCell(second).locator('time')).toHaveAttribute('datetime',secondTime);
+  await expect(dateCell(second)).toHaveText('17.05.2028, 13:25');
 });
