@@ -151,7 +151,7 @@ export function Navigation({person,section,themeButton,onNavigate,onLogout,onSea
       <button className="sidebar-compact-toggle" type="button" aria-expanded={!compact}
         aria-label={compact?'Seitenleiste ausklappen':'Seitenleiste einklappen'} onClick={toggleCompact}>
         <Icon name={compact?'expand':'collapse'}/></button>
-      <button className="sidebar-search" ref={searchTrigger} type="button" aria-label="Desk durchsuchen"
+      <button className="sidebar-search" ref={searchTrigger} type="button" aria-label="Suchen in Desk"
         aria-haspopup="dialog" aria-keyshortcuts={mac?'Meta+K':'Control+K'} title={mac?'Desk durchsuchen (⌘ K)':'Desk durchsuchen (Strg+K)'}
         onClick={()=>setSearching(true)}><Icon name="search"/><span className="sidebar-label">Suchen</span><kbd aria-hidden="true">{mac?'⌘ K':'Strg+K'}</kbd></button>
       <button className="sidebar-toggle" type="button" ref={toggle} onClick={()=>setOpen(!open)}

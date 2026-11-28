@@ -7,7 +7,7 @@ test('Globale Suche unterscheidet Treffer und gibt den Fokus an den Hauptinhalt'
     {id:'muster-b',name:'Büroinstallation',stage:'planning',cost_center:'M-131'},
   ]}));
   await signIn(page);
-  const trigger=page.getByRole('button',{name:'Desk durchsuchen',exact:true});
+  const trigger=page.getByRole('button',{name:'Suchen in Desk',exact:true});
   const main=page.getByRole('main');
   await main.focus();
   await page.keyboard.press('Control+k');
@@ -55,7 +55,7 @@ test('Kompakte Leiste bleibt nach Neuladen erhalten und weicht dem Handymenü',a
   await expect(expand).toBeHidden();
   await expect(mobile).toBeFocused();
   await mobile.click();
-  const search=page.getByRole('button',{name:'Desk durchsuchen',exact:true});
+  const search=page.getByRole('button',{name:'Suchen in Desk',exact:true});
   await search.click();
   await page.keyboard.press('Escape');
   await expect(mobile).toHaveAttribute('aria-expanded','true');
@@ -75,7 +75,7 @@ test('Die Suche zeigt einer Mitarbeitenden-Sitzung nur erlaubte Ziele',async({pa
   await page.getByLabel('E-Mail').fill('noah@example.test');
   await page.getByLabel('Passwort').fill(password);
   await page.getByRole('button',{name:'Anmelden',exact:true}).click();
-  await page.getByRole('button',{name:'Desk durchsuchen',exact:true}).click();
+  await page.getByRole('button',{name:'Suchen in Desk',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'Desk durchsuchen'});
   await expect(dialog.getByRole('button',{name:/Mein Konto/})).toBeVisible();
   await expect(dialog.getByRole('button',{name:/Einstellungen/})).toHaveCount(0);
@@ -84,7 +84,7 @@ test('Die Suche zeigt einer Mitarbeitenden-Sitzung nur erlaubte Ziele',async({pa
 test('Ein erkannter Sitzungsablauf entfernt Suche und Treffer',async({page})=>{
   await signIn(page);
   await page.route('**/api/v1/planning/reservations?*',route=>route.fulfill({status:401,json:{error:'Nicht angemeldet.'}}));
-  await page.getByRole('button',{name:'Desk durchsuchen',exact:true}).click();
+  await page.getByRole('button',{name:'Suchen in Desk',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'Desk durchsuchen'});
   await dialog.getByRole('button',{name:/Wochenplanung/}).click();
   await expect(page.getByRole('heading',{name:'Anmelden',exact:true})).toBeVisible();

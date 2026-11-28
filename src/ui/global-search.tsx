@@ -51,6 +51,12 @@ export function GlobalSearch({allowed,projects,contacts,stale,dismiss,select}:{
 
   function handleKeys(event:KeyboardEvent<HTMLDialogElement>) {
     if(event.nativeEvent.isComposing) return;
+    if(event.key==='Escape') {
+      event.preventDefault();
+      modal.current?.close();
+      dismiss();
+      return;
+    }
     const buttons=Array.from(resultList.current?.querySelectorAll('button')??[]);
     const focused=event.currentTarget.ownerDocument.activeElement;
     if(focused===search.current && event.key==='Enter' && visible[0]) {
