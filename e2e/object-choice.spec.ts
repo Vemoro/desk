@@ -113,3 +113,31 @@ test('Ein Wareneingang verwendet nach verlorener Antwort dieselbe Artikelwahl',a
   expect(received[0].item).toBeTruthy();
   expect(received[1]).toEqual(received[0]);
 });
+
+test('Gleichnamige Projekte bleiben hinter der ersten Trefferseite auswählbar',async({page})=>{
+  const projects=Array.from({length:62},(_,index)=>({
+    id:`muster-${String(index+1).padStart(3,'0')}`,name:'Wartung',stage:'planning',cost_center:'M-160',
+  }));
+  const cost={id:'muster-kosten',reference:'M-204',name:'Auftragsmaterial',source:'manual',project_id:'muster-001',cents:1800};
+  await page.route('**/api/v1/projects?*',route=>route.fulfill({json:projects}));
+  await page.route('**/api/v1/costs?*',route=>route.fulfill({json:[cost]}));
+  await page.route('**/api/v1/costs/muster-kosten',route=>{
+    expect(route.request().postDataJSON().project_id).toBe('muster-062');
+    cost.project_id='muster-062';
+    return route.fulfill({json:cost});
+  });
+  await signIn(page);
+  await page.getByRole('navigation',{name:'Hauptnavigation'}).getByRole('button',{name:'Ist-Kosten',exact:true}).click();
+  const choice=page.getByRole('combobox',{name:'Projekt für M-204'});
+  await expect(choice).toHaveValue('Wartung · M-160 · muster-001');
+  await choice.click();
+  const dialog=page.getByRole('dialog');
+  const last=dialog.getByRole('button',{name:/muster-062/});
+  await expect(last).toHaveCount(0);
+  await dialog.getByRole('button',{name:'Weitere Einträge anzeigen'}).click();
+  await expect(dialog.getByRole('button',{name:/muster-060/})).toBeFocused();
+  await dialog.getByRole('searchbox').fill('muster-062');
+  await expect(last).toBeVisible();
+  await last.click();
+  await expect(choice).toHaveValue('Wartung · M-160 · muster-062');
+});
