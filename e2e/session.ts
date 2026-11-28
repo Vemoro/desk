@@ -30,6 +30,7 @@ export async function project(page:Page,name:string) {
 }
 
 export async function chooseObject(page:Page,control:Locator,label:string) {
+  await expect(control).toBeEnabled();
   await control.press('Enter');
   const dialog=page.getByRole('dialog');
   await dialog.getByRole('searchbox',{name:'Einträge suchen'}).fill(label);
