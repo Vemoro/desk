@@ -1,4 +1,4 @@
-import { expect, type Page, type Route } from '@playwright/test';
+import { expect, type Locator, type Page, type Route } from '@playwright/test';
 
 export function holdRoute(){
   let resolve!:(route:Route)=>void;
@@ -27,4 +27,12 @@ export async function project(page:Page,name:string) {
   await page.getByRole('button',{name:'Projekte',exact:true}).first().click();
   await page.getByRole('button',{name,exact:true}).click();
   await expect(page.getByRole('heading',{name,exact:true})).toBeVisible();
+}
+
+export async function chooseObject(page:Page,control:Locator,label:string) {
+  await control.press('Enter');
+  const dialog=page.getByRole('dialog');
+  await dialog.getByRole('searchbox',{name:'Einträge suchen'}).fill(label);
+  await dialog.getByRole('button').filter({has:page.getByText(label,{exact:true})}).click();
+  await expect(dialog).toBeHidden();
 }

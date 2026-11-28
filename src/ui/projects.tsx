@@ -14,6 +14,7 @@ import { Controlling } from './project-controlling';
 import { localDayRange, useLocalDay } from './local-day';
 import { ListEmpty, PageHeading, openListForm } from './list-page';
 import { emptyReservationFilters, matchesReservationQuery, ReservationFilters } from './reservation-filters';
+import { contactChoices } from './object-choice';
 
 export type Data = Record<'contacts'|'projects'|'tasks'|'users'|'lines'|'reservations'|'locations'|'items'|'movements'|'costs'|'stock',Row[]>;
 type Flags = { haben:boolean; zammad:boolean };
@@ -85,7 +86,7 @@ export function Projects({data,run,select,filters,onFilter,openContacts}:{data:D
         {canCreate && <Expand title="Projekt anlegen" detailsRef={creation}>
           <Form caption="Projekt speichern" fields={[
             { name:'name',label:'Projektname',required:true },
-            { name:'contact_id',label:'Interessent',choices:options(data.contacts),required:true },
+            { name:'contact_id',label:'Interessent',searchChoices:contactChoices(data.contacts),required:true },
             { name:'due',label:'Termin',type:'date' },
             { name:'notes',label:'Notiz',type:'textarea' },
           ]} submit={(fields)=>run(async(isCurrent)=>{
