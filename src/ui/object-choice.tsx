@@ -53,7 +53,7 @@ export function ObjectChoice({label,name,value,choices,required,disabled,busy,er
         placeholder={required?'Auswählen':emptyLabel} data-choice-value={value} readOnly disabled={disabled}
         aria-haspopup="dialog" aria-controls={open?dialogId:undefined} aria-expanded={open} aria-required={required} aria-disabled={busy||undefined}
         onClick={openChoice} onFocus={onFocus} onBlur={onBlur} onKeyDown={event=>{
-          if(['Enter',' ','ArrowDown','ArrowUp'].includes(event.key)) {event.preventDefault();openChoice();}
+          if(['Enter',' ','ArrowDown','ArrowUp'].includes(event.key)) {event.preventDefault();if(!event.repeat) openChoice();}
         }}/>}
     </Field>
     {open && createPortal(<ObjectChoiceDialog id={dialogId} label={label} choices={choices} value={value}
@@ -98,9 +98,16 @@ function ObjectChoiceDialog({id,label,choices,value,emptyLabel,close}:{
   function keydown(event:KeyboardEvent<HTMLDialogElement>) {
     if(event.nativeEvent.isComposing) return;
     if(event.key==='Escape') {event.preventDefault();dismiss();return;}
+    if(event.key==='Tab') {
+      const controls=event.currentTarget.querySelectorAll<HTMLElement>('button,input');
+      const first=controls[0];
+      const last=controls[controls.length-1];
+      if(event.target===(event.shiftKey?first:last)) {event.preventDefault();(event.shiftKey?last:first)?.focus();}
+      return;
+    }
     if(event.target===search.current && event.key==='Enter') {
       event.preventDefault();
-      if(visible[0]) dismiss(visible[0].value);
+      if(!event.repeat && visible[0]) dismiss(visible[0].value);
       return;
     }
     if(event.key!=='ArrowDown' && event.key!=='ArrowUp') return;

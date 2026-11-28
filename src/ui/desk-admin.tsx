@@ -81,11 +81,10 @@ function CostProjectChoice({row,choices,run,onFocus,onBlur}:{
 }) {
   const [error,setError]=useState('');
   const [busy,setBusy]=useState(false);
-  const [saved,setSaved]=useState<{previous:string;value:string}>();
+  const [saved,setSaved]=useState<{row:Row;value:string}>();
   const pending=useRef(false);
   const previous=String(row.project_id??'');
-  const value=saved?.previous===previous?saved.value:previous;
-  useEffect(()=>{setSaved(undefined);},[previous]);
+  const value=saved?.row===row?saved.value:previous;
 
   async function select(projectId:string) {
     if(pending.current || value===projectId) return;
@@ -93,9 +92,9 @@ function CostProjectChoice({row,choices,run,onFocus,onBlur}:{
     setBusy(true);
     setError('');
     try {
-      if(await run(()=>api('costs/'+row.id,'PATCH',{project_id:projectId||null}),'Zuordnung gespeichert.',{reportInlineError:true})) {
-        setSaved({previous,value:projectId});
-      }
+      await run(()=>api('costs/'+row.id,'PATCH',{project_id:projectId||null}),'Zuordnung gespeichert.',{
+        reportInlineError:true,onSaved:()=>setSaved({row,value:projectId}),
+      });
     } catch(problem) {
       setError(problem instanceof Error?problem.message:'Die Zuordnung konnte nicht gespeichert werden.');
     } finally {
